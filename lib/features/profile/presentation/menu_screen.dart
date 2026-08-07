@@ -1,0 +1,45 @@
+import 'package:flutter/material.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../auth/presentation/mobile_login_screen.dart';
+import 'profile_settings_detail_screen.dart';
+
+class MenuScreen extends StatelessWidget {
+  const MenuScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Walker Menu',
+          style: TextStyle(color: Colors.white),
+        ),
+        automaticallyImplyLeading: false,
+      ),
+      body: ListView(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.person_outline, color: AppColors.primary),
+            title: const Text('Profile Settings'),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ProfileSettingsDetailScreen(),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('Logout', style: TextStyle(color: Colors.red)),
+            onTap: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MobileLoginScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
