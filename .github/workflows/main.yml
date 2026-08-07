@@ -1,4 +1,4 @@
-name: Dojo Walker CI/CD Pipeline
+Name: Dojo Walker CI/CD Pipeline
 
 on:
   push:
@@ -30,6 +30,11 @@ jobs:
 
       - name: Install Dependencies
         run: flutter pub get
+
+      - name: Recreate Android Project
+        run: |
+          rm -rf android
+          flutter create . --org com.example
 
       - name: Analyze Code
         run: flutter analyze
