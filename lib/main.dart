@@ -4,16 +4,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'features/auth/presentation/mobile_login_screen.dart';
 import 'features/walk_tracking/presentation/main_navigation_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(); // <--- Firebase yahan start hona chahiye
   runApp(const DojoWalkerApp());
 }
 
 class DojoWalkerApp extends StatelessWidget {
   const DojoWalkerApp({super.key});
 
-  Future<Widget> _getInitialScreen() async {
-    await Firebase.initializeApp();
+  Widget _getInitialScreen() {
     User? currentUser = FirebaseAuth.instance.currentUser;
     
     if (currentUser != null) {
@@ -31,32 +31,7 @@ class DojoWalkerApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.orange,
       ),
-      home: FutureBuilder<Widget>(
-        future: _getInitialScreen(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              backgroundColor: Colors.white,
-              body: Center(
-                child: CircularProgressIndicator(
-                  color: Colors.orange,
-                ),
-              ),
-            );
-          }
-          
-          if (snapshot.hasError) {
-            return Scaffold(
-              backgroundColor: Colors.white,
-              body: Center(
-                child: Text('Initialization Error: ${snapshot.error}'),
-              ),
-            );
-          }
-
-          return snapshot.data ?? const MobileLoginScreen();
-        },
-      ),
+      home: _getInitialScreen(),
     );
   }
 }
