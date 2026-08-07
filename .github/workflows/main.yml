@@ -11,7 +11,7 @@ jobs:
     name: Build and Test Flutter App
     runs-on: ubuntu-latest
 
-th    steps:
+    steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
