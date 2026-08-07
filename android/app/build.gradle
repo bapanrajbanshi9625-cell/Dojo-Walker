@@ -2,10 +2,11 @@ plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-plugin-loader"
+    id "com.google.gms.google-services"
 }
 
 android {
-    namespace "com.example.dojo_walker"
+    namespace "com.doojowalker.app"
     compileSdkVersion flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
@@ -19,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.dojo_walker"
+        applicationId "com.doojowalker.app"
         minSdkVersion 21
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
