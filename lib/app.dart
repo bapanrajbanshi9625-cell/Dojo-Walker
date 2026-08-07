@@ -16,22 +16,23 @@ class DojoWalkerApp extends StatelessWidget {
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              backgroundColor: Colors.white,
-              body: Center(
-                child: CircularProgressIndicator(
-                  color: Colors.orange,
-                ),
-              ),
-            );
+          if (snapshot.connectionState == ConnectionState.active) {
+            final User? user = snapshot.data;
+            if (user != null) {
+              return const MainNavigationScreen();
+            } else {
+              return const MobileLoginScreen();
+            }
           }
 
-          if (snapshot.hasData && snapshot.data != null) {
-            return const MainNavigationScreen();
-          } 
-          
-          return const MobileLoginScreen();
+          return const Scaffold(
+            backgroundColor: Colors.white,
+            body: Center(
+              child: CircularProgressIndicator(
+                color: Colors.orange,
+              ),
+            ),
+          );
         },
       ),
     );
