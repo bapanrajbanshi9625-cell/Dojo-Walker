@@ -1,5 +1,7 @@
 # Dojo Walker
 
+A # Dojo Walker
+
 A Flutter application designed for dog walking services, managing walker authentication, profile verification, and active walk tracking sessions.
 
 ## Features
