@@ -1,6 +1,4 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:dojo_walker/app.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
