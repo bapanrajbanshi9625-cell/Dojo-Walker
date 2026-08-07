@@ -6,22 +6,12 @@ import 'features/walk_tracking/presentation/main_navigation_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(); // <--- Firebase yahan start hona chahiye
+  await Firebase.initializeApp();
   runApp(const DojoWalkerApp());
 }
 
 class DojoWalkerApp extends StatelessWidget {
   const DojoWalkerApp({super.key});
-
-  Widget _getInitialScreen() {
-    User? currentUser = FirebaseAuth.instance.currentUser;
-    
-    if (currentUser != null) {
-      return const MainNavigationScreen();
-    } else {
-      return const MobileLoginScreen();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +21,27 @@ class DojoWalkerApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.orange,
       ),
-      home: _getInitialScreen(),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              backgroundColor: Colors.white,
+              body: Center(
+                child: CircularProgressIndicator(
+                  color: Colors.orange,
+                ),
+              ),
+            );
+          }
+
+          if (snapshot.hasData && snapshot.data != null) {
+            return const MainNavigationScreen();
+          } 
+          
+          return const MobileLoginScreen();
+        },
+      ),
     );
   }
 }
