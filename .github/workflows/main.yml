@@ -28,9 +28,6 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Get Flutter Package Name Fix
-        run: flutter config --no-analytics
-
       - name: Install Dependencies
         run: flutter pub get
 
