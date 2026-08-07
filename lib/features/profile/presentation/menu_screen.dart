@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../auth/presentation/mobile_login_screen.dart';
 import 'profile_settings_detail_screen.dart';
@@ -31,12 +33,21 @@ class MenuScreen extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text('Logout', style: TextStyle(color: Colors.red)),
-            onTap: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const MobileLoginScreen(),
-              ),
-            ),
+            onTap: () async {
+              await FirebaseAuth.instance.signOut();
+
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('isLoggedIn', false);
+
+              if (!context.mounted) return;
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const MobileLoginScreen(),
+                ),
+                (route) => false,
+              );
+            },
           ),
         ],
       ),
