@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../profile/presentation/profile_setup_screen.dart';
-import '../../walk_tracking/presentation/main_navigation_screen.dart';
+import '../../profile/presentation/mandatory_profile_setup_screen.dart';
 
 class MobileLoginScreen extends StatefulWidget {
   const MobileLoginScreen({super.key});
@@ -28,12 +27,12 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> {
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         verificationCompleted: (PhoneAuthCredential credential) async {
-          // Auto-resolution on some devices
           await FirebaseAuth.instance.signInWithCredential(credential);
           await _saveLoginAndNavigate();
         },
         verificationFailed: (FirebaseAuthException e) {
           setState(() => _isLoading = false);
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Verification Failed: ${e.message}')),
           );
@@ -44,6 +43,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> {
             _isOtpSent = true;
             _isLoading = false;
           });
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('OTP sent successfully!')),
           );
@@ -54,6 +54,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> {
       );
     } catch (e) {
       setState(() => _isLoading = false);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -73,6 +74,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> {
       await _saveLoginAndNavigate();
     } catch (e) {
       setState(() => _isLoading = false);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invalid OTP. Please try again.')),
       );
