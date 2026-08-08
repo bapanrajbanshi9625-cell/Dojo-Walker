@@ -26,7 +26,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       ),
       body: Stack(
         children: [
-          // 1. Mobile real camera scanner
+          // Mobile real camera scanner
           MobileScanner(
             onDetect: (BarcodeCapture capture) {
               if (isScanCompleted) return;
@@ -48,7 +48,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             },
           ),
 
-          // 2. Beautiful scanning frame (guide box) over the camera
+          // Beautiful scanning frame (guide box) over the camera
           Center(
             child: Container(
               width: 260,
@@ -60,7 +60,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             ),
           ),
 
-          // 3. Instruction at the bottom
+          // Instruction at the bottom
           Positioned(
             bottom: 50,
             left: 20,
