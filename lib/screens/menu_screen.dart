@@ -1,8 +1,9 @@
+// File location: lib/screens/menu_screen.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../auth/presentation/mobile_login_screen.dart';
+import '../core/constants/app_colors.dart';
+import 'mobile_login_screen.dart';
 import 'profile_settings_detail_screen.dart';
 
 class MenuScreen extends StatelessWidget {
