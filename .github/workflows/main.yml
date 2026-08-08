@@ -23,7 +23,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: "17"
-          cache: "gradle"
+          # cache: "gradle"  <-- Is line ko yahan se hata dein
 
       - name: set up flutter sdk
         uses: subosito/flutter-action@v2
