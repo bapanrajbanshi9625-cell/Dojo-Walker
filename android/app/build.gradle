@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         applicationId "com.doojowalker.app"
-        minSdkVersion flutter.minSdkVersion.min(21)
+        minSdkVersion 21
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
