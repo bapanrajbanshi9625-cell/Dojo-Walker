@@ -1,6 +1,7 @@
+// File location: lib/screens/profile_setup_screen.dart
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../walk_tracking/presentation/main_navigation_screen.dart';
+import '../core/constants/app_colors.dart';
+import 'main_navigation_screen.dart';
 
 class MandatoryProfileSetupScreen extends StatefulWidget {
   const MandatoryProfileSetupScreen({super.key});
