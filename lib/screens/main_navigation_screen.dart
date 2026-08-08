@@ -1,8 +1,9 @@
+// File location: lib/screens/main_navigation_screen.dart
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../profile/presentation/menu_screen.dart';
+import '../core/constants/app_colors.dart';
 import 'walker_home_screen.dart';
 import 'walk_history_screen.dart';
+import 'menu_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
