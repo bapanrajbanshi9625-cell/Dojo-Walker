@@ -30,10 +30,6 @@ jobs:
       - name: install dependencies
         run: flutter pub get
 
-      # यह कमांड बहुत जरूरी है: अगर android फोल्डर अधूरा है, तो यह उसे ठीक कर देगा
-      - name: repair android project
-        run: flutter create .
-
       - name: analyze code
         run: flutter analyze
 
