@@ -1,7 +1,8 @@
+// File location: lib/app.dart
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
-import 'features/auth/presentation/mobile_login_screen.dart';
-import 'features/walk_tracking/presentation/main_navigation_screen.dart';
+import 'screens/mobile_login_screen.dart';
+import 'screens/main_navigation_screen.dart';
 
 class DojoWalkerApp extends StatelessWidget {
   final bool isLoggedIn;
