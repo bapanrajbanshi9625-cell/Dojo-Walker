@@ -25,6 +25,10 @@ android {
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
+
+        // यह लाइन GitHub के बिल्ड एरर को हमेशा के लिए ठीक कर देगी
+        missingDimensionStrategy 'flutter.minSdkVersion', '21'
+        multiDexEnabled true
     }
 
     buildTypes {
