@@ -1,5 +1,6 @@
+// File location: lib/screens/profile_settings_detail_screen.dart
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
+import '../core/constants/app_colors.dart';
 
 class ProfileSettingsDetailScreen extends StatelessWidget {
   const ProfileSettingsDetailScreen({super.key});
