@@ -1,10 +1,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.doojowalker.app">
+    
     <uses-permission android:name="android.permission.INTERNET"/>
+    
     <application
         android:label="Dojo Walker"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        
+        <uses-sdk tools:overrideLibrary="dev.steenbakker.mobile_scanner"/>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
