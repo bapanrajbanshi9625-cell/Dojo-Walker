@@ -25,6 +25,8 @@ android {
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
+        
+        manifestPlaceholders = [tools:overrideLibrary="dev.steenbakker.mobile_scanner"]
     }
 
     buildTypes {
