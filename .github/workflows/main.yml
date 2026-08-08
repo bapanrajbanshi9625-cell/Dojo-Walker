@@ -1,4 +1,4 @@
-Name: dojo walker ci cd pipeline
+name: dojo walker ci cd pipeline
 
 on:
   push:
