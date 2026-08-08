@@ -1,5 +1,6 @@
+// File location: lib/screens/walk_history_screen.dart
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
+import '../core/constants/app_colors.dart';
 
 class WalkHistoryScreen extends StatelessWidget {
   const WalkHistoryScreen({super.key});
