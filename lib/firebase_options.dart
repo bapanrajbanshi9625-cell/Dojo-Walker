@@ -22,10 +22,10 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'YOUR_ANDROID_API_KEY', // अगर आपके पास अपनी असली API Key है तो यहाँ डालें
-    appId: '1:1034448512213:android:dojo_walker_app', 
-    messagingSenderId: '1034448512213',
-    projectId: 'dojo-platform-a5dc8',
-    storageBucket: 'dojo-platform-a5dc8.appspot.com',
+    apiKey: 'AIzaSyAUUiXYiPevzQyg_wLuhwzCk-N9UEx8GFs', //[span_0](start_span)[span_0](end_span)
+    appId: '1:719463503810:android:61d5b369a2c3447c00a85b', //[span_1](start_span)[span_1](end_span)
+    messagingSenderId: '719463503810', //[span_2](start_span)[span_2](end_span)
+    projectId: 'dojo-platform-a5dc8', //[span_3](start_span)[span_3](end_span)
+    storageBucket: 'dojo-platform-a5dc8.firebasestorage.app', //[span_4](start_span)[span_4](end_span)
   );
 }
