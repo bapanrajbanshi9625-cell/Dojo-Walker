@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'firebase_options.dart'; // This import is required
 import 'app.dart';
 
 void main() async {
@@ -9,9 +10,11 @@ void main() async {
   bool isLoggedIn = false;
 
   try {
-    // Check if Firebase is already initialized, if not then initialize
+    // Initialize Firebase with options
     if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
     }
   } catch (e) {
     debugPrint("Firebase initialization error: $e");
