@@ -41,3 +41,9 @@ app.*.map.json
 
 # Android Studio
 app/build/
+
+# Local properties & SDK paths
+local.properties
+sdk.dir
+flutter.sdk
+flutter.minSdkVersion
