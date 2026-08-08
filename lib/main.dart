@@ -4,16 +4,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 
 void main() async {
-  // Ensure Flutter bindings are initialized
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase safely
-  await Firebase.initializeApp();
+  bool isLoggedIn = false;
 
-  // Check login status locally from mobile storage (Prevents black screen & server lag)
-  final prefs = await SharedPreferences.getInstance();
-  final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+  try {
+    // Initialize Firebase safely
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint("Firebase initialization error: $e");
+  }
+
+  try {
+    // Read SharedPreferences safely to prevent getting stuck in a loop
+    final prefs = await SharedPreferences.getInstance();
+    isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+  } catch (e) {
+    debugPrint("SharedPreferences error: $e");
+    isLoggedIn = false; // Default to the login page if an error occurs
+  }
   
-  // Run the application with the login status
   runApp(DojoWalkerApp(isLoggedIn: isLoggedIn));
 }
