@@ -1,6 +1,7 @@
+// File location: lib/screens/walker_home_screen.dart
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
-import '../../../qr_scanner_screen.dart'; 
+import '../core/constants/app_colors.dart';
+import 'qr_scanner_screen.dart';
 
 class WalkerHomeScreen extends StatefulWidget {
   const WalkerHomeScreen({super.key});
@@ -13,7 +14,6 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
   bool _isWalkStarted = false;
   String? _scannedOwnerData;
 
-  // Function to open the real camera scanner
   Future<void> _openCameraScanner(BuildContext context) async {
     final String? scannedData = await Navigator.push(
       context,
@@ -22,7 +22,6 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
       ),
     );
 
-    // If QR code is scanned successfully and data is received
     if (scannedData != null && scannedData.isNotEmpty) {
       setState(() {
         _isWalkStarted = true;
@@ -83,7 +82,6 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                 ),
                 onPressed: () {
                   if (!_isWalkStarted) {
-                    // This opens the real camera scanner
                     _openCameraScanner(context);
                   } else {
                     setState(() {
