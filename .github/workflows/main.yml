@@ -31,11 +31,6 @@ jobs:
       - name: install dependencies
         run: flutter pub get
 
-      - name: recreate android project
-        run: |
-          rm -rf android
-          flutter create . --org com.example --project-name dojo_walker
-
       - name: analyze code
         run: flutter analyze
 
