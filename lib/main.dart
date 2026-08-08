@@ -1,7 +1,8 @@
+// File location: lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'firebase_options.dart'; // This import is required
+import 'firebase_options.dart';
 import 'app.dart';
 
 void main() async {
@@ -10,7 +11,7 @@ void main() async {
   bool isLoggedIn = false;
 
   try {
-    // Initialize Firebase with options
+    // Initialize Firebase with options from firebase_options.dart
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
