@@ -29,7 +29,10 @@ jobs:
           cache: true
 
       - name: install dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get
+          flutter clean
+          flutter pub get
 
       - name: analyze code
         run: flutter analyze
