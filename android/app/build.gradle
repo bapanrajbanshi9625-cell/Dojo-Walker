@@ -24,7 +24,7 @@ android {
     defaultConfig {
         applicationId "com.doojowalker.app"
 
-        minSdkVersion 21
+        minSdkVersion 24 // Updated from 21 to 24 to support modern Firebase/Recaptcha dexing
         targetSdkVersion 34
 
         versionCode 1
