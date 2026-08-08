@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../qr_scanner_screen.dart'; 
 
 class WalkerHomeScreen extends StatefulWidget {
   const WalkerHomeScreen({super.key});
@@ -10,35 +11,26 @@ class WalkerHomeScreen extends StatefulWidget {
 
 class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
   bool _isWalkStarted = false;
+  String? _scannedOwnerData;
 
-  void _openCameraScanner(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text(
-          'Scan QR Code',
-          style: TextStyle(color: AppColors.primary),
-        ),
-        content: SizedBox(
-          height: 150,
-          child: Center(
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-              ),
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() => _isWalkStarted = true);
-              },
-              child: const Text(
-                'Simulate Scan',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ),
-        ),
+  // Function to open the real camera scanner
+  Future<void> _openCameraScanner(BuildContext context) async {
+    final String? scannedData = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const QrScannerScreen(),
       ),
     );
+
+    // If QR code is scanned successfully and data is received
+    if (scannedData != null && scannedData.isNotEmpty) {
+      setState(() {
+        _isWalkStarted = true;
+        _scannedOwnerData = scannedData;
+      });
+
+      debugPrint("Owner QR Data Received: $_scannedOwnerData");
+    }
   }
 
   @override
@@ -57,10 +49,27 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
           children: [
             Expanded(
               child: Center(
-                child: Icon(
-                  _isWalkStarted ? Icons.directions_walk : Icons.map,
-                  size: 100,
-                  color: AppColors.primary,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _isWalkStarted ? Icons.directions_walk : Icons.map,
+                      size: 100,
+                      color: AppColors.primary,
+                    ),
+                    if (_isWalkStarted && _scannedOwnerData != null) ...[
+                      const SizedBox(height: 20),
+                      Text(
+                        "Connected to Owner:\n$_scannedOwnerData",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
@@ -74,9 +83,13 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                 ),
                 onPressed: () {
                   if (!_isWalkStarted) {
+                    // This opens the real camera scanner
                     _openCameraScanner(context);
                   } else {
-                    setState(() => _isWalkStarted = false);
+                    setState(() {
+                      _isWalkStarted = false;
+                      _scannedOwnerData = null;
+                    });
                   }
                 },
                 child: Text(
