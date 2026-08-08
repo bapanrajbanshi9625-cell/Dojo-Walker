@@ -1,3 +1,4 @@
+// File location: lib/screens/qr_scanner_screen.dart
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -9,7 +10,6 @@ class QrScannerScreen extends StatefulWidget {
 }
 
 class _QrScannerScreenState extends State<QrScannerScreen> {
-  // Flag to prevent multiple scans after a successful QR scan
   bool isScanCompleted = false;
 
   @override
@@ -26,7 +26,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       ),
       body: Stack(
         children: [
-          // Mobile real camera scanner
           MobileScanner(
             onDetect: (BarcodeCapture capture) {
               if (isScanCompleted) return;
@@ -40,15 +39,12 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     isScanCompleted = true;
                   });
 
-                  // Pass the scanned data back to the previous screen
                   Navigator.pop(context, rawData);
                   break;
                 }
               }
             },
           ),
-
-          // Beautiful scanning frame (guide box) over the camera
           Center(
             child: Container(
               width: 260,
@@ -59,8 +55,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ),
             ),
           ),
-
-          // Instruction at the bottom
           Positioned(
             bottom: 50,
             left: 20,
