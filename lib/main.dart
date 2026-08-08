@@ -9,19 +9,20 @@ void main() async {
   bool isLoggedIn = false;
 
   try {
-    // Initialize Firebase safely
-    await Firebase.initializeApp();
+    // Check if Firebase is already initialized, if not then initialize
+    if (Firebase.apps.isEmpty) {
+      await Firebase.initializeApp();
+    }
   } catch (e) {
     debugPrint("Firebase initialization error: $e");
   }
 
   try {
-    // Read SharedPreferences safely to prevent getting stuck in a loop
     final prefs = await SharedPreferences.getInstance();
     isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
   } catch (e) {
     debugPrint("SharedPreferences error: $e");
-    isLoggedIn = false; // Default to the login page if an error occurs
+    isLoggedIn = false;
   }
   
   runApp(DojoWalkerApp(isLoggedIn: isLoggedIn));
