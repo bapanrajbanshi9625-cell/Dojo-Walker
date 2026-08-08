@@ -26,7 +26,8 @@ android {
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         
-        manifestPlaceholders = [tools:overrideLibrary="dev.steenbakker.mobile_scanner"]
+        // सिंटैक्स यहाँ ठीक किया गया है:
+        manifestPlaceholders = [overrideLibrary: "dev.steenbakker.mobile_scanner"]
     }
 
     buildTypes {
