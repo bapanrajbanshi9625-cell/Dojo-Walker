@@ -1,3 +1,4 @@
+// File location: lib/screens/splash_screen.dart
 import 'package:flutter/material.dart';
 import 'main_navigation_screen.dart';
 import 'mobile_login_screen.dart';
@@ -28,12 +29,12 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFD85F35), 
+    return const Scaffold(
+      backgroundColor: Color(0xFFD85F35),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
+          children: [
             Icon(
               Icons.pets,
               size: 90,
