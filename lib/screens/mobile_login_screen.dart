@@ -1,6 +1,5 @@
 // File location: lib/screens/mobile_login_screen.dart
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants/app_colors.dart';
 import '../services/auth_service.dart';
 import 'profile_setup_screen.dart';
