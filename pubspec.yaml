@@ -19,6 +19,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  image_path: "assets/dojo_icon.png"
+  android: true
+  ios: true
 
 flutter:
   uses-material-design: true
