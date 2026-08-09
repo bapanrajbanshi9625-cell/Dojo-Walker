@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "719463503810",
+    "firebase_url": "https://dojo-platform-a5dc8-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "dojo-platform-a5dc8",
+    "storage_bucket": "dojo-platform-a5dc8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:719463503810:android:b4a6686354d244c300a85b",
+        "android_client_info": {
+          "package_name": "com.dojo.dojo_owner_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUUiXYiPevzQyg_wLuhwzCk-N9UEx8GFs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:719463503810:android:61d5b369a2c3447c00a85b",
+        "android_client_info": {
+          "package_name": "com.doojowalker.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAUUiXYiPevzQyg_wLuhwzCk-N9UEx8GFs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
