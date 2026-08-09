@@ -24,7 +24,7 @@ dev_dependencies:
 flutter_launcher_icons:
   image_path: "assets/dojo_icon.png"
   android: true
-  ios: true
+  ios: false
 
 flutter:
   uses-material-design: true
