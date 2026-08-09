@@ -1,8 +1,6 @@
 // File location: lib/app.dart
 import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
-import 'screens/mobile_login_screen.dart';
-import 'screens/main_navigation_screen.dart';
 import 'screens/splash_screen.dart';
 
 class DojoWalkerApp extends StatelessWidget {
