@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/mobile_login_screen.dart';
 import 'screens/main_navigation_screen.dart';
+import 'screens/splash_screen.dart';
 
 class DojoWalkerApp extends StatelessWidget {
   final bool isLoggedIn;
@@ -14,7 +15,7 @@ class DojoWalkerApp extends StatelessWidget {
       title: 'Dojo Walker - Buddy',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: isLoggedIn ? const MainNavigationScreen() : const MobileLoginScreen(),
+      home: SplashScreen(isLoggedIn: isLoggedIn),
     );
   }
 }
