@@ -1,8 +1,8 @@
 // File location: lib/screens/mobile_login_screen.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants/app_colors.dart';
+import '../services/auth_service.dart';
 import 'profile_setup_screen.dart';
 
 class MobileLoginScreen extends StatefulWidget {
@@ -15,83 +15,63 @@ class MobileLoginScreen extends StatefulWidget {
 class _MobileLoginScreenState extends State<MobileLoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
+  final AuthService _authService = AuthService();
+  
   bool _isOtpSent = false;
   bool _isLoading = false;
   String _verificationId = '';
 
-  Future<void> _verifyPhoneNumber() async {
-    String phoneNumber = '+91${_phoneController.text.trim()}';
+  Future<void> _handleVerifyPhoneNumber() async {
     setState(() => _isLoading = true);
 
-    try {
-      await FirebaseAuth.instance.verifyPhoneNumber(
-        phoneNumber: phoneNumber,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          await FirebaseAuth.instance.signInWithCredential(credential);
-          await _saveLoginAndNavigate();
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          setState(() => _isLoading = false);
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Verification Failed: ${e.message}')),
-          );
-        },
-        codeSent: (String verificationId, int? resendToken) {
-          setState(() {
-            _verificationId = verificationId;
-            _isOtpSent = true;
-            _isLoading = false;
-          });
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('OTP sent successfully!')),
-          );
-        },
-        codeAutoRetrievalTimeout: (String verificationId) {
+    await _authService.verifyPhoneNumber(
+      phoneNumber: _phoneController.text.trim(),
+      onCodeSent: (verificationId) {
+        setState(() {
           _verificationId = verificationId;
-        },
-      );
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    }
+          _isOtpSent = true;
+          _isLoading = false;
+        });
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('OTP sent successfully!')),
+        );
+      },
+      onError: (error) {
+        setState(() => _isLoading = false);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Verification Failed: $error')),
+        );
+      },
+    );
   }
 
-  Future<void> _verifyOTP() async {
+  Future<void> _handleVerifyOTP() async {
     setState(() => _isLoading = true);
-    try {
-      PhoneAuthCredential credential = PhoneAuthProvider.credential(
-        verificationId: _verificationId,
-        smsCode: _otpController.text.trim(),
-      );
 
-      await FirebaseAuth.instance.signInWithCredential(credential);
-      await _saveLoginAndNavigate();
-    } catch (e) {
-      setState(() => _isLoading = false);
+    bool success = await _authService.verifyOTP(
+      verificationId: _verificationId,
+      smsCode: _otpController.text.trim(),
+    );
+
+    setState(() => _isLoading = false);
+
+    if (success) {
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const MandatoryProfileSetupScreen(),
+        ),
+        (route) => false,
+      );
+    } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invalid OTP. Please try again.')),
       );
     }
-  }
-
-  Future<void> _saveLoginAndNavigate() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLoggedIn', true);
-
-    if (!mounted) return;
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const MandatoryProfileSetupScreen(),
-      ),
-      (route) => false,
-    );
   }
 
   @override
@@ -195,7 +175,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> {
                         : () {
                             if (!_isOtpSent) {
                               if (_phoneController.text.length == 10) {
-                                _verifyPhoneNumber();
+                                _handleVerifyPhoneNumber();
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -207,7 +187,7 @@ class _MobileLoginScreenState extends State<MobileLoginScreen> {
                               }
                             } else {
                               if (_otpController.text.length == 6) {
-                                _verifyOTP();
+                                _handleVerifyOTP();
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
