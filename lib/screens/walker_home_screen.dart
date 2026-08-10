@@ -4,6 +4,7 @@ import '../core/constants/app_colors.dart';
 import '../widgets/activity_card.dart'; // Today's Activity ki alag file
 import '../widgets/map_view.dart';     // Real Map ki alag file
 import 'qr_scanner_screen.dart';
+import '../features/live_walk/screens/walker_home_screen.dart' as live_walk; // Live Walk Screen import
 
 class WalkerHomeScreen extends StatefulWidget {
   const WalkerHomeScreen({super.key});
@@ -34,6 +35,23 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
     }
   }
 
+  // Method to navigate to Live Walk Screen when blue bar is clicked
+  void _navigateToLiveWalk() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => live_walk.WalkerHomeScreen(
+          onWalkCompleted: () {
+            setState(() {
+              _isWalkStarted = false;
+              _scannedOwnerData = null;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -49,12 +67,12 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // 1. Today's Activity Card (Alag file se yahan show hoga)
+            // 1. Today's Activity Card
             const ActivityCard(),
             
             const SizedBox(height: 20),
 
-            // 2. Map View / Real Map (Alag file se yahan show hoga)
+            // 2. Map View / Real Map
             const MapViewWidget(),
 
             if (_isWalkStarted && _scannedOwnerData != null) ...[
@@ -72,38 +90,81 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
             const SizedBox(height: 30),
 
-            // 3. Scan QR Code / End Walk Button
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      _isWalkStarted ? Colors.redAccent : AppColors.primary,
-                  shape: RoundedRectangleBorder(
+            // 3. Conditional UI: Show Blue Live Walk Bar if walk started, else show Scan QR Button
+            if (_isWalkStarted)
+              GestureDetector(
+                onTap: _navigateToLiveWalk,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade700,
                     borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.withAlpha(80),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.directions_walk, color: Colors.white, size: 28),
+                          SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Live Walk in Progress",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                "Tap to view live details",
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Icon(Icons.arrow_forward_ios, color: Colors.white, size: 18),
+                    ],
                   ),
                 ),
-                onPressed: () {
-                  if (!_isWalkStarted) {
-                    _openCameraScanner(context);
-                  } else {
-                    setState(() {
-                      _isWalkStarted = false;
-                      _scannedOwnerData = null;
-                    });
-                  }
-                },
-                child: Text(
-                  _isWalkStarted ? 'End Walk' : 'Scan Owner QR Code',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => _openCameraScanner(context),
+                  child: const Text(
+                    'Scan Owner QR Code',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),
