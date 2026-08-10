@@ -1,5 +1,6 @@
+// File location: lib/features/live_walk/widgets/map_view_widget.dart
 import 'package:flutter/material.dart';
-import '../screens/walker_home_screen.dart'; // AppColors के लिए
+import '../../../core/constants/app_colors.dart'; // Verified import path for AppColors
 
 class MapViewWidget extends StatelessWidget {
   const MapViewWidget({super.key});
