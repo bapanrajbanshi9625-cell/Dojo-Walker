@@ -1,8 +1,8 @@
 // File location: lib/screens/walker_home_screen.dart
 import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
-import '../widgets/activity_card.dart';
-import '../widgets/map_view.dart';
+import '../widgets/activity_card.dart'; // Today's Activity ki alag file
+import '../widgets/map_view.dart';     // Real Map ki alag file
 import 'qr_scanner_screen.dart';
 
 class WalkerHomeScreen extends StatefulWidget {
@@ -34,13 +34,22 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
     }
   }
 
+  // Method to navigate to Live Walk Screen when blue bar is clicked
   void _navigateToLiveWalk() {
-    setState(() {
-      _isWalkStarted = false;
-      _scannedOwnerData = null;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Walk completed successfully!")),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LiveWalkDetailsScreen(
+          ownerData: _scannedOwnerData ?? '',
+          onWalkCompleted: () {
+            setState(() {
+              _isWalkStarted = false;
+              _scannedOwnerData = null;
+            });
+            Navigator.pop(context); // Return back to Home Screen
+          },
+        ),
+      ),
     );
   }
 
@@ -59,9 +68,14 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
+            // 1. Today's Activity Card
             const ActivityCard(),
+            
             const SizedBox(height: 20),
+
+            // 2. Map View / Real Map
             const MapViewWidget(),
+
             if (_isWalkStarted && _scannedOwnerData != null) ...[
               const SizedBox(height: 20),
               Text(
@@ -74,7 +88,10 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                 ),
               ),
             ],
+
             const SizedBox(height: 30),
+
+            // 3. Conditional UI: Show Blue Live Walk Bar if walk started, else show Scan QR Button
             if (_isWalkStarted)
               GestureDetector(
                 onTap: _navigateToLiveWalk,
@@ -112,7 +129,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                               ),
                               SizedBox(height: 2),
                               Text(
-                                "Tap to complete walk",
+                                "Tap to view live details",
                                 style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: 12,
@@ -149,6 +166,77 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                   ),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Dedicated Live Walk Details Screen class to handle active walk interface
+class LiveWalkDetailsScreen extends StatelessWidget {
+  const LiveWalkDetailsScreen({
+    super.key,
+    required this.ownerData,
+    required this.onWalkCompleted,
+  });
+
+  final String ownerData;
+  final VoidCallback onWalkCompleted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.blue.shade700,
+        title: const Text('Live Walk Details', style: TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Active Walk in Progress...",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 15),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Text(
+                "Owner Info: $ownerData",
+                style: const TextStyle(fontSize: 16, color: Colors.black87),
+              ),
+            ),
+            const Spacer(),
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: onWalkCompleted,
+                child: const Text(
+                  'Complete / End Walk',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
