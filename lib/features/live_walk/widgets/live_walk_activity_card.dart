@@ -1,5 +1,6 @@
+// File location: lib/features/live_walk/widgets/live_walk_activity_card.dart
 import 'package:flutter/material.dart';
-import '../screens/walker_home_screen.dart'; // AppColors के लिए
+import '../../../core/constants/app_colors.dart'; // Verified import path for AppColors
 
 class LiveWalkActivityCard extends StatelessWidget {
   const LiveWalkActivityCard({super.key});
