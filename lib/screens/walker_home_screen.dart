@@ -1,10 +1,9 @@
 // File location: lib/screens/walker_home_screen.dart
 import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
-import '../widgets/activity_card.dart'; // Today's Activity ki alag file
-import '../widgets/map_view.dart';     // Real Map ki alag file
+import '../widgets/activity_card.dart';
+import '../widgets/map_view.dart';
 import 'qr_scanner_screen.dart';
-import '../features/live_walk/screens/walker_home_screen.dart' as live_walk; // Live Walk Screen import
 
 class WalkerHomeScreen extends StatefulWidget {
   const WalkerHomeScreen({super.key});
@@ -35,20 +34,13 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
     }
   }
 
-  // Method to navigate to Live Walk Screen when blue bar is clicked
-  void _navigateToLiveWalk() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => live_walk.WalkerHomeScreen(
-          onWalkCompleted: () {
-            setState(() {
-              _isWalkStarted = false;
-              _scannedOwnerData = null;
-            });
-          },
-        ),
-      ),
+  void _navigateToLiveWalk() {
+    setState(() {
+      _isWalkStarted = false;
+      _scannedOwnerData = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Walk completed successfully!")),
     );
   }
 
@@ -67,14 +59,9 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // 1. Today's Activity Card
             const ActivityCard(),
-            
             const SizedBox(height: 20),
-
-            // 2. Map View / Real Map
             const MapViewWidget(),
-
             if (_isWalkStarted && _scannedOwnerData != null) ...[
               const SizedBox(height: 20),
               Text(
@@ -87,10 +74,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                 ),
               ),
             ],
-
             const SizedBox(height: 30),
-
-            // 3. Conditional UI: Show Blue Live Walk Bar if walk started, else show Scan QR Button
             if (_isWalkStarted)
               GestureDetector(
                 onTap: _navigateToLiveWalk,
@@ -128,7 +112,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                               ),
                               SizedBox(height: 2),
                               Text(
-                                "Tap to view live details",
+                                "Tap to complete walk",
                                 style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: 12,
