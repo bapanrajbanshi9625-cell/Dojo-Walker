@@ -32,21 +32,11 @@ android {
         multiDexEnabled true
     }
 
-    // APK ko device architecture ke hisaab se chhota rakhta hai
-    splits {
-        abi {
-            enable true
-            reset()
-            include "armeabi-v7a", "arm64-v8a"
-            universalApk false
-        }
-    }
-
     buildTypes {
         release {
             signingConfig signingConfigs.debug
 
-            // Unused code/resources ko remove karta hai
+            // Unused code aur resources ko remove karta hai
             minifyEnabled true
             shrinkResources true
         }
