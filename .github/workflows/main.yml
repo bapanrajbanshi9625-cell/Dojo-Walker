@@ -1,4 +1,4 @@
-name: dojo walker ci cd pipeline
+name: DOJO Walker CI/CD Pipeline
 
 on:
   push:
@@ -11,46 +11,51 @@ on:
 
 jobs:
   build_and_test:
-    name: build and test flutter app
+    name: Build and Test Flutter App
     runs-on: ubuntu-latest
 
     steps:
-      - name: checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: set up java
+      - name: Set up Java
         uses: actions/setup-java@v5
         with:
           distribution: "zulu"
           java-version: "17"
 
-      - name: set up flutter sdk
+      - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.22.0"
           channel: "stable"
           cache: true
 
-      - name: check flutter version
+      - name: Check Flutter version
         run: flutter --version
 
-      - name: install dependencies
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: generate app icon
+      - name: Generate app icon
         run: flutter pub run flutter_launcher_icons
 
-      - name: analyze code
+      - name: Analyze code
         run: flutter analyze
 
-      - name: run tests
+      - name: Run tests
         run: flutter test
 
-      - name: build android apk
-        run: flutter build apk --debug
+      - name: Build Android APK
+        run: flutter build apk --release --split-per-abi
 
-      - name: upload apk artifact
+      - name: List generated APKs
+        run: |
+          echo "Generated APK files:"
+          ls -lh build/app/outputs/flutter-apk/
+
+      - name: Upload Android APKs
         uses: actions/upload-artifact@v4
         with:
-          name: dojo-walker-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: dojo-walker-apks
+          path: build/app/outputs/flutter-apk/*-release.apk
