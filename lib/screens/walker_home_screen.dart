@@ -26,9 +26,15 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
   String? _ownerName;
   String? _ownerUid;
   String? _ownerPhone;
-
-  // Active walk ID
   String? _walkId;
+
+  // ====================================================
+  // GET CURRENT WALKER UID
+  // ====================================================
+
+  String? get _walkerUid {
+    return FirebaseAuth.instance.currentUser?.uid;
+  }
 
   // ====================================================
   // OPEN QR SCANNER
@@ -117,18 +123,14 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
       // SAVE ACTIVE WALK STATE
       // ==================================================
 
+      if (!mounted) return;
+
       setState(() {
         _isWalkStarted = true;
-
         _ownerName = ownerName;
-
         _ownerUid = ownerUid;
-
         _ownerPhone =
-            ownerPhone.isEmpty
-                ? null
-                : ownerPhone;
-
+            ownerPhone.isEmpty ? null : ownerPhone;
         _walkId = walkId;
       });
 
@@ -142,18 +144,9 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
         context,
         MaterialPageRoute(
           builder: (context) => LiveWalkScreen(
-            // Owner UID
             ownerUid: ownerUid,
-
-            // Walker UID
-            walkerUid: walkerUid,
-
-            // Walk ID
             walkId: walkId,
-
-            // Owner information
             ownerName: ownerName,
-
             ownerPhone:
                 ownerPhone.isEmpty
                     ? null
@@ -170,13 +163,9 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
       setState(() {
         _isWalkStarted = false;
-
         _ownerName = null;
-
         _ownerUid = null;
-
         _ownerPhone = null;
-
         _walkId = null;
       });
     } catch (e) {
@@ -184,13 +173,9 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
       setState(() {
         _isWalkStarted = false;
-
         _ownerName = null;
-
         _ownerUid = null;
-
         _ownerPhone = null;
-
         _walkId = null;
       });
 
@@ -218,7 +203,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
     }
 
     // ==================================================
-    // GET CURRENT WALKER UID
+    // CHECK WALKER LOGIN
     // ==================================================
 
     final User? walkerUser =
@@ -244,19 +229,10 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => LiveWalkScreen(
-          // Owner UID
           ownerUid: _ownerUid!,
-
-          // Walker UID
-          walkerUid: walkerUid,
-
-          // Walk ID
           walkId: _walkId!,
-
-          // Owner information
           ownerName:
               _ownerName ?? 'Owner',
-
           ownerPhone: _ownerPhone,
         ),
       ),
@@ -270,13 +246,9 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
     setState(() {
       _isWalkStarted = false;
-
       _ownerName = null;
-
       _ownerUid = null;
-
       _ownerPhone = null;
-
       _walkId = null;
     });
   }
@@ -352,9 +324,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                   children: [
                     const Icon(
                       Icons.person,
-
                       size: 35,
-
                       color: Colors.blue,
                     ),
 
@@ -365,7 +335,6 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
                       style: TextStyle(
                         fontSize: 13,
-
                         color:
                             Colors.grey.shade700,
                       ),
@@ -375,10 +344,8 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
                     Text(
                       _ownerName!,
-
                       style: const TextStyle(
                         fontSize: 18,
-
                         fontWeight:
                             FontWeight.bold,
                       ),
@@ -402,9 +369,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
                         style: const TextStyle(
                           fontSize: 11,
-
-                          color:
-                              Colors.black45,
+                          color: Colors.black45,
                         ),
                       ),
                     ],
@@ -413,15 +378,12 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                     // WALKER UID
                     // ==================================
 
-                    if (FirebaseAuth
-                            .instance
-                            .currentUser !=
-                        null) ...[
+                    if (_walkerUid != null &&
+                        _walkerUid!.isNotEmpty) ...[
                       const SizedBox(height: 3),
 
                       Text(
-                        'Walker UID: '
-                        '${FirebaseAuth.instance.currentUser!.uid}',
+                        'Walker UID: $_walkerUid',
 
                         maxLines: 1,
 
@@ -430,9 +392,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
                         style: const TextStyle(
                           fontSize: 11,
-
-                          color:
-                              Colors.black45,
+                          color: Colors.black45,
                         ),
                       ),
                     ],
@@ -455,9 +415,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
                         style: const TextStyle(
                           fontSize: 11,
-
-                          color:
-                              Colors.black45,
+                          color: Colors.black45,
                         ),
                       ),
                     ],
@@ -497,9 +455,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                             Colors.blue.withAlpha(
                           80,
                         ),
-
                         blurRadius: 10,
-
                         offset:
                             const Offset(0, 5),
                       ),
@@ -516,9 +472,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                         children: [
                           Icon(
                             Icons.directions_walk,
-
                             color: Colors.white,
-
                             size: 28,
                           ),
 
@@ -536,9 +490,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                                 style: TextStyle(
                                   color:
                                       Colors.white,
-
                                   fontSize: 16,
-
                                   fontWeight:
                                       FontWeight.bold,
                                 ),
@@ -552,7 +504,6 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                                 style: TextStyle(
                                   color:
                                       Colors.white70,
-
                                   fontSize: 12,
                                 ),
                               ),
@@ -563,9 +514,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
                       Icon(
                         Icons.arrow_forward_ios,
-
                         color: Colors.white,
-
                         size: 18,
                       ),
                     ],
@@ -580,7 +529,6 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
             else
               SizedBox(
                 width: double.infinity,
-
                 height: 55,
 
                 child: ElevatedButton(
@@ -606,9 +554,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
                     style: TextStyle(
                       fontSize: 16,
-
                       color: Colors.white,
-
                       fontWeight:
                           FontWeight.bold,
                     ),
