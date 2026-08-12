@@ -38,21 +38,48 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         throw Exception('Invalid Owner QR Code');
       }
 
+      // ==================================================
+      // 2. READ OWNER DATA
+      //
+      // New QR format:
+      // ownerUid
+      // ownerName
+      // ownerPhone
+      // walkId
+      //
+      // Old compatibility:
+      // uid
+      // name
+      // userId
+      // ==================================================
+
       final String type =
           decodedData['type']?.toString() ?? '';
 
       final String ownerUid =
-          decodedData['uid']?.toString() ?? '';
+          decodedData['ownerUid']?.toString() ??
+              decodedData['uid']?.toString() ??
+              '';
 
       final String ownerName =
-          decodedData['name']?.toString() ??
+          decodedData['ownerName']?.toString() ??
+              decodedData['name']?.toString() ??
               'Owner';
 
+      final String ownerPhone =
+          decodedData['ownerPhone']?.toString() ??
+              decodedData['phoneNumber']?.toString() ??
+              '';
+
       final String ownerUserId =
-          decodedData['userId']?.toString() ?? '';
+          decodedData['userId']?.toString() ??
+              ownerUid;
+
+      final String qrWalkId =
+          decodedData['walkId']?.toString() ?? '';
 
       // ==================================================
-      // 2. CHECK OWNER QR TYPE
+      // 3. CHECK QR TYPE
       // ==================================================
 
       if (type != 'owner') {
@@ -68,7 +95,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       }
 
       // ==================================================
-      // 3. CHECK WALKER LOGIN
+      // 4. CHECK WALKER LOGIN
       // ==================================================
 
       final User? walker =
@@ -82,20 +109,41 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       final String walkerUid = walker.uid;
 
+      if (walkerUid.isEmpty) {
+        throw Exception(
+          'Walker UID is missing.',
+        );
+      }
+
       // ==================================================
-      // 4. VERIFY OWNER QR IN FIREBASE
+      // 5. FIND OWNER QR
+      //
+      // IMPORTANT:
+      //
+      // Owner app saves:
+      //
+      // qr_codes/
+      //    OWNER_UID/
+      //
+      // So Walker MUST read:
+      //
+      // qr_codes/{ownerUid}
+      //
+      // NOT:
+      //
+      // qr_codes/owner_qr
       // ==================================================
 
       final DocumentSnapshot<Map<String, dynamic>>
-          ownerQR = await FirebaseFirestore
-              .instance
+          ownerQR = await FirebaseFirestore.instance
               .collection('qr_codes')
-              .doc('owner_qr')
+              .doc(ownerUid)
               .get();
 
       if (!ownerQR.exists) {
         throw Exception(
-          'Owner QR was not found in Firebase.',
+          'Owner QR not found.\n'
+          'Owner UID: $ownerUid',
         );
       }
 
@@ -103,8 +151,20 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           ownerQR.data() ??
               <String, dynamic>{};
 
+      // ==================================================
+      // 6. VERIFY OWNER UID
+      // ==================================================
+
       final String firebaseOwnerUid =
-          firebaseData['uid']?.toString() ?? '';
+          firebaseData['ownerUid']?.toString() ??
+              firebaseData['uid']?.toString() ??
+              '';
+
+      if (firebaseOwnerUid.isEmpty) {
+        throw Exception(
+          'Owner UID is missing in Firebase.',
+        );
+      }
 
       if (firebaseOwnerUid != ownerUid) {
         throw Exception(
@@ -113,43 +173,80 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       }
 
       // ==================================================
-      // 5. SAVE SCAN RESULT TO FIREBASE
+      // 7. GET FIREBASE OWNER DATA
+      // ==================================================
+
+      final String firebaseOwnerName =
+          firebaseData['ownerName']?.toString() ??
+              firebaseData['name']?.toString() ??
+              ownerName;
+
+      final String firebaseOwnerPhone =
+          firebaseData['ownerPhone']?.toString() ??
+              firebaseData['phoneNumber']?.toString() ??
+              ownerPhone;
+
+      final String firebaseWalkId =
+          firebaseData['walkId']?.toString() ??
+              qrWalkId;
+
+      // ==================================================
+      // 8. MARK OWNER QR AS SCANNED
+      //
+      // Same document:
+      //
+      // qr_codes/{ownerUid}
       // ==================================================
 
       await FirebaseFirestore.instance
           .collection('qr_codes')
-          .doc('owner_qr')
+          .doc(ownerUid)
           .update({
         'scanned': true,
         'scannedBy': walkerUid,
         'scannedAt':
-            FieldValue.serverTimestamp(),
-      });
-
-      // ==================================================
-      // 6. CREATE ACTIVE WALK CONNECTION
-      // ==================================================
-
-      final DocumentReference walkRef =
-          FirebaseFirestore.instance
-              .collection('active_walks')
-              .doc();
-
-      await walkRef.set({
-        'walkId': walkRef.id,
-        'ownerUid': ownerUid,
-        'ownerUserId': ownerUserId,
-        'ownerName': ownerName,
-        'walkerUid': walkerUid,
-        'status': 'active',
-        'startedAt':
             FieldValue.serverTimestamp(),
         'updatedAt':
             FieldValue.serverTimestamp(),
       });
 
       // ==================================================
-      // 7. RETURN DIRECTLY TO LIVE WALK
+      // 9. CREATE ACTIVE WALK
+      // ==================================================
+
+      final DocumentReference<
+          Map<String, dynamic>> walkRef =
+          FirebaseFirestore.instance
+              .collection('active_walks')
+              .doc();
+
+      await walkRef.set({
+        'walkId': walkRef.id,
+
+        // OWNER
+        'ownerUid': ownerUid,
+        'ownerUserId': ownerUserId,
+        'ownerName': firebaseOwnerName,
+        'ownerPhone': firebaseOwnerPhone,
+
+        // WALKER
+        'walkerUid': walkerUid,
+
+        // QR WALK ID
+        'qrWalkId': firebaseWalkId,
+
+        // STATUS
+        'status': 'active',
+
+        'startedAt':
+            FieldValue.serverTimestamp(),
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      });
+
+      // ==================================================
+      // 10. RETURN TO LIVE WALK
       // ==================================================
 
       if (!mounted) return;
@@ -159,7 +256,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         jsonEncode({
           'ownerUid': ownerUid,
           'ownerUserId': ownerUserId,
-          'ownerName': ownerName,
+          'ownerName': firebaseOwnerName,
+          'ownerPhone': firebaseOwnerPhone,
           'walkerUid': walkerUid,
           'walkId': walkRef.id,
           'status': 'active',
@@ -183,6 +281,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
   }
 
+  // ======================================================
+  // BUILD
+  // ======================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -190,12 +292,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       appBar: AppBar(
         backgroundColor: Colors.deepOrange,
+
         title: const Text(
           'Scan Owner QR Code',
           style: TextStyle(
             color: Colors.white,
           ),
         ),
+
         iconTheme:
             const IconThemeData(
           color: Colors.white,
@@ -205,13 +309,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       body: Stack(
         children: [
 
-          // ==============================================
+          // ==================================================
           // CAMERA
-          // ==============================================
+          // ==================================================
 
           MobileScanner(
             onDetect:
                 (BarcodeCapture capture) {
+
               if (isScanCompleted ||
                   isProcessing) {
                 return;
@@ -219,28 +324,32 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
               for (final Barcode barcode
                   in capture.barcodes) {
+
                 final String? rawData =
                     barcode.rawValue;
 
                 if (rawData != null &&
                     rawData.isNotEmpty) {
+
                   _processOwnerQR(
                     rawData,
                   );
+
                   break;
                 }
               }
             },
           ),
 
-          // ==============================================
+          // ==================================================
           // SCAN BOX
-          // ==============================================
+          // ==================================================
 
           Center(
             child: Container(
               width: 260,
               height: 260,
+
               decoration:
                   BoxDecoration(
                 border: Border.all(
@@ -248,6 +357,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       Colors.deepOrange,
                   width: 3,
                 ),
+
                 borderRadius:
                     BorderRadius.circular(
                   16,
@@ -256,9 +366,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             ),
           ),
 
-          // ==============================================
+          // ==================================================
           // PROCESSING
-          // ==============================================
+          // ==================================================
 
           if (isProcessing)
             const Center(
@@ -266,15 +376,22 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 child: Padding(
                   padding:
                       EdgeInsets.all(20),
+
                   child: Column(
                     mainAxisSize:
                         MainAxisSize.min,
+
                     children: [
                       CircularProgressIndicator(),
-                      SizedBox(height: 15),
+
+                      SizedBox(
+                        height: 15,
+                      ),
+
                       Text(
                         'Connecting to Owner...',
-                        style: TextStyle(
+                        style:
+                            TextStyle(
                           fontWeight:
                               FontWeight.w600,
                         ),
@@ -285,33 +402,40 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ),
             ),
 
-          // ==============================================
+          // ==================================================
           // BOTTOM MESSAGE
-          // ==============================================
+          // ==================================================
 
           if (!isProcessing)
             Positioned(
               bottom: 50,
               left: 20,
               right: 20,
+
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(
                   vertical: 12,
                   horizontal: 16,
                 ),
+
                 decoration:
                     BoxDecoration(
-                  color: Colors.black54,
+                  color:
+                      Colors.black54,
+
                   borderRadius:
                       BorderRadius.circular(
                     10,
                   ),
                 ),
+
                 child: const Text(
                   "Point your camera at the Owner's QR Code",
+
                   textAlign:
                       TextAlign.center,
+
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 15,
