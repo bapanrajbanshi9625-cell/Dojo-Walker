@@ -36,7 +36,7 @@ android {
         release {
             signingConfig signingConfigs.debug
 
-            // Runtime crash ko test karne ke liye shrinking OFF
+            // फिलहाल कोई code/resource shrinking नहीं
             minifyEnabled false
             shrinkResources false
         }
