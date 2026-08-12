@@ -3,6 +3,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../core/constants/app_colors.dart';
 import '../widgets/activity_card.dart';
@@ -25,13 +26,15 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
   String? _ownerName;
   String? _ownerUid;
   String? _ownerPhone;
+
+  // Active walk ID
   String? _walkId;
 
   // ====================================================
   // OPEN QR SCANNER
   // ====================================================
 
-  Future<void> _openCameraScanner(BuildContext context) async {
+  Future<void> _openCameraScanner() async {
     final String? scannedData =
         await Navigator.push<String>(
       context,
@@ -53,10 +56,12 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
         throw Exception('Invalid scan data');
       }
 
+      // ==================================================
+      // OWNER INFORMATION FROM QR
+      // ==================================================
+
       final String ownerName =
-          decoded['ownerName']?.toString() ??
-              decoded['ownerName']?.toString() ??
-              'Owner';
+          decoded['ownerName']?.toString() ?? 'Owner';
 
       final String ownerUid =
           decoded['ownerUid']?.toString() ?? '';
@@ -64,8 +69,31 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
       final String ownerPhone =
           decoded['ownerPhone']?.toString() ?? '';
 
+      // ==================================================
+      // WALK ID FROM QR
+      // ==================================================
+
       final String walkId =
           decoded['walkId']?.toString() ?? '';
+
+      // ==================================================
+      // WALKER UID FROM FIREBASE AUTH
+      // ==================================================
+
+      final User? walkerUser =
+          FirebaseAuth.instance.currentUser;
+
+      if (walkerUser == null) {
+        throw Exception(
+          'Walker is not logged in.',
+        );
+      }
+
+      final String walkerUid = walkerUser.uid;
+
+      // ==================================================
+      // VALIDATION
+      // ==================================================
 
       if (ownerUid.isEmpty) {
         throw Exception(
@@ -79,21 +107,33 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
         );
       }
 
+      if (walkerUid.isEmpty) {
+        throw Exception(
+          'Walker UID is missing.',
+        );
+      }
+
       // ==================================================
       // SAVE ACTIVE WALK STATE
       // ==================================================
 
       setState(() {
         _isWalkStarted = true;
+
         _ownerName = ownerName;
+
         _ownerUid = ownerUid;
+
         _ownerPhone =
-            ownerPhone.isEmpty ? null : ownerPhone;
+            ownerPhone.isEmpty
+                ? null
+                : ownerPhone;
+
         _walkId = walkId;
       });
 
       // ==================================================
-      // DIRECTLY OPEN SEPARATE LIVE WALK SCREEN
+      // OPEN LIVE WALK SCREEN
       // ==================================================
 
       if (!mounted) return;
@@ -102,8 +142,18 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
         context,
         MaterialPageRoute(
           builder: (context) => LiveWalkScreen(
+            // Owner UID
             ownerUid: ownerUid,
+
+            // Walker UID
+            walkerUid: walkerUid,
+
+            // Walk ID
+            walkId: walkId,
+
+            // Owner information
             ownerName: ownerName,
+
             ownerPhone:
                 ownerPhone.isEmpty
                     ? null
@@ -120,9 +170,13 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
       setState(() {
         _isWalkStarted = false;
+
         _ownerName = null;
+
         _ownerUid = null;
+
         _ownerPhone = null;
+
         _walkId = null;
       });
     } catch (e) {
@@ -130,9 +184,13 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
       setState(() {
         _isWalkStarted = false;
+
         _ownerName = null;
+
         _ownerUid = null;
+
         _ownerPhone = null;
+
         _walkId = null;
       });
 
@@ -153,51 +211,102 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
   Future<void> _openActiveWalk() async {
     if (!_isWalkStarted ||
         _ownerUid == null ||
-        _ownerUid!.isEmpty) {
+        _ownerUid!.isEmpty ||
+        _walkId == null ||
+        _walkId!.isEmpty) {
       return;
     }
+
+    // ==================================================
+    // GET CURRENT WALKER UID
+    // ==================================================
+
+    final User? walkerUser =
+        FirebaseAuth.instance.currentUser;
+
+    if (walkerUser == null) {
+      return;
+    }
+
+    final String walkerUid = walkerUser.uid;
+
+    if (walkerUid.isEmpty) {
+      return;
+    }
+
+    // ==================================================
+    // OPEN LIVE WALK
+    // ==================================================
+
+    if (!mounted) return;
 
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => LiveWalkScreen(
+          // Owner UID
           ownerUid: _ownerUid!,
+
+          // Walker UID
+          walkerUid: walkerUid,
+
+          // Walk ID
+          walkId: _walkId!,
+
+          // Owner information
           ownerName:
               _ownerName ?? 'Owner',
+
           ownerPhone: _ownerPhone,
         ),
       ),
     );
 
+    // ==================================================
+    // RESET AFTER LIVE WALK CLOSES
+    // ==================================================
+
     if (!mounted) return;
 
     setState(() {
       _isWalkStarted = false;
+
       _ownerName = null;
+
       _ownerUid = null;
+
       _ownerPhone = null;
+
       _walkId = null;
     });
   }
+
+  // ====================================================
+  // BUILD
+  // ====================================================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: AppColors.primary,
+
         title: Text(
           _isWalkStarted
               ? 'Active Walk'
               : 'Dojo Walker - Buddy',
+
           style: const TextStyle(
             color: Colors.white,
           ),
         ),
+
         automaticallyImplyLeading: false,
       ),
 
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
+
         child: Column(
           children: [
             // ==========================================
@@ -224,20 +333,28 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+
+                padding:
+                    const EdgeInsets.all(16),
+
                 decoration: BoxDecoration(
                   color: Colors.blue.shade50,
+
                   borderRadius:
                       BorderRadius.circular(12),
+
                   border: Border.all(
                     color: Colors.blue.shade200,
                   ),
                 ),
+
                 child: Column(
                   children: [
                     const Icon(
                       Icons.person,
+
                       size: 35,
+
                       color: Colors.blue,
                     ),
 
@@ -245,9 +362,12 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
                     Text(
                       'Connected to Owner',
+
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.grey.shade700,
+
+                        color:
+                            Colors.grey.shade700,
                       ),
                     ),
 
@@ -255,23 +375,89 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
                     Text(
                       _ownerName!,
+
                       style: const TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.bold,
+
+                        fontWeight:
+                            FontWeight.bold,
                       ),
                     ),
+
+                    // ==================================
+                    // OWNER UID
+                    // ==================================
 
                     if (_ownerUid != null &&
                         _ownerUid!.isNotEmpty) ...[
                       const SizedBox(height: 4),
+
                       Text(
                         'Owner UID: $_ownerUid',
+
                         maxLines: 1,
+
                         overflow:
                             TextOverflow.ellipsis,
+
                         style: const TextStyle(
                           fontSize: 11,
-                          color: Colors.black45,
+
+                          color:
+                              Colors.black45,
+                        ),
+                      ),
+                    ],
+
+                    // ==================================
+                    // WALKER UID
+                    // ==================================
+
+                    if (FirebaseAuth
+                            .instance
+                            .currentUser !=
+                        null) ...[
+                      const SizedBox(height: 3),
+
+                      Text(
+                        'Walker UID: '
+                        '${FirebaseAuth.instance.currentUser!.uid}',
+
+                        maxLines: 1,
+
+                        overflow:
+                            TextOverflow.ellipsis,
+
+                        style: const TextStyle(
+                          fontSize: 11,
+
+                          color:
+                              Colors.black45,
+                        ),
+                      ),
+                    ],
+
+                    // ==================================
+                    // WALK ID
+                    // ==================================
+
+                    if (_walkId != null &&
+                        _walkId!.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+
+                      Text(
+                        'Walk ID: $_walkId',
+
+                        maxLines: 1,
+
+                        overflow:
+                            TextOverflow.ellipsis,
+
+                        style: const TextStyle(
+                          fontSize: 11,
+
+                          color:
+                              Colors.black45,
                         ),
                       ),
                     ],
@@ -289,37 +475,50 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
             if (_isWalkStarted)
               GestureDetector(
                 onTap: _openActiveWalk,
+
                 child: Container(
                   width: double.infinity,
+
                   padding:
                       const EdgeInsets.symmetric(
                     vertical: 16,
                     horizontal: 20,
                   ),
+
                   decoration: BoxDecoration(
                     color: Colors.blue.shade700,
+
                     borderRadius:
                         BorderRadius.circular(12),
+
                     boxShadow: [
                       BoxShadow(
                         color:
-                            Colors.blue.withAlpha(80),
+                            Colors.blue.withAlpha(
+                          80,
+                        ),
+
                         blurRadius: 10,
+
                         offset:
                             const Offset(0, 5),
                       ),
                     ],
                   ),
+
                   child: const Row(
                     mainAxisAlignment:
                         MainAxisAlignment
                             .spaceBetween,
+
                     children: [
                       Row(
                         children: [
                           Icon(
                             Icons.directions_walk,
+
                             color: Colors.white,
+
                             size: 28,
                           ),
 
@@ -329,12 +528,17 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                             crossAxisAlignment:
                                 CrossAxisAlignment
                                     .start,
+
                             children: [
                               Text(
                                 'Live Walk in Progress',
+
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color:
+                                      Colors.white,
+
                                   fontSize: 16,
+
                                   fontWeight:
                                       FontWeight.bold,
                                 ),
@@ -344,8 +548,11 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
                               Text(
                                 'Tap to view live details',
+
                                 style: TextStyle(
-                                  color: Colors.white70,
+                                  color:
+                                      Colors.white70,
+
                                   fontSize: 12,
                                 ),
                               ),
@@ -356,7 +563,9 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
                       Icon(
                         Icons.arrow_forward_ios,
+
                         color: Colors.white,
+
                         size: 18,
                       ),
                     ],
@@ -371,26 +580,37 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
             else
               SizedBox(
                 width: double.infinity,
+
                 height: 55,
+
                 child: ElevatedButton(
                   style:
                       ElevatedButton.styleFrom(
                     backgroundColor:
                         AppColors.primary,
+
                     shape:
                         RoundedRectangleBorder(
                       borderRadius:
-                          BorderRadius.circular(12),
+                          BorderRadius.circular(
+                        12,
+                      ),
                     ),
                   ),
-                  onPressed: () =>
-                      _openCameraScanner(context),
+
+                  onPressed:
+                      _openCameraScanner,
+
                   child: const Text(
                     'Scan Owner QR Code',
+
                     style: TextStyle(
                       fontSize: 16,
+
                       color: Colors.white,
-                      fontWeight: FontWeight.bold,
+
+                      fontWeight:
+                          FontWeight.bold,
                     ),
                   ),
                 ),
