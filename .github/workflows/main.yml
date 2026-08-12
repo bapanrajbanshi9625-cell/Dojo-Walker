@@ -15,24 +15,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # --------------------------------------------------
-      # 1. Checkout repository
-      # --------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --------------------------------------------------
-      # 2. Set up Java
-      # --------------------------------------------------
       - name: Set up Java
         uses: actions/setup-java@v5
         with:
           distribution: "zulu"
           java-version: "17"
 
-      # --------------------------------------------------
-      # 3. Set up Flutter
-      # --------------------------------------------------
       - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
@@ -40,89 +31,55 @@ jobs:
           channel: "stable"
           cache: true
 
-      # --------------------------------------------------
-      # 4. Check Flutter
-      # --------------------------------------------------
       - name: Check Flutter version
         run: flutter --version
 
-      # --------------------------------------------------
-      # 5. Install dependencies
-      # --------------------------------------------------
       - name: Install dependencies
         run: flutter pub get
 
-      # --------------------------------------------------
-      # 6. Generate app icon
-      # --------------------------------------------------
       - name: Generate app icon
         run: flutter pub run flutter_launcher_icons
 
-      # --------------------------------------------------
-      # 7. Analyze
-      # --------------------------------------------------
       - name: Analyze code
         run: flutter analyze
 
-      # --------------------------------------------------
-      # 8. Tests
-      # --------------------------------------------------
       - name: Run tests
         run: flutter test
 
-      # --------------------------------------------------
-      # 9. Clean old builds
-      # --------------------------------------------------
-      - name: Clean Flutter build
+      - name: Clean Flutter
         run: flutter clean
 
-      # --------------------------------------------------
-      # 10. Get dependencies again
-      # --------------------------------------------------
-      - name: Get dependencies
+      - name: Install dependencies again
         run: flutter pub get
 
-      # --------------------------------------------------
-      # 11. Build ARM64 release APK using Gradle
-      # --------------------------------------------------
-      - name: Build ARM64 release APK
-        working-directory: android
-        run: ./gradlew assembleRelease
+      - name: Build ARM64 APK
+        run: flutter build apk --release --target-platform android-arm64 || true
 
-      # --------------------------------------------------
-      # 12. Show generated APK
-      # --------------------------------------------------
-      - name: Find generated APK
+      - name: Find ARM64 APK
         run: |
-          echo "======================================"
-          echo "Generated APK files"
-          echo "======================================"
-          find android/app/build/outputs/apk -type f -name "*.apk" -exec ls -lh {} \;
+          echo "Searching for APK..."
+          find build -type f -name "*.apk" -exec ls -lh {} \;
 
-      # --------------------------------------------------
-      # 13. Prepare APK
-      # --------------------------------------------------
-      - name: Prepare Dojo Walker APK
+      - name: Prepare APK
         run: |
           mkdir -p build/apk
 
-          APK=$(find android/app/build/outputs/apk/release -type f -name "*.apk" | head -n 1)
+          APK=$(find build -type f -name "*.apk" | head -n 1)
 
           if [ -z "$APK" ]; then
-            echo "ERROR: APK not found!"
+            echo "ERROR: No APK was generated."
             exit 1
           fi
 
-          cp "$APK" build/apk/dojo-walker-release.apk
+          echo "Found APK: $APK"
+
+          cp "$APK" build/apk/dojo-walker-arm64-v8a-release.apk
 
           echo "Final APK:"
-          ls -lh build/apk/dojo-walker-release.apk
+          ls -lh build/apk/
 
-      # --------------------------------------------------
-      # 14. Upload APK
-      # --------------------------------------------------
       - name: Upload Dojo Walker APK
         uses: actions/upload-artifact@v4
         with:
           name: dojo-walker-apk
-          path: build/apk/dojo-walker-release.apk
+          path: build/apk/dojo-walker-arm64-v8a-release.apk
