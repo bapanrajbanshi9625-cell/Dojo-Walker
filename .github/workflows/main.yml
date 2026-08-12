@@ -53,46 +53,15 @@ jobs:
         run: flutter pub get
 
       # -----------------------------------------------
-      # DEBUG APK
+      # NORMAL RELEASE APK
       # -----------------------------------------------
-      - name: Build Debug APK
-        run: flutter build apk --debug || true
-
-      - name: Find Debug APK
-        run: |
-          echo "======================================"
-          echo "DEBUG APK"
-          echo "======================================"
-
-          find build -type f -name "*.apk" -exec ls -lh {} \;
-
-      - name: Prepare Debug APK
-        run: |
-          mkdir -p build/debug-apk
-
-          APK=$(find build -type f -name "app-debug.apk" | head -n 1)
-
-          if [ -z "$APK" ]; then
-            echo "ERROR: Debug APK was not generated."
-            exit 1
-          fi
-
-          echo "Found Debug APK: $APK"
-
-          cp "$APK" build/debug-apk/dojo-walker-debug.apk
-
-          ls -lh build/debug-apk/
-
-      # -----------------------------------------------
-      # RELEASE APK
-      # -----------------------------------------------
-      - name: Build ARM64 Release APK
-        run: flutter build apk --release --target-platform android-arm64 || true
+      - name: Build Release APK
+        run: flutter build apk --release || true
 
       - name: Find Release APK
         run: |
           echo "======================================"
-          echo "RELEASE APK"
+          echo "Generated Release APK"
           echo "======================================"
 
           find build -type f -name "*.apk" -exec ls -lh {} \;
@@ -108,26 +77,21 @@ jobs:
             exit 1
           fi
 
-          echo "Found Release APK: $APK"
+          echo "Found APK: $APK"
 
-          cp "$APK" build/release-apk/dojo-walker-arm64-release.apk
+          cp "$APK" build/release-apk/dojo-walker-release.apk
+
+          echo "======================================"
+          echo "Final Dojo Walker APK"
+          echo "======================================"
 
           ls -lh build/release-apk/
 
       # -----------------------------------------------
-      # UPLOAD DEBUG APK
-      # -----------------------------------------------
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: dojo-walker-debug-apk
-          path: build/debug-apk/dojo-walker-debug.apk
-
-      # -----------------------------------------------
       # UPLOAD RELEASE APK
       # -----------------------------------------------
-      - name: Upload Release APK
+      - name: Upload Dojo Walker Release APK
         uses: actions/upload-artifact@v4
         with:
           name: dojo-walker-release-apk
-          path: build/release-apk/dojo-walker-arm64-release.apk
+          path: build/release-apk/dojo-walker-release.apk
