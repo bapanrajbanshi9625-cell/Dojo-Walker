@@ -52,34 +52,82 @@ jobs:
       - name: Install dependencies again
         run: flutter pub get
 
-      - name: Build ARM64 APK
-        run: flutter build apk --release --target-platform android-arm64 || true
+      # -----------------------------------------------
+      # DEBUG APK
+      # -----------------------------------------------
+      - name: Build Debug APK
+        run: flutter build apk --debug || true
 
-      - name: Find ARM64 APK
+      - name: Find Debug APK
         run: |
-          echo "Searching for APK..."
+          echo "======================================"
+          echo "DEBUG APK"
+          echo "======================================"
+
           find build -type f -name "*.apk" -exec ls -lh {} \;
 
-      - name: Prepare APK
+      - name: Prepare Debug APK
         run: |
-          mkdir -p build/apk
+          mkdir -p build/debug-apk
 
-          APK=$(find build -type f -name "*.apk" | head -n 1)
+          APK=$(find build -type f -name "app-debug.apk" | head -n 1)
 
           if [ -z "$APK" ]; then
-            echo "ERROR: No APK was generated."
+            echo "ERROR: Debug APK was not generated."
             exit 1
           fi
 
-          echo "Found APK: $APK"
+          echo "Found Debug APK: $APK"
 
-          cp "$APK" build/apk/dojo-walker-arm64-v8a-release.apk
+          cp "$APK" build/debug-apk/dojo-walker-debug.apk
 
-          echo "Final APK:"
-          ls -lh build/apk/
+          ls -lh build/debug-apk/
 
-      - name: Upload Dojo Walker APK
+      # -----------------------------------------------
+      # RELEASE APK
+      # -----------------------------------------------
+      - name: Build ARM64 Release APK
+        run: flutter build apk --release --target-platform android-arm64 || true
+
+      - name: Find Release APK
+        run: |
+          echo "======================================"
+          echo "RELEASE APK"
+          echo "======================================"
+
+          find build -type f -name "*.apk" -exec ls -lh {} \;
+
+      - name: Prepare Release APK
+        run: |
+          mkdir -p build/release-apk
+
+          APK=$(find build -type f -name "app-release.apk" | head -n 1)
+
+          if [ -z "$APK" ]; then
+            echo "ERROR: Release APK was not generated."
+            exit 1
+          fi
+
+          echo "Found Release APK: $APK"
+
+          cp "$APK" build/release-apk/dojo-walker-arm64-release.apk
+
+          ls -lh build/release-apk/
+
+      # -----------------------------------------------
+      # UPLOAD DEBUG APK
+      # -----------------------------------------------
+      - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: dojo-walker-apk
-          path: build/apk/dojo-walker-arm64-v8a-release.apk
+          name: dojo-walker-debug-apk
+          path: build/debug-apk/dojo-walker-debug.apk
+
+      # -----------------------------------------------
+      # UPLOAD RELEASE APK
+      # -----------------------------------------------
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dojo-walker-release-apk
+          path: build/release-apk/dojo-walker-arm64-release.apk
