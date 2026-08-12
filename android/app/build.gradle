@@ -36,9 +36,9 @@ android {
         release {
             signingConfig signingConfigs.debug
 
-            // Unused code aur resources ko remove karta hai
-            minifyEnabled true
-            shrinkResources true
+            // Runtime crash ko test karne ke liye shrinking OFF
+            minifyEnabled false
+            shrinkResources false
         }
     }
 }
