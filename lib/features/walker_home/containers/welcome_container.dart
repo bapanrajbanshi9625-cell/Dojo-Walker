@@ -8,62 +8,68 @@ class WelcomeContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 100,
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 10,
+      ),
       decoration: BoxDecoration(
         color: WalkerHomeFeatures.dark,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(.11),
-            blurRadius: 17,
-            offset: const Offset(0, 8),
+            color: Colors.black.withOpacity(.07),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Row(
         children: [
           Container(
-            width: 72,
-            height: 72,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
-              color: WalkerHomeFeatures.orange
-                  .withOpacity(.16),
-              borderRadius: BorderRadius.circular(20),
+              color: WalkerHomeFeatures.orange.withOpacity(.14),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: WalkerHomeFeatures.orange
-                    .withOpacity(.48),
+                color: WalkerHomeFeatures.orange.withOpacity(.40),
               ),
             ),
             child: const Icon(
               Icons.pets_rounded,
               color: WalkerHomeFeatures.orange,
-              size: 40,
+              size: 32,
             ),
           ),
 
-          const SizedBox(width: 17),
+          const SizedBox(width: 13),
 
           const Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Welcome back 👋',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: 7),
+
+                SizedBox(height: 4),
+
                 Text(
                   'You and Buddy are ready to walk.',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: Colors.white70,
-                    fontSize: 14,
-                    height: 1.3,
+                    fontSize: 12,
+                    height: 1.2,
                   ),
                 ),
               ],
