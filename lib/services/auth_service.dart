@@ -21,15 +21,23 @@ class AuthService {
 
       debugPrint('========================================');
       debugPrint('FIREBASE PHONE VERIFICATION START');
-      debugPrint('Phone: +91$cleanPhone');
+      debugPrint('PHONE: +91$cleanPhone');
       debugPrint('========================================');
 
-      if (cleanPhone.length != 10) {
+      // ---------------------------------------------------
+      // PHONE VALIDATION
+      // ---------------------------------------------------
+
+      if (!RegExp(r'^[0-9]{10}$').hasMatch(cleanPhone)) {
         onError(
           'Please enter a valid 10-digit mobile number.',
         );
         return;
       }
+
+      // ---------------------------------------------------
+      // FIREBASE PHONE VERIFICATION
+      // ---------------------------------------------------
 
       await _auth.verifyPhoneNumber(
         phoneNumber: '+91$cleanPhone',
@@ -40,9 +48,9 @@ class AuthService {
 
         verificationCompleted:
             (PhoneAuthCredential credential) async {
-          debugPrint(
-            'Firebase automatic verification completed.',
-          );
+          debugPrint('========================================');
+          debugPrint('FIREBASE AUTOMATIC VERIFICATION');
+          debugPrint('========================================');
 
           try {
             final UserCredential result =
@@ -54,10 +62,8 @@ class AuthService {
 
             if (user != null) {
               debugPrint('AUTO LOGIN SUCCESS');
-              debugPrint('Firebase UID: ${user.uid}');
-              debugPrint(
-                'Firebase Phone: ${user.phoneNumber}',
-              );
+              debugPrint('UID: ${user.uid}');
+              debugPrint('PHONE: ${user.phoneNumber}');
 
               final SharedPreferences prefs =
                   await SharedPreferences.getInstance();
@@ -66,16 +72,24 @@ class AuthService {
                 'isLoggedIn',
                 true,
               );
+            } else {
+              debugPrint(
+                'AUTO LOGIN FAILED: USER IS NULL',
+              );
             }
           } on FirebaseAuthException catch (e) {
             debugPrint(
               'AUTO LOGIN FIREBASE ERROR',
             );
-            debugPrint('Code: ${e.code}');
-            debugPrint('Message: ${e.message}');
+            debugPrint(
+              'CODE: ${e.code}',
+            );
+            debugPrint(
+              'MESSAGE: ${e.message}',
+            );
           } catch (e) {
             debugPrint(
-              'AUTO LOGIN ERROR: $e',
+              'AUTO LOGIN GENERAL ERROR: $e',
             );
           }
         },
@@ -88,13 +102,14 @@ class AuthService {
           FirebaseAuthException e,
         ) {
           debugPrint('========================================');
-          debugPrint('FIREBASE VERIFICATION FAILED');
-          debugPrint('ERROR CODE: ${e.code}');
-          debugPrint('ERROR MESSAGE: ${e.message}');
+          debugPrint('FIREBASE PHONE VERIFICATION FAILED');
+          debugPrint('CODE: ${e.code}');
+          debugPrint('MESSAGE: ${e.message}');
           debugPrint('========================================');
 
           onError(
-            '${e.code}: ${e.message ?? 'Firebase verification failed.'}',
+            '${e.code}: '
+            '${e.message ?? 'Firebase phone verification failed.'}',
           );
         },
 
@@ -107,9 +122,12 @@ class AuthService {
           int? resendToken,
         ) {
           debugPrint('========================================');
-          debugPrint('FIREBASE OTP SENT SUCCESSFULLY');
+          debugPrint('FIREBASE OTP SENT');
           debugPrint(
-            'Verification ID length: ${verificationId.length}',
+            'VERIFICATION ID LENGTH: ${verificationId.length}',
+          );
+          debugPrint(
+            'RESEND TOKEN: $resendToken',
           );
           debugPrint('========================================');
 
@@ -125,13 +143,14 @@ class AuthService {
         codeAutoRetrievalTimeout: (
           String verificationId,
         ) {
+          debugPrint('========================================');
           debugPrint(
-            'Firebase OTP auto retrieval timeout.',
+            'FIREBASE OTP AUTO RETRIEVAL TIMEOUT',
           );
-
           debugPrint(
-            'Verification ID length: ${verificationId.length}',
+            'VERIFICATION ID LENGTH: ${verificationId.length}',
           );
+          debugPrint('========================================');
         },
       );
     } on FirebaseAuthException catch (e) {
@@ -139,17 +158,21 @@ class AuthService {
       debugPrint(
         'PHONE VERIFICATION FIREBASE EXCEPTION',
       );
-      debugPrint('ERROR CODE: ${e.code}');
-      debugPrint('ERROR MESSAGE: ${e.message}');
+      debugPrint('CODE: ${e.code}');
+      debugPrint('MESSAGE: ${e.message}');
       debugPrint('========================================');
 
       onError(
-        '${e.code}: ${e.message ?? 'Phone verification failed.'}',
+        '${e.code}: '
+        '${e.message ?? 'Phone verification failed.'}',
       );
     } catch (e) {
+      debugPrint('========================================');
       debugPrint(
-        'PHONE VERIFICATION EXCEPTION: $e',
+        'PHONE VERIFICATION GENERAL EXCEPTION',
       );
+      debugPrint('ERROR: $e');
+      debugPrint('========================================');
 
       onError(
         e.toString(),
@@ -165,44 +188,54 @@ class AuthService {
     required String verificationId,
     required String smsCode,
   }) async {
+    final String cleanVerificationId =
+        verificationId.trim();
+
+    final String cleanOtp =
+        smsCode.trim();
+
+    debugPrint('========================================');
+    debugPrint('FIREBASE OTP VERIFICATION START');
+    debugPrint(
+      'VERIFICATION ID LENGTH: '
+      '${cleanVerificationId.length}',
+    );
+    debugPrint(
+      'OTP LENGTH: ${cleanOtp.length}',
+    );
+    debugPrint('========================================');
+
+    // ===================================================
+    // BASIC VALIDATION
+    // ===================================================
+
+    if (cleanVerificationId.isEmpty) {
+      debugPrint(
+        'ERROR: VERIFICATION ID IS EMPTY',
+      );
+
+      throw FirebaseAuthException(
+        code: 'missing-verification-id',
+        message:
+            'Firebase verification ID is empty.',
+      );
+    }
+
+    if (!RegExp(r'^[0-9]{6}$').hasMatch(cleanOtp)) {
+      debugPrint(
+        'ERROR: OTP MUST CONTAIN EXACTLY 6 DIGITS',
+      );
+
+      throw FirebaseAuthException(
+        code: 'invalid-otp-format',
+        message:
+            'OTP must contain exactly 6 digits.',
+      );
+    }
+
     try {
-      final String cleanVerificationId =
-          verificationId.trim();
-
-      final String cleanOtp =
-          smsCode.trim();
-
-      debugPrint('========================================');
-      debugPrint('FIREBASE OTP VERIFICATION START');
-      debugPrint(
-        'Verification ID length: '
-        '${cleanVerificationId.length}',
-      );
-      debugPrint(
-        'OTP length: ${cleanOtp.length}',
-      );
-      debugPrint('========================================');
-
       // =================================================
-      // BASIC VALIDATION
-      // =================================================
-
-      if (cleanVerificationId.isEmpty) {
-        debugPrint(
-          'ERROR: verificationId is EMPTY',
-        );
-        return false;
-      }
-
-      if (cleanOtp.length != 6) {
-        debugPrint(
-          'ERROR: OTP must contain exactly 6 digits',
-        );
-        return false;
-      }
-
-      // =================================================
-      // CREATE FIREBASE CREDENTIAL
+      // CREATE FIREBASE PHONE CREDENTIAL
       // =================================================
 
       final PhoneAuthCredential credential =
@@ -212,7 +245,7 @@ class AuthService {
       );
 
       debugPrint(
-        'Firebase PhoneAuthCredential created.',
+        'FIREBASE PHONE AUTH CREDENTIAL CREATED',
       );
 
       // =================================================
@@ -233,10 +266,14 @@ class AuthService {
 
       if (user == null) {
         debugPrint(
-          'ERROR: Firebase returned NULL user.',
+          'ERROR: FIREBASE RETURNED NULL USER',
         );
 
-        return false;
+        throw FirebaseAuthException(
+          code: 'null-user',
+          message:
+              'Firebase authentication returned no user.',
+        );
       }
 
       // =================================================
@@ -245,11 +282,9 @@ class AuthService {
 
       debugPrint('========================================');
       debugPrint('OTP VERIFICATION SUCCESS');
+      debugPrint('FIREBASE UID: ${user.uid}');
       debugPrint(
-        'Firebase UID: ${user.uid}',
-      );
-      debugPrint(
-        'Firebase Phone: ${user.phoneNumber}',
+        'FIREBASE PHONE: ${user.phoneNumber}',
       );
       debugPrint('========================================');
 
@@ -274,10 +309,14 @@ class AuthService {
 
       if (currentUser == null) {
         debugPrint(
-          'ERROR: Firebase currentUser is NULL.',
+          'ERROR: FIREBASE CURRENT USER IS NULL',
         );
 
-        return false;
+        throw FirebaseAuthException(
+          code: 'session-not-created',
+          message:
+              'Firebase login session was not created.',
+        );
       }
 
       debugPrint('========================================');
@@ -294,32 +333,32 @@ class AuthService {
     }
 
     // ===================================================
-    // FIREBASE OTP ERROR
+    // IMPORTANT:
+    // DO NOT HIDE FIREBASE ERROR
     // ===================================================
 
     on FirebaseAuthException catch (e) {
       debugPrint('========================================');
-      debugPrint('FIREBASE OTP ERROR');
+      debugPrint('FIREBASE OTP VERIFICATION ERROR');
       debugPrint('ERROR CODE: ${e.code}');
-      debugPrint('ERROR MESSAGE: ${e.message}');
-      debugPrint('========================================');
-
-      return false;
-    }
-
-    // ===================================================
-    // GENERAL ERROR
-    // ===================================================
-
-    catch (e) {
-      debugPrint('========================================');
       debugPrint(
-        'OTP VERIFICATION GENERAL ERROR',
+        'ERROR MESSAGE: ${e.message}',
       );
+      debugPrint('========================================');
+
+      // IMPORTANT:
+      // Screen को exact Firebase error मिलेगा.
+      rethrow;
+    } catch (e) {
+      debugPrint('========================================');
+      debugPrint('OTP VERIFICATION GENERAL ERROR');
       debugPrint('ERROR: $e');
       debugPrint('========================================');
 
-      return false;
+      throw FirebaseAuthException(
+        code: 'otp-verification-failed',
+        message: e.toString(),
+      );
     }
   }
 
