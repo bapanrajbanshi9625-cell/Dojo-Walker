@@ -1,8 +1,10 @@
 // File location: lib/screens/mobile_login_screen.dart
+
 import 'package:flutter/material.dart';
+
 import '../core/constants/app_colors.dart';
 import '../services/auth_service.dart';
-import 'profile_setup_screen.dart';
+import 'otp_verification_screen.dart';
 
 class MobileLoginScreen extends StatefulWidget {
   const MobileLoginScreen({super.key});
@@ -12,203 +14,317 @@ class MobileLoginScreen extends StatefulWidget {
 }
 
 class _MobileLoginScreenState extends State<MobileLoginScreen> {
-  final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _otpController = TextEditingController();
-  final AuthService _authService = AuthService();
-  
-  bool _isOtpSent = false;
-  bool _isLoading = false;
-  String _verificationId = '';
+  final TextEditingController _phoneController =
+      TextEditingController();
 
-  Future<void> _handleVerifyPhoneNumber() async {
-    setState(() => _isLoading = true);
+  final AuthService _authService = AuthService();
+
+  bool _isLoading = false;
+
+  // =====================================================
+  // SEND OTP
+  // =====================================================
+
+  Future<void> _sendOtp() async {
+    final String phone =
+        _phoneController.text.trim();
+
+    if (phone.length != 10) {
+      _showMessage(
+        'Please enter a valid 10-digit mobile number.',
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
 
     await _authService.verifyPhoneNumber(
-      phoneNumber: _phoneController.text.trim(),
-      onCodeSent: (verificationId) {
+      phoneNumber: phone,
+
+      // =================================================
+      // OTP SENT
+      // =================================================
+
+      onCodeSent: (String verificationId) {
+        if (!mounted) {
+          return;
+        }
+
         setState(() {
-          _verificationId = verificationId;
-          _isOtpSent = true;
           _isLoading = false;
         });
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('OTP sent successfully!')),
+
+        // =================================================
+        // OPEN OTP VERIFICATION SCREEN
+        // =================================================
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                OtpVerificationScreen(
+              verificationId: verificationId,
+              phoneNumber: phone,
+            ),
+          ),
         );
       },
-      onError: (error) {
-        setState(() => _isLoading = false);
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Verification Failed: $error')),
+
+      // =================================================
+      // ERROR
+      // =================================================
+
+      onError: (String error) {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _isLoading = false;
+        });
+
+        _showMessage(
+          'Verification Failed: $error',
         );
       },
     );
   }
 
-  Future<void> _handleVerifyOTP() async {
-    setState(() => _isLoading = true);
+  // =====================================================
+  // MESSAGE
+  // =====================================================
 
-    bool success = await _authService.verifyOTP(
-      verificationId: _verificationId,
-      smsCode: _otpController.text.trim(),
-    );
-
-    setState(() => _isLoading = false);
-
-    if (success) {
-      if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const MandatoryProfileSetupScreen(),
-        ),
-        (route) => false,
-      );
-    } else {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid OTP. Please try again.')),
-      );
+  void _showMessage(String message) {
+    if (!mounted) {
+      return;
     }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+      ),
+    );
   }
+
+  // =====================================================
+  // DISPOSE
+  // =====================================================
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  // =====================================================
+  // BUILD
+  // =====================================================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Center(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Center(
-                  child: CircleAvatar(
-                    radius: 40,
-                    backgroundColor: AppColors.primary,
-                    child: Icon(Icons.pets, size: 40, color: Colors.white),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Center(
-                  child: Text(
-                    'Dojo Walker - Buddy Login',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
+      backgroundColor:
+          AppColors.scaffoldBackground,
+
+      body: SafeArea(
+        child: Padding(
+          padding:
+              const EdgeInsets.all(24),
+          child: Center(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  // =================================================
+                  // LOGO
+                  // =================================================
+
+                  const Center(
+                    child: CircleAvatar(
+                      radius: 40,
+                      backgroundColor:
+                          AppColors.primary,
+                      child: Icon(
+                        Icons.pets,
+                        size: 40,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
-                const Center(
-                  child: Text(
-                    'Enter your mobile number to continue',
-                    style: TextStyle(fontSize: 14, color: AppColors.textGrey),
-                  ),
-                ),
-                const SizedBox(height: 30),
-                const Text(
-                  'Mobile Number',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: AppColors.textGrey,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  maxLength: 10,
-                  decoration: InputDecoration(
-                    prefixText: '+91 ',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    counterText: '',
-                  ),
-                ),
-                if (_isOtpSent) ...[
-                  const SizedBox(height: 15),
-                  const Text(
-                    'Enter 6-Digit OTP',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: AppColors.textGrey,
+
+                  const SizedBox(height: 20),
+
+                  // =================================================
+                  // TITLE
+                  // =================================================
+
+                  const Center(
+                    child: Text(
+                      'Dojo Walker - Buddy Login',
+                      textAlign:
+                          TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight:
+                            FontWeight.bold,
+                        color:
+                            AppColors.textDark,
+                      ),
                     ),
                   ),
+
                   const SizedBox(height: 6),
+
+                  const Center(
+                    child: Text(
+                      'Enter your mobile number to continue',
+                      textAlign:
+                          TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color:
+                            AppColors.textGrey,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // =================================================
+                  // MOBILE NUMBER LABEL
+                  // =================================================
+
+                  const Text(
+                    'Mobile Number',
+                    style: TextStyle(
+                      fontWeight:
+                          FontWeight.bold,
+                      fontSize: 12,
+                      color:
+                          AppColors.textGrey,
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  // =================================================
+                  // MOBILE NUMBER
+                  // =================================================
+
                   TextField(
-                    controller: _otpController,
-                    keyboardType: TextInputType.number,
-                    maxLength: 6,
-                    decoration: InputDecoration(
-                      hintText: '123456',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                    controller:
+                        _phoneController,
+                    keyboardType:
+                        TextInputType.phone,
+                    maxLength: 10,
+                    enabled:
+                        !_isLoading,
+                    decoration:
+                        InputDecoration(
+                      prefixText: '+91 ',
+                      hintText:
+                          'Enter mobile number',
+                      border:
+                          OutlineInputBorder(
+                        borderRadius:
+                            BorderRadius.circular(
+                          12,
+                        ),
+                      ),
+                      enabledBorder:
+                          OutlineInputBorder(
+                        borderRadius:
+                            BorderRadius.circular(
+                          12,
+                        ),
+                        borderSide:
+                            const BorderSide(
+                          color:
+                              Color(0xFFD5D9DE),
+                        ),
+                      ),
+                      focusedBorder:
+                          OutlineInputBorder(
+                        borderRadius:
+                            BorderRadius.circular(
+                          12,
+                        ),
+                        borderSide:
+                            const BorderSide(
+                          color:
+                              AppColors.primary,
+                          width: 1.5,
+                        ),
                       ),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor:
+                          Colors.white,
                       counterText: '',
                     ),
                   ),
-                ],
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: _isLoading
-                        ? null
-                        : () {
-                            if (!_isOtpSent) {
-                              if (_phoneController.text.length == 10) {
-                                _handleVerifyPhoneNumber();
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Please enter a valid 10-digit mobile number',
-                                    ),
-                                  ),
-                                );
-                              }
-                            } else {
-                              if (_otpController.text.length == 6) {
-                                _handleVerifyOTP();
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Please enter valid 6-digit OTP'),
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                    child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(
-                            _isOtpSent ? 'Verify OTP & Login' : 'Get Mobile OTP',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+
+                  const SizedBox(height: 24),
+
+                  // =================================================
+                  // GET OTP BUTTON
+                  // =================================================
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child:
+                        ElevatedButton(
+                      style:
+                          ElevatedButton.styleFrom(
+                        backgroundColor:
+                            AppColors.primary,
+                        disabledBackgroundColor:
+                            Colors.grey,
+                        shape:
+                            RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(
+                            12,
                           ),
+                        ),
+                      ),
+                      onPressed:
+                          _isLoading
+                              ? null
+                              : _sendOtp,
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child:
+                                  CircularProgressIndicator(
+                                color:
+                                    Colors.white,
+                                strokeWidth:
+                                    2.5,
+                              ),
+                            )
+                          : const Text(
+                              'Get Mobile OTP',
+                              style:
+                                  TextStyle(
+                                color:
+                                    Colors.white,
+                                fontWeight:
+                                    FontWeight.bold,
+                                fontSize:
+                                    16,
+                              ),
+                            ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
