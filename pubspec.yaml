@@ -17,6 +17,7 @@ dependencies:
   firebase_core: ^2.24.2
   firebase_auth: ^4.16.0
   cloud_firestore: ^4.17.5
+  firebase_storage: ^11.6.5
 
   # Local Storage
   shared_preferences: ^2.2.3
@@ -24,7 +25,7 @@ dependencies:
   # QR Scanner
   mobile_scanner: ^5.1.0
 
-  # Camera / Selfie
+  # Selfie Camera
   image_picker: ^1.1.2
 
 dev_dependencies:
