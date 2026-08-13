@@ -23,24 +23,24 @@ class LiveLocationContainer extends StatelessWidget {
           live: true,
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
 
         Container(
-          height: 330,
+          height: 220,
           width: double.infinity,
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: const Color(0xFFE7EEF5),
-            borderRadius: BorderRadius.circular(26),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: const Color(0xFFFFD3C4),
-              width: 2,
+              width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(.07),
-                blurRadius: 14,
-                offset: const Offset(0, 6),
+                color: Colors.black.withOpacity(.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -51,57 +51,41 @@ class LiveLocationContainer extends StatelessWidget {
                 painter: WalkerMapPainter(),
               ),
 
-              // ==================================================
-              // LIVE LOCATION
-              // ==================================================
-
               const Positioned(
-                top: 14,
-                left: 14,
+                top: 10,
+                left: 10,
                 child: LiveLocationBadge(),
               ),
 
-              // ==================================================
-              // MY LOCATION
-              // ==================================================
-
               Positioned(
-                top: 14,
-                right: 14,
+                top: 10,
+                right: 10,
                 child: Container(
-                  width: 44,
-                  height: 44,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(.13),
-                        blurRadius: 8,
+                        color: Colors.black.withOpacity(.10),
+                        blurRadius: 6,
                       ),
                     ],
                   ),
                   child: const Icon(
                     Icons.my_location_rounded,
                     color: Color(0xFFFF4B16),
-                    size: 23,
+                    size: 20,
                   ),
                 ),
               ),
 
-              // ==================================================
-              // LOCATION MARKER
-              // ==================================================
-
               const Positioned(
                 left: 160,
-                top: 135,
+                top: 90,
                 child: WalkerLocationMarker(),
               ),
-
-              // ==================================================
-              // WALK NOT STARTED OVERLAY
-              // ==================================================
 
               if (!isWalkStarted)
                 Positioned.fill(
