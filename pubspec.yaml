@@ -5,36 +5,36 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.6.0 <4.0.0'
+  sdk: '>=3.4.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
 
-  cupertino_icons: ^1.0.8
+  cupertino_icons: ^1.0.6
 
-  # Firebase
-  firebase_core: ^4.12.1
-  firebase_auth: ^6.5.6
-  cloud_firestore: ^6.7.1
-  firebase_storage: ^13.4.5
+  # Firebase - compatible with Dart 3.4 / older Flutter
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.16.0
+  cloud_firestore: ^4.17.5
+  firebase_storage: ^11.6.5
 
   # Local Storage
-  shared_preferences: ^2.5.3
+  shared_preferences: ^2.2.3
 
   # QR Scanner
-  mobile_scanner: ^5.2.3
+  mobile_scanner: ^5.1.0
 
   # Selfie Camera
-  image_picker: ^1.2.1
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  flutter_lints: ^6.0.0
+  flutter_lints: ^3.0.0
 
-  flutter_launcher_icons: ^0.14.4
+  flutter_launcher_icons: ^0.13.1
 
 flutter_launcher_icons:
   image_path: "assets/DOJO_WALKER.png"
