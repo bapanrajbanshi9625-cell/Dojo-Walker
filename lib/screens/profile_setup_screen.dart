@@ -157,9 +157,9 @@ class _MandatoryProfileSetupScreenState
     final String pinCode =
         _pinCodeController.text.trim();
 
-    // -----------------------------------------------------
+    // =====================================================
     // VALIDATION
-    // -----------------------------------------------------
+    // =====================================================
 
     if (_selfieFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -250,7 +250,7 @@ class _MandatoryProfileSetupScreenState
           user.phoneNumber ?? '';
 
       // =================================================
-      // UPLOAD SELFIE TO FIREBASE STORAGE
+      // FIREBASE STORAGE
       // =================================================
 
       final Reference photoReference =
@@ -268,7 +268,7 @@ class _MandatoryProfileSetupScreenState
           await photoReference.getDownloadURL();
 
       // =================================================
-      // SAVE WALKER PROFILE TO FIRESTORE
+      // FIRESTORE
       // =================================================
 
       await FirebaseFirestore.instance
@@ -310,7 +310,7 @@ class _MandatoryProfileSetupScreenState
       );
 
       // =================================================
-      // GO TO WALKER DASHBOARD
+      // GO TO DASHBOARD
       // =================================================
 
       Navigator.pushAndRemoveUntil(
@@ -476,14 +476,15 @@ class _MandatoryProfileSetupScreenState
                                 ? const Icon(
                                     Icons.person,
                                     size: 65,
-                                    color: AppColors
-                                        .primary,
+                                    color:
+                                        AppColors.primary,
                                   )
                                 : Image.file(
                                     _selfieFile!,
                                     width: 120,
                                     height: 120,
-                                    fit: BoxFit.cover,
+                                    fit:
+                                        BoxFit.cover,
                                   ),
                       ),
                     ),
@@ -709,7 +710,9 @@ class _MandatoryProfileSetupScreenState
                         AppColors.primary,
                   ),
 
-                  const SizedBox(width: 10),
+                  const SizedBox(
+                    width: 10,
+                  ),
 
                   Expanded(
                     child: Text(
@@ -777,7 +780,9 @@ class _MandatoryProfileSetupScreenState
                         AppColors.primary,
                   ),
 
-                  const SizedBox(width: 10),
+                  const SizedBox(
+                    width: 10,
+                  ),
 
                   Expanded(
                     child: Text(
