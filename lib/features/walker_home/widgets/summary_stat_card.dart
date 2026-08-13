@@ -24,54 +24,68 @@ class SummaryStatCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          height: 130,
-          padding: const EdgeInsets.all(14),
+          height: 110,
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: const Color(0xFFFAFBFC),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: const Color(0xFFE5E8EC),
             ),
           ),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ==================================================
+              // ICON
+              // ==================================================
+
               Container(
-                width: 48,
-                height: 48,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
                   color: background,
-                  borderRadius:
-                      BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(13),
                 ),
                 child: Icon(
                   icon,
                   color: iconColor,
-                  size: 28,
+                  size: 24,
                 ),
               ),
 
               const Spacer(),
 
+              // ==================================================
+              // TITLE
+              // ==================================================
+
               Text(
                 title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Color(0xFF687386),
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
 
               const SizedBox(height: 2),
 
+              // ==================================================
+              // VALUE
+              // ==================================================
+
               Text(
                 value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Color(0xFF27394A),
-                  fontSize: 19,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
               ),
