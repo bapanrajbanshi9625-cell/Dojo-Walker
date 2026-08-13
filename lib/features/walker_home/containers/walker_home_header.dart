@@ -8,98 +8,76 @@ class WalkerHomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 112,
+      height: 82,
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        22,
-        10,
-        18,
-        14,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 8,
       ),
       decoration: const BoxDecoration(
         color: WalkerHomeFeatures.orange,
       ),
       child: Row(
         children: [
-          // ======================================================
-          // LOGO
-          // ======================================================
-
           Container(
-            width: 62,
-            height: 62,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(.15),
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withOpacity(.42),
-                width: 1.5,
+                color: Colors.white.withOpacity(.38),
+                width: 1.2,
               ),
             ),
             child: const Icon(
               Icons.pets_rounded,
               color: Colors.white,
-              size: 36,
+              size: 29,
             ),
           ),
 
-          const SizedBox(width: 13),
-
-          // ======================================================
-          // TITLE
-          // ======================================================
+          const SizedBox(width: 11),
 
           const Expanded(
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Dojo Walker',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: 3),
+                SizedBox(height: 2),
                 Text(
                   "Buddy's Dashboard",
                   style: TextStyle(
                     color: Colors.white70,
-                    fontSize: 14,
+                    fontSize: 12,
                   ),
                 ),
               ],
             ),
           ),
 
-          // ======================================================
-          // NOTIFICATION
-          // ======================================================
-
           GestureDetector(
             onTap: () {
-              WalkerHomeFeatures
-                  .openNotifications(context);
+              WalkerHomeFeatures.openNotifications(context);
             },
             child: const _HeaderButton(
               icon: Icons.notifications_none_rounded,
             ),
           ),
 
-          const SizedBox(width: 9),
-
-          // ======================================================
-          // SUPPORT
-          // ======================================================
+          const SizedBox(width: 7),
 
           GestureDetector(
             onTap: () {
-              WalkerHomeFeatures
-                  .openSupport(context);
+              WalkerHomeFeatures.openSupport(context);
             },
             child: const _HeaderButton(
               icon: Icons.headset_mic_outlined,
@@ -121,19 +99,19 @@ class _HeaderButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 49,
-      height: 49,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(.14),
         shape: BoxShape.circle,
         border: Border.all(
-          color: Colors.white.withOpacity(.35),
+          color: Colors.white.withOpacity(.30),
         ),
       ),
       child: Icon(
         icon,
         color: Colors.white,
-        size: 26,
+        size: 21,
       ),
     );
   }
