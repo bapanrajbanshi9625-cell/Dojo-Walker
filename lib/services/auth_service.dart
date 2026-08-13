@@ -19,32 +19,65 @@ class AuthService {
     try {
       final String cleanPhone = phoneNumber.trim();
 
+      // -------------------------------------------------
+      // VALIDATE PHONE NUMBER
+      // -------------------------------------------------
+
       if (cleanPhone.length != 10) {
-        onError('Please enter a valid 10-digit mobile number.');
+        onError(
+          'Please enter a valid 10-digit mobile number.',
+        );
         return;
       }
+
+      debugPrint(
+        'Starting Firebase phone verification...',
+      );
+
+      debugPrint(
+        'Phone: +91$cleanPhone',
+      );
+
+      // -------------------------------------------------
+      // FIREBASE PHONE AUTH
+      // -------------------------------------------------
 
       await _auth.verifyPhoneNumber(
         phoneNumber: '+91$cleanPhone',
 
-        // Android में automatic verification होने पर
-        // Firebase खुद user को sign in कर देगा.
+        // =================================================
+        // AUTOMATIC VERIFICATION
+        // =================================================
+
         verificationCompleted:
             (PhoneAuthCredential credential) async {
           try {
-            await _auth.signInWithCredential(credential);
+            debugPrint(
+              'Firebase automatic verification started.',
+            );
 
-            final User? user = _auth.currentUser;
+            final UserCredential userCredential =
+                await _auth.signInWithCredential(
+              credential,
+            );
+
+            final User? user =
+                userCredential.user;
 
             if (user != null) {
               debugPrint(
-                'Firebase auto verification successful: ${user.uid}',
+                'Firebase automatic verification successful.',
               );
 
-              final prefs =
-                  await SharedPreferences.getInstance();
+              debugPrint(
+                'Firebase UID: ${user.uid}',
+              );
 
-              await prefs.setBool('isLoggedIn', true);
+              debugPrint(
+                'Firebase Phone: ${user.phoneNumber}',
+              );
+
+              await _saveLoginState();
             }
           } catch (e) {
             debugPrint(
@@ -53,45 +86,91 @@ class AuthService {
           }
         },
 
-        // Firebase verification error
-        verificationFailed: (FirebaseAuthException e) {
+        // =================================================
+        // VERIFICATION FAILED
+        // =================================================
+
+        verificationFailed:
+            (FirebaseAuthException e) {
           debugPrint(
-            'Firebase Verification Failed: '
-            '${e.code} - ${e.message}',
+            'Firebase Verification Failed',
+          );
+
+          debugPrint(
+            'Code: ${e.code}',
+          );
+
+          debugPrint(
+            'Message: ${e.message}',
           );
 
           onError(
-            e.message ?? 'Firebase phone verification failed.',
+            e.message ??
+                'Firebase phone verification failed.',
           );
         },
 
-        // OTP successfully sent
+        // =================================================
+        // OTP SENT
+        // =================================================
+
         codeSent: (
           String verificationId,
           int? resendToken,
         ) {
           debugPrint(
-            'Firebase OTP sent. Verification ID received.',
+            'Firebase OTP sent successfully.',
           );
 
-          onCodeSent(verificationId);
+          debugPrint(
+            'Verification ID received.',
+          );
+
+          onCodeSent(
+            verificationId,
+          );
         },
 
-        // OTP timeout
-        codeAutoRetrievalTimeout: (
-          String verificationId,
-        ) {
+        // =================================================
+        // AUTO RETRIEVAL TIMEOUT
+        // =================================================
+
+        codeAutoRetrievalTimeout:
+            (String verificationId) {
           debugPrint(
             'Firebase OTP auto-retrieval timeout.',
           );
+
+          debugPrint(
+            'Verification ID is still available.',
+          );
         },
+      );
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+        'Firebase Phone Verification Exception',
+      );
+
+      debugPrint(
+        'Code: ${e.code}',
+      );
+
+      debugPrint(
+        'Message: ${e.message}',
+      );
+
+      onError(
+        e.message ??
+            'Phone verification failed.',
       );
     } catch (e) {
       debugPrint(
         'Phone Verification Exception: $e',
       );
 
-      onError(e.toString());
+      onError(
+        e.toString(),
+      );
     }
   }
 
@@ -104,42 +183,78 @@ class AuthService {
     required String smsCode,
   }) async {
     try {
-      final String cleanOtp = smsCode.trim();
+      final String cleanVerificationId =
+          verificationId.trim();
 
-      if (verificationId.isEmpty) {
+      final String cleanOtp =
+          smsCode.trim();
+
+      // -------------------------------------------------
+      // VALIDATE VERIFICATION ID
+      // -------------------------------------------------
+
+      if (cleanVerificationId.isEmpty) {
         debugPrint(
           'OTP verification failed: verificationId is empty.',
         );
+
         return false;
       }
+
+      // -------------------------------------------------
+      // VALIDATE OTP
+      // -------------------------------------------------
 
       if (cleanOtp.length != 6) {
         debugPrint(
           'OTP verification failed: invalid OTP length.',
         );
+
         return false;
       }
 
-      // Create Firebase phone credential
+      debugPrint(
+        'Starting Firebase OTP verification...',
+      );
+
+      // =================================================
+      // CREATE FIREBASE PHONE CREDENTIAL
+      // =================================================
+
       final PhoneAuthCredential credential =
           PhoneAuthProvider.credential(
-        verificationId: verificationId,
+        verificationId:
+            cleanVerificationId,
         smsCode: cleanOtp,
       );
 
-      // IMPORTANT:
-      // This creates the real Firebase Auth session.
-      final UserCredential userCredential =
-          await _auth.signInWithCredential(credential);
+      // =================================================
+      // SIGN IN WITH FIREBASE
+      // =================================================
 
-      final User? user = userCredential.user;
+      final UserCredential userCredential =
+          await _auth.signInWithCredential(
+        credential,
+      );
+
+      // =================================================
+      // GET FIREBASE USER
+      // =================================================
+
+      final User? user =
+          userCredential.user;
 
       if (user == null) {
         debugPrint(
           'Firebase OTP verification failed: user is null.',
         );
+
         return false;
       }
+
+      // =================================================
+      // FIREBASE LOGIN SUCCESS
+      // =================================================
 
       debugPrint(
         'Firebase OTP verification successful.',
@@ -153,34 +268,52 @@ class AuthService {
         'Firebase Phone: ${user.phoneNumber}',
       );
 
-      // Local login flag
-      final prefs =
-          await SharedPreferences.getInstance();
+      // =================================================
+      // SAVE LOCAL LOGIN STATE
+      // =================================================
 
-      await prefs.setBool(
-        'isLoggedIn',
-        true,
-      );
+      await _saveLoginState();
 
-      // Confirm Firebase session exists
+      // =================================================
+      // CONFIRM FIREBASE SESSION
+      // =================================================
+
       final User? currentUser =
-          FirebaseAuth.instance.currentUser;
+          _auth.currentUser;
 
       if (currentUser == null) {
         debugPrint(
           'Firebase session could not be confirmed.',
         );
+
         return false;
       }
 
       debugPrint(
-        'Firebase session confirmed: ${currentUser.uid}',
+        'Firebase session confirmed.',
+      );
+
+      debugPrint(
+        'Current Firebase UID: ${currentUser.uid}',
+      );
+
+      debugPrint(
+        'Current Firebase Phone: '
+        '${currentUser.phoneNumber}',
       );
 
       return true;
     } on FirebaseAuthException catch (e) {
       debugPrint(
-        'Firebase OTP Error: ${e.code} - ${e.message}',
+        'Firebase OTP Error',
+      );
+
+      debugPrint(
+        'Code: ${e.code}',
+      );
+
+      debugPrint(
+        'Message: ${e.message}',
       );
 
       return false;
@@ -194,7 +327,31 @@ class AuthService {
   }
 
   // =====================================================
-  // CURRENT USER
+  // SAVE LOGIN STATE
+  // =====================================================
+
+  Future<void> _saveLoginState() async {
+    try {
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+
+      await prefs.setBool(
+        'isLoggedIn',
+        true,
+      );
+
+      debugPrint(
+        'Local login state saved.',
+      );
+    } catch (e) {
+      debugPrint(
+        'Failed to save local login state: $e',
+      );
+    }
+  }
+
+  // =====================================================
+  // CURRENT FIREBASE USER
   // =====================================================
 
   User? get currentUser {
@@ -202,7 +359,23 @@ class AuthService {
   }
 
   // =====================================================
-  // CHECK LOGIN SESSION
+  // CURRENT FIREBASE UID
+  // =====================================================
+
+  String? get currentUserUid {
+    return _auth.currentUser?.uid;
+  }
+
+  // =====================================================
+  // CURRENT PHONE NUMBER
+  // =====================================================
+
+  String? get currentPhoneNumber {
+    return _auth.currentUser?.phoneNumber;
+  }
+
+  // =====================================================
+  // CHECK FIREBASE LOGIN SESSION
   // =====================================================
 
   bool get isFirebaseLoggedIn {
@@ -210,18 +383,50 @@ class AuthService {
   }
 
   // =====================================================
+  // CHECK LOCAL LOGIN STATE
+  // =====================================================
+
+  Future<bool> isLoggedIn() async {
+    final SharedPreferences prefs =
+        await SharedPreferences.getInstance();
+
+    return prefs.getBool(
+          'isLoggedIn',
+        ) ??
+        false;
+  }
+
+  // =====================================================
   // LOGOUT
   // =====================================================
 
   Future<void> logout() async {
-    await _auth.signOut();
+    try {
+      // -------------------------------------------------
+      // FIREBASE LOGOUT
+      // -------------------------------------------------
 
-    final prefs =
-        await SharedPreferences.getInstance();
+      await _auth.signOut();
 
-    await prefs.setBool(
-      'isLoggedIn',
-      false,
-    );
+      // -------------------------------------------------
+      // LOCAL LOGOUT
+      // -------------------------------------------------
+
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+
+      await prefs.setBool(
+        'isLoggedIn',
+        false,
+      );
+
+      debugPrint(
+        'Firebase and local logout successful.',
+      );
+    } catch (e) {
+      debugPrint(
+        'Logout error: $e',
+      );
+    }
   }
 }
