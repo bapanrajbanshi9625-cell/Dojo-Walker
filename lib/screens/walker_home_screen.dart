@@ -132,10 +132,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
       }
 
       // ========================================================
-      // WALK ID
-      //
-      // QR scanner already creates/validates the active walk.
-      // If QR has no walkId, scanner should normally return one.
+      // VALIDATE WALK ID
       // ========================================================
 
       if (walkId.isEmpty) {
@@ -152,16 +149,10 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
       setState(() {
         _isWalkStarted = true;
-
         _ownerName = ownerName;
-
         _ownerUid = ownerUid;
-
         _ownerPhone =
-            ownerPhone.isEmpty
-                ? null
-                : ownerPhone;
-
+            ownerPhone.isEmpty ? null : ownerPhone;
         _walkId = walkId;
       });
 
@@ -170,7 +161,6 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
       // ========================================================
 
       await _openLiveWalk();
-
     } catch (e) {
       if (!mounted) return;
 
@@ -342,8 +332,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                     width: 46,
                     height: 46,
                     decoration: BoxDecoration(
-                      color:
-                          orange.withOpacity(.12),
+                      color: orange.withOpacity(.12),
                       borderRadius:
                           BorderRadius.circular(13),
                     ),
@@ -378,23 +367,19 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.all(15),
+                padding: const EdgeInsets.all(15),
                 decoration: BoxDecoration(
-                  color:
-                      const Color(0xFFF7F8FA),
+                  color: const Color(0xFFF7F8FA),
                   borderRadius:
                       BorderRadius.circular(15),
                   border: Border.all(
-                    color:
-                        const Color(0xFFE5E7EA),
+                    color: const Color(0xFFE5E7EA),
                   ),
                 ),
                 child: Text(
                   description,
                   style: const TextStyle(
-                    color:
-                        Color(0xFF596574),
+                    color: Color(0xFF596574),
                     fontSize: 14,
                     height: 1.5,
                   ),
@@ -414,11 +399,9 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                   onPressed: () {
                     Navigator.pop(context);
                   },
-                  style:
-                      ElevatedButton.styleFrom(
+                  style: ElevatedButton.styleFrom(
                     backgroundColor: orange,
-                    foregroundColor:
-                        Colors.white,
+                    foregroundColor: Colors.white,
                     elevation: 0,
                     shape:
                         RoundedRectangleBorder(
@@ -450,9 +433,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          const Color(0xFFF5F6F8),
-
+      backgroundColor: const Color(0xFFF5F6F8),
       body: SafeArea(
         bottom: false,
         child: Stack(
@@ -475,8 +456,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
                 Expanded(
                   child: SingleChildScrollView(
-                    padding:
-                        const EdgeInsets.fromLTRB(
+                    padding: const EdgeInsets.fromLTRB(
                       16,
                       14,
                       16,
@@ -556,8 +536,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
                           _ActiveWalkButton(
                             ownerName:
-                                _ownerName ??
-                                    'Owner',
+                                _ownerName ?? 'Owner',
                             onTap:
                                 _openActiveWalk,
                           ),
@@ -579,8 +558,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                 right: 16,
                 bottom: 16,
                 child: _FloatingQrButton(
-                  onTap:
-                      _openCameraScanner,
+                  onTap: _openCameraScanner,
                 ),
               ),
           ],
@@ -603,15 +581,13 @@ class _FloatingQrButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color orange =
-        Color(0xFFFF4B16);
+    const Color orange = Color(0xFFFF4B16);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius:
-            BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18),
         child: Container(
           height: 60,
           decoration: BoxDecoration(
@@ -620,33 +596,28 @@ class _FloatingQrButton extends StatelessWidget {
                 BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color:
-                    orange.withOpacity(.30),
+                color: orange.withOpacity(.30),
                 blurRadius: 16,
-                offset:
-                    const Offset(0, 7),
+                offset: const Offset(0, 7),
               ),
             ],
           ),
-          child: Row(
+          child: const Row(
             mainAxisAlignment:
                 MainAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 Icons.qr_code_scanner_rounded,
                 color: Colors.white,
                 size: 27,
               ),
-
-              const SizedBox(width: 10),
-
-              const Text(
+              SizedBox(width: 10),
+              Text(
                 'Scan Owner QR Code',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 17,
-                  fontWeight:
-                      FontWeight.w800,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
@@ -661,8 +632,7 @@ class _FloatingQrButton extends StatelessWidget {
 // ACTIVE WALK BUTTON
 // ================================================================
 
-class _ActiveWalkButton
-    extends StatelessWidget {
+class _ActiveWalkButton extends StatelessWidget {
   final String ownerName;
   final VoidCallback onTap;
 
@@ -673,19 +643,16 @@ class _ActiveWalkButton
 
   @override
   Widget build(BuildContext context) {
-    const Color orange =
-        Color(0xFFFF4B16);
+    const Color orange = Color(0xFFFF4B16);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius:
-            BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18),
         child: Container(
           width: double.infinity,
-          padding:
-              const EdgeInsets.symmetric(
+          padding: const EdgeInsets.symmetric(
             vertical: 14,
             horizontal: 15,
           ),
@@ -695,11 +662,9 @@ class _ActiveWalkButton
                 BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color:
-                    orange.withOpacity(.22),
+                color: orange.withOpacity(.22),
                 blurRadius: 12,
-                offset:
-                    const Offset(0, 5),
+                offset: const Offset(0, 5),
               ),
             ],
           ),
@@ -709,15 +674,12 @@ class _ActiveWalkButton
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color:
-                      Colors.white
-                          .withOpacity(.16),
+                  color: Colors.white.withOpacity(.16),
                   borderRadius:
                       BorderRadius.circular(13),
                 ),
                 child: const Icon(
-                  Icons
-                      .directions_walk_rounded,
+                  Icons.directions_walk_rounded,
                   color: Colors.white,
                   size: 24,
                 ),
@@ -743,15 +705,12 @@ class _ActiveWalkButton
                     const SizedBox(height: 3),
 
                     Text(
-                      'Walking with '
-                      '$ownerName'
-                      ' • Tap to view',
+                      'Walking with $ownerName • Tap to view',
                       maxLines: 1,
                       overflow:
                           TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color:
-                            Colors.white70,
+                        color: Colors.white70,
                         fontSize: 12,
                       ),
                     ),
@@ -760,8 +719,7 @@ class _ActiveWalkButton
               ),
 
               const Icon(
-                Icons
-                    .arrow_forward_ios_rounded,
+                Icons.arrow_forward_ios_rounded,
                 color: Colors.white,
                 size: 16,
               ),
