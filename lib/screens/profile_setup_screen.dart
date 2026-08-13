@@ -36,7 +36,6 @@ class _MandatoryProfileSetupScreenState
   final ImagePicker _imagePicker = ImagePicker();
 
   DateTime? _dateOfBirth;
-
   File? _selfieFile;
 
   bool _isSaving = false;
@@ -47,19 +46,15 @@ class _MandatoryProfileSetupScreenState
 
   Future<void> _takeSelfie() async {
     try {
-      final XFile? image =
-          await _imagePicker.pickImage(
+      final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.camera,
-        preferredCameraDevice:
-            CameraDevice.front,
+        preferredCameraDevice: CameraDevice.front,
         imageQuality: 80,
         maxWidth: 1200,
         maxHeight: 1200,
       );
 
-      if (image == null) {
-        return;
-      }
+      if (image == null) return;
 
       if (!mounted) return;
 
@@ -67,17 +62,13 @@ class _MandatoryProfileSetupScreenState
         _selfieFile = File(image.path);
       });
     } catch (e) {
-      debugPrint(
-        'Selfie camera error: $e',
-      );
+      debugPrint('Selfie camera error: $e');
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Unable to open camera: $e',
-          ),
+          content: Text('Unable to open camera: $e'),
         ),
       );
     }
@@ -90,29 +81,25 @@ class _MandatoryProfileSetupScreenState
   Future<void> _selectDateOfBirth() async {
     final DateTime now = DateTime.now();
 
-    final DateTime initialDate =
-        DateTime(
+    final DateTime initialDate = DateTime(
       now.year - 18,
       now.month,
       now.day,
     );
 
-    final DateTime firstDate =
-        DateTime(
+    final DateTime firstDate = DateTime(
       1900,
       1,
       1,
     );
 
-    final DateTime lastDate =
-        DateTime(
+    final DateTime lastDate = DateTime(
       now.year,
       now.month,
       now.day,
     );
 
-    final DateTime? selectedDate =
-        await showDatePicker(
+    final DateTime? selectedDate = await showDatePicker(
       context: context,
       initialDate: initialDate,
       firstDate: firstDate,
@@ -120,9 +107,7 @@ class _MandatoryProfileSetupScreenState
       helpText: 'Select Date of Birth',
     );
 
-    if (selectedDate == null) {
-      return;
-    }
+    if (selectedDate == null) return;
 
     if (!mounted) return;
 
@@ -135,9 +120,7 @@ class _MandatoryProfileSetupScreenState
   // FORMAT DATE
   // =====================================================
 
-  String _formatDate(
-    DateTime date,
-  ) {
+  String _formatDate(DateTime date) {
     final String day =
         date.day.toString().padLeft(2, '0');
 
@@ -147,9 +130,7 @@ class _MandatoryProfileSetupScreenState
     return '$day/$month/${date.year}';
   }
 
-  String _formatDateForFirebase(
-    DateTime date,
-  ) {
+  String _formatDateForFirebase(DateTime date) {
     final String month =
         date.month.toString().padLeft(2, '0');
 
@@ -183,9 +164,7 @@ class _MandatoryProfileSetupScreenState
     if (_selfieFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Please take your selfie.',
-          ),
+          content: Text('Please take your selfie.'),
         ),
       );
       return;
@@ -194,9 +173,7 @@ class _MandatoryProfileSetupScreenState
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Please enter your full name.',
-          ),
+          content: Text('Please enter your full name.'),
         ),
       );
       return;
@@ -227,9 +204,7 @@ class _MandatoryProfileSetupScreenState
     if (address.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Please enter your address.',
-          ),
+          content: Text('Please enter your address.'),
         ),
       );
       return;
@@ -266,17 +241,16 @@ class _MandatoryProfileSetupScreenState
 
     try {
       // =================================================
-      // FIREBASE AUTH UID
+      // FIREBASE AUTH DATA
       // =================================================
 
-      final String walkerUid =
-          user.uid;
+      final String walkerUid = user.uid;
 
       final String phoneNumber =
           user.phoneNumber ?? '';
 
       // =================================================
-      // FIREBASE STORAGE
+      // UPLOAD SELFIE TO FIREBASE STORAGE
       // =================================================
 
       final Reference photoReference =
@@ -294,7 +268,7 @@ class _MandatoryProfileSetupScreenState
           await photoReference.getDownloadURL();
 
       // =================================================
-      // FIRESTORE WALKER PROFILE
+      // SAVE WALKER PROFILE TO FIRESTORE
       // =================================================
 
       await FirebaseFirestore.instance
@@ -303,31 +277,20 @@ class _MandatoryProfileSetupScreenState
           .set(
         {
           'uid': walkerUid,
-
           'role': 'walker',
-
           'name': name,
-
           'dateOfBirth':
               _formatDateForFirebase(
             _dateOfBirth!,
           ),
-
           'aadhaarNumber': aadhaar,
-
           'address': address,
-
           'pinCode': pinCode,
-
           'phone': phoneNumber,
-
           'photoUrl': photoUrl,
-
           'profileCompleted': true,
-
           'updatedAt':
               FieldValue.serverTimestamp(),
-
           'createdAt':
               FieldValue.serverTimestamp(),
         },
@@ -382,7 +345,7 @@ class _MandatoryProfileSetupScreenState
   }
 
   // =====================================================
-  // TEXT FIELD
+  // INPUT DECORATION
   // =====================================================
 
   InputDecoration _inputDecoration(
@@ -396,16 +359,14 @@ class _MandatoryProfileSetupScreenState
         borderRadius:
             BorderRadius.circular(10),
       ),
-      enabledBorder:
-          OutlineInputBorder(
+      enabledBorder: OutlineInputBorder(
         borderRadius:
             BorderRadius.circular(10),
         borderSide: const BorderSide(
           color: Color(0xFFD5D9DE),
         ),
       ),
-      focusedBorder:
-          OutlineInputBorder(
+      focusedBorder: OutlineInputBorder(
         borderRadius:
             BorderRadius.circular(10),
         borderSide: BorderSide(
@@ -420,9 +381,7 @@ class _MandatoryProfileSetupScreenState
   // LABEL
   // =====================================================
 
-  Widget _label(
-    String text,
-  ) {
+  Widget _label(String text) {
     return Text(
       text,
       style: const TextStyle(
@@ -432,6 +391,10 @@ class _MandatoryProfileSetupScreenState
       ),
     );
   }
+
+  // =====================================================
+  // DISPOSE
+  // =====================================================
 
   @override
   void dispose() {
@@ -447,9 +410,7 @@ class _MandatoryProfileSetupScreenState
   // =====================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     final User? user =
         FirebaseAuth.instance.currentUser;
 
@@ -463,9 +424,7 @@ class _MandatoryProfileSetupScreenState
       appBar: AppBar(
         backgroundColor:
             AppColors.primary,
-
         automaticallyImplyLeading: false,
-
         title: const Text(
           'Complete Walker Profile',
           style: TextStyle(
@@ -476,13 +435,10 @@ class _MandatoryProfileSetupScreenState
       ),
 
       body: SingleChildScrollView(
-        padding:
-            const EdgeInsets.all(20),
-
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment:
               CrossAxisAlignment.start,
-
           children: [
             // =================================================
             // SELFIE
@@ -493,27 +449,20 @@ class _MandatoryProfileSetupScreenState
                 onTap: _isSaving
                     ? null
                     : _takeSelfie,
-
                 child: Stack(
                   alignment:
                       Alignment.bottomRight,
-
                   children: [
                     Container(
                       width: 120,
                       height: 120,
-
                       decoration:
                           BoxDecoration(
                         shape:
                             BoxShape.circle,
-
-                        color:
-                            AppColors.primary
-                                .withOpacity(
-                          0.10,
-                        ),
-
+                        color: AppColors
+                            .primary
+                            .withOpacity(0.10),
                         border:
                             Border.all(
                           color:
@@ -521,28 +470,20 @@ class _MandatoryProfileSetupScreenState
                           width: 3,
                         ),
                       ),
-
-                      child:
-                          ClipOval(
+                      child: ClipOval(
                         child:
-                            _selfieFile ==
-                                    null
+                            _selfieFile == null
                                 ? const Icon(
-                                    Icons
-                                        .person,
-                                    size:
-                                        65,
-                                    color:
-                                        AppColors.primary,
+                                    Icons.person,
+                                    size: 65,
+                                    color: AppColors
+                                        .primary,
                                   )
                                 : Image.file(
                                     _selfieFile!,
-                                    width:
-                                        120,
-                                    height:
-                                        120,
-                                    fit:
-                                        BoxFit.cover,
+                                    width: 120,
+                                    height: 120,
+                                    fit: BoxFit.cover,
                                   ),
                       ),
                     ),
@@ -550,15 +491,12 @@ class _MandatoryProfileSetupScreenState
                     Container(
                       width: 38,
                       height: 38,
-
                       decoration:
                           BoxDecoration(
                         color:
                             AppColors.primary,
-
                         shape:
                             BoxShape.circle,
-
                         border:
                             Border.all(
                           color:
@@ -566,9 +504,7 @@ class _MandatoryProfileSetupScreenState
                           width: 3,
                         ),
                       ),
-
-                      child:
-                          const Icon(
+                      child: const Icon(
                         Icons.camera_alt,
                         color:
                             Colors.white,
@@ -580,9 +516,7 @@ class _MandatoryProfileSetupScreenState
               ),
             ),
 
-            const SizedBox(
-              height: 10,
-            ),
+            const SizedBox(height: 10),
 
             const Center(
               child: Text(
@@ -596,9 +530,7 @@ class _MandatoryProfileSetupScreenState
               ),
             ),
 
-            const SizedBox(
-              height: 28,
-            ),
+            const SizedBox(height: 28),
 
             // =================================================
             // NAME
@@ -606,26 +538,20 @@ class _MandatoryProfileSetupScreenState
 
             _label('Full Name'),
 
-            const SizedBox(
-              height: 6,
-            ),
+            const SizedBox(height: 6),
 
             TextField(
               controller:
                   _nameController,
-
               textCapitalization:
                   TextCapitalization.words,
-
               decoration:
                   _inputDecoration(
                 'Enter full name',
               ),
             ),
 
-            const SizedBox(
-              height: 18,
-            ),
+            const SizedBox(height: 18),
 
             // =================================================
             // DATE OF BIRTH
@@ -633,20 +559,14 @@ class _MandatoryProfileSetupScreenState
 
             _label('Date of Birth'),
 
-            const SizedBox(
-              height: 6,
-            ),
+            const SizedBox(height: 6),
 
             InkWell(
               onTap: _isSaving
                   ? null
                   : _selectDateOfBirth,
-
               borderRadius:
-                  BorderRadius.circular(
-                10,
-              ),
-
+                  BorderRadius.circular(10),
               child: InputDecorator(
                 decoration:
                     _inputDecoration(
@@ -654,11 +574,9 @@ class _MandatoryProfileSetupScreenState
                 ).copyWith(
                   suffixIcon:
                       const Icon(
-                    Icons
-                        .calendar_month,
+                    Icons.calendar_month,
                   ),
                 ),
-
                 child: Text(
                   _dateOfBirth == null
                       ? 'Select date of birth'
@@ -666,43 +584,31 @@ class _MandatoryProfileSetupScreenState
                           _dateOfBirth!,
                         ),
                   style: TextStyle(
-                    color:
-                        _dateOfBirth ==
-                                null
-                            ? Colors
-                                .grey
-                            : Colors
-                                .black87,
+                    color: _dateOfBirth ==
+                            null
+                        ? Colors.grey
+                        : Colors.black87,
                   ),
                 ),
               ),
             ),
 
-            const SizedBox(
-              height: 18,
-            ),
+            const SizedBox(height: 18),
 
             // =================================================
             // AADHAAR
             // =================================================
 
-            _label(
-              'Aadhaar Number',
-            ),
+            _label('Aadhaar Number'),
 
-            const SizedBox(
-              height: 6,
-            ),
+            const SizedBox(height: 6),
 
             TextField(
               controller:
                   _aadhaarController,
-
               keyboardType:
                   TextInputType.number,
-
               maxLength: 12,
-
               decoration:
                   _inputDecoration(
                 'Enter 12-digit Aadhaar number',
@@ -711,9 +617,7 @@ class _MandatoryProfileSetupScreenState
               ),
             ),
 
-            const SizedBox(
-              height: 18,
-            ),
+            const SizedBox(height: 18),
 
             // =================================================
             // ADDRESS
@@ -721,28 +625,21 @@ class _MandatoryProfileSetupScreenState
 
             _label('Address'),
 
-            const SizedBox(
-              height: 6,
-            ),
+            const SizedBox(height: 6),
 
             TextField(
               controller:
                   _addressController,
-
               maxLines: 3,
-
               textCapitalization:
                   TextCapitalization.sentences,
-
               decoration:
                   _inputDecoration(
                 'Enter complete address',
               ),
             ),
 
-            const SizedBox(
-              height: 18,
-            ),
+            const SizedBox(height: 18),
 
             // =================================================
             // PIN CODE
@@ -750,19 +647,14 @@ class _MandatoryProfileSetupScreenState
 
             _label('PIN Code'),
 
-            const SizedBox(
-              height: 6,
-            ),
+            const SizedBox(height: 6),
 
             TextField(
               controller:
                   _pinCodeController,
-
               keyboardType:
                   TextInputType.number,
-
               maxLength: 6,
-
               decoration:
                   _inputDecoration(
                 'Enter 6-digit PIN code',
@@ -771,9 +663,7 @@ class _MandatoryProfileSetupScreenState
               ),
             ),
 
-            const SizedBox(
-              height: 18,
-            ),
+            const SizedBox(height: 18),
 
             // =================================================
             // MOBILE NUMBER
@@ -783,33 +673,26 @@ class _MandatoryProfileSetupScreenState
               'Linked Mobile Number',
             ),
 
-            const SizedBox(
-              height: 6,
-            ),
+            const SizedBox(height: 6),
 
             Container(
-              width:
-                  double.infinity,
-
+              width: double.infinity,
               padding:
                   const EdgeInsets
                       .symmetric(
                 horizontal: 15,
                 vertical: 15,
               ),
-
               decoration:
                   BoxDecoration(
                 color:
                     const Color(
                   0xFFF1F3F5,
                 ),
-
                 borderRadius:
                     BorderRadius.circular(
                   10,
                 ),
-
                 border:
                     Border.all(
                   color:
@@ -818,7 +701,6 @@ class _MandatoryProfileSetupScreenState
                   ),
                 ),
               ),
-
               child: Row(
                 children: [
                   const Icon(
@@ -827,9 +709,7 @@ class _MandatoryProfileSetupScreenState
                         AppColors.primary,
                   ),
 
-                  const SizedBox(
-                    width: 10,
-                  ),
+                  const SizedBox(width: 10),
 
                   Expanded(
                     child: Text(
@@ -854,42 +734,30 @@ class _MandatoryProfileSetupScreenState
               ),
             ),
 
-            const SizedBox(
-              height: 18,
-            ),
+            const SizedBox(height: 18),
 
             // =================================================
             // WALKER UID
             // =================================================
 
-            _label(
-              'Walker UID',
-            ),
+            _label('Walker UID'),
 
-            const SizedBox(
-              height: 6,
-            ),
+            const SizedBox(height: 6),
 
             Container(
-              width:
-                  double.infinity,
-
+              width: double.infinity,
               padding:
-                  const EdgeInsets
-                      .all(15),
-
+                  const EdgeInsets.all(15),
               decoration:
                   BoxDecoration(
                 color:
                     const Color(
                   0xFFF1F3F5,
                 ),
-
                 borderRadius:
                     BorderRadius.circular(
                   10,
                 ),
-
                 border:
                     Border.all(
                   color:
@@ -898,23 +766,18 @@ class _MandatoryProfileSetupScreenState
                   ),
                 ),
               ),
-
               child: Row(
                 crossAxisAlignment:
                     CrossAxisAlignment
                         .start,
-
                 children: [
                   const Icon(
-                    Icons
-                        .verified_user,
+                    Icons.verified_user,
                     color:
                         AppColors.primary,
                   ),
 
-                  const SizedBox(
-                    width: 10,
-                  ),
+                  const SizedBox(width: 10),
 
                   Expanded(
                     child: Text(
@@ -942,30 +805,22 @@ class _MandatoryProfileSetupScreenState
               ),
             ),
 
-            const SizedBox(
-              height: 30,
-            ),
+            const SizedBox(height: 30),
 
             // =================================================
             // SAVE BUTTON
             // =================================================
 
             SizedBox(
-              width:
-                  double.infinity,
-
+              width: double.infinity,
               height: 52,
-
-              child:
-                  ElevatedButton(
+              child: ElevatedButton(
                 style:
                     ElevatedButton.styleFrom(
                   backgroundColor:
                       AppColors.primary,
-
                   disabledBackgroundColor:
                       Colors.grey,
-
                   shape:
                       RoundedRectangleBorder(
                     borderRadius:
@@ -974,43 +829,36 @@ class _MandatoryProfileSetupScreenState
                     ),
                   ),
                 ),
-
                 onPressed:
                     _isSaving
                         ? null
                         : _saveProfile,
-
-                child:
-                    _isSaving
-                        ? const SizedBox(
-                            width: 25,
-                            height: 25,
-                            child:
-                                CircularProgressIndicator(
-                              color:
-                                  Colors.white,
-                              strokeWidth:
-                                  2.5,
-                            ),
-                          )
-                        : const Text(
-                            'Save Profile & Continue',
-                            style:
-                                TextStyle(
-                              color:
-                                  Colors.white,
-                              fontWeight:
-                                  FontWeight.bold,
-                              fontSize:
-                                  16,
-                            ),
-                          ),
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 25,
+                        height: 25,
+                        child:
+                            CircularProgressIndicator(
+                          color:
+                              Colors.white,
+                          strokeWidth:
+                              2.5,
+                        ),
+                      )
+                    : const Text(
+                        'Save Profile & Continue',
+                        style: TextStyle(
+                          color:
+                              Colors.white,
+                          fontWeight:
+                              FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
               ),
             ),
 
-            const SizedBox(
-              height: 15,
-            ),
+            const SizedBox(height: 15),
 
             const Center(
               child: Text(
