@@ -1,14 +1,16 @@
-// File location: lib/screens/profile_setup_screen.dart
-
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/constants/app_colors.dart';
+import '../features/profile_setup/services/profile_setup_service.dart';
+import '../features/profile_setup/widgets/date_of_birth_field.dart';
+import '../features/profile_setup/widgets/locked_info_card.dart';
+import '../features/profile_setup/widgets/profile_text_field.dart';
+import '../features/profile_setup/widgets/save_profile_button.dart';
+import '../features/profile_setup/widgets/selfie_section.dart';
 import 'main_navigation_screen.dart';
 
 class MandatoryProfileSetupScreen extends StatefulWidget {
@@ -21,10 +23,17 @@ class MandatoryProfileSetupScreen extends StatefulWidget {
 
 class _MandatoryProfileSetupScreenState
     extends State<MandatoryProfileSetupScreen> {
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _aadhaarController = TextEditingController();
-  final TextEditingController _addressController = TextEditingController();
-  final TextEditingController _pinCodeController = TextEditingController();
+  final TextEditingController _nameController =
+      TextEditingController();
+
+  final TextEditingController _aadhaarController =
+      TextEditingController();
+
+  final TextEditingController _addressController =
+      TextEditingController();
+
+  final TextEditingController _pinCodeController =
+      TextEditingController();
 
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -57,14 +66,8 @@ class _MandatoryProfileSetupScreenState
     } catch (e) {
       debugPrint('Selfie camera error: $e');
 
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to open camera: $e'),
-        ),
+      _showMessage(
+        'Unable to open camera: $e',
       );
     }
   }
@@ -82,7 +85,11 @@ class _MandatoryProfileSetupScreenState
       now.day,
     );
 
-    final DateTime firstDate = DateTime(1900, 1, 1);
+    final DateTime firstDate = DateTime(
+      1900,
+      1,
+      1,
+    );
 
     final DateTime lastDate = DateTime(
       now.year,
@@ -108,25 +115,7 @@ class _MandatoryProfileSetupScreenState
   }
 
   // =====================================================
-  // FORMAT DATE
-  // =====================================================
-
-  String _formatDate(DateTime date) {
-    final String day = date.day.toString().padLeft(2, '0');
-    final String month = date.month.toString().padLeft(2, '0');
-
-    return '$day/$month/${date.year}';
-  }
-
-  String _formatDateForFirebase(DateTime date) {
-    final String month = date.month.toString().padLeft(2, '0');
-    final String day = date.day.toString().padLeft(2, '0');
-
-    return '${date.year}-$month-$day';
-  }
-
-  // =====================================================
-  // SHOW ERROR
+  // MESSAGE
   // =====================================================
 
   void _showMessage(String message) {
@@ -142,31 +131,44 @@ class _MandatoryProfileSetupScreenState
   }
 
   // =====================================================
-  // SAVE WALKER PROFILE
+  // SAVE PROFILE
   // =====================================================
 
   Future<void> _saveProfile() async {
-    final String name = _nameController.text.trim();
-    final String aadhaar = _aadhaarController.text.trim();
-    final String address = _addressController.text.trim();
-    final String pinCode = _pinCodeController.text.trim();
+    final String name =
+        _nameController.text.trim();
+
+    final String aadhaar =
+        _aadhaarController.text.trim();
+
+    final String address =
+        _addressController.text.trim();
+
+    final String pinCode =
+        _pinCodeController.text.trim();
 
     // =====================================================
     // VALIDATION
     // =====================================================
 
     if (_selfieFile == null) {
-      _showMessage('Please take your selfie.');
+      _showMessage(
+        'Please take your selfie.',
+      );
       return;
     }
 
     if (name.isEmpty) {
-      _showMessage('Please enter your full name.');
+      _showMessage(
+        'Please enter your full name.',
+      );
       return;
     }
 
     if (_dateOfBirth == null) {
-      _showMessage('Please select your date of birth.');
+      _showMessage(
+        'Please select your date of birth.',
+      );
       return;
     }
 
@@ -178,7 +180,9 @@ class _MandatoryProfileSetupScreenState
     }
 
     if (address.isEmpty) {
-      _showMessage('Please enter your address.');
+      _showMessage(
+        'Please enter your address.',
+      );
       return;
     }
 
@@ -189,7 +193,8 @@ class _MandatoryProfileSetupScreenState
       return;
     }
 
-    final User? user = FirebaseAuth.instance.currentUser;
+    final User? user =
+        FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       _showMessage(
@@ -204,77 +209,44 @@ class _MandatoryProfileSetupScreenState
 
     try {
       // =================================================
-      // FIREBASE AUTH
+      // FIREBASE PROFILE SERVICE
       // =================================================
 
-      final String walkerUid = user.uid;
-      final String phoneNumber = user.phoneNumber ?? '';
-
-      // =================================================
-      // FIREBASE STORAGE
-      // =================================================
-
-      final Reference photoReference = FirebaseStorage.instance
-          .ref()
-          .child('walker_profiles')
-          .child(walkerUid)
-          .child('selfie.jpg');
-
-      await photoReference.putFile(_selfieFile!);
-
-      final String photoUrl =
-          await photoReference.getDownloadURL();
-
-      // =================================================
-      // FIRESTORE
-      // =================================================
-
-      await FirebaseFirestore.instance
-          .collection('walkers')
-          .doc(walkerUid)
-          .set(
-        {
-          'uid': walkerUid,
-          'role': 'walker',
-          'name': name,
-          'dateOfBirth': _formatDateForFirebase(
-            _dateOfBirth!,
-          ),
-          'aadhaarNumber': aadhaar,
-          'address': address,
-          'pinCode': pinCode,
-          'phone': phoneNumber,
-          'photoUrl': photoUrl,
-          'profileCompleted': true,
-          'updatedAt': FieldValue.serverTimestamp(),
-          'createdAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
+      await ProfileSetupService.saveWalkerProfile(
+        walkerUid: user.uid,
+        phoneNumber: user.phoneNumber ?? '',
+        name: name,
+        dateOfBirth: _dateOfBirth!,
+        aadhaar: aadhaar,
+        address: address,
+        pinCode: pinCode,
+        selfieFile: _selfieFile!,
       );
 
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile saved successfully!'),
-        ),
+      _showMessage(
+        'Profile saved successfully!',
       );
 
       // =================================================
-      // GO TO DASHBOARD
+      // GO TO MAIN NAVIGATION
       // =================================================
 
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (context) => const MainNavigationScreen(),
+          builder: (context) =>
+              const MainNavigationScreen(),
         ),
         (route) => false,
       );
     } catch (e) {
-      debugPrint('Walker profile save error: $e');
+      debugPrint(
+        'Walker profile save error: $e',
+      );
 
       _showMessage(
         'Profile save failed: $e',
@@ -286,49 +258,6 @@ class _MandatoryProfileSetupScreenState
         });
       }
     }
-  }
-
-  // =====================================================
-  // INPUT DECORATION
-  // =====================================================
-
-  InputDecoration _inputDecoration(String hint) {
-    return InputDecoration(
-      hintText: hint,
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(
-          color: Color(0xFFD5D9DE),
-        ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(
-          color: AppColors.primary,
-          width: 1.5,
-        ),
-      ),
-    );
-  }
-
-  // =====================================================
-  // LABEL
-  // =====================================================
-
-  Widget _label(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.bold,
-        color: AppColors.textGrey,
-      ),
-    );
   }
 
   // =====================================================
@@ -350,9 +279,12 @@ class _MandatoryProfileSetupScreenState
 
   @override
   Widget build(BuildContext context) {
-    final User? user = FirebaseAuth.instance.currentUser;
+    final User? user =
+        FirebaseAuth.instance.currentUser;
 
-    final String walkerUid = user?.uid ?? '';
+    final String walkerUid =
+        user?.uid ?? '';
+
     final String phoneNumber =
         user?.phoneNumber ?? 'Not available';
 
@@ -371,64 +303,18 @@ class _MandatoryProfileSetupScreenState
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
           children: [
             // =================================================
             // SELFIE
             // =================================================
 
-            Center(
-              child: GestureDetector(
-                onTap: _isSaving ? null : _takeSelfie,
-                child: Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.primary.withOpacity(0.10),
-                        border: Border.all(
-                          color: AppColors.primary,
-                          width: 3,
-                        ),
-                      ),
-                      child: ClipOval(
-                        child: _selfieFile == null
-                            ? const Icon(
-                                Icons.person,
-                                size: 65,
-                                color: AppColors.primary,
-                              )
-                            : Image.file(
-                                _selfieFile!,
-                                width: 120,
-                                height: 120,
-                                fit: BoxFit.cover,
-                              ),
-                      ),
-                    ),
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 3,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.camera_alt,
-                        color: Colors.white,
-                        size: 19,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            SelfieSection(
+              selfieFile: _selfieFile,
+              onTap: _isSaving
+                  ? null
+                  : _takeSelfie,
             ),
 
             const SizedBox(height: 10),
@@ -446,19 +332,15 @@ class _MandatoryProfileSetupScreenState
             const SizedBox(height: 28),
 
             // =================================================
-            // NAME
+            // FULL NAME
             // =================================================
 
-            _label('Full Name'),
-
-            const SizedBox(height: 6),
-
-            TextField(
+            ProfileTextField(
+              label: 'Full Name',
+              hint: 'Enter full name',
               controller: _nameController,
-              textCapitalization: TextCapitalization.words,
-              decoration: _inputDecoration(
-                'Enter full name',
-              ),
+              textCapitalization:
+                  TextCapitalization.words,
             ),
 
             const SizedBox(height: 18),
@@ -467,32 +349,11 @@ class _MandatoryProfileSetupScreenState
             // DATE OF BIRTH
             // =================================================
 
-            _label('Date of Birth'),
-
-            const SizedBox(height: 6),
-
-            InkWell(
-              onTap: _isSaving ? null : _selectDateOfBirth,
-              borderRadius: BorderRadius.circular(10),
-              child: InputDecorator(
-                decoration: _inputDecoration(
-                  'Select date of birth',
-                ).copyWith(
-                  suffixIcon: const Icon(
-                    Icons.calendar_month,
-                  ),
-                ),
-                child: Text(
-                  _dateOfBirth == null
-                      ? 'Select date of birth'
-                      : _formatDate(_dateOfBirth!),
-                  style: TextStyle(
-                    color: _dateOfBirth == null
-                        ? Colors.grey
-                        : Colors.black87,
-                  ),
-                ),
-              ),
+            DateOfBirthField(
+              dateOfBirth: _dateOfBirth,
+              onTap: _isSaving
+                  ? null
+                  : _selectDateOfBirth,
             ),
 
             const SizedBox(height: 18),
@@ -501,19 +362,13 @@ class _MandatoryProfileSetupScreenState
             // AADHAAR
             // =================================================
 
-            _label('Aadhaar Number'),
-
-            const SizedBox(height: 6),
-
-            TextField(
+            ProfileTextField(
+              label: 'Aadhaar Number',
+              hint: 'Enter 12-digit Aadhaar number',
               controller: _aadhaarController,
-              keyboardType: TextInputType.number,
+              keyboardType:
+                  TextInputType.number,
               maxLength: 12,
-              decoration: _inputDecoration(
-                'Enter 12-digit Aadhaar number',
-              ).copyWith(
-                counterText: '',
-              ),
             ),
 
             const SizedBox(height: 18),
@@ -522,17 +377,13 @@ class _MandatoryProfileSetupScreenState
             // ADDRESS
             // =================================================
 
-            _label('Address'),
-
-            const SizedBox(height: 6),
-
-            TextField(
+            ProfileTextField(
+              label: 'Address',
+              hint: 'Enter complete address',
               controller: _addressController,
               maxLines: 3,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: _inputDecoration(
-                'Enter complete address',
-              ),
+              textCapitalization:
+                  TextCapitalization.sentences,
             ),
 
             const SizedBox(height: 18),
@@ -541,19 +392,13 @@ class _MandatoryProfileSetupScreenState
             // PIN CODE
             // =================================================
 
-            _label('PIN Code'),
-
-            const SizedBox(height: 6),
-
-            TextField(
+            ProfileTextField(
+              label: 'PIN Code',
+              hint: 'Enter 6-digit PIN code',
               controller: _pinCodeController,
-              keyboardType: TextInputType.number,
+              keyboardType:
+                  TextInputType.number,
               maxLength: 6,
-              decoration: _inputDecoration(
-                'Enter 6-digit PIN code',
-              ).copyWith(
-                counterText: '',
-              ),
             ),
 
             const SizedBox(height: 18),
@@ -562,46 +407,10 @@ class _MandatoryProfileSetupScreenState
             // MOBILE NUMBER
             // =================================================
 
-            _label('Linked Mobile Number'),
-
-            const SizedBox(height: 6),
-
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 15,
-                vertical: 15,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F3F5),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: const Color(0xFFD5D9DE),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.phone,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      phoneNumber,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.lock,
-                    size: 18,
-                    color: Colors.grey,
-                  ),
-                ],
-              ),
+            LockedInfoCard(
+              label: 'Linked Mobile Number',
+              value: phoneNumber,
+              icon: Icons.phone,
             ),
 
             const SizedBox(height: 18),
@@ -610,47 +419,12 @@ class _MandatoryProfileSetupScreenState
             // WALKER UID
             // =================================================
 
-            _label('Walker UID'),
-
-            const SizedBox(height: 6),
-
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F3F5),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: const Color(0xFFD5D9DE),
-                ),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.verified_user,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      walkerUid.isEmpty
-                          ? 'UID not available'
-                          : walkerUid,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.lock,
-                    size: 18,
-                    color: Colors.grey,
-                  ),
-                ],
-              ),
+            LockedInfoCard(
+              label: 'Walker UID',
+              value: walkerUid.isEmpty
+                  ? 'UID not available'
+                  : walkerUid,
+              icon: Icons.verified_user,
             ),
 
             const SizedBox(height: 30),
@@ -659,36 +433,11 @@ class _MandatoryProfileSetupScreenState
             // SAVE BUTTON
             // =================================================
 
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  disabledBackgroundColor: Colors.grey,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: _isSaving ? null : _saveProfile,
-                child: _isSaving
-                    ? const SizedBox(
-                        width: 25,
-                        height: 25,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2.5,
-                        ),
-                      )
-                    : const Text(
-                        'Save Profile & Continue',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-              ),
+            SaveProfileButton(
+              isSaving: _isSaving,
+              onPressed: _isSaving
+                  ? null
+                  : _saveProfile,
             ),
 
             const SizedBox(height: 15),
