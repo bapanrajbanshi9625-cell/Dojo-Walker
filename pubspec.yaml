@@ -31,14 +31,16 @@ dev_dependencies:
 
   flutter_launcher_icons: ^0.13.1
 
+# App Launcher Icon
 flutter_launcher_icons:
-  image_path: "assets/dojo_logo.png"
+  image_path: "assets/DOJO_WALKER.png"
   android: true
   ios: false
+  remove_alpha_ios: true
 
 flutter:
   uses-material-design: true
 
   assets:
-    - assets/dojo_logo.png
+    - assets/DOJO_WALKER.png
     - assets/dojo_walker_splash.png
