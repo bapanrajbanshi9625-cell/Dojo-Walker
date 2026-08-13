@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import '../walker_home_features.dart';
 
 class ScanQrContainer extends StatelessWidget {
+  final VoidCallback? onTap;
+
   const ScanQrContainer({
     super.key,
+    this.onTap,
   });
 
   @override
@@ -13,10 +16,10 @@ class ScanQrContainer extends StatelessWidget {
       width: double.infinity,
       height: 62,
       child: ElevatedButton.icon(
-        onPressed: () {
-          WalkerHomeFeatures
-              .openScanner(context);
-        },
+        onPressed: onTap ??
+            () {
+              WalkerHomeFeatures.openScanner(context);
+            },
         icon: const Icon(
           Icons.qr_code_scanner_rounded,
           size: 27,
@@ -29,15 +32,13 @@ class ScanQrContainer extends StatelessWidget {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor:
-              WalkerHomeFeatures.orange,
+          backgroundColor: WalkerHomeFeatures.orange,
           foregroundColor: Colors.white,
           elevation: 5,
-          shadowColor: WalkerHomeFeatures.orange
-              .withOpacity(.3),
+          shadowColor:
+              WalkerHomeFeatures.orange.withOpacity(.3),
           shape: RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(20),
           ),
         ),
       ),
