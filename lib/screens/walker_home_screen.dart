@@ -12,7 +12,6 @@ import '../features/walker_home/containers/today_summary_container.dart';
 import '../features/walker_home/containers/live_location_container.dart';
 import '../features/walker_home/containers/past_walks_container.dart';
 import '../features/walker_home/containers/scan_qr_container.dart';
-import '../features/walker_home/containers/walker_bottom_navigation.dart';
 
 import 'qr_scanner_screen.dart';
 import 'live_walk_screen.dart';
@@ -42,10 +41,12 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
   // ============================================================
 
   Future<void> _openCameraScanner() async {
-    final String? scannedData = await Navigator.push<String>(
+    final String? scannedData =
+        await Navigator.push<String>(
       context,
       MaterialPageRoute(
-        builder: (context) => const QrScannerScreen(),
+        builder: (context) =>
+            const QrScannerScreen(),
       ),
     );
 
@@ -64,10 +65,13 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
       // DECODE QR JSON
       // ========================================================
 
-      final dynamic decoded = jsonDecode(scannedData);
+      final dynamic decoded =
+          jsonDecode(scannedData);
 
       if (decoded is! Map) {
-        throw Exception('Invalid QR data.');
+        throw Exception(
+          'Invalid QR data.',
+        );
       }
 
       // ========================================================
@@ -75,28 +79,32 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
       // ========================================================
 
       final String ownerName =
-          decoded['ownerName']?.toString() ?? 'Owner';
+          decoded['ownerName']?.toString() ??
+              'Owner';
 
       // ========================================================
       // OWNER UID
       // ========================================================
 
       final String ownerUid =
-          decoded['ownerUid']?.toString() ?? '';
+          decoded['ownerUid']?.toString() ??
+              '';
 
       // ========================================================
       // OWNER PHONE
       // ========================================================
 
       final String ownerPhone =
-          decoded['ownerPhone']?.toString() ?? '';
+          decoded['ownerPhone']?.toString() ??
+              '';
 
       // ========================================================
       // WALK ID
       // ========================================================
 
       final String walkId =
-          decoded['walkId']?.toString() ?? '';
+          decoded['walkId']?.toString() ??
+              '';
 
       // ========================================================
       // CURRENT FIREBASE USER
@@ -106,21 +114,26 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
           FirebaseAuth.instance.currentUser;
 
       if (walkerUser == null) {
-        throw Exception('Walker is not logged in.');
+        throw Exception(
+          'Walker is not logged in.',
+        );
       }
 
       // ========================================================
       // CURRENT WALKER UID
       // ========================================================
 
-      final String walkerUid = walkerUser.uid;
+      final String walkerUid =
+          walkerUser.uid;
 
       // ========================================================
       // VALIDATE WALKER UID
       // ========================================================
 
       if (walkerUid.isEmpty) {
-        throw Exception('Walker UID is missing.');
+        throw Exception(
+          'Walker UID is missing.',
+        );
       }
 
       // ========================================================
@@ -128,7 +141,9 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
       // ========================================================
 
       if (ownerUid.isEmpty) {
-        throw Exception('Owner UID is missing from QR.');
+        throw Exception(
+          'Owner UID is missing from QR.',
+        );
       }
 
       // ========================================================
@@ -136,7 +151,9 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
       // ========================================================
 
       if (walkId.isEmpty) {
-        throw Exception('Walk ID is missing from QR.');
+        throw Exception(
+          'Walk ID is missing from QR.',
+        );
       }
 
       // ========================================================
@@ -153,7 +170,9 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
         _ownerUid = ownerUid;
 
         _ownerPhone =
-            ownerPhone.isEmpty ? null : ownerPhone;
+            ownerPhone.isEmpty
+                ? null
+                : ownerPhone;
 
         _walkId = walkId;
       });
@@ -168,7 +187,8 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
       _resetActiveWalk();
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
           content: Text(
             'Could not open Live Walk: $e',
@@ -200,7 +220,8 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
     if (walkerUser == null) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
           content: Text(
             'Walker is not logged in.',
@@ -228,10 +249,12 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => LiveWalkScreen(
+        builder: (context) =>
+            LiveWalkScreen(
           ownerUid: _ownerUid!,
           walkId: _walkId!,
-          ownerName: _ownerName ?? 'Owner',
+          ownerName:
+              _ownerName ?? 'Owner',
           ownerPhone: _ownerPhone,
         ),
       ),
@@ -288,30 +311,37 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
     required String description,
     required IconData icon,
   }) {
-    const Color orange = Color(0xFFFF4B16);
+    const Color orange =
+        Color(0xFFFF4B16);
 
-    const Color dark = Color(0xFF27394A);
+    const Color dark =
+        Color(0xFF27394A);
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor:
+          Colors.transparent,
       isScrollControlled: true,
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.fromLTRB(
-            24,
-            12,
-            24,
-            30,
+          padding:
+              const EdgeInsets.fromLTRB(
+            22,
+            10,
+            22,
+            26,
           ),
-          decoration: const BoxDecoration(
+          decoration:
+              const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(30),
+            borderRadius:
+                BorderRadius.vertical(
+              top: Radius.circular(28),
             ),
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize:
+                MainAxisSize.min,
             crossAxisAlignment:
                 CrossAxisAlignment.start,
             children: [
@@ -321,17 +351,23 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
               Center(
                 child: Container(
-                  width: 46,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                  width: 44,
+                  height: 4,
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        Colors.grey.shade300,
                     borderRadius:
-                        BorderRadius.circular(20),
+                        BorderRadius.circular(
+                      20,
+                    ),
                   ),
                 ),
               ),
 
-              const SizedBox(height: 22),
+              const SizedBox(
+                height: 20,
+              ),
 
               // ------------------------------------------------
               // TITLE
@@ -340,37 +376,46 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
               Row(
                 children: [
                   Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: orange.withOpacity(.12),
+                    width: 48,
+                    height: 48,
+                    decoration:
+                        BoxDecoration(
+                      color:
+                          orange.withOpacity(.12),
                       borderRadius:
-                          BorderRadius.circular(16),
+                          BorderRadius.circular(
+                        14,
+                      ),
                     ),
                     child: Icon(
                       icon,
                       color: orange,
-                      size: 28,
+                      size: 25,
                     ),
                   ),
 
-                  const SizedBox(width: 14),
+                  const SizedBox(
+                    width: 13,
+                  ),
 
                   Expanded(
                     child: Text(
                       title,
-                      style: const TextStyle(
+                      style:
+                          const TextStyle(
                         color: dark,
-                        fontSize: 23,
+                        fontSize: 20,
                         fontWeight:
-                            FontWeight.w800,
+                            FontWeight.w700,
                       ),
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(
+                height: 18,
+              ),
 
               // ------------------------------------------------
               // DESCRIPTION
@@ -379,26 +424,43 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
               Container(
                 width: double.infinity,
                 padding:
-                    const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF7F8FA),
+                    const EdgeInsets.all(
+                  16,
+                ),
+                decoration:
+                    BoxDecoration(
+                  color:
+                      const Color(
+                    0xFFF7F8FA,
+                  ),
                   borderRadius:
-                      BorderRadius.circular(18),
+                      BorderRadius.circular(
+                    16,
+                  ),
                   border: Border.all(
-                    color: const Color(0xFFE5E7EA),
+                    color:
+                        const Color(
+                      0xFFE5E7EA,
+                    ),
                   ),
                 ),
                 child: Text(
                   description,
-                  style: const TextStyle(
-                    color: Color(0xFF596574),
-                    fontSize: 16,
-                    height: 1.65,
+                  style:
+                      const TextStyle(
+                    color:
+                        Color(0xFF596574),
+                    fontSize: 15,
+                    height: 1.55,
+                    fontWeight:
+                        FontWeight.w400,
                   ),
                 ),
               ),
 
-              const SizedBox(height: 22),
+              const SizedBox(
+                height: 20,
+              ),
 
               // ------------------------------------------------
               // CLOSE
@@ -406,27 +468,36 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
               SizedBox(
                 width: double.infinity,
-                height: 54,
+                height: 50,
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pop(context);
+                    Navigator.pop(
+                      context,
+                    );
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: orange,
-                    foregroundColor: Colors.white,
+                  style:
+                      ElevatedButton.styleFrom(
+                    backgroundColor:
+                        orange,
+                    foregroundColor:
+                        Colors.white,
                     elevation: 0,
                     shape:
                         RoundedRectangleBorder(
                       borderRadius:
-                          BorderRadius.circular(16),
+                          BorderRadius.circular(
+                        15,
+                      ),
                     ),
                   ),
-                  child: const Text(
+                  child:
+                      const Text(
                     'Close',
-                    style: TextStyle(
-                      fontSize: 16,
+                    style:
+                        TextStyle(
+                      fontSize: 15,
                       fontWeight:
-                          FontWeight.w700,
+                          FontWeight.w600,
                     ),
                   ),
                 ),
@@ -443,7 +514,9 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
   // ============================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       backgroundColor:
           const Color(0xFFF5F6F8),
@@ -457,7 +530,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
         child: Column(
           children: [
             // ==================================================
-            // HEADER FEATURE
+            // HEADER
             // ==================================================
 
             const WalkerHomeHeader(),
@@ -467,28 +540,31 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
             // ==================================================
 
             Expanded(
-              child: SingleChildScrollView(
+              child:
+                  SingleChildScrollView(
                 padding:
                     const EdgeInsets.fromLTRB(
                   20,
-                  18,
+                  16,
                   20,
-                  125,
+                  110,
                 ),
                 child: Column(
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
                     // ==========================================
-                    // WELCOME FEATURE
+                    // WELCOME
                     // ==========================================
 
                     const WelcomeContainer(),
 
-                    const SizedBox(height: 25),
+                    const SizedBox(
+                      height: 22,
+                    ),
 
                     // ==========================================
-                    // TODAY SUMMARY FEATURE
+                    // TODAY SUMMARY
                     // ==========================================
 
                     TodaySummaryContainer(
@@ -507,10 +583,12 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                       },
                     ),
 
-                    const SizedBox(height: 25),
+                    const SizedBox(
+                      height: 22,
+                    ),
 
                     // ==========================================
-                    // LIVE LOCATION FEATURE
+                    // LIVE LOCATION
                     // ==========================================
 
                     LiveLocationContainer(
@@ -518,10 +596,12 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                           _isWalkStarted,
                     ),
 
-                    const SizedBox(height: 25),
+                    const SizedBox(
+                      height: 22,
+                    ),
 
                     // ==========================================
-                    // PAST WALKS FEATURE
+                    // PAST WALKS
                     // ==========================================
 
                     PastWalksContainer(
@@ -540,10 +620,12 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                       },
                     ),
 
-                    const SizedBox(height: 15),
+                    const SizedBox(
+                      height: 14,
+                    ),
 
                     // ==========================================
-                    // QR FEATURE / ACTIVE WALK
+                    // QR / ACTIVE WALK
                     // ==========================================
 
                     if (!_isWalkStarted)
@@ -554,7 +636,8 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
                     else
                       _ActiveWalkButton(
                         ownerName:
-                            _ownerName ?? 'Owner',
+                            _ownerName ??
+                                'Owner',
                         onTap:
                             _openActiveWalk,
                       ),
@@ -565,13 +648,6 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
           ],
         ),
       ),
-
-      // ========================================================
-      // BOTTOM NAVIGATION FEATURE
-      // ========================================================
-
-      bottomNavigationBar:
-          const WalkerBottomNavigation(),
     );
   }
 }
@@ -580,7 +656,8 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 // ACTIVE WALK BUTTON
 // ================================================================
 
-class _ActiveWalkButton extends StatelessWidget {
+class _ActiveWalkButton
+    extends StatelessWidget {
   final String ownerName;
   final VoidCallback onTap;
 
@@ -590,7 +667,9 @@ class _ActiveWalkButton extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     const Color orange =
         Color(0xFFFF4B16);
 
@@ -599,47 +678,56 @@ class _ActiveWalkButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius:
-            BorderRadius.circular(22),
+            BorderRadius.circular(20),
         child: Container(
           width: double.infinity,
           padding:
               const EdgeInsets.symmetric(
-            vertical: 17,
-            horizontal: 18,
+            vertical: 15,
+            horizontal: 16,
           ),
-          decoration: BoxDecoration(
+          decoration:
+              BoxDecoration(
             color: orange,
             borderRadius:
-                BorderRadius.circular(22),
+                BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
                 color:
-                    orange.withOpacity(.25),
-                blurRadius: 14,
+                    orange.withOpacity(.22),
+                blurRadius: 12,
                 offset:
-                    const Offset(0, 6),
+                    const Offset(0, 5),
               ),
             ],
           ),
           child: Row(
             children: [
               Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: Colors.white
-                      .withOpacity(.16),
+                width: 46,
+                height: 46,
+                decoration:
+                    BoxDecoration(
+                  color:
+                      Colors.white
+                          .withOpacity(.16),
                   borderRadius:
-                      BorderRadius.circular(16),
+                      BorderRadius.circular(
+                    14,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.directions_walk_rounded,
+                child:
+                    const Icon(
+                  Icons
+                      .directions_walk_rounded,
                   color: Colors.white,
-                  size: 28,
+                  size: 25,
                 ),
               ),
 
-              const SizedBox(width: 13),
+              const SizedBox(
+                width: 12,
+              ),
 
               Expanded(
                 child: Column(
@@ -648,15 +736,19 @@ class _ActiveWalkButton extends StatelessWidget {
                   children: [
                     const Text(
                       'Live Walk in Progress',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
+                      style:
+                          TextStyle(
+                        color:
+                            Colors.white,
+                        fontSize: 15,
                         fontWeight:
-                            FontWeight.w800,
+                            FontWeight.w700,
                       ),
                     ),
 
-                    const SizedBox(height: 3),
+                    const SizedBox(
+                      height: 3,
+                    ),
 
                     Text(
                       'Walking with '
@@ -665,9 +757,13 @@ class _ActiveWalkButton extends StatelessWidget {
                       maxLines: 1,
                       overflow:
                           TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style:
+                          const TextStyle(
+                        color:
+                            Colors.white70,
                         fontSize: 12,
+                        fontWeight:
+                            FontWeight.w400,
                       ),
                     ),
                   ],
@@ -675,9 +771,10 @@ class _ActiveWalkButton extends StatelessWidget {
               ),
 
               const Icon(
-                Icons.arrow_forward_ios_rounded,
+                Icons
+                    .arrow_forward_ios_rounded,
                 color: Colors.white,
-                size: 17,
+                size: 16,
               ),
             ],
           ),
