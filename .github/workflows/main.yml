@@ -15,15 +15,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # -----------------------------------------------
+      # CHECKOUT
+      # -----------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # -----------------------------------------------
+      # JAVA
+      # -----------------------------------------------
       - name: Set up Java
         uses: actions/setup-java@v5
         with:
           distribution: "zulu"
           java-version: "17"
 
+      # -----------------------------------------------
+      # FLUTTER
+      # -----------------------------------------------
       - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
@@ -34,30 +43,51 @@ jobs:
       - name: Check Flutter version
         run: flutter --version
 
+      # -----------------------------------------------
+      # DEPENDENCIES
+      # -----------------------------------------------
       - name: Install dependencies
         run: flutter pub get
 
+      # -----------------------------------------------
+      # APP ICON
+      # -----------------------------------------------
       - name: Generate app icon
         run: flutter pub run flutter_launcher_icons
 
+      # -----------------------------------------------
+      # ANALYZE
+      # -----------------------------------------------
       - name: Analyze code
         run: flutter analyze
 
+      # -----------------------------------------------
+      # TEST
+      # -----------------------------------------------
       - name: Run tests
         run: flutter test
 
+      # -----------------------------------------------
+      # CLEAN
+      # -----------------------------------------------
       - name: Clean Flutter
         run: flutter clean
 
+      # -----------------------------------------------
+      # INSTALL DEPENDENCIES AGAIN
+      # -----------------------------------------------
       - name: Install dependencies again
         run: flutter pub get
 
       # -----------------------------------------------
-      # NORMAL RELEASE APK
+      # BUILD RELEASE APK
       # -----------------------------------------------
       - name: Build Release APK
-        run: flutter build apk --release || true
+        run: flutter build apk --release
 
+      # -----------------------------------------------
+      # FIND APK
+      # -----------------------------------------------
       - name: Find Release APK
         run: |
           echo "======================================"
@@ -66,6 +96,9 @@ jobs:
 
           find build -type f -name "*.apk" -exec ls -lh {} \;
 
+      # -----------------------------------------------
+      # PREPARE RELEASE APK
+      # -----------------------------------------------
       - name: Prepare Release APK
         run: |
           mkdir -p build/release-apk
@@ -79,7 +112,7 @@ jobs:
 
           echo "Found APK: $APK"
 
-          cp "$APK" build/release-apk/dojo-walker-release.apk
+          cp "$APK" build/release-apk/Dojo-Walker-release.apk
 
           echo "======================================"
           echo "Final Dojo Walker APK"
@@ -94,4 +127,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dojo-walker-release-apk
-          path: build/release-apk/dojo-walker-release.apk
+          path: build/release-apk/Dojo-Walker-release.apk
