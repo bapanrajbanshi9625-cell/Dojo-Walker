@@ -32,18 +32,16 @@ class ScanQrContainer extends StatelessWidget {
             color: WalkerHomeFeatures.orange,
             borderRadius: BorderRadius.circular(18),
           ),
-          child: Row(
+          child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 Icons.qr_code_scanner_rounded,
                 color: Colors.white,
                 size: 23,
               ),
-
-              const SizedBox(width: 9),
-
-              const Text(
+              SizedBox(width: 9),
+              Text(
                 'Scan Owner QR Code',
                 style: TextStyle(
                   color: Colors.white,
