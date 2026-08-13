@@ -6,15 +6,17 @@ import '../widgets/location_marker.dart';
 import '../widgets/live_location_badge.dart';
 
 class LiveLocationContainer extends StatelessWidget {
+  final bool isWalkStarted;
+
   const LiveLocationContainer({
     super.key,
+    this.isWalkStarted = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const WalkerSectionTitle(
           title: 'Live Location',
@@ -29,8 +31,7 @@ class LiveLocationContainer extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: const Color(0xFFE7EEF5),
-            borderRadius:
-                BorderRadius.circular(26),
+            borderRadius: BorderRadius.circular(26),
             border: Border.all(
               color: const Color(0xFFFFD3C4),
               width: 2,
@@ -75,8 +76,7 @@ class LiveLocationContainer extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color:
-                            Colors.black.withOpacity(.13),
+                        color: Colors.black.withOpacity(.13),
                         blurRadius: 8,
                       ),
                     ],
@@ -98,6 +98,17 @@ class LiveLocationContainer extends StatelessWidget {
                 top: 135,
                 child: WalkerLocationMarker(),
               ),
+
+              // ==================================================
+              // WALK NOT STARTED OVERLAY
+              // ==================================================
+
+              if (!isWalkStarted)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.white.withOpacity(.08),
+                  ),
+                ),
             ],
           ),
         ),
