@@ -6,12 +6,10 @@ import 'core/theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 
 class DojoWalkerApp extends StatelessWidget {
-  final bool isLoggedIn;
   final String? startupError;
 
   const DojoWalkerApp({
     super.key,
-    required this.isLoggedIn,
     this.startupError,
   });
 
@@ -22,8 +20,10 @@ class DojoWalkerApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: startupError != null
-          ? StartupErrorScreen(error: startupError!)
-          : SplashScreen(isLoggedIn: isLoggedIn),
+          ? StartupErrorScreen(
+              error: startupError!,
+            )
+          : const SplashScreen(),
     );
   }
 }
