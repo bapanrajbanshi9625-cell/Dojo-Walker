@@ -1,5 +1,6 @@
 // File location: lib/screens/main_navigation_screen.dart
 import 'package:flutter/material.dart';
+
 import '../core/constants/app_colors.dart';
 import 'walker_home_screen.dart';
 import 'walk_history_screen.dart';
@@ -14,6 +15,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
+
   final List<Widget> _screens = const [
     WalkerHomeScreen(),
     WalkHistoryScreen(),
@@ -30,12 +32,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         unselectedItemColor: AppColors.textGrey,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.history),
-            label: 'Walk History',
+            label: 'Walks',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.menu), label: 'Menu'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.menu),
+            label: 'Menu',
+          ),
         ],
       ),
     );
