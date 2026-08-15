@@ -1,16 +1,14 @@
 // File location: lib/main.dart
 
-import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
 
-import 'firebase_options.dart';
 import 'app.dart';
+import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  bool isLoggedIn = false;
   String? startupError;
 
   // --------------------------------------------------
@@ -30,24 +28,10 @@ Future<void> main() async {
   }
 
   // --------------------------------------------------
-  // SharedPreferences
-  // --------------------------------------------------
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
-  } catch (e, stackTrace) {
-    debugPrint('SharedPreferences error: $e');
-    debugPrintStack(stackTrace: stackTrace);
-
-    isLoggedIn = false;
-  }
-
-  // --------------------------------------------------
   // Start application
   // --------------------------------------------------
   runApp(
     DojoWalkerApp(
-      isLoggedIn: isLoggedIn,
       startupError: startupError,
     ),
   );
