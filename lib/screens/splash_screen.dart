@@ -1,16 +1,14 @@
 // File location: lib/screens/splash_screen.dart
 
-import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import 'main_navigation_screen.dart';
 import 'mobile_login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
-  final bool isLoggedIn;
-
   const SplashScreen({
     super.key,
-    required this.isLoggedIn,
   });
 
   @override
@@ -18,50 +16,36 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  double progress = 0.0;
-  Timer? timer;
-
   @override
   void initState() {
     super.initState();
-    startLoading();
+
+    // Firebase session check immediately start hoga.
+    _checkLoginAndNavigate();
   }
 
-  void startLoading() {
-    timer = Timer.periodic(
-      const Duration(milliseconds: 80),
-      (timer) {
-        if (!mounted) return;
+  Future<void> _checkLoginAndNavigate() async {
+    final user = FirebaseAuth.instance.currentUser;
 
-        setState(() {
-          progress += 0.01;
+    // Firebase login session nahi hai.
+    if (user == null) {
+      _goTo(const MobileLoginScreen());
+      return;
+    }
 
-          if (progress >= 1.0) {
-            progress = 1.0;
-            timer.cancel();
+    // Firebase session available hai.
+    _goTo(const MainNavigationScreen());
+  }
 
-            Future.delayed(const Duration(milliseconds: 300), () {
-              if (!mounted) return;
+  void _goTo(Widget screen) {
+    if (!mounted) return;
 
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => widget.isLoggedIn
-                      ? const MainNavigationScreen()
-                      : const MobileLoginScreen(),
-                ),
-              );
-            });
-          }
-        });
-      },
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => screen,
+      ),
     );
-  }
-
-  @override
-  void dispose() {
-    timer?.cancel();
-    super.dispose();
   }
 
   @override
@@ -70,61 +54,40 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-
-          // =====================================
           // FULL SPLASH PNG
-          // =====================================
           Image.asset(
             'assets/dojo_walker_splash.png',
             fit: BoxFit.cover,
           ),
 
-          // =====================================
-          // REAL LOADING
-          // =====================================
+          // CIRCULAR LOADING
           Positioned(
-            left: 60,
-            right: 60,
-            bottom: 55,
+            left: 0,
+            right: 0,
+            bottom: 65,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-
-                Text(
-                  progress < 1.0
-                      ? 'Getting things ready...'
-                      : 'Ready!',
+                const Text(
+                  'Getting things ready...',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 17,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
 
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 9,
-                    backgroundColor: Colors.white24,
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(
+                const SizedBox(
+                  width: 30,
+                  height: 30,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(
                       Colors.white,
                     ),
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                Text(
-                  '${(progress * 100).toInt()}%',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
