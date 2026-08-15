@@ -8,36 +8,33 @@ class WalkerHomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 82,
+      height: 56,
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: const BoxDecoration(
         color: WalkerHomeFeatures.orange,
       ),
       child: Row(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(.15),
               shape: BoxShape.circle,
               border: Border.all(
                 color: Colors.white.withOpacity(.38),
-                width: 1.2,
+                width: 1,
               ),
             ),
             child: const Icon(
               Icons.pets_rounded,
               color: Colors.white,
-              size: 29,
+              size: 22,
             ),
           ),
 
-          const SizedBox(width: 11),
+          const SizedBox(width: 9),
 
           const Expanded(
             child: Column(
@@ -48,40 +45,35 @@ class WalkerHomeHeader extends StatelessWidget {
                   'Dojo Walker',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: 2),
                 Text(
                   "Buddy's Dashboard",
                   style: TextStyle(
                     color: Colors.white70,
-                    fontSize: 12,
+                    fontSize: 10,
                   ),
                 ),
               ],
             ),
           ),
 
-          GestureDetector(
+          _HeaderButton(
+            icon: Icons.notifications_none_rounded,
             onTap: () {
               WalkerHomeFeatures.openNotifications(context);
             },
-            child: const _HeaderButton(
-              icon: Icons.notifications_none_rounded,
-            ),
           ),
 
-          const SizedBox(width: 7),
+          const SizedBox(width: 6),
 
-          GestureDetector(
+          _HeaderButton(
+            icon: Icons.headset_mic_outlined,
             onTap: () {
               WalkerHomeFeatures.openSupport(context);
             },
-            child: const _HeaderButton(
-              icon: Icons.headset_mic_outlined,
-            ),
           ),
         ],
       ),
@@ -91,27 +83,32 @@ class WalkerHomeHeader extends StatelessWidget {
 
 class _HeaderButton extends StatelessWidget {
   final IconData icon;
+  final VoidCallback onTap;
 
   const _HeaderButton({
     required this.icon,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.14),
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.white.withOpacity(.30),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(.14),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withOpacity(.30),
+          ),
         ),
-      ),
-      child: Icon(
-        icon,
-        color: Colors.white,
-        size: 21,
+        child: Icon(
+          icon,
+          color: Colors.white,
+          size: 20,
+        ),
       ),
     );
   }
