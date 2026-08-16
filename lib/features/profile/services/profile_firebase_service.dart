@@ -7,12 +7,9 @@ import 'package:firebase_storage/firebase_storage.dart';
 class ProfileFirebaseService {
   ProfileFirebaseService._();
 
-  static final FirebaseAuth auth =
-      FirebaseAuth.instance;
-
+  static final FirebaseAuth auth = FirebaseAuth.instance;
   static final FirebaseFirestore firestore =
       FirebaseFirestore.instance;
-
   static final FirebaseStorage storage =
       FirebaseStorage.instance;
 
@@ -41,9 +38,7 @@ class ProfileFirebaseService {
 
   static DocumentReference<Map<String, dynamic>>
       get walkerDocument {
-    return firestore
-        .collection('walkers')
-        .doc(uid);
+    return firestore.collection('walkers').doc(uid);
   }
 
   // ==========================================================
@@ -98,9 +93,8 @@ class ProfileFirebaseService {
   // ==========================================================
 
   static Future<void> sendCurrentPhoneOtp({
-    required void Function(
-      String verificationId,
-    ) onCodeSent,
+    required void Function(String verificationId)
+        onCodeSent,
     required void Function(
       FirebaseAuthException error,
     ) onVerificationFailed,
@@ -119,22 +113,16 @@ class ProfileFirebaseService {
 
     await auth.verifyPhoneNumber(
       phoneNumber: phoneNumber,
-
       verificationCompleted:
           (PhoneAuthCredential credential) {},
-
       verificationFailed:
           onVerificationFailed,
-
       codeSent: (
         String verificationId,
         int? resendToken,
       ) {
-        onCodeSent(
-          verificationId,
-        );
+        onCodeSent(verificationId);
       },
-
       codeAutoRetrievalTimeout:
           (String verificationId) {},
     );
@@ -144,20 +132,17 @@ class ProfileFirebaseService {
   // VERIFY CURRENT PHONE OTP
   // ==========================================================
 
-  static Future<void>
-      verifyCurrentPhoneOtp({
+  static Future<void> verifyCurrentPhoneOtp({
     required String verificationId,
     required String smsCode,
   }) async {
     final PhoneAuthCredential credential =
         PhoneAuthProvider.credential(
-      verificationId:
-          verificationId,
+      verificationId: verificationId,
       smsCode: smsCode,
     );
 
-    await currentUser
-        .reauthenticateWithCredential(
+    await currentUser.reauthenticateWithCredential(
       credential,
     );
   }
@@ -168,31 +153,24 @@ class ProfileFirebaseService {
 
   static Future<void> sendNewPhoneOtp({
     required String newPhoneNumber,
-    required void Function(
-      String verificationId,
-    ) onCodeSent,
+    required void Function(String verificationId)
+        onCodeSent,
     required void Function(
       FirebaseAuthException error,
     ) onVerificationFailed,
   }) async {
     await auth.verifyPhoneNumber(
       phoneNumber: newPhoneNumber,
-
       verificationCompleted:
           (PhoneAuthCredential credential) {},
-
       verificationFailed:
           onVerificationFailed,
-
       codeSent: (
         String verificationId,
         int? resendToken,
       ) {
-        onCodeSent(
-          verificationId,
-        );
+        onCodeSent(verificationId);
       },
-
       codeAutoRetrievalTimeout:
           (String verificationId) {},
     );
@@ -202,28 +180,26 @@ class ProfileFirebaseService {
   // VERIFY NEW PHONE + UPDATE
   // ==========================================================
 
-  static Future<void>
-      verifyAndUpdateNewPhone({
+  static Future<void> verifyAndUpdateNewPhone({
     required String verificationId,
     required String smsCode,
     required String newPhoneNumber,
   }) async {
     final PhoneAuthCredential credential =
         PhoneAuthProvider.credential(
-      verificationId:
-          verificationId,
+      verificationId: verificationId,
       smsCode: smsCode,
     );
 
-    // Firebase Auth
     await currentUser.updatePhoneNumber(
       credential,
     );
 
-    // Firestore
+    // IMPORTANT:
+    // Same Firestore field used by Profile Screen
     await walkerDocument.set(
       {
-        'phone': newPhoneNumber,
+        'Mobile number': newPhoneNumber,
         'phoneUpdatedAt':
             FieldValue.serverTimestamp(),
       },
