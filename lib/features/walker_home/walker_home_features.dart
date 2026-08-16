@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../screens/profile_screen.dart';
+
 class WalkerHomeFeatures {
   // ============================================================
   // COLORS
@@ -106,6 +108,19 @@ class WalkerHomeFeatures {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Support will open here'),
+      ),
+    );
+  }
+
+  // ============================================================
+  // PROFILE
+  // ============================================================
+
+  static void openProfile(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ProfileScreen(),
       ),
     );
   }
