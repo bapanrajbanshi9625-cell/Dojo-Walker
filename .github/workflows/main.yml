@@ -81,9 +81,40 @@ jobs:
 
       # -----------------------------------------------
       # BUILD RELEASE APK
+      # Maven 429 protection with retry
       # -----------------------------------------------
       - name: Build Release APK
-        run: flutter build apk --release
+        env:
+          GRADLE_OPTS: >-
+            -Dorg.gradle.daemon=false
+            -Dorg.gradle.caching=true
+            -Dorg.gradle.parallel=false
+            -Dorg.gradle.jvmargs=-Xmx4g
+        run: |
+          set -e
+
+          for i in 1 2 3 4 5; do
+            echo "======================================"
+            echo "Release build attempt $i / 5"
+            echo "======================================"
+
+            if flutter build apk --release; then
+              echo "Release build successful."
+              break
+            fi
+
+            if [ "$i" -eq 5 ]; then
+              echo "ERROR: Release build failed after 5 attempts."
+              exit 1
+            fi
+
+            WAIT_TIME=$((30 * i))
+
+            echo "Build failed."
+            echo "Waiting ${WAIT_TIME} seconds before retry..."
+
+            sleep "$WAIT_TIME"
+          done
 
       # -----------------------------------------------
       # FIND APK
@@ -126,5 +157,6 @@ jobs:
       - name: Upload Dojo Walker Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: dojo-walker-release-apk
+          name: Dojo-Walker-release-apk
           path: build/release-apk/Dojo-Walker-release.apk
+          if-no-files-found: error
