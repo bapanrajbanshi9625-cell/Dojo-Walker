@@ -12,10 +12,14 @@ class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  State<SplashScreen> createState() =>
+      _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState
+    extends State<SplashScreen> {
+  String? _errorMessage;
+
   @override
   void initState() {
     super.initState();
@@ -23,7 +27,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   // =====================================================
-  // CHECK LOGIN + PROFILE
+  // CHECK LOGIN + FIRESTORE PROFILE
   // =====================================================
 
   Future<void> _checkLoginAndNavigate() async {
@@ -36,19 +40,32 @@ class _SplashScreenState extends State<SplashScreen> {
       // =================================================
 
       if (user == null) {
-        _goTo(const MobileLoginScreen());
+        _goTo(
+          const MobileLoginScreen(),
+        );
         return;
       }
 
       // =================================================
-      // USER LOGGED IN
-      // CHECK WALKER PROFILE
+      // FIREBASE UID
       // =================================================
 
-      debugPrint('========================================');
-      debugPrint('SPLASH PROFILE CHECK');
-      debugPrint('Firebase UID: ${user.uid}');
-      debugPrint('========================================');
+      debugPrint(
+        '========================================',
+      );
+      debugPrint(
+        'SPLASH PROFILE CHECK',
+      );
+      debugPrint(
+        'Firebase UID: ${user.uid}',
+      );
+      debugPrint(
+        '========================================',
+      );
+
+      // =================================================
+      // CHECK FIRESTORE
+      // =================================================
 
       final bool profileCompleted =
           await ProfileSetupService
@@ -70,7 +87,8 @@ class _SplashScreenState extends State<SplashScreen> {
 
       if (!profileCompleted) {
         debugPrint(
-          'Profile incomplete → Mandatory Profile Setup',
+          'Profile incomplete '
+          '→ Mandatory Profile Setup',
         );
 
         _goTo(
@@ -85,7 +103,8 @@ class _SplashScreenState extends State<SplashScreen> {
       // =================================================
 
       debugPrint(
-        'Profile complete → Main Navigation',
+        'Profile complete '
+        '→ Main Navigation',
       );
 
       _goTo(
@@ -93,7 +112,16 @@ class _SplashScreenState extends State<SplashScreen> {
       );
     } catch (e) {
       debugPrint(
-        'Splash profile check error: $e',
+        '========================================',
+      );
+      debugPrint(
+        'SPLASH PROFILE CHECK ERROR',
+      );
+      debugPrint(
+        '$e',
+      );
+      debugPrint(
+        '========================================',
       );
 
       if (!mounted) {
@@ -101,14 +129,19 @@ class _SplashScreenState extends State<SplashScreen> {
       }
 
       // =================================================
-      // SAFETY:
-      // IF PROFILE CHECK FAILS, DO NOT BYPASS
-      // MANDATORY PROFILE SETUP.
+      // IMPORTANT
+      //
+      // Firebase/Firestore confirmation nahi mila.
+      // Is situation mein Mandatory Profile par
+      // automatically NAHI bhejna hai.
       // =================================================
 
-      _goTo(
-        const MandatoryProfileSetupScreen(),
-      );
+      setState(() {
+        _errorMessage =
+            'Unable to verify your profile.\n\n'
+            'Please check your internet connection '
+            'and try again.';
+      });
     }
   }
 
@@ -149,38 +182,72 @@ class _SplashScreenState extends State<SplashScreen> {
             right: 0,
             bottom: 65,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize:
+                  MainAxisSize.min,
               children: [
-                const Text(
-                  'Getting things ready...',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w500,
+                if (_errorMessage == null)
+                  const Text(
+                    'Getting things ready...',
+                    textAlign:
+                        TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight:
+                          FontWeight.w500,
+                    ),
                   ),
-                ),
+
+                if (_errorMessage != null)
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(
+                      horizontal: 25,
+                    ),
+                    child: Text(
+                      _errorMessage!,
+                      textAlign:
+                          TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight:
+                            FontWeight.w500,
+                      ),
+                    ),
+                  ),
 
                 const SizedBox(height: 18),
 
-                Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme:
-                        Theme.of(context)
-                            .colorScheme
-                            .copyWith(
-                              primary: Colors.white,
-                            ),
-                  ),
-                  child: const SizedBox(
-                    width: 30,
-                    height: 30,
-                    child:
-                        CircularProgressIndicator(
-                      strokeWidth: 3,
+                if (_errorMessage == null)
+                  Theme(
+                    data: Theme.of(context)
+                        .copyWith(
+                      colorScheme:
+                          Theme.of(context)
+                              .colorScheme
+                              .copyWith(
+                                primary:
+                                    Colors.white,
+                              ),
+                    ),
+                    child: const SizedBox(
+                      width: 30,
+                      height: 30,
+                      child:
+                          CircularProgressIndicator(
+                        strokeWidth: 3,
+                      ),
                     ),
                   ),
-                ),
+
+                if (_errorMessage != null)
+                  ElevatedButton(
+                    onPressed:
+                        _checkLoginAndNavigate,
+                    child:
+                        const Text('Try Again'),
+                  ),
               ],
             ),
           ),
