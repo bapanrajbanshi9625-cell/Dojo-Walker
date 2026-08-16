@@ -13,8 +13,14 @@ class ProfileScreen extends StatelessWidget {
 
     if (user == null) {
       return const Scaffold(
+        backgroundColor: AppColors.scaffoldBackground,
         body: Center(
-          child: Text('Login session not found.'),
+          child: Text(
+            'Login session not found.',
+            style: TextStyle(
+              color: AppColors.textDark,
+            ),
+          ),
         ),
       );
     }
@@ -22,9 +28,16 @@ class ProfileScreen extends StatelessWidget {
     final String walkerUid = user.uid;
 
     return Scaffold(
+      backgroundColor: AppColors.scaffoldBackground,
+
+      // =========================================================
+      // APP BAR
+      // =========================================================
+
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        elevation: 0,
         title: const Text(
           'Profile',
           style: TextStyle(
@@ -33,6 +46,11 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
       ),
+
+      // =========================================================
+      // PROFILE DATA
+      // =========================================================
+
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance
             .collection('walkers')
@@ -43,10 +61,11 @@ class ProfileScreen extends StatelessWidget {
           // LOADING
           // =====================================================
 
-          if (snapshot.connectionState ==
-              ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(
+                color: AppColors.primary,
+              ),
             );
           }
 
@@ -59,6 +78,9 @@ class ProfileScreen extends StatelessWidget {
               child: Text(
                 'Unable to load profile.',
                 textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textGrey,
+                ),
               ),
             );
           }
@@ -67,12 +89,14 @@ class ProfileScreen extends StatelessWidget {
           // PROFILE NOT FOUND
           // =====================================================
 
-          if (!snapshot.hasData ||
-              !snapshot.data!.exists) {
+          if (!snapshot.hasData || !snapshot.data!.exists) {
             return const Center(
               child: Text(
                 'Profile information not found.',
                 textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textGrey,
+                ),
               ),
             );
           }
@@ -82,24 +106,20 @@ class ProfileScreen extends StatelessWidget {
           // =====================================================
 
           final Map<String, dynamic> data =
-              snapshot.data!.data() ??
-                  <String, dynamic>{};
+              snapshot.data!.data() ?? <String, dynamic>{};
 
           final String name =
               (data['name'] ?? 'Not available').toString();
 
           final String phone =
-              (data['phone'] ??
-                      user.phoneNumber ??
-                      'Not available')
+              (data['phone'] ?? user.phoneNumber ?? 'Not available')
                   .toString();
 
           final String uid =
               (data['uid'] ?? walkerUid).toString();
 
           final String dateOfBirth =
-              (data['dateOfBirth'] ?? 'Not available')
-                  .toString();
+              (data['dateOfBirth'] ?? 'Not available').toString();
 
           final String address =
               (data['address'] ?? 'Not available').toString();
@@ -114,29 +134,33 @@ class ProfileScreen extends StatelessWidget {
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // =================================================
-                // PROFILE HEADER
+                // PROFILE ICON
                 // =================================================
 
                 Center(
-                  child: CircleAvatar(
-                    radius: 48,
-                    backgroundColor:
-                        AppColors.primary.withValues(
-                      alpha: 0.12,
+                  child: Container(
+                    width: 96,
+                    height: 96,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.person,
                       size: 55,
-                      color: AppColors.primary,
+                      color: Colors.white,
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 16),
+
+                // =================================================
+                // NAME
+                // =================================================
 
                 Center(
                   child: Text(
@@ -151,6 +175,10 @@ class ProfileScreen extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 6),
+
+                // =================================================
+                // PHONE
+                // =================================================
 
                 Center(
                   child: Text(
@@ -212,7 +240,7 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 10),
 
                 // =================================================
-                // WALKER UID
+                // ACCOUNT INFORMATION
                 // =================================================
 
                 const Text(
@@ -234,13 +262,17 @@ class ProfileScreen extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
+                // =================================================
+                // FOOTER
+                // =================================================
+
                 const Center(
                   child: Text(
                     'Your profile is securely linked to your Walker UID.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.grey,
+                      color: AppColors.textGrey,
                     ),
                   ),
                 ),
@@ -275,26 +307,26 @@ class _ProfileInfoCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFE1E4E8),
+          color: AppColors.border,
         ),
       ),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             icon,
             color: AppColors.primary,
             size: 24,
           ),
+
           const SizedBox(width: 14),
+
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   label,
@@ -304,7 +336,9 @@ class _ProfileInfoCard extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+
                 const SizedBox(height: 4),
+
                 Text(
                   value,
                   style: const TextStyle(
