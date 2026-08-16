@@ -22,10 +22,10 @@ class InstaWalkInfo extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.52),
+            color: Colors.white.withOpacity(0.52),
             borderRadius: BorderRadius.circular(15),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.70),
+              color: Colors.white.withOpacity(0.70),
             ),
           ),
           child: const Row(
