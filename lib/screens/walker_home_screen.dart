@@ -550,11 +550,17 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
 
           if (!_isWalkStarted)
             Positioned(
-              left: 16,
-              right: 16,
               bottom: 16,
-              child: _FloatingQrButton(
-                onTap: _openCameraScanner,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: SizedBox(
+                  width: 220,
+                  height: 60,
+                  child: _FloatingQrButton(
+                    onTap: _openCameraScanner,
+                  ),
+                ),
               ),
             ),
         ],
@@ -584,6 +590,7 @@ class _FloatingQrButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
         child: Container(
+          width: double.infinity,
           height: 60,
           decoration: BoxDecoration(
             color: orange,
