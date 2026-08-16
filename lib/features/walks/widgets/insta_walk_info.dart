@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../constants/walks_constants.dart';
-
 class InstaWalkInfo extends StatelessWidget {
   const InstaWalkInfo({super.key});
 
