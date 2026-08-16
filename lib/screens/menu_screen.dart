@@ -1,14 +1,14 @@
 // File location:
 // lib/screens/menu_screen.dart
 
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants/app_colors.dart';
 import '../features/walker_home/containers/walker_home_header.dart';
 import 'mobile_login_screen.dart';
-import 'profile_settings_detail_screen.dart';
+import 'profile_screen.dart';
 
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
@@ -39,7 +39,7 @@ class MenuScreen extends StatelessWidget {
               ),
               children: [
                 // ==================================================
-                // PROFILE SETTINGS
+                // PROFILE
                 // ==================================================
 
                 Container(
@@ -61,10 +61,8 @@ class MenuScreen extends StatelessWidget {
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: AppColors.primary
-                            .withOpacity(.10),
-                        borderRadius:
-                            BorderRadius.circular(12),
+                        color: AppColors.primary.withOpacity(.10),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
                         Icons.person_outline,
@@ -72,10 +70,17 @@ class MenuScreen extends StatelessWidget {
                       ),
                     ),
                     title: const Text(
-                      'Profile Settings',
+                      'Profile',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'View your Walker profile',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textGrey,
                       ),
                     ),
                     trailing: const Icon(
@@ -87,7 +92,7 @@ class MenuScreen extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) =>
-                              const ProfileSettingsDetailScreen(),
+                              const ProfileScreen(),
                         ),
                       );
                     },
@@ -117,8 +122,7 @@ class MenuScreen extends StatelessWidget {
                       height: 42,
                       decoration: BoxDecoration(
                         color: Colors.red.withOpacity(.08),
-                        borderRadius:
-                            BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
                         Icons.logout,
@@ -133,6 +137,13 @@ class MenuScreen extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    subtitle: const Text(
+                      'Sign out of your Walker account',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.redAccent,
+                      ),
+                    ),
                     trailing: const Icon(
                       Icons.chevron_right_rounded,
                       color: Colors.redAccent,
@@ -140,16 +151,17 @@ class MenuScreen extends StatelessWidget {
                     onTap: () async {
                       await FirebaseAuth.instance.signOut();
 
-                      final prefs =
-                          await SharedPreferences
-                              .getInstance();
+                      final SharedPreferences prefs =
+                          await SharedPreferences.getInstance();
 
                       await prefs.setBool(
                         'isLoggedIn',
                         false,
                       );
 
-                      if (!context.mounted) return;
+                      if (!context.mounted) {
+                        return;
+                      }
 
                       Navigator.pushAndRemoveUntil(
                         context,
