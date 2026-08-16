@@ -13,23 +13,40 @@ dependencies:
 
   cupertino_icons: ^1.0.6
 
-  # Firebase
+  # ==========================================================
+  # FIREBASE
+  # ==========================================================
+
   firebase_core: ^2.24.2
   firebase_auth: ^4.17.6
   cloud_firestore: ^4.17.5
   firebase_storage: ^11.6.5
 
-  # Local Storage
+  # ==========================================================
+  # LOCAL STORAGE
+  # ==========================================================
+
   shared_preferences: ^2.2.3
 
-  # Network / Internet Connection
+  # ==========================================================
+  # NETWORK / INTERNET
+  # ==========================================================
+
   connectivity_plus: ^6.1.4
 
-  # QR Scanner
+  # ==========================================================
+  # QR SCANNER
+  # ==========================================================
+
   mobile_scanner: ^5.1.0
 
-  # Selfie Camera
+  # ==========================================================
+  # IMAGE PICKER
+  # Gallery + Camera + Selfie + Aadhaar
+  # ==========================================================
+
   image_picker: ^1.1.2
+
 
 dev_dependencies:
   flutter_test:
@@ -39,11 +56,21 @@ dev_dependencies:
 
   flutter_launcher_icons: ^0.13.1
 
+
+# ============================================================
+# APP ICON
+# ============================================================
+
 flutter_launcher_icons:
   image_path: "assets/DOJO_WALKER.png"
   android: true
   ios: false
   remove_alpha_ios: true
+
+
+# ============================================================
+# FLUTTER
+# ============================================================
 
 flutter:
   uses-material-design: true
