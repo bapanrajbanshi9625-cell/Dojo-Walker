@@ -1,3 +1,5 @@
+// File location: lib/app.dart
+
 import 'package:flutter/material.dart';
 
 import 'core/network/network_monitor.dart';
@@ -15,23 +17,16 @@ class DojoWalkerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget startScreen;
+    final bool isNetworkError = _isNetworkError(startupError);
 
-    if (startupError != null) {
-      final errorText = startupError!.toLowerCase();
+    Widget startScreen;
 
-      final networkError =
-          errorText.contains('network') ||
-          errorText.contains('timeout') ||
-          errorText.contains('socket') ||
-          errorText.contains('connection') ||
-          errorText.contains('unavailable');
-
-      startScreen = networkError
-          ? const NoNetworkScreen()
-          : StartupErrorScreen(
-              error: startupError!,
-            );
+    if (isNetworkError) {
+      startScreen = const NoNetworkScreen();
+    } else if (startupError != null) {
+      startScreen = StartupErrorScreen(
+        error: startupError!,
+      );
     } else {
       startScreen = const SplashScreen();
     }
@@ -46,6 +41,24 @@ class DojoWalkerApp extends StatelessWidget {
       ),
     );
   }
+
+  bool _isNetworkError(String? error) {
+    if (error == null) {
+      return false;
+    }
+
+    final text = error.toLowerCase();
+
+    return text.contains('no_network') ||
+        text.contains('network') ||
+        text.contains('timeout') ||
+        text.contains('socket') ||
+        text.contains('connection') ||
+        text.contains('unavailable') ||
+        text.contains('internet') ||
+        text.contains('failed host lookup') ||
+        text.contains('network is unreachable');
+  }
 }
 
 class StartupErrorScreen extends StatelessWidget {
@@ -59,6 +72,7 @@ class StartupErrorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -67,10 +81,12 @@ class StartupErrorScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(
-                  Icons.error_outline,
+                  Icons.error_outline_rounded,
                   size: 64,
                 ),
+
                 const SizedBox(height: 20),
+
                 const Text(
                   'Dojo Walker',
                   style: TextStyle(
@@ -78,7 +94,9 @@ class StartupErrorScreen extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+
                 const SizedBox(height: 12),
+
                 const Text(
                   'App startup failed',
                   style: TextStyle(
@@ -86,7 +104,9 @@ class StartupErrorScreen extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+
                 const SizedBox(height: 16),
+
                 Text(
                   error,
                   textAlign: TextAlign.center,
