@@ -7,9 +7,7 @@ import 'main_navigation_screen.dart';
 import 'mobile_login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({
-    super.key,
-  });
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -19,21 +17,17 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-
-    // Firebase session check immediately start hoga.
     _checkLoginAndNavigate();
   }
 
   Future<void> _checkLoginAndNavigate() async {
     final user = FirebaseAuth.instance.currentUser;
 
-    // Firebase login session nahi hai.
     if (user == null) {
       _goTo(const MobileLoginScreen());
       return;
     }
 
-    // Firebase session available hai.
     _goTo(const MainNavigationScreen());
   }
 
@@ -54,13 +48,10 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // FULL SPLASH PNG
           Image.asset(
             'assets/dojo_walker_splash.png',
             fit: BoxFit.cover,
           ),
-
-          // CIRCULAR LOADING
           Positioned(
             left: 0,
             right: 0,
@@ -83,7 +74,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   height: 30,
                   child: CircularProgressIndicator(
                     strokeWidth: 3,
-                    valueColor: const AlwaysStoppedAnimation<Color>(
+                    valueColor: AlwaysStoppedAnimation<Color>(
                       Colors.white,
                     ),
                   ),
