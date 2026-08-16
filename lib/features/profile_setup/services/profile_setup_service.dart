@@ -17,10 +17,6 @@ class ProfileSetupService {
   static Future<bool> isWalkerProfileCompleted({
     required String walkerUid,
   }) async {
-    if (walkerUid.isEmpty) {
-      return false;
-    }
-
     final DocumentSnapshot<Map<String, dynamic>> document =
         await _firestore
             .collection('walkers')
@@ -31,13 +27,10 @@ class ProfileSetupService {
       return false;
     }
 
-    final Map<String, dynamic>? data = document.data();
+    final Map<String, dynamic>? data =
+        document.data();
 
-    if (data == null) {
-      return false;
-    }
-
-    return data['profileCompleted'] == true;
+    return data?['profileCompleted'] == true;
   }
 
   // =====================================================
@@ -83,7 +76,7 @@ class ProfileSetupService {
         '${dateOfBirth.year}-$month-$day';
 
     // ===================================================
-    // SAVE TO FIRESTORE
+    // SAVE FIRESTORE
     // ===================================================
 
     await _firestore
@@ -101,13 +94,17 @@ class ProfileSetupService {
         'phone': phoneNumber,
         'photoUrl': photoUrl,
 
+        // ===============================================
         // IMPORTANT
+        // PROFILE COMPLETED
+        // ===============================================
+
         'profileCompleted': true,
 
         'updatedAt': FieldValue.serverTimestamp(),
 
-        // createdAt only gets added if it doesn't
-        // already exist because merge is enabled.
+        // createdAt ko merge ke saath rakhna safe hai.
+        // Existing value ho to overwrite nahi hogi.
         'createdAt': FieldValue.serverTimestamp(),
       },
       SetOptions(
