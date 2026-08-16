@@ -1,8 +1,8 @@
-// File location:
-// lib/features/walker_home/containers/walker_home_header.dart
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../../screens/profile_screen.dart';
 import '../walker_home_features.dart';
 
 class WalkerHomeHeader extends StatelessWidget {
@@ -10,24 +10,23 @@ class WalkerHomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final User? user =
+        FirebaseAuth.instance.currentUser;
+
     return Container(
       width: double.infinity,
       color: WalkerHomeFeatures.orange,
+
       child: SafeArea(
         top: true,
         bottom: false,
+
         child: Container(
-          // ======================================================
-          // SAME APP BAR LEVEL AS PROFILE
-          // ======================================================
-
-          height: 56,
-
+          height: 104,
           width: double.infinity,
 
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-          ),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 16),
 
           decoration: const BoxDecoration(
             color: WalkerHomeFeatures.orange,
@@ -40,24 +39,28 @@ class WalkerHomeHeader extends StatelessWidget {
               // ==================================================
 
               Container(
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
+
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(.15),
+                  color:
+                      Colors.white.withOpacity(.15),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Colors.white.withOpacity(.38),
+                    color:
+                        Colors.white.withOpacity(.38),
                     width: 1,
                   ),
                 ),
+
                 child: const Icon(
                   Icons.pets_rounded,
                   color: Colors.white,
-                  size: 23,
+                  size: 25,
                 ),
               ),
 
-              const SizedBox(width: 10),
+              const SizedBox(width: 11),
 
               // ==================================================
               // TITLE
@@ -67,26 +70,30 @@ class WalkerHomeHeader extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment:
                       MainAxisAlignment.center,
+
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
+
                   children: [
                     Text(
                       'Dojo Walker',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 20,
+                        fontWeight:
+                            FontWeight.w700,
                       ),
                     ),
 
-                    SizedBox(height: 1),
+                    SizedBox(height: 2),
 
                     Text(
                       "Buddy's Dashboard",
                       style: TextStyle(
                         color: Colors.white70,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w400,
+                        fontSize: 11,
+                        fontWeight:
+                            FontWeight.w400,
                       ),
                     ),
                   ],
@@ -100,13 +107,20 @@ class WalkerHomeHeader extends StatelessWidget {
               _HeaderButton(
                 icon:
                     Icons.notifications_none_rounded,
+
+                iconColor:
+                    const Color(0xFFFFE082),
+
+                backgroundColor:
+                    Colors.white.withOpacity(.14),
+
                 onTap: () {
                   WalkerHomeFeatures
                       .openNotifications(context);
                 },
               ),
 
-              const SizedBox(width: 6),
+              const SizedBox(width: 7),
 
               // ==================================================
               // SUPPORT
@@ -115,23 +129,36 @@ class WalkerHomeHeader extends StatelessWidget {
               _HeaderButton(
                 icon:
                     Icons.headset_mic_outlined,
+
+                iconColor:
+                    const Color(0xFFB3E5FC),
+
+                backgroundColor:
+                    Colors.white.withOpacity(.14),
+
                 onTap: () {
                   WalkerHomeFeatures
                       .openSupport(context);
                 },
               ),
 
-              const SizedBox(width: 6),
+              const SizedBox(width: 7),
 
               // ==================================================
-              // PROFILE
+              // PROFILE / SELFIE
               // ==================================================
 
-              _HeaderButton(
-                icon:
-                    Icons.person_outline_rounded,
+              _ProfileButton(
+                user: user,
+
                 onTap: () {
-                  // Profile action can be connected here later.
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          const ProfileScreen(),
+                    ),
+                  );
                 },
               ),
             ],
@@ -143,15 +170,153 @@ class WalkerHomeHeader extends StatelessWidget {
 }
 
 // ================================================================
-// HEADER BUTTON
+// PROFILE BUTTON
+// ================================================================
+
+class _ProfileButton extends StatelessWidget {
+  final User? user;
+  final VoidCallback onTap;
+
+  const _ProfileButton({
+    required this.user,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (user == null) {
+      return _fallbackButton();
+    }
+
+    return StreamBuilder<
+        DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('walkers')
+          .doc(user!.uid)
+          .snapshots(),
+
+      builder: (
+        context,
+        snapshot,
+      ) {
+        String selfieUrl = '';
+
+        if (snapshot.hasData &&
+            snapshot.data!.exists) {
+          final Map<String, dynamic> data =
+              snapshot.data!.data() ??
+                  <String, dynamic>{};
+
+          selfieUrl =
+              (data['Profile Selfie'] ?? '')
+                  .toString()
+                  .trim();
+        }
+
+        return GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+
+          child: Container(
+            width: 40,
+            height: 40,
+
+            decoration: BoxDecoration(
+              color: Colors.white
+                  .withOpacity(.14),
+
+              shape: BoxShape.circle,
+
+              border: Border.all(
+                color:
+                    const Color(0xFFFFD180),
+                width: 1.5,
+              ),
+            ),
+
+            clipBehavior:
+                Clip.antiAlias,
+
+            child: selfieUrl.isNotEmpty
+                ? Image.network(
+                    selfieUrl,
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+
+                    errorBuilder: (
+                      context,
+                      error,
+                      stackTrace,
+                    ) {
+                      return const Icon(
+                        Icons.person_outline_rounded,
+                        color: Color(0xFFFFD180),
+                        size: 21,
+                      );
+                    },
+                  )
+                : const Icon(
+                    Icons.person_outline_rounded,
+                    color: Color(0xFFFFD180),
+                    size: 21,
+                  ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // FALLBACK
+  // ============================================================
+
+  Widget _fallbackButton() {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+
+      child: Container(
+        width: 40,
+        height: 40,
+
+        decoration: BoxDecoration(
+          color:
+              Colors.white.withOpacity(.14),
+
+          shape: BoxShape.circle,
+
+          border: Border.all(
+            color:
+                const Color(0xFFFFD180),
+            width: 1.5,
+          ),
+        ),
+
+        child: const Icon(
+          Icons.person_outline_rounded,
+          color: Color(0xFFFFD180),
+          size: 21,
+        ),
+      ),
+    );
+  }
+}
+
+// ================================================================
+// COMMON HEADER BUTTON
 // ================================================================
 
 class _HeaderButton extends StatelessWidget {
   final IconData icon;
+  final Color iconColor;
+  final Color backgroundColor;
   final VoidCallback onTap;
 
   const _HeaderButton({
     required this.icon,
+    required this.iconColor,
+    required this.backgroundColor,
     required this.onTap,
   });
 
@@ -160,21 +325,26 @@ class _HeaderButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
+
       child: Container(
-        width: 36,
-        height: 36,
+        width: 40,
+        height: 40,
+
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(.14),
+          color: backgroundColor,
           shape: BoxShape.circle,
+
           border: Border.all(
-            color: Colors.white.withOpacity(.30),
+            color:
+                Colors.white.withOpacity(.30),
             width: 1,
           ),
         ),
+
         child: Icon(
           icon,
-          color: Colors.white,
-          size: 20,
+          color: iconColor,
+          size: 21,
         ),
       ),
     );
