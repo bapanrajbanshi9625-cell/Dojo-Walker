@@ -77,9 +77,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-
                 const SizedBox(height: 18),
-
                 const SizedBox(
                   width: 30,
                   height: 30,
