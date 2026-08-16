@@ -24,7 +24,21 @@ Future<void> main() async {
     debugPrint('Firebase initialization error: $e');
     debugPrintStack(stackTrace: stackTrace);
 
-    startupError = 'Firebase initialization failed:\n$e';
+    final error = e.toString().toLowerCase();
+
+    final isNetworkError =
+        error.contains('network') ||
+        error.contains('timeout') ||
+        error.contains('socket') ||
+        error.contains('connection') ||
+        error.contains('unavailable') ||
+        error.contains('internet');
+
+    if (isNetworkError) {
+      startupError = 'NO_NETWORK';
+    } else {
+      startupError = 'Firebase initialization failed:\n$e';
+    }
   }
 
   // --------------------------------------------------
