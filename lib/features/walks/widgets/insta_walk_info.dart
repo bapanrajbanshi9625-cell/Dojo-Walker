@@ -6,7 +6,6 @@ class InstaWalkInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           'Search for available Insta Walk requests within '
@@ -23,10 +22,10 @@ class InstaWalkInfo extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
-            color: Colors.white.withAlpha(133),
+            color: Colors.white.withValues(alpha: 0.52),
             borderRadius: BorderRadius.circular(15),
             border: Border.all(
-              color: Colors.white.withAlpha(179),
+              color: Colors.white.withValues(alpha: 0.70),
             ),
           ),
           child: const Row(
