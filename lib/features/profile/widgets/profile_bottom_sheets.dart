@@ -6,8 +6,7 @@ import '../../../core/constants/app_colors.dart';
 // COMMON BOTTOM SHEET BASE
 // =============================================================
 
-class ProfileBottomSheetBase
-    extends StatelessWidget {
+class ProfileBottomSheetBase extends StatelessWidget {
   final Widget child;
 
   const ProfileBottomSheetBase({
@@ -21,8 +20,7 @@ class ProfileBottomSheetBase
       top: false,
       child: Material(
         color: Colors.white,
-        borderRadius:
-            const BorderRadius.vertical(
+        borderRadius: const BorderRadius.vertical(
           top: Radius.circular(24),
         ),
         child: Padding(
@@ -30,11 +28,7 @@ class ProfileBottomSheetBase
             left: 20,
             right: 20,
             top: 8,
-            bottom:
-                MediaQuery.of(context)
-                        .viewInsets
-                        .bottom +
-                    14,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 14,
           ),
           child: child,
         ),
@@ -47,11 +41,8 @@ class ProfileBottomSheetBase
 // SHEET HANDLE
 // =============================================================
 
-class ProfileSheetHandle
-    extends StatelessWidget {
-  const ProfileSheetHandle({
-    super.key,
-  });
+class ProfileSheetHandle extends StatelessWidget {
+  const ProfileSheetHandle({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -61,8 +52,7 @@ class ProfileSheetHandle
         height: 4,
         decoration: BoxDecoration(
           color: AppColors.border,
-          borderRadius:
-              BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(10),
         ),
       ),
     );
@@ -73,8 +63,7 @@ class ProfileSheetHandle
 // PRIMARY BUTTON
 // =============================================================
 
-class ProfilePrimaryButton
-    extends StatelessWidget {
+class ProfilePrimaryButton extends StatelessWidget {
   final String text;
   final IconData icon;
   final VoidCallback onTap;
@@ -94,14 +83,12 @@ class ProfilePrimaryButton
       width: double.infinity,
       height: 48,
       child: ElevatedButton.icon(
-        onPressed:
-            loading ? null : onTap,
+        onPressed: loading ? null : onTap,
         icon: loading
             ? const SizedBox(
                 width: 18,
                 height: 18,
-                child:
-                    CircularProgressIndicator(
+                child: CircularProgressIndicator(
                   strokeWidth: 2,
                   color: Colors.white,
                 ),
@@ -111,28 +98,17 @@ class ProfilePrimaryButton
                 size: 19,
               ),
         label: Text(
-          loading
-              ? 'Please wait...'
-              : text,
-          style:
-              const TextStyle(
-            fontWeight:
-                FontWeight.bold,
+          loading ? 'Please wait...' : text,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
           ),
         ),
-        style:
-            ElevatedButton.styleFrom(
-          backgroundColor:
-              AppColors.primary,
-          foregroundColor:
-              Colors.white,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
           elevation: 0,
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(
-              11,
-            ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(11),
           ),
         ),
       ),
@@ -141,11 +117,10 @@ class ProfilePrimaryButton
 }
 
 // =============================================================
-// UPLOAD DOCUMENT BOTTOM SHEET
+// AADHAAR / DOCUMENT UPLOAD SHEET
 // =============================================================
 
-class ProfileDocumentUploadSheet
-    extends StatelessWidget {
+class ProfileDocumentUploadSheet extends StatelessWidget {
   final String documentName;
   final VoidCallback onGallery;
   final VoidCallback onCamera;
@@ -164,18 +139,14 @@ class ProfileDocumentUploadSheet
         mainAxisSize: MainAxisSize.min,
         children: [
           const ProfileSheetHandle(),
-
           const SizedBox(height: 16),
 
           Text(
             'Upload $documentName',
-            style:
-                const TextStyle(
+            style: const TextStyle(
               fontSize: 19,
-              fontWeight:
-                  FontWeight.bold,
-              color:
-                  AppColors.textDark,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
             ),
           ),
 
@@ -183,41 +154,33 @@ class ProfileDocumentUploadSheet
 
           const Text(
             'Choose an option',
-            style:
-                TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color:
-                  AppColors.textGrey,
+              color: AppColors.textGrey,
             ),
           ),
 
           const SizedBox(height: 16),
 
           ProfileUploadOption(
-            icon:
-                Icons.photo_library_outlined,
-            color:
-                const Color(0xFF2563EB),
-            title:
-                'Upload from Gallery',
-            subtitle:
-                'Choose an existing photo',
+            icon: Icons.photo_library_outlined,
+            color: const Color(0xFF2563EB),
+            title: 'Upload from Gallery',
+            subtitle: 'Choose an existing photo',
             onTap: onGallery,
           ),
 
           const SizedBox(height: 10),
 
           ProfileUploadOption(
-            icon:
-                Icons.camera_alt_outlined,
-            color:
-                AppColors.secondary,
-            title:
-                'Take Photo with Camera',
-            subtitle:
-                'Capture a new document photo',
+            icon: Icons.camera_alt_outlined,
+            color: AppColors.secondary,
+            title: 'Take Photo with Camera',
+            subtitle: 'Capture a new document photo',
             onTap: onCamera,
           ),
+
+          const SizedBox(height: 4),
         ],
       ),
     );
@@ -228,8 +191,7 @@ class ProfileDocumentUploadSheet
 // UPLOAD OPTION
 // =============================================================
 
-class ProfileUploadOption
-    extends StatelessWidget {
+class ProfileUploadOption extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String title;
@@ -248,24 +210,18 @@ class ProfileUploadOption
   @override
   Widget build(BuildContext context) {
     return Material(
-      color:
-          AppColors.scaffoldBackground,
-      borderRadius:
-          BorderRadius.circular(13),
+      color: AppColors.scaffoldBackground,
+      borderRadius: BorderRadius.circular(13),
       child: InkWell(
         onTap: onTap,
-        borderRadius:
-            BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(13),
         child: Container(
           width: double.infinity,
-          padding:
-              const EdgeInsets.all(13),
+          padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
-            borderRadius:
-                BorderRadius.circular(13),
+            borderRadius: BorderRadius.circular(13),
             border: Border.all(
-              color:
-                  AppColors.border,
+              color: AppColors.border,
             ),
           ),
           child: Row(
@@ -273,16 +229,9 @@ class ProfileUploadOption
               Container(
                 width: 42,
                 height: 42,
-                decoration:
-                    BoxDecoration(
-                  color:
-                      color.withOpacity(
-                    0.09,
-                  ),
-                  borderRadius:
-                      BorderRadius.circular(
-                    11,
-                  ),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.09),
+                  borderRadius: BorderRadius.circular(11),
                 ),
                 child: Icon(
                   icon,
@@ -295,20 +244,14 @@ class ProfileUploadOption
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
-                      style:
-                          const TextStyle(
+                      style: const TextStyle(
                         fontSize: 14,
-                        fontWeight:
-                            FontWeight.w700,
-                        color:
-                            AppColors
-                                .textDark,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textDark,
                       ),
                     ),
 
@@ -316,12 +259,9 @@ class ProfileUploadOption
 
                     Text(
                       subtitle,
-                      style:
-                          const TextStyle(
+                      style: const TextStyle(
                         fontSize: 11,
-                        color:
-                            AppColors
-                                .textGrey,
+                        color: AppColors.textGrey,
                       ),
                     ),
                   ],
@@ -329,10 +269,8 @@ class ProfileUploadOption
               ),
 
               const Icon(
-                Icons
-                    .chevron_right_rounded,
-                color:
-                    AppColors.textGrey,
+                Icons.chevron_right_rounded,
+                color: AppColors.textGrey,
               ),
             ],
           ),
@@ -346,8 +284,7 @@ class ProfileUploadOption
 // CURRENT PHONE BOTTOM SHEET
 // =============================================================
 
-class CurrentPhoneBottomSheet
-    extends StatelessWidget {
+class CurrentPhoneBottomSheet extends StatelessWidget {
   final String currentPhone;
   final VoidCallback onSendOtp;
 
@@ -362,22 +299,17 @@ class CurrentPhoneBottomSheet
     return ProfileBottomSheetBase(
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const ProfileSheetHandle(),
-
           const SizedBox(height: 16),
 
           const Text(
             'Verify Current Number',
-            style:
-                TextStyle(
+            style: TextStyle(
               fontSize: 19,
-              fontWeight:
-                  FontWeight.bold,
-              color:
-                  AppColors.textDark,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
             ),
           ),
 
@@ -385,11 +317,9 @@ class CurrentPhoneBottomSheet
 
           const Text(
             'An OTP will be sent to your current mobile number.',
-            style:
-                TextStyle(
+            style: TextStyle(
               fontSize: 13,
-              color:
-                  AppColors.textGrey,
+              color: AppColors.textGrey,
             ),
           ),
 
@@ -406,6 +336,8 @@ class CurrentPhoneBottomSheet
             icon: Icons.sms_outlined,
             onTap: onSendOtp,
           ),
+
+          const SizedBox(height: 4),
         ],
       ),
     );
@@ -416,8 +348,7 @@ class CurrentPhoneBottomSheet
 // PHONE DISPLAY
 // =============================================================
 
-class ProfilePhoneDisplay
-    extends StatelessWidget {
+class ProfilePhoneDisplay extends StatelessWidget {
   final String phone;
 
   const ProfilePhoneDisplay({
@@ -429,24 +360,19 @@ class ProfilePhoneDisplay
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(13),
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color:
-            AppColors.scaffoldBackground,
-        borderRadius:
-            BorderRadius.circular(11),
+        color: AppColors.scaffoldBackground,
+        borderRadius: BorderRadius.circular(11),
         border: Border.all(
-          color:
-              AppColors.border,
+          color: AppColors.border,
         ),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.phone_outlined,
-            color:
-                AppColors.secondary,
+            color: AppColors.secondary,
           ),
 
           const SizedBox(width: 10),
@@ -454,13 +380,10 @@ class ProfilePhoneDisplay
           Expanded(
             child: Text(
               phone,
-              style:
-                  const TextStyle(
+              style: const TextStyle(
                 fontSize: 15,
-                fontWeight:
-                    FontWeight.w600,
-                color:
-                    AppColors.textDark,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textDark,
               ),
             ),
           ),
@@ -474,14 +397,11 @@ class ProfilePhoneDisplay
 // OTP BOTTOM SHEET
 // =============================================================
 
-class OtpBottomSheet
-    extends StatefulWidget {
+class OtpBottomSheet extends StatefulWidget {
   final String title;
   final String subtitle;
   final String buttonText;
-  final Future<void> Function(
-    String otp,
-  ) onVerify;
+  final Future<void> Function(String otp) onVerify;
 
   const OtpBottomSheet({
     super.key,
@@ -492,14 +412,11 @@ class OtpBottomSheet
   });
 
   @override
-  State<OtpBottomSheet> createState() =>
-      _OtpBottomSheetState();
+  State<OtpBottomSheet> createState() => _OtpBottomSheetState();
 }
 
-class _OtpBottomSheetState
-    extends State<OtpBottomSheet> {
-  final TextEditingController
-      controller =
+class _OtpBottomSheetState extends State<OtpBottomSheet> {
+  final TextEditingController controller =
       TextEditingController();
 
   bool loading = false;
@@ -511,19 +428,16 @@ class _OtpBottomSheetState
   }
 
   Future<void> _verify() async {
-    final String otp =
-        controller.text.trim();
+    final String otp = controller.text.trim();
 
     if (otp.length != 6) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'Enter a valid 6-digit OTP.',
           ),
         ),
       );
-
       return;
     }
 
@@ -549,20 +463,15 @@ class _OtpBottomSheetState
         mainAxisSize: MainAxisSize.min,
         children: [
           const ProfileSheetHandle(),
-
           const SizedBox(height: 16),
 
           Text(
             widget.title,
-            textAlign:
-                TextAlign.center,
-            style:
-                const TextStyle(
+            textAlign: TextAlign.center,
+            style: const TextStyle(
               fontSize: 19,
-              fontWeight:
-                  FontWeight.bold,
-              color:
-                  AppColors.textDark,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
             ),
           ),
 
@@ -570,13 +479,10 @@ class _OtpBottomSheetState
 
           Text(
             widget.subtitle,
-            textAlign:
-                TextAlign.center,
-            style:
-                const TextStyle(
+            textAlign: TextAlign.center,
+            style: const TextStyle(
               fontSize: 13,
-              color:
-                  AppColors.textGrey,
+              color: AppColors.textGrey,
             ),
           ),
 
@@ -584,30 +490,32 @@ class _OtpBottomSheetState
 
           TextField(
             controller: controller,
-            keyboardType:
-                TextInputType.number,
+            keyboardType: TextInputType.number,
             maxLength: 6,
-            textAlign:
-                TextAlign.center,
+            textAlign: TextAlign.center,
             autofocus: true,
-            decoration:
-                InputDecoration(
+            decoration: InputDecoration(
               counterText: '',
               hintText: '000000',
               filled: true,
-              fillColor:
-                  AppColors
-                      .scaffoldBackground,
-              border:
-                  OutlineInputBorder(
-                borderRadius:
-                    BorderRadius.circular(
-                  11,
+              fillColor: AppColors.scaffoldBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(11),
+                borderSide: const BorderSide(
+                  color: AppColors.border,
                 ),
-                borderSide:
-                    const BorderSide(
-                  color:
-                      AppColors.border,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(11),
+                borderSide: const BorderSide(
+                  color: AppColors.border,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(11),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 1.5,
                 ),
               ),
             ),
@@ -616,13 +524,13 @@ class _OtpBottomSheetState
           const SizedBox(height: 13),
 
           ProfilePrimaryButton(
-            text:
-                widget.buttonText,
-            icon:
-                Icons.verified_outlined,
+            text: widget.buttonText,
+            icon: Icons.verified_outlined,
             loading: loading,
             onTap: _verify,
           ),
+
+          const SizedBox(height: 4),
         ],
       ),
     );
@@ -633,10 +541,8 @@ class _OtpBottomSheetState
 // NEW PHONE BOTTOM SHEET
 // =============================================================
 
-class NewPhoneBottomSheet
-    extends StatefulWidget {
-  final ValueChanged<String>
-      onContinue;
+class NewPhoneBottomSheet extends StatefulWidget {
+  final ValueChanged<String> onContinue;
 
   const NewPhoneBottomSheet({
     super.key,
@@ -644,19 +550,16 @@ class NewPhoneBottomSheet
   });
 
   @override
-  State<NewPhoneBottomSheet>
-      createState() =>
-          _NewPhoneBottomSheetState();
+  State<NewPhoneBottomSheet> createState() =>
+      _NewPhoneBottomSheetState();
 }
 
 class _NewPhoneBottomSheetState
     extends State<NewPhoneBottomSheet> {
-  final TextEditingController
-      newController =
+  final TextEditingController newController =
       TextEditingController();
 
-  final TextEditingController
-      confirmController =
+  final TextEditingController confirmController =
       TextEditingController();
 
   @override
@@ -666,6 +569,10 @@ class _NewPhoneBottomSheetState
     super.dispose();
   }
 
+  // ==========================================================
+  // SAVE AND CONTINUE
+  // ==========================================================
+
   void _saveAndContinue() {
     final String newPhone =
         newController.text.trim();
@@ -673,31 +580,152 @@ class _NewPhoneBottomSheetState
     final String confirmPhone =
         confirmController.text.trim();
 
-    if (newPhone.isEmpty ||
-        confirmPhone.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+    if (newPhone.isEmpty || confirmPhone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'Enter both mobile numbers.',
           ),
         ),
       );
-
       return;
     }
 
     if (newPhone != confirmPhone) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'Mobile numbers do not match.',
           ),
         ),
       );
-
       return;
     }
 
-   
+    if (newPhone.length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Enter a valid mobile number.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    widget.onContinue(newPhone);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ProfileBottomSheetBase(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const ProfileSheetHandle(),
+          const SizedBox(height: 16),
+
+          const Text(
+            'New Mobile Number',
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textDark,
+            ),
+          ),
+
+          const SizedBox(height: 7),
+
+          const Text(
+            'Enter and confirm your new mobile number.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textGrey,
+            ),
+          ),
+
+          const SizedBox(height: 15),
+
+          ProfilePhoneField(
+            controller: newController,
+            label: 'New Mobile Number',
+          ),
+
+          const SizedBox(height: 10),
+
+          ProfilePhoneField(
+            controller: confirmController,
+            label: 'Confirm Mobile Number',
+          ),
+
+          const SizedBox(height: 14),
+
+          // ==================================================
+          // FINAL BUTTON
+          // ==================================================
+
+          ProfilePrimaryButton(
+            text: 'Save and Continue',
+            icon: Icons.arrow_forward_rounded,
+            onTap: _saveAndContinue,
+          ),
+
+          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+}
+
+// =============================================================
+// PHONE FIELD
+// =============================================================
+
+class ProfilePhoneField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+
+  const ProfilePhoneField({
+    super.key,
+    required this.controller,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.phone,
+      maxLength: 15,
+      decoration: InputDecoration(
+        counterText: '',
+        labelText: label,
+        prefixIcon: const Icon(
+          Icons.phone_outlined,
+        ),
+        filled: true,
+        fillColor: AppColors.scaffoldBackground,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(11),
+          borderSide: const BorderSide(
+            color: AppColors.border,
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(11),
+          borderSide: const BorderSide(
+            color: AppColors.border,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(11),
+          borderSide: const BorderSide(
+            color: AppColors.primary,
+            width: 1.5,
+          ),
+        ),
+      ),
+    );
+  }
+}
