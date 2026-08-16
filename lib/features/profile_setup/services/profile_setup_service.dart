@@ -48,7 +48,7 @@ class ProfileSetupService {
     required File selfieFile,
   }) async {
     // ===================================================
-    // UPLOAD SELFIE
+    // UPLOAD PROFILE SELFIE
     // ===================================================
 
     final Reference photoReference = _storage
@@ -77,6 +77,8 @@ class ProfileSetupService {
 
     // ===================================================
     // SAVE FIRESTORE
+    //
+    // EXACT FIELD NAMES USED BY PROFILE SCREEN
     // ===================================================
 
     await _firestore
@@ -84,29 +86,58 @@ class ProfileSetupService {
         .doc(walkerUid)
         .set(
       {
-        'uid': walkerUid,
-        'role': 'walker',
-        'name': name,
-        'dateOfBirth': formattedDate,
-        'aadhaarNumber': aadhaar,
-        'address': address,
-        'pinCode': pinCode,
-        'phone': phoneNumber,
-        'photoUrl': photoUrl,
+        // -------------------------------------------------
+        // PROFILE INFORMATION
+        // -------------------------------------------------
 
-        // ===============================================
-        // IMPORTANT
-        // PROFILE COMPLETED
-        // ===============================================
+        'Full Name': name,
+
+        'Date Of Birth': formattedDate,
+
+        'Aadhar Number': aadhaar,
+
+        'Adress': address,
+
+        'Pincode': pinCode,
+
+        'Mobile number': phoneNumber,
+
+        'Profile Selfie': photoUrl,
+
+        'Walker Uid': walkerUid,
+
+        // -------------------------------------------------
+        // AADHAAR DOCUMENT STATUS
+        //
+        // Mandatory Profile Setup does NOT upload Aadhaar
+        // Front / Back.
+        // -------------------------------------------------
+
+        'aadhaar_front_uploaded': false,
+
+        'aadhaar_back_uploaded': false,
+
+        // -------------------------------------------------
+        // PROFILE STATUS
+        // -------------------------------------------------
 
         'profileCompleted': true,
 
-        'updatedAt': FieldValue.serverTimestamp(),
+        // -------------------------------------------------
+        // ACCOUNT INFORMATION
+        // -------------------------------------------------
 
-        // createdAt ko merge ke saath rakhna safe hai.
-        // Existing value ho to overwrite nahi hogi.
-        'createdAt': FieldValue.serverTimestamp(),
+        'role': 'walker',
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+
+        // Existing createdAt will not be overwritten
+        // because merge is enabled.
+        'createdAt':
+            FieldValue.serverTimestamp(),
       },
+
       SetOptions(
         merge: true,
       ),
