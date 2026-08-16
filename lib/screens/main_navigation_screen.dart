@@ -21,22 +21,39 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     MenuScreen(),
   ];
 
+  Color get _selectedColor {
+    switch (_currentIndex) {
+      case 0:
+        return AppColors.primary; // Home - Orange
+      case 1:
+        return Colors.green; // Walks - Green
+      case 2:
+        return Colors.deepPurple; // Menu - Purple
+      default:
+        return AppColors.primary;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        selectedItemColor: AppColors.primary,
+        selectedItemColor: _selectedColor,
         unselectedItemColor: AppColors.textGrey,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.history),
+            icon: Icon(Icons.directions_walk_rounded),
             label: 'Walks',
           ),
           BottomNavigationBarItem(
