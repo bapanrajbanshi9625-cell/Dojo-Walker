@@ -1,4 +1,5 @@
-// File location: lib/screens/menu_screen.dart
+// File location:
+// lib/screens/menu_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -18,8 +19,15 @@ class MenuScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF5F6F8),
       body: Column(
         children: [
-          // Same Home header
+          // ======================================================
+          // SAME COMMON HEADER AS HOME + WALKS
+          // ======================================================
+
           const WalkerHomeHeader(),
+
+          // ======================================================
+          // MENU CONTENT
+          // ======================================================
 
           Expanded(
             child: ListView(
@@ -30,7 +38,10 @@ class MenuScreen extends StatelessWidget {
                 24,
               ),
               children: [
-                // Profile Settings
+                // ==================================================
+                // PROFILE SETTINGS
+                // ==================================================
+
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
@@ -41,7 +52,8 @@ class MenuScreen extends StatelessWidget {
                     ),
                   ),
                   child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
+                    contentPadding:
+                        const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 4,
                     ),
@@ -49,8 +61,10 @@ class MenuScreen extends StatelessWidget {
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(.10),
-                        borderRadius: BorderRadius.circular(12),
+                        color: AppColors.primary
+                            .withOpacity(.10),
+                        borderRadius:
+                            BorderRadius.circular(12),
                       ),
                       child: const Icon(
                         Icons.person_outline,
@@ -68,17 +82,22 @@ class MenuScreen extends StatelessWidget {
                       Icons.chevron_right_rounded,
                       color: Color(0xFF9CA3AF),
                     ),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            const ProfileSettingsDetailScreen(),
-                      ),
-                    ),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const ProfileSettingsDetailScreen(),
+                        ),
+                      );
+                    },
                   ),
                 ),
 
-                // Logout
+                // ==================================================
+                // LOGOUT
+                // ==================================================
+
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -88,7 +107,8 @@ class MenuScreen extends StatelessWidget {
                     ),
                   ),
                   child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
+                    contentPadding:
+                        const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 4,
                     ),
@@ -97,7 +117,8 @@ class MenuScreen extends StatelessWidget {
                       height: 42,
                       decoration: BoxDecoration(
                         color: Colors.red.withOpacity(.08),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius:
+                            BorderRadius.circular(12),
                       ),
                       child: const Icon(
                         Icons.logout,
@@ -120,7 +141,8 @@ class MenuScreen extends StatelessWidget {
                       await FirebaseAuth.instance.signOut();
 
                       final prefs =
-                          await SharedPreferences.getInstance();
+                          await SharedPreferences
+                              .getInstance();
 
                       await prefs.setBool(
                         'isLoggedIn',
