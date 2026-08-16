@@ -17,11 +17,9 @@ class ProfileScreen extends StatelessWidget {
 
   // ==========================================================
   // DOJO WALKER ORANGE
-  // SAME AS HOME HEADER
   // ==========================================================
 
-  static const Color walkerOrange =
-      Color(0xFFFF4B16);
+  static const Color walkerOrange = Color(0xFFFF4B16);
 
   // ==========================================================
   // OPEN DOCUMENT UPLOAD
@@ -255,8 +253,7 @@ class ProfileScreen extends StatelessWidget {
           buttonText: 'Verify OTP',
           onVerify: (String otp) async {
             try {
-              await ProfileFirebaseService
-                  .verifyCurrentPhoneOtp(
+              await ProfileFirebaseService.verifyCurrentPhoneOtp(
                 verificationId: verificationId,
                 smsCode: otp,
               );
@@ -281,8 +278,7 @@ class ProfileScreen extends StatelessWidget {
                 return;
               }
 
-              ScaffoldMessenger.of(sheetContext)
-                  .showSnackBar(
+              ScaffoldMessenger.of(sheetContext).showSnackBar(
                 SnackBar(
                   content: Text(
                     'OTP verification failed: $e',
@@ -409,8 +405,7 @@ class ProfileScreen extends StatelessWidget {
           buttonText: 'Save and Continue',
           onVerify: (String otp) async {
             try {
-              await ProfileFirebaseService
-                  .verifyAndUpdateNewPhone(
+              await ProfileFirebaseService.verifyAndUpdateNewPhone(
                 verificationId: verificationId,
                 smsCode: otp,
                 newPhoneNumber: newPhone,
@@ -439,8 +434,7 @@ class ProfileScreen extends StatelessWidget {
                 return;
               }
 
-              ScaffoldMessenger.of(sheetContext)
-                  .showSnackBar(
+              ScaffoldMessenger.of(sheetContext).showSnackBar(
                 SnackBar(
                   content: Text(
                     'Unable to update mobile number: $e',
@@ -460,8 +454,7 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final User? user =
-        FirebaseAuth.instance.currentUser;
+    final User? user = FirebaseAuth.instance.currentUser;
 
     // ========================================================
     // LOGIN CHECK
@@ -469,8 +462,7 @@ class ProfileScreen extends StatelessWidget {
 
     if (user == null) {
       return const Scaffold(
-        backgroundColor:
-            AppColors.scaffoldBackground,
+        backgroundColor: AppColors.scaffoldBackground,
         body: Center(
           child: Text(
             'Login session not found.',
@@ -489,14 +481,7 @@ class ProfileScreen extends StatelessWidget {
     // ========================================================
 
     return Scaffold(
-      backgroundColor:
-          AppColors.scaffoldBackground,
-
-      // ======================================================
-      // PROFILE APP BAR
-      // SAME AS HOME
-      // #FF4B16
-      // ======================================================
+      backgroundColor: AppColors.scaffoldBackground,
 
       appBar: AppBar(
         backgroundColor: walkerOrange,
@@ -516,8 +501,7 @@ class ProfileScreen extends StatelessWidget {
       // walkers/{currentUser.uid}
       // ======================================================
 
-      body: StreamBuilder<
-          DocumentSnapshot<Map<String, dynamic>>>(
+      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance
             .collection('walkers')
             .doc(walkerUid)
@@ -548,8 +532,7 @@ class ProfileScreen extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Text(
-                  'Unable to load profile.\n'
-                  '${snapshot.error}',
+                  'Unable to load profile.\n${snapshot.error}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: AppColors.textGrey,
@@ -578,7 +561,6 @@ class ProfileScreen extends StatelessWidget {
 
           // ==================================================
           // FIRESTORE DATA
-          // EXACT DATABASE FIELD NAMES
           // ==================================================
 
           final Map<String, dynamic> data =
@@ -586,21 +568,13 @@ class ProfileScreen extends StatelessWidget {
                   <String, dynamic>{};
 
           // ==================================================
-          // FULL NAME
-          // Firestore:
-          // Full Name
+          // EXACT FIRESTORE FIELD NAMES
           // ==================================================
 
           final String name =
               (data['Full Name'] ?? '')
                   .toString()
                   .trim();
-
-          // ==================================================
-          // MOBILE
-          // Firestore:
-          // Mobile number
-          // ==================================================
 
           final String phone =
               (data['Mobile number'] ??
@@ -609,76 +583,40 @@ class ProfileScreen extends StatelessWidget {
                   .toString()
                   .trim();
 
-          // ==================================================
-          // DATE OF BIRTH
-          // Firestore:
-          // Date Of Birth
-          // ==================================================
-
           final String dateOfBirth =
               (data['Date Of Birth'] ?? '')
                   .toString()
                   .trim();
 
-          // ==================================================
-          // ADDRESS
-          // Firestore:
-          // Adress
-          // ==================================================
-
+          // EXACT: "Adress"
           final String address =
               (data['Adress'] ?? '')
                   .toString()
                   .trim();
 
-          // ==================================================
-          // PIN CODE
-          // Firestore:
-          // Pincode
-          // ==================================================
-
+          // EXACT: "Pincode"
           final String pinCode =
               (data['Pincode'] ?? '')
                   .toString()
                   .trim();
 
-          // ==================================================
-          // AADHAAR NUMBER
-          // Firestore:
-          // Aadhar Number
-          // ==================================================
-
+          // EXACT: "Aadhar Number"
           final String aadhaarNumber =
               (data['Aadhar Number'] ?? '')
                   .toString()
                   .trim();
 
-          // ==================================================
-          // WALKER UID
-          // Firestore:
-          // Walker Uid
-          // ==================================================
-
+          // EXACT: "Walker Uid"
           final String uid =
-              (data['Walker Uid'] ??
-                      walkerUid)
+              (data['Walker Uid'] ?? walkerUid)
                   .toString()
                   .trim();
 
-          // ==================================================
-          // PROFILE SELFIE
-          // Firestore:
-          // Profile Selfie
-          // ==================================================
-
+          // EXACT: "Profile Selfie"
           final String profileSelfie =
               (data['Profile Selfie'] ?? '')
                   .toString()
                   .trim();
-
-          // ==================================================
-          // AADHAAR STATUS
-          // ==================================================
 
           final bool aadhaarFrontUploaded =
               data['aadhaar_front_uploaded'] == true;
@@ -693,8 +631,7 @@ class ProfileScreen extends StatelessWidget {
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // =================================================
                 // PROFILE SELFIE
@@ -704,17 +641,31 @@ class ProfileScreen extends StatelessWidget {
                   child: Container(
                     width: 96,
                     height: 96,
-                    decoration:
-                        const BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: walkerOrange,
                       shape: BoxShape.circle,
                     ),
-                    clipBehavior:
-                        Clip.antiAlias,
+                    clipBehavior: Clip.antiAlias,
                     child: profileSelfie.isNotEmpty
                         ? Image.network(
                             profileSelfie,
                             fit: BoxFit.cover,
+                            loadingBuilder: (
+                              context,
+                              child,
+                              loadingProgress,
+                            ) {
+                              if (loadingProgress == null) {
+                                return child;
+                              }
+
+                              return const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              );
+                            },
                             errorBuilder: (
                               context,
                               error,
@@ -807,8 +758,7 @@ class ProfileScreen extends StatelessWidget {
 
                 ProfileInfoCard(
                   icon: Icons.cake_outlined,
-                  iconColor:
-                      const Color(0xFFE11D48),
+                  iconColor: const Color(0xFFE11D48),
                   label: 'Date of Birth',
                   value: dateOfBirth.isEmpty
                       ? 'Not available'
@@ -820,10 +770,8 @@ class ProfileScreen extends StatelessWidget {
                 // =================================================
 
                 ProfileInfoCard(
-                  icon:
-                      Icons.location_on_outlined,
-                  iconColor:
-                      const Color(0xFF2563EB),
+                  icon: Icons.location_on_outlined,
+                  iconColor: const Color(0xFF2563EB),
                   label: 'Address',
                   value: address.isEmpty
                       ? 'Not available'
@@ -835,10 +783,8 @@ class ProfileScreen extends StatelessWidget {
                 // =================================================
 
                 ProfileInfoCard(
-                  icon:
-                      Icons.pin_drop_outlined,
-                  iconColor:
-                      const Color(0xFF0891B2),
+                  icon: Icons.pin_drop_outlined,
+                  iconColor: const Color(0xFF0891B2),
                   label: 'PIN Code',
                   value: pinCode.isEmpty
                       ? 'Not available'
@@ -868,8 +814,7 @@ class ProfileScreen extends StatelessWidget {
 
                 ProfileInfoCard(
                   icon: Icons.badge_outlined,
-                  iconColor:
-                      const Color(0xFF7C3AED),
+                  iconColor: const Color(0xFF7C3AED),
                   label: 'Aadhaar Number',
                   value: aadhaarNumber.isEmpty
                       ? 'Not available'
@@ -882,13 +827,11 @@ class ProfileScreen extends StatelessWidget {
 
                 ProfileDocumentCard(
                   label: 'Aadhaar Front',
-                  uploaded:
-                      aadhaarFrontUploaded,
+                  uploaded: aadhaarFrontUploaded,
                   onUpload: () {
                     _openDocumentUpload(
                       context,
-                      documentName:
-                          'Aadhaar Front',
+                      documentName: 'Aadhaar Front',
                       isFront: true,
                     );
                   },
@@ -900,13 +843,11 @@ class ProfileScreen extends StatelessWidget {
 
                 ProfileDocumentCard(
                   label: 'Aadhaar Back',
-                  uploaded:
-                      aadhaarBackUploaded,
+                  uploaded: aadhaarBackUploaded,
                   onUpload: () {
                     _openDocumentUpload(
                       context,
-                      documentName:
-                          'Aadhaar Back',
+                      documentName: 'Aadhaar Back',
                       isFront: false,
                     );
                   },
@@ -934,10 +875,8 @@ class ProfileScreen extends StatelessWidget {
                 // =================================================
 
                 ProfileInfoCard(
-                  icon:
-                      Icons.verified_user_outlined,
-                  iconColor:
-                      const Color(0xFF16A34A),
+                  icon: Icons.verified_user_outlined,
+                  iconColor: const Color(0xFF16A34A),
                   label: 'Walker UID',
                   value: uid.isEmpty
                       ? walkerUid
