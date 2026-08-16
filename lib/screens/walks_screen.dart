@@ -1,3 +1,6 @@
+// File location:
+// lib/screens/walks_screen.dart
+
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
@@ -10,10 +13,17 @@ class WalksScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
-
       body: Column(
         children: [
+          // ======================================================
+          // SAME COMMON HEADER AS HOME
+          // ======================================================
+
           const WalkerHomeHeader(),
+
+          // ======================================================
+          // WALKS CONTENT
+          // ======================================================
 
           Expanded(
             child: ListView.builder(
@@ -36,6 +46,10 @@ class WalksScreen extends StatelessWidget {
     );
   }
 }
+
+// ================================================================
+// WALK CARD
+// ================================================================
 
 class _WalkCard extends StatelessWidget {
   final int walkNumber;
@@ -83,7 +97,8 @@ class _WalkCard extends StatelessWidget {
 
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 Text(
                   'Walk Session #$walkNumber',
