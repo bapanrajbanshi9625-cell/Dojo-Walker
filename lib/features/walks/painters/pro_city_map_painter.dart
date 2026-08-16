@@ -7,13 +7,19 @@ class ProCityMapPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Base map
+    // ============================================================
+    // BASE MAP
+    // ============================================================
+
     canvas.drawRect(
       Offset.zero & size,
       Paint()..color = const Color(0xFFEAF2E7),
     );
 
-    // River
+    // ============================================================
+    // RIVER
+    // ============================================================
+
     final Path river = Path()
       ..moveTo(size.width * .82, -20)
       ..cubicTo(
@@ -32,7 +38,10 @@ class ProCityMapPainter extends CustomPainter {
         size.width * .65,
         size.height + 20,
       )
-      ..lineTo(size.width * .82, size.height + 20)
+      ..lineTo(
+        size.width * .82,
+        size.height + 20,
+      )
       ..cubicTo(
         size.width * .92,
         size.height * .90,
@@ -56,7 +65,10 @@ class ProCityMapPainter extends CustomPainter {
       Paint()..color = const Color(0xFFC9E7EC),
     );
 
-    // Parks
+    // ============================================================
+    // PARKS
+    // ============================================================
+
     final Paint park = Paint()
       ..color = const Color(0xFFCDE6C8);
 
@@ -97,7 +109,10 @@ class ProCityMapPainter extends CustomPainter {
       );
     }
 
-    // Main roads
+    // ============================================================
+    // MAIN ROADS
+    // ============================================================
+
     final Paint mainRoad = Paint()
       ..color = const Color(0xFFD1D5D6)
       ..strokeWidth = 17
@@ -128,7 +143,10 @@ class ProCityMapPainter extends CustomPainter {
     canvas.drawPath(road1, mainRoad);
     canvas.drawPath(road2, mainRoad);
 
-    // Road center lines
+    // ============================================================
+    // ROAD CENTER LINES
+    // ============================================================
+
     final Paint roadLine = Paint()
       ..color = Colors.white.withOpacity(.85)
       ..strokeWidth = 1.5
@@ -137,7 +155,10 @@ class ProCityMapPainter extends CustomPainter {
     canvas.drawPath(road1, roadLine);
     canvas.drawPath(road2, roadLine);
 
-    // Small streets
+    // ============================================================
+    // SMALL STREETS
+    // ============================================================
+
     final Paint smallRoad = Paint()
       ..color = const Color(0xFFDCE1E1)
       ..strokeWidth = 4
@@ -169,7 +190,10 @@ class ProCityMapPainter extends CustomPainter {
       );
     }
 
-    // Buildings
+    // ============================================================
+    // BUILDINGS
+    // ============================================================
+
     final Paint building = Paint()
       ..color = const Color(0xFFFDFDFB);
 
@@ -204,9 +228,14 @@ class ProCityMapPainter extends CustomPainter {
       );
     }
 
-    // Trees
+    // ============================================================
+    // TREES
+    // ============================================================
+
+    const Color treeColor = Color(0xFF69A96E);
+
     final Paint tree = Paint()
-      ..color = const Color(0xFF69A96E);
+      ..color = treeColor;
 
     final List<Offset> treePoints = [
       Offset(size.width * .11, size.height * .14),
@@ -221,7 +250,11 @@ class ProCityMapPainter extends CustomPainter {
     ];
 
     for (final point in treePoints) {
-      canvas.drawCircle(point, 4, tree);
+      canvas.drawCircle(
+        point,
+        4,
+        tree,
+      );
 
       canvas.drawCircle(
         point,
@@ -229,11 +262,14 @@ class ProCityMapPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1
-          ..color = tree.withOpacity(.35),
+          ..color = treeColor.withOpacity(.35),
       );
     }
 
-    // Map blocks
+    // ============================================================
+    // MAP BLOCKS
+    // ============================================================
+
     final Paint block = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = .7
@@ -244,7 +280,10 @@ class ProCityMapPainter extends CustomPainter {
 
       canvas.drawLine(
         Offset(x, 0),
-        Offset(x + 15, size.height),
+        Offset(
+          x + 15,
+          size.height,
+        ),
         block,
       );
     }
