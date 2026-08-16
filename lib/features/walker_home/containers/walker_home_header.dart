@@ -18,14 +18,16 @@ class WalkerHomeHeader extends StatelessWidget {
         bottom: false,
         child: Container(
           // ======================================================
-          // ONLY HEADER HEIGHT / POSITION
-          // ICON + TEXT UI UNCHANGED
+          // SAME APP BAR LEVEL AS PROFILE
           // ======================================================
 
-          height: 104,
+          height: 56,
+
           width: double.infinity,
 
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+          ),
 
           decoration: const BoxDecoration(
             color: WalkerHomeFeatures.orange,
@@ -34,12 +36,12 @@ class WalkerHomeHeader extends StatelessWidget {
           child: Row(
             children: [
               // ==================================================
-              // PAW LOGO — UNCHANGED
+              // PAW LOGO
               // ==================================================
 
               Container(
-                width: 44,
-                height: 44,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(.15),
                   shape: BoxShape.circle,
@@ -51,35 +53,39 @@ class WalkerHomeHeader extends StatelessWidget {
                 child: const Icon(
                   Icons.pets_rounded,
                   color: Colors.white,
-                  size: 25,
+                  size: 23,
                 ),
               ),
 
-              const SizedBox(width: 11),
+              const SizedBox(width: 10),
 
               // ==================================================
-              // TITLE — UNCHANGED
+              // TITLE
               // ==================================================
 
               const Expanded(
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment:
+                      MainAxisAlignment.center,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Dojo Walker',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    SizedBox(height: 2),
+
+                    SizedBox(height: 1),
+
                     Text(
                       "Buddy's Dashboard",
                       style: TextStyle(
                         color: Colors.white70,
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
@@ -88,37 +94,42 @@ class WalkerHomeHeader extends StatelessWidget {
               ),
 
               // ==================================================
-              // NOTIFICATION — UNCHANGED
+              // NOTIFICATION
               // ==================================================
 
               _HeaderButton(
-                icon: Icons.notifications_none_rounded,
+                icon:
+                    Icons.notifications_none_rounded,
                 onTap: () {
-                  WalkerHomeFeatures.openNotifications(context);
+                  WalkerHomeFeatures
+                      .openNotifications(context);
                 },
               ),
 
-              const SizedBox(width: 7),
+              const SizedBox(width: 6),
 
               // ==================================================
-              // SUPPORT — UNCHANGED
+              // SUPPORT
               // ==================================================
 
               _HeaderButton(
-                icon: Icons.headset_mic_outlined,
+                icon:
+                    Icons.headset_mic_outlined,
                 onTap: () {
-                  WalkerHomeFeatures.openSupport(context);
+                  WalkerHomeFeatures
+                      .openSupport(context);
                 },
               ),
 
-              const SizedBox(width: 7),
+              const SizedBox(width: 6),
 
               // ==================================================
-              // PROFILE — UNCHANGED
+              // PROFILE
               // ==================================================
 
               _HeaderButton(
-                icon: Icons.person_outline_rounded,
+                icon:
+                    Icons.person_outline_rounded,
                 onTap: () {
                   // Profile action can be connected here later.
                 },
@@ -150,8 +161,8 @@ class _HeaderButton extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 40,
-        height: 40,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(.14),
           shape: BoxShape.circle,
@@ -163,7 +174,7 @@ class _HeaderButton extends StatelessWidget {
         child: Icon(
           icon,
           color: Colors.white,
-          size: 21,
+          size: 20,
         ),
       ),
     );
