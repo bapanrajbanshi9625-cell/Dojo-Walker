@@ -47,6 +47,12 @@ dependencies:
 
   image_picker: ^1.1.2
 
+  # ==========================================================
+  # CALL / MESSAGE / GOOGLE MAPS
+  # ==========================================================
+
+  url_launcher: ^6.3.0
+
 
 dev_dependencies:
   flutter_test:
