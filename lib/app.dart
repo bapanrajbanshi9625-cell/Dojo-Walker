@@ -1,8 +1,8 @@
-// File location: lib/app.dart
-
 import 'package:flutter/material.dart';
 
+import 'core/network/network_monitor.dart';
 import 'core/theme/app_theme.dart';
+import 'screens/no_network_screen.dart';
 import 'screens/splash_screen.dart';
 
 class DojoWalkerApp extends StatelessWidget {
@@ -15,15 +15,35 @@ class DojoWalkerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Widget startScreen;
+
+    if (startupError != null) {
+      final errorText = startupError!.toLowerCase();
+
+      final networkError =
+          errorText.contains('network') ||
+          errorText.contains('timeout') ||
+          errorText.contains('socket') ||
+          errorText.contains('connection') ||
+          errorText.contains('unavailable');
+
+      startScreen = networkError
+          ? const NoNetworkScreen()
+          : StartupErrorScreen(
+              error: startupError!,
+            );
+    } else {
+      startScreen = const SplashScreen();
+    }
+
     return MaterialApp(
       title: 'Dojo Walker - Buddy',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: startupError != null
-          ? StartupErrorScreen(
-              error: startupError!,
-            )
-          : const SplashScreen(),
+
+      home: NetworkMonitor(
+        child: startScreen,
+      ),
     );
   }
 }
