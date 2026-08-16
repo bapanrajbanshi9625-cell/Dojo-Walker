@@ -22,6 +22,9 @@ dependencies:
   # Local Storage
   shared_preferences: ^2.2.3
 
+  # Network / Internet Connection
+  connectivity_plus: ^6.1.4
+
   # QR Scanner
   mobile_scanner: ^5.1.0
 
