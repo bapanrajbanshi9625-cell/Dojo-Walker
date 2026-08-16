@@ -8,6 +8,20 @@ import 'package:flutter/material.dart';
 import '../core/constants/app_colors.dart';
 import '../features/walker_home/containers/walker_home_header.dart';
 
+// ============================================================
+// GLOBAL COLORS
+// ============================================================
+
+const Color _lightBlue = Color(0xFFBFEAF7);
+const Color _lightBlue2 = Color(0xFFA9DFEF);
+const Color _buttonBlue = Color(0xFF238EAE);
+const Color _radarGreen = Color(0xFF16A34A);
+const Color _darkText = Color(0xFF263746);
+
+// ============================================================
+// WALKS SCREEN
+// ============================================================
+
 class WalksScreen extends StatefulWidget {
   const WalksScreen({super.key});
 
@@ -31,7 +45,7 @@ class _WalksScreenState extends State<WalksScreen>
       _requestSubscription;
 
   // ============================================================
-  // WALKER SEARCH STATE
+  // SEARCH STATE
   // ============================================================
 
   bool _searching = false;
@@ -58,28 +72,6 @@ class _WalksScreenState extends State<WalksScreen>
   bool _dotVisible = false;
 
   // ============================================================
-  // COLORS
-  // ============================================================
-
-  static const Color lightBlue =
-      Color(0xFFBFEAF7);
-
-  static const Color lightBlue2 =
-      Color(0xFFA9DFEF);
-
-  static const Color headerBlack =
-      Color(0xFF20252B);
-
-  static const Color buttonBlue =
-      Color(0xFF238EAE);
-
-  static const Color radarGreen =
-      Color(0xFF16A34A);
-
-  static const Color darkText =
-      Color(0xFF263746);
-
-  // ============================================================
   // INIT
   // ============================================================
 
@@ -94,9 +86,8 @@ class _WalksScreenState extends State<WalksScreen>
       duration: const Duration(seconds: 3),
     )..repeat();
 
-    // हर 10 सेकंड में एक नया location dot
     _dotTimer = Timer.periodic(
-      const Duration(seconds: 10),
+      const Duration(seconds: 7),
       (_) {
         if (_searching && mounted) {
           _moveRadarDot();
@@ -126,7 +117,9 @@ class _WalksScreenState extends State<WalksScreen>
 
       final data = snapshot.data();
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       final bool searching =
           data?['instaWalkSearching'] == true;
@@ -178,7 +171,9 @@ class _WalksScreenState extends State<WalksScreen>
         SetOptions(merge: true),
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _searching = true;
@@ -186,10 +181,11 @@ class _WalksScreenState extends State<WalksScreen>
       });
 
       _startRequestListener();
-
       _moveRadarDot();
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _loading = false;
@@ -202,7 +198,7 @@ class _WalksScreenState extends State<WalksScreen>
   }
 
   // ============================================================
-  // START FIREBASE REQUEST LISTENER
+  // FIREBASE REQUEST LISTENER
   // ============================================================
 
   void _startRequestListener() {
@@ -217,7 +213,9 @@ class _WalksScreenState extends State<WalksScreen>
         .snapshots()
         .listen(
       (snapshot) {
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
 
         final List<WalkRequest> incoming = [];
 
@@ -227,7 +225,6 @@ class _WalksScreenState extends State<WalksScreen>
           final double distance =
               _readDistance(data['distanceKm']);
 
-          // केवल 3.5 KM तक
           if (distance <= 3.5) {
             incoming.add(
               WalkRequest.fromFirestore(
@@ -239,7 +236,8 @@ class _WalksScreenState extends State<WalksScreen>
         }
 
         incoming.sort(
-          (a, b) => a.distanceKm.compareTo(
+          (a, b) =>
+              a.distanceKm.compareTo(
             b.distanceKm,
           ),
         );
@@ -251,7 +249,9 @@ class _WalksScreenState extends State<WalksScreen>
         });
       },
       onError: (_) {
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
 
         _showMessage(
           'Unable to receive walk requests.',
@@ -261,7 +261,7 @@ class _WalksScreenState extends State<WalksScreen>
   }
 
   // ============================================================
-  // DISTANCE PARSER
+  // DISTANCE
   // ============================================================
 
   double _readDistance(dynamic value) {
@@ -309,11 +309,8 @@ class _WalksScreenState extends State<WalksScreen>
           final data = snapshot.data();
 
           final String status =
-              data?['status']
-                      ?.toString() ??
-                  '';
+              data?['status']?.toString() ?? '';
 
-          // दूसरा walker पहले ही accept कर चुका है
           if (status != 'searching') {
             throw Exception(
               'Request already accepted.',
@@ -345,20 +342,25 @@ class _WalksScreenState extends State<WalksScreen>
         SetOptions(merge: true),
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _searching = false;
         _requests.removeWhere(
           (item) => item.id == request.id,
         );
+        _dotVisible = false;
       });
 
       _showMessage(
         'Walk request accepted successfully.',
       );
-    } catch (e) {
-      if (!mounted) return;
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
 
       _showMessage(
         'This walk request is no longer available.',
@@ -390,7 +392,9 @@ class _WalksScreenState extends State<WalksScreen>
         SetOptions(merge: true),
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _searching = false;
@@ -417,7 +421,7 @@ class _WalksScreenState extends State<WalksScreen>
   }
 
   // ============================================================
-  // STOP CONFIRMATION
+  // STOP DIALOG
   // ============================================================
 
   Future<void> _showStopDialog() async {
@@ -425,19 +429,16 @@ class _WalksScreenState extends State<WalksScreen>
         await showDialog<bool>(
       context: context,
       barrierDismissible: true,
-      barrierColor:
-          Colors.black.withOpacity(.48),
+      barrierColor: Colors.black.withOpacity(.48),
       builder: (dialogContext) {
         return Dialog(
-          backgroundColor:
-              Colors.transparent,
+          backgroundColor: Colors.transparent,
           insetPadding:
               const EdgeInsets.symmetric(
             horizontal: 28,
           ),
           child: Container(
-            padding:
-                const EdgeInsets.all(22),
+            padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius:
@@ -447,66 +448,53 @@ class _WalksScreenState extends State<WalksScreen>
                   color:
                       Colors.black.withOpacity(.18),
                   blurRadius: 30,
-                  offset:
-                      const Offset(0, 14),
+                  offset: const Offset(0, 14),
                 ),
               ],
             ),
             child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   width: 66,
                   height: 66,
-                  decoration:
-                      BoxDecoration(
-                    color: buttonBlue
-                        .withOpacity(.10),
+                  decoration: BoxDecoration(
+                    color:
+                        _buttonBlue.withOpacity(.10),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.radar_rounded,
-                    color: buttonBlue,
+                    color: _buttonBlue,
                     size: 34,
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
                 const Text(
                   'Stop Searching?',
                   style: TextStyle(
-                    color: darkText,
+                    color: _darkText,
                     fontSize: 20,
-                    fontWeight:
-                        FontWeight.w800,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-
                 const SizedBox(height: 9),
-
                 const Text(
                   'You will stop receiving nearby Insta Walk requests.',
-                  textAlign:
-                      TextAlign.center,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    color:
-                        Color(0xFF6B7280),
+                    color: Color(0xFF6B7280),
                     fontSize: 13,
                     height: 1.5,
                   ),
                 ),
-
                 const SizedBox(height: 22),
-
                 Row(
                   children: [
                     Expanded(
                       child: SizedBox(
                         height: 48,
-                        child:
-                            OutlinedButton(
+                        child: OutlinedButton(
                           onPressed: () {
                             Navigator.pop(
                               dialogContext,
@@ -514,16 +502,10 @@ class _WalksScreenState extends State<WalksScreen>
                             );
                           },
                           style:
-                              OutlinedButton
-                                  .styleFrom(
-                            foregroundColor:
-                                darkText,
-                            side:
-                                const BorderSide(
-                              color:
-                                  Color(
-                                0xFFE1E5E9,
-                              ),
+                              OutlinedButton.styleFrom(
+                            foregroundColor: _darkText,
+                            side: const BorderSide(
+                              color: Color(0xFFE1E5E9),
                             ),
                             shape:
                                 RoundedRectangleBorder(
@@ -533,11 +515,9 @@ class _WalksScreenState extends State<WalksScreen>
                               ),
                             ),
                           ),
-                          child:
-                              const Text(
+                          child: const Text(
                             'Cancel',
-                            style:
-                                TextStyle(
+                            style: TextStyle(
                               fontWeight:
                                   FontWeight.w700,
                             ),
@@ -545,14 +525,11 @@ class _WalksScreenState extends State<WalksScreen>
                         ),
                       ),
                     ),
-
                     const SizedBox(width: 10),
-
                     Expanded(
                       child: SizedBox(
                         height: 48,
-                        child:
-                            ElevatedButton(
+                        child: ElevatedButton(
                           onPressed: () {
                             Navigator.pop(
                               dialogContext,
@@ -560,10 +537,9 @@ class _WalksScreenState extends State<WalksScreen>
                             );
                           },
                           style:
-                              ElevatedButton
-                                  .styleFrom(
+                              ElevatedButton.styleFrom(
                             backgroundColor:
-                                buttonBlue,
+                                _buttonBlue,
                             foregroundColor:
                                 Colors.white,
                             elevation: 0,
@@ -575,11 +551,9 @@ class _WalksScreenState extends State<WalksScreen>
                               ),
                             ),
                           ),
-                          child:
-                              const Text(
+                          child: const Text(
                             'Confirm',
-                            style:
-                                TextStyle(
+                            style: TextStyle(
                               fontWeight:
                                   FontWeight.w800,
                             ),
@@ -608,26 +582,26 @@ class _WalksScreenState extends State<WalksScreen>
   void _moveRadarDot() {
     _dotGlowTimer?.cancel();
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       _dotX =
-          -0.78 +
-          _random.nextDouble() * 1.56;
+          -.78 + _random.nextDouble() * 1.56;
 
       _dotY =
-          -0.65 +
-          _random.nextDouble() * 1.30;
+          -.65 + _random.nextDouble() * 1.30;
 
       _dotVisible = true;
     });
 
     _dotGlowTimer = Timer(
-      const Duration(
-        milliseconds: 1200,
-      ),
+      const Duration(milliseconds: 1200),
       () {
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
 
         setState(() {
           _dotVisible = false;
@@ -641,17 +615,17 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
 
   void _showMessage(String message) {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior:
-              SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(12),
           ),
@@ -682,18 +656,12 @@ class _WalksScreenState extends State<WalksScreen>
     return Scaffold(
       backgroundColor:
           const Color(0xFFF5F6F8),
-
-      // IMPORTANT:
-      // यहाँ AppBar नहीं है।
       body: Column(
         children: [
-          // आपका existing Walker header
           const WalkerHomeHeader(),
-
           Expanded(
             child: ListView(
-              padding:
-                  const EdgeInsets.only(
+              padding: const EdgeInsets.only(
                 bottom: 30,
               ),
               children: [
@@ -712,42 +680,33 @@ class _WalksScreenState extends State<WalksScreen>
 
   Widget _buildMainContainer() {
     return Container(
-      margin:
-          const EdgeInsets.fromLTRB(
-        18,
+      margin: const EdgeInsets.fromLTRB(
         16,
-        18,
+        15,
+        16,
         10,
       ),
-      padding:
-          const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient:
-            const LinearGradient(
+        gradient: const LinearGradient(
           colors: [
-            lightBlue,
-            lightBlue2,
+            _lightBlue,
+            _lightBlue2,
           ],
-          begin:
-              Alignment.topLeft,
-          end:
-              Alignment.bottomRight,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
         borderRadius:
             BorderRadius.circular(28),
-        border:
-            Border.all(
-          color:
-              Colors.white.withOpacity(.75),
+        border: Border.all(
+          color: Colors.white.withOpacity(.78),
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color:
-                Colors.black.withOpacity(.08),
+            color: Colors.black.withOpacity(.08),
             blurRadius: 20,
-            offset:
-                const Offset(0, 8),
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -757,20 +716,18 @@ class _WalksScreenState extends State<WalksScreen>
         children: [
           _buildHeader(),
 
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
 
           if (!_searching)
             _buildNormalInfo(),
 
           if (_searching) ...[
             _buildRadar(),
-
             const SizedBox(height: 14),
-
             _buildRequests(),
           ],
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 15),
 
           _buildSearchButton(),
         ],
@@ -785,31 +742,25 @@ class _WalksScreenState extends State<WalksScreen>
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(11),
+      padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
-        gradient:
-            const LinearGradient(
+        gradient: const LinearGradient(
           colors: [
-            Color(0xFF1B2025),
+            Color(0xFF151A1F),
             Color(0xFF414850),
-            Color(0xFF16191D),
+            Color(0xFF15181C),
           ],
         ),
         borderRadius:
             BorderRadius.circular(20),
-        border:
-            Border.all(
-          color:
-              Colors.white.withOpacity(.13),
+        border: Border.all(
+          color: Colors.white.withOpacity(.13),
         ),
         boxShadow: [
           BoxShadow(
-            color:
-                Colors.black.withOpacity(.16),
+            color: Colors.black.withOpacity(.16),
             blurRadius: 14,
-            offset:
-                const Offset(0, 6),
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -819,8 +770,7 @@ class _WalksScreenState extends State<WalksScreen>
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color:
-                  AppColors.primary,
+              color: AppColors.primary,
               borderRadius:
                   BorderRadius.circular(15),
             ),
@@ -830,9 +780,7 @@ class _WalksScreenState extends State<WalksScreen>
               size: 30,
             ),
           ),
-
           const SizedBox(width: 13),
-
           const Expanded(
             child: Column(
               crossAxisAlignment:
@@ -851,15 +799,13 @@ class _WalksScreenState extends State<WalksScreen>
                 Text(
                   'Find a walk request nearby',
                   style: TextStyle(
-                    color:
-                        Color(0xFFD5D9DD),
+                    color: Color(0xFFD5D9DD),
                     fontSize: 13,
                   ),
                 ),
               ],
             ),
           ),
-
           if (_searching)
             Container(
               padding:
@@ -869,20 +815,19 @@ class _WalksScreenState extends State<WalksScreen>
               ),
               decoration: BoxDecoration(
                 color:
-                    radarGreen.withOpacity(.18),
+                    _radarGreen.withOpacity(.18),
                 borderRadius:
                     BorderRadius.circular(10),
-                border:
-                    Border.all(
+                border: Border.all(
                   color:
-                      radarGreen.withOpacity(.35),
+                      _radarGreen.withOpacity(.35),
                 ),
               ),
               child: const Row(
                 children: [
                   Icon(
                     Icons.circle,
-                    color: radarGreen,
+                    color: _radarGreen,
                     size: 8,
                   ),
                   SizedBox(width: 5),
@@ -913,46 +858,38 @@ class _WalksScreenState extends State<WalksScreen>
         const Text(
           'Search for available Insta Walk requests within 3.5 kilometre of your service area.',
           style: TextStyle(
-            color:
-                Color(0xFF23404D),
+            color: Color(0xFF23404D),
             fontSize: 13,
             height: 1.45,
-            fontWeight:
-                FontWeight.w500,
+            fontWeight: FontWeight.w500,
           ),
         ),
-
         const SizedBox(height: 14),
-
         Container(
           width: double.infinity,
-          padding:
-              const EdgeInsets.all(13),
+          padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
             color:
                 Colors.white.withOpacity(.52),
             borderRadius:
                 BorderRadius.circular(15),
-            border:
-                Border.all(
+            border: Border.all(
               color:
-                  Colors.white.withOpacity(.7),
+                  Colors.white.withOpacity(.70),
             ),
           ),
           child: const Row(
             children: [
               Icon(
                 Icons.location_on_outlined,
-                color:
-                    Color(0xFF23404D),
+                color: Color(0xFF23404D),
                 size: 19,
               ),
               SizedBox(width: 7),
               Text(
                 'Search range: 3.5 kilometre',
                 style: TextStyle(
-                  color:
-                      Color(0xFF23404D),
+                  color: Color(0xFF23404D),
                   fontSize: 12,
                   fontWeight:
                       FontWeight.w700,
@@ -966,37 +903,34 @@ class _WalksScreenState extends State<WalksScreen>
   }
 
   // ============================================================
-  // RADAR
+  // PRO RADAR + MAP
   // ============================================================
 
   Widget _buildRadar() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(9),
       decoration: BoxDecoration(
-        color:
-            const Color(0xFFEAF3E8),
+        color: const Color(0xFFEAF3E8),
         borderRadius:
-            BorderRadius.circular(22),
-        border:
-            Border.all(
-          color:
-              Colors.white.withOpacity(.85),
+            BorderRadius.circular(23),
+        border: Border.all(
+          color: Colors.white.withOpacity(.9),
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
             color:
                 Colors.black.withOpacity(.10),
-            blurRadius: 16,
-            offset:
-                const Offset(0, 6),
+            blurRadius: 17,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Column(
         children: [
+          const SizedBox(height: 2),
+
           Row(
             mainAxisAlignment:
                 MainAxisAlignment.center,
@@ -1007,15 +941,14 @@ class _WalksScreenState extends State<WalksScreen>
                 decoration:
                     const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: radarGreen,
+                  color: _radarGreen,
                 ),
               ),
               const SizedBox(width: 7),
               const Text(
                 'SEARCHING NEARBY',
                 style: TextStyle(
-                  color:
-                      Color(0xFF26352A),
+                  color: Color(0xFF26352A),
                   fontSize: 10,
                   fontWeight:
                       FontWeight.w900,
@@ -1028,34 +961,30 @@ class _WalksScreenState extends State<WalksScreen>
           const SizedBox(height: 9),
 
           SizedBox(
-            height: 245,
+            height: 255,
             width: double.infinity,
             child: ClipRRect(
               borderRadius:
-                  BorderRadius.circular(17),
+                  BorderRadius.circular(18),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // पूरे radar container में map
                   const CustomPaint(
                     painter:
                         ProCityMapPainter(),
                   ),
 
-                  // rotating radar
                   AnimatedBuilder(
                     animation:
                         _radarController,
                     builder:
-                        (
-                      context,
-                      child,
-                    ) {
+                        (context, child) {
                       return CustomPaint(
                         painter:
                             ProRadarPainter(
                           rotation:
-                              _radarController.value *
+                              _radarController
+                                      .value *
                                   math.pi *
                                   2,
                         ),
@@ -1063,42 +992,54 @@ class _WalksScreenState extends State<WalksScreen>
                     },
                   ),
 
-                  // केवल एक moving dot
                   if (_dotVisible)
                     _RadarDot(
                       x: _dotX,
                       y: _dotY,
                     ),
 
-                  // center position
                   const Center(
                     child:
                         _CenterLocationDot(),
                   ),
 
-                  // top map label
                   Positioned(
                     top: 10,
                     left: 10,
-                    child:
-                        _MapChip(
+                    child: _MapChip(
                       icon:
-                          Icons.map_outlined,
+                          Icons.layers_rounded,
                       text:
                           '3.5 KM AREA',
                     ),
                   ),
 
                   Positioned(
+                    top: 10,
                     right: 10,
-                    bottom: 10,
-                    child:
-                        _MapChip(
+                    child: _MapChip(
                       icon:
-                          Icons.gps_fixed,
-                      text:
-                          'LIVE',
+                          Icons.near_me_rounded,
+                      text: 'LIVE',
                     ),
+                  ),
+
+                  Positioned(
+                    bottom: 10,
+                    left: 10,
+                    child: _MapChip(
+                      icon:
+                          Icons.pets_rounded,
+                      text:
+                          '${_requests.length} REQUEST${_requests.length == 1 ? '' : 'S'}',
+                    ),
+                  ),
+
+                  Positioned(
+                    bottom: 10,
+                    right: 10,
+                    child:
+                        _MapZoomControls(),
                   ),
                 ],
               ),
@@ -1107,22 +1048,22 @@ class _WalksScreenState extends State<WalksScreen>
 
           const SizedBox(height: 10),
 
-          const Row(
+          Row(
             mainAxisAlignment:
                 MainAxisAlignment.center,
             children: [
-              Icon(
+              const Icon(
                 Icons.radar_rounded,
-                color:
-                    Color(0xFF35443A),
+                color: Color(0xFF35443A),
                 size: 17,
               ),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               Text(
-                'Searching within 3.5 kilometre',
-                style: TextStyle(
-                  color:
-                      Color(0xFF35443A),
+                _requests.isEmpty
+                    ? 'Searching within 3.5 kilometre'
+                    : '${_requests.length} nearby walk request${_requests.length == 1 ? '' : 's'} found',
+                style: const TextStyle(
+                  color: Color(0xFF35443A),
                   fontSize: 12,
                   fontWeight:
                       FontWeight.w700,
@@ -1165,7 +1106,7 @@ class _WalksScreenState extends State<WalksScreen>
                 valueColor:
                     AlwaysStoppedAnimation<
                         Color>(
-                  radarGreen,
+                  _radarGreen,
                 ),
               ),
             ),
@@ -1174,8 +1115,7 @@ class _WalksScreenState extends State<WalksScreen>
               child: Text(
                 'Waiting for nearby walk requests...',
                 style: TextStyle(
-                  color:
-                      Color(0xFF35443A),
+                  color: Color(0xFF35443A),
                   fontSize: 12,
                   fontWeight:
                       FontWeight.w600,
@@ -1192,16 +1132,14 @@ class _WalksScreenState extends State<WalksScreen>
           CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding:
-              EdgeInsets.only(
+          padding: EdgeInsets.only(
             left: 3,
             bottom: 9,
           ),
           child: Text(
             'AVAILABLE WALK REQUESTS',
             style: TextStyle(
-              color:
-                  Color(0xFF26352A),
+              color: Color(0xFF26352A),
               fontSize: 10,
               fontWeight:
                   FontWeight.w900,
@@ -1209,7 +1147,6 @@ class _WalksScreenState extends State<WalksScreen>
             ),
           ),
         ),
-
         ..._requests.map(
           _buildRequestCard,
         ),
@@ -1226,27 +1163,21 @@ class _WalksScreenState extends State<WalksScreen>
   ) {
     return Container(
       margin:
-          const EdgeInsets.only(
-        bottom: 9,
-      ),
-      padding:
-          const EdgeInsets.all(13),
+          const EdgeInsets.only(bottom: 9),
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius:
             BorderRadius.circular(17),
-        border:
-            Border.all(
-          color:
-              const Color(0xFFE4E8E5),
+        border: Border.all(
+          color: const Color(0xFFE4E8E5),
         ),
         boxShadow: [
           BoxShadow(
             color:
                 Colors.black.withOpacity(.06),
             blurRadius: 10,
-            offset:
-                const Offset(0, 3),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -1257,13 +1188,13 @@ class _WalksScreenState extends State<WalksScreen>
             height: 45,
             decoration: BoxDecoration(
               color:
-                  radarGreen.withOpacity(.10),
+                  _radarGreen.withOpacity(.10),
               borderRadius:
                   BorderRadius.circular(13),
             ),
             child: const Icon(
               Icons.pets_rounded,
-              color: radarGreen,
+              color: _radarGreen,
               size: 24,
             ),
           ),
@@ -1281,7 +1212,7 @@ class _WalksScreenState extends State<WalksScreen>
                   overflow:
                       TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: darkText,
+                    color: _darkText,
                     fontSize: 14,
                     fontWeight:
                         FontWeight.w800,
@@ -1293,8 +1224,7 @@ class _WalksScreenState extends State<WalksScreen>
                 Row(
                   children: [
                     const Icon(
-                      Icons
-                          .location_on_outlined,
+                      Icons.location_on_outlined,
                       size: 14,
                       color:
                           Color(0xFF6B7280),
@@ -1344,7 +1274,7 @@ class _WalksScreenState extends State<WalksScreen>
               style:
                   ElevatedButton.styleFrom(
                 backgroundColor:
-                    radarGreen,
+                    _radarGreen,
                 foregroundColor:
                     Colors.white,
                 elevation: 0,
@@ -1391,11 +1321,11 @@ class _WalksScreenState extends State<WalksScreen>
           backgroundColor:
               Colors.white,
           foregroundColor:
-              buttonBlue,
+              _buttonBlue,
           disabledBackgroundColor:
               Colors.white,
           disabledForegroundColor:
-              buttonBlue,
+              _buttonBlue,
           elevation: 0,
           shape:
               RoundedRectangleBorder(
@@ -1419,7 +1349,7 @@ class _WalksScreenState extends State<WalksScreen>
                     valueColor:
                         AlwaysStoppedAnimation<
                             Color>(
-                      buttonBlue,
+                      _buttonBlue,
                     ),
                   ),
                 )
@@ -1441,13 +1371,13 @@ class _WalksScreenState extends State<WalksScreen>
                             valueColor:
                                 AlwaysStoppedAnimation<
                                     Color>(
-                              buttonBlue,
+                              _buttonBlue,
                             ),
                           ),
                         ),
                         SizedBox(width: 9),
                         Text(
-                          'Searching Insta Walk 🔍',
+                          'Searching Insta Walk',
                           style:
                               TextStyle(
                             fontWeight:
@@ -1465,8 +1395,7 @@ class _WalksScreenState extends State<WalksScreen>
                               .center,
                       children: [
                         Icon(
-                          Icons
-                              .search_rounded,
+                          Icons.search_rounded,
                           size: 22,
                         ),
                         SizedBox(width: 8),
@@ -1509,9 +1438,13 @@ class _MapChip extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color:
-            Colors.white.withOpacity(.88),
+            Colors.white.withOpacity(.90),
         borderRadius:
             BorderRadius.circular(9),
+        border: Border.all(
+          color:
+              Colors.white.withOpacity(.8),
+        ),
         boxShadow: [
           BoxShadow(
             color:
@@ -1521,6 +1454,7 @@ class _MapChip extends StatelessWidget {
         ],
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             icon,
@@ -1546,6 +1480,59 @@ class _MapChip extends StatelessWidget {
 }
 
 // ============================================================
+// MAP ZOOM CONTROLS
+// ============================================================
+
+class _MapZoomControls extends StatelessWidget {
+  const _MapZoomControls();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(.92),
+        borderRadius:
+            BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color:
+                Colors.black.withOpacity(.10),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 30,
+            height: 28,
+            child: Icon(
+              Icons.add_rounded,
+              size: 18,
+              color: Color(0xFF35443A),
+            ),
+          ),
+          Divider(
+            height: 1,
+            thickness: .7,
+          ),
+          SizedBox(
+            width: 30,
+            height: 28,
+            child: Icon(
+              Icons.remove_rounded,
+              size: 18,
+              color: Color(0xFF35443A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================
 // RADAR DOT
 // ============================================================
 
@@ -1561,19 +1548,18 @@ class _RadarDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Align(
-      alignment:
-          Alignment(x, y),
+      alignment: Alignment(x, y),
       child: Container(
         width: 10,
         height: 10,
         decoration:
             BoxDecoration(
           shape: BoxShape.circle,
-          color: radarGreen,
+          color: _radarGreen,
           boxShadow: [
             BoxShadow(
               color:
-                  radarGreen.withOpacity(.75),
+                  _radarGreen.withOpacity(.75),
               blurRadius: 16,
               spreadRadius: 4,
             ),
@@ -1595,15 +1581,14 @@ class _CenterLocationDot
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 19,
-      height: 19,
+      width: 22,
+      height: 22,
       decoration:
           BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white,
-        border:
-            Border.all(
-          color: radarGreen,
+        border: Border.all(
+          color: _radarGreen,
           width: 3,
         ),
         boxShadow: [
@@ -1616,12 +1601,12 @@ class _CenterLocationDot
       ),
       child: Center(
         child: Container(
-          width: 6,
-          height: 6,
+          width: 7,
+          height: 7,
           decoration:
               const BoxDecoration(
             shape: BoxShape.circle,
-            color: radarGreen,
+            color: _radarGreen,
           ),
         ),
       ),
@@ -1637,7 +1622,7 @@ class ProRadarPainter
     extends CustomPainter {
   final double rotation;
 
-  ProRadarPainter({
+  const ProRadarPainter({
     required this.rotation,
   });
 
@@ -1646,8 +1631,7 @@ class ProRadarPainter
     Canvas canvas,
     Size size,
   ) {
-    final Offset center =
-        Offset(
+    final Offset center = Offset(
       size.width / 2,
       size.height / 2,
     );
@@ -1659,17 +1643,13 @@ class ProRadarPainter
             ) *
             .44;
 
-    // --------------------------------------------------------
     // RADAR RINGS
-    // --------------------------------------------------------
 
-    final Paint rings =
-        Paint()
-          ..style =
-              PaintingStyle.stroke
-          ..strokeWidth = 1.2
-          ..color =
-              radarGreen.withOpacity(.30);
+    final Paint rings = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..color =
+          _radarGreen.withOpacity(.30);
 
     for (int i = 1; i <= 4; i++) {
       canvas.drawCircle(
@@ -1679,15 +1659,12 @@ class ProRadarPainter
       );
     }
 
-    // --------------------------------------------------------
     // CROSS GRID
-    // --------------------------------------------------------
 
-    final Paint grid =
-        Paint()
-          ..color =
-              radarGreen.withOpacity(.20)
-          ..strokeWidth = 1;
+    final Paint grid = Paint()
+      ..color =
+          _radarGreen.withOpacity(.20)
+      ..strokeWidth = 1;
 
     canvas.drawLine(
       Offset(
@@ -1713,9 +1690,38 @@ class ProRadarPainter
       grid,
     );
 
-    // --------------------------------------------------------
+    // DIAGONAL GRID
+
+    final Paint diagonal = Paint()
+      ..color =
+          _radarGreen.withOpacity(.10)
+      ..strokeWidth = .8;
+
+    canvas.drawLine(
+      Offset(
+        center.dx - radius,
+        center.dy - radius,
+      ),
+      Offset(
+        center.dx + radius,
+        center.dy + radius,
+      ),
+      diagonal,
+    );
+
+    canvas.drawLine(
+      Offset(
+        center.dx + radius,
+        center.dy - radius,
+      ),
+      Offset(
+        center.dx - radius,
+        center.dy + radius,
+      ),
+      diagonal,
+    );
+
     // ROTATING SWEEP
-    // --------------------------------------------------------
 
     canvas.save();
 
@@ -1726,49 +1732,44 @@ class ProRadarPainter
 
     canvas.rotate(rotation);
 
-    final Path sweep =
-        Path()
-          ..moveTo(0, 0)
-          ..lineTo(radius, 0)
-          ..arcTo(
-            Rect.fromCircle(
-              center: Offset.zero,
-              radius: radius,
-            ),
-            0,
-            math.pi / 5,
-            false,
-          )
-          ..close();
+    final Path sweep = Path()
+      ..moveTo(0, 0)
+      ..lineTo(radius, 0)
+      ..arcTo(
+        Rect.fromCircle(
+          center: Offset.zero,
+          radius: radius,
+        ),
+        0,
+        math.pi / 5,
+        false,
+      )
+      ..close();
 
-    final Paint sweepPaint =
-        Paint()
-          ..shader =
-              const LinearGradient(
-            colors: [
-              Color(0x7016A34A),
-              Color(0x3016A34A),
-              Color(0x0016A34A),
-            ],
-          ).createShader(
-            Rect.fromCircle(
-              center: Offset.zero,
-              radius: radius,
-            ),
-          );
+    final Paint sweepPaint = Paint()
+      ..shader =
+          const LinearGradient(
+        colors: [
+          Color(0x7016A34A),
+          Color(0x3016A34A),
+          Color(0x0016A34A),
+        ],
+      ).createShader(
+        Rect.fromCircle(
+          center: Offset.zero,
+          radius: radius,
+        ),
+      );
 
     canvas.drawPath(
       sweep,
       sweepPaint,
     );
 
-    // Sweep line
-
-    final Paint sweepLine =
-        Paint()
-          ..color =
-              radarGreen.withOpacity(.95)
-          ..strokeWidth = 2;
+    final Paint sweepLine = Paint()
+      ..color =
+          _radarGreen.withOpacity(.95)
+      ..strokeWidth = 2;
 
     canvas.drawLine(
       Offset.zero,
@@ -1778,17 +1779,13 @@ class ProRadarPainter
 
     canvas.restore();
 
-    // --------------------------------------------------------
     // OUTER CIRCLE
-    // --------------------------------------------------------
 
-    final Paint outer =
-        Paint()
-          ..style =
-              PaintingStyle.stroke
-          ..strokeWidth = 2
-          ..color =
-              radarGreen.withOpacity(.45);
+    final Paint outer = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color =
+          _radarGreen.withOpacity(.45);
 
     canvas.drawCircle(
       center,
@@ -1801,8 +1798,7 @@ class ProRadarPainter
   bool shouldRepaint(
     covariant ProRadarPainter oldDelegate,
   ) {
-    return oldDelegate.rotation !=
-        rotation;
+    return oldDelegate.rotation != rotation;
   }
 }
 
@@ -1819,9 +1815,7 @@ class ProCityMapPainter
     Canvas canvas,
     Size size,
   ) {
-    // ========================================================
-    // BASE MAP
-    // ========================================================
+    // BASE
 
     canvas.drawRect(
       Offset.zero & size,
@@ -1830,53 +1824,50 @@ class ProCityMapPainter
             const Color(0xFFEAF2E7),
     );
 
-    // ========================================================
     // RIVER
-    // ========================================================
 
-    final Path river =
-        Path()
-          ..moveTo(
-            size.width * .82,
-            -20,
-          )
-          ..cubicTo(
-            size.width * .68,
-            size.height * .18,
-            size.width * .91,
-            size.height * .38,
-            size.width * .73,
-            size.height * .58,
-          )
-          ..cubicTo(
-            size.width * .58,
-            size.height * .76,
-            size.width * .78,
-            size.height * .91,
-            size.width * .65,
-            size.height + 20,
-          )
-          ..lineTo(
-            size.width * .82,
-            size.height + 20,
-          )
-          ..cubicTo(
-            size.width * .92,
-            size.height * .90,
-            size.width * .75,
-            size.height * .76,
-            size.width * .88,
-            size.height * .56,
-          )
-          ..cubicTo(
-            size.width + .02,
-            size.height * .35,
-            size.width * .78,
-            size.height * .17,
-            size.width * .94,
-            -20,
-          )
-          ..close();
+    final Path river = Path()
+      ..moveTo(
+        size.width * .82,
+        -20,
+      )
+      ..cubicTo(
+        size.width * .68,
+        size.height * .18,
+        size.width * .91,
+        size.height * .38,
+        size.width * .73,
+        size.height * .58,
+      )
+      ..cubicTo(
+        size.width * .58,
+        size.height * .76,
+        size.width * .78,
+        size.height * .91,
+        size.width * .65,
+        size.height + 20,
+      )
+      ..lineTo(
+        size.width * .82,
+        size.height + 20,
+      )
+      ..cubicTo(
+        size.width * .92,
+        size.height * .90,
+        size.width * .75,
+        size.height * .76,
+        size.width * .88,
+        size.height * .56,
+      )
+      ..cubicTo(
+        size.width + .02,
+        size.height * .35,
+        size.width * .78,
+        size.height * .17,
+        size.width * .94,
+        -20,
+      )
+      ..close();
 
     canvas.drawPath(
       river,
@@ -1885,14 +1876,11 @@ class ProCityMapPainter
             const Color(0xFFC9E7EC),
     );
 
-    // ========================================================
     // PARKS
-    // ========================================================
 
-    final Paint park =
-        Paint()
-          ..color =
-              const Color(0xFFCDE6C8);
+    final Paint park = Paint()
+      ..color =
+          const Color(0xFFCDE6C8);
 
     final List<Rect> parks = [
       Rect.fromLTWH(
@@ -1921,7 +1909,7 @@ class ProCityMapPainter
       ),
     ];
 
-    for (final rect in parks) {
+    for (final Rect rect in parks) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           rect,
@@ -1931,47 +1919,42 @@ class ProCityMapPainter
       );
     }
 
-    // ========================================================
     // MAIN ROADS
-    // ========================================================
 
-    final Paint mainRoad =
-        Paint()
-          ..color =
-              const Color(0xFFD1D5D6)
-          ..strokeWidth = 17
-          ..style =
-              PaintingStyle.stroke;
+    final Paint mainRoad = Paint()
+      ..color =
+          const Color(0xFFD1D5D6)
+      ..strokeWidth = 17
+      ..style =
+          PaintingStyle.stroke;
 
-    final Path road1 =
-        Path()
-          ..moveTo(
-            -20,
-            size.height * .42,
-          )
-          ..cubicTo(
-            size.width * .22,
-            size.height * .35,
-            size.width * .53,
-            size.height * .55,
-            size.width + 20,
-            size.height * .39,
-          );
+    final Path road1 = Path()
+      ..moveTo(
+        -20,
+        size.height * .42,
+      )
+      ..cubicTo(
+        size.width * .22,
+        size.height * .35,
+        size.width * .53,
+        size.height * .55,
+        size.width + 20,
+        size.height * .39,
+      );
 
-    final Path road2 =
-        Path()
-          ..moveTo(
-            size.width * .43,
-            -20,
-          )
-          ..cubicTo(
-            size.width * .38,
-            size.height * .30,
-            size.width * .58,
-            size.height * .66,
-            size.width * .48,
-            size.height + 20,
-          );
+    final Path road2 = Path()
+      ..moveTo(
+        size.width * .43,
+        -20,
+      )
+      ..cubicTo(
+        size.width * .38,
+        size.height * .30,
+        size.width * .58,
+        size.height * .66,
+        size.width * .48,
+        size.height + 20,
+      );
 
     canvas.drawPath(
       road1,
@@ -1983,17 +1966,14 @@ class ProCityMapPainter
       mainRoad,
     );
 
-    // ========================================================
-    // ROAD CENTER LINES
-    // ========================================================
+    // ROAD CENTER
 
-    final Paint roadLine =
-        Paint()
-          ..color =
-              Colors.white.withOpacity(.85)
-          ..strokeWidth = 1.5
-          ..style =
-              PaintingStyle.stroke;
+    final Paint roadLine = Paint()
+      ..color =
+          Colors.white.withOpacity(.85)
+      ..strokeWidth = 1.5
+      ..style =
+          PaintingStyle.stroke;
 
     canvas.drawPath(
       road1,
@@ -2005,17 +1985,14 @@ class ProCityMapPainter
       roadLine,
     );
 
-    // ========================================================
     // SMALL STREETS
-    // ========================================================
 
-    final Paint smallRoad =
-        Paint()
-          ..color =
-              const Color(0xFFDCE1E1)
-          ..strokeWidth = 4
-          ..style =
-              PaintingStyle.stroke;
+    final Paint smallRoad = Paint()
+      ..color =
+          const Color(0xFFDCE1E1)
+      ..strokeWidth = 4
+      ..style =
+          PaintingStyle.stroke;
 
     for (int i = 1; i < 9; i++) {
       final double y =
@@ -2025,10 +2002,7 @@ class ProCityMapPainter
         Offset(0, y),
         Offset(
           size.width,
-          y +
-              (i.isEven
-                  ? 8
-                  : -6),
+          y + (i.isEven ? 8 : -6),
         ),
         smallRoad,
       );
@@ -2041,29 +2015,22 @@ class ProCityMapPainter
       canvas.drawLine(
         Offset(x, 0),
         Offset(
-          x +
-              (i.isEven
-                  ? 8
-                  : -6),
+          x + (i.isEven ? 8 : -6),
           size.height,
         ),
         smallRoad,
       );
     }
 
-    // ========================================================
-    // BUILDINGS / HOUSES
-    // ========================================================
+    // BUILDINGS
 
-    final Paint building =
-        Paint()
-          ..color =
-              const Color(0xFFFDFDFB);
+    final Paint building = Paint()
+      ..color =
+          const Color(0xFFFDFDFB);
 
-    final Paint building2 =
-        Paint()
-          ..color =
-              const Color(0xFFE3E7E4);
+    final Paint building2 = Paint()
+      ..color =
+          const Color(0xFFE3E7E4);
 
     final math.Random random =
         math.Random(27);
@@ -2108,14 +2075,11 @@ class ProCityMapPainter
       );
     }
 
-    // ========================================================
     // TREES
-    // ========================================================
 
-    final Paint tree =
-        Paint()
-          ..color =
-              const Color(0xFF69A96E);
+    final Paint tree = Paint()
+      ..color =
+          const Color(0xFF69A96E);
 
     final List<Offset> treePoints = [
       Offset(
@@ -2156,43 +2120,41 @@ class ProCityMapPainter
       ),
     ];
 
-    for (final point in treePoints) {
+    for (final Offset point in treePoints) {
       canvas.drawCircle(
         point,
         4,
         tree,
       );
 
+      final Paint treeBorder = Paint()
+        ..style =
+            PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color =
+            const Color(0xFF69A96E)
+                .withOpacity(.35);
+
       canvas.drawCircle(
         point,
         6,
-        Paint()
-          ..style =
-              PaintingStyle.stroke
-          ..strokeWidth = 1
-          ..color =
-              tree.withOpacity(.35),
+        treeBorder,
       );
     }
 
-    // ========================================================
-    // MAP BLOCK BORDERS
-    // ========================================================
+    // BLOCK BORDERS
 
-    final Paint block =
-        Paint()
-          ..style =
-              PaintingStyle.stroke
-          ..strokeWidth = .7
-          ..color =
-              const Color(0xFFCAD3CD)
-                  .withOpacity(.65);
+    final Paint block = Paint()
+      ..style =
+          PaintingStyle.stroke
+      ..strokeWidth = .7
+      ..color =
+          const Color(0xFFCAD3CD)
+              .withOpacity(.65);
 
     for (int i = 0; i < 12; i++) {
       final double x =
-          size.width *
-              i /
-              12;
+          size.width * i / 12;
 
       canvas.drawLine(
         Offset(x, 0),
@@ -2232,8 +2194,7 @@ class WalkRequest {
     required this.distanceKm,
   });
 
-  String get title =>
-      'Insta Walk Request';
+  String get title => 'Insta Walk Request';
 
   factory WalkRequest.fromFirestore(
     String id,
@@ -2253,16 +2214,11 @@ class WalkRequest {
     return WalkRequest(
       id: id,
       ownerUid:
-          data['ownerUid']
-                  ?.toString() ??
-              '',
+          data['ownerUid']?.toString() ?? '',
       address:
-          data['address']
-                  ?.toString() ??
-              '',
+          data['address']?.toString() ?? '',
       status:
-          data['status']
-                  ?.toString() ??
+          data['status']?.toString() ??
               'searching',
       distanceKm: distanceKm,
     );
