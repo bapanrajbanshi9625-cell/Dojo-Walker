@@ -17,16 +17,24 @@ class WalkerHomeHeader extends StatelessWidget {
         top: true,
         bottom: false,
         child: Container(
+          // ======================================================
+          // ONLY HEADER HEIGHT / POSITION
+          // ICON + TEXT UI UNCHANGED
+          // ======================================================
+
           height: 104,
           width: double.infinity,
+
           padding: const EdgeInsets.symmetric(horizontal: 16),
+
           decoration: const BoxDecoration(
             color: WalkerHomeFeatures.orange,
           ),
+
           child: Row(
             children: [
               // ==================================================
-              // PAW LOGO
+              // PAW LOGO — UNCHANGED
               // ==================================================
 
               Container(
@@ -50,7 +58,7 @@ class WalkerHomeHeader extends StatelessWidget {
               const SizedBox(width: 11),
 
               // ==================================================
-              // TITLE
+              // TITLE — UNCHANGED
               // ==================================================
 
               const Expanded(
@@ -80,7 +88,7 @@ class WalkerHomeHeader extends StatelessWidget {
               ),
 
               // ==================================================
-              // NOTIFICATION
+              // NOTIFICATION — UNCHANGED
               // ==================================================
 
               _HeaderButton(
@@ -93,7 +101,7 @@ class WalkerHomeHeader extends StatelessWidget {
               const SizedBox(width: 7),
 
               // ==================================================
-              // SUPPORT
+              // SUPPORT — UNCHANGED
               // ==================================================
 
               _HeaderButton(
@@ -106,7 +114,7 @@ class WalkerHomeHeader extends StatelessWidget {
               const SizedBox(width: 7),
 
               // ==================================================
-              // PROFILE
+              // PROFILE — UNCHANGED
               // ==================================================
 
               _HeaderButton(
