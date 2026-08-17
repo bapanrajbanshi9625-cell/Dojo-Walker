@@ -38,13 +38,16 @@ class _MandatoryProfileSetupScreenState
   final ImagePicker _imagePicker = ImagePicker();
 
   DateTime? _dateOfBirth;
+
   File? _selfieFile;
+  File? _aadhaarFrontFile;
+  File? _aadhaarBackFile;
 
   bool _isSaving = false;
 
-  // =====================================================
+  // ============================================================
   // TAKE SELFIE
-  // =====================================================
+  // ============================================================
 
   Future<void> _takeSelfie() async {
     try {
@@ -67,14 +70,202 @@ class _MandatoryProfileSetupScreenState
       debugPrint('Selfie camera error: $e');
 
       _showMessage(
-        'Unable to open camera: $e',
+        'Unable to open camera.',
       );
     }
   }
 
-  // =====================================================
+  // ============================================================
+  // AADHAAR IMAGE PICKER
+  // ============================================================
+
+  Future<void> _pickAadhaarImage({
+    required bool front,
+  }) async {
+    final ImageSource? source =
+        await _showImageSourceDialog(
+      title: front
+          ? 'Aadhaar Front'
+          : 'Aadhaar Back',
+    );
+
+    if (source == null) {
+      return;
+    }
+
+    try {
+      final XFile? image =
+          await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1600,
+        maxHeight: 1200,
+      );
+
+      if (image == null || !mounted) {
+        return;
+      }
+
+      setState(() {
+        if (front) {
+          _aadhaarFrontFile = File(image.path);
+        } else {
+          _aadhaarBackFile = File(image.path);
+        }
+      });
+    } catch (e) {
+      debugPrint(
+        'Aadhaar image picker error: $e',
+      );
+
+      _showMessage(
+        'Unable to select Aadhaar image.',
+      );
+    }
+  }
+
+  // ============================================================
+  // IMAGE SOURCE DIALOG
+  // ============================================================
+
+  Future<ImageSource?> _showImageSourceDialog({
+    required String title,
+  }) async {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              18,
+              20,
+              20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.black12,
+                    borderRadius:
+                        BorderRadius.circular(10),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF263746),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _sourceButton(
+                        icon: Icons.camera_alt_rounded,
+                        title: 'Camera',
+                        onTap: () {
+                          Navigator.pop(
+                            context,
+                            ImageSource.camera,
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _sourceButton(
+                        icon: Icons.photo_library_rounded,
+                        title: 'Gallery',
+                        onTap: () {
+                          Navigator.pop(
+                            context,
+                            ImageSource.gallery,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _sourceButton({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          vertical: 18,
+        ),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F8FA),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFFE1E5E8),
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 28,
+              color: AppColors.primary,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF263746),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // REMOVE AADHAAR IMAGE
+  // ============================================================
+
+  void _removeAadhaarImage({
+    required bool front,
+  }) {
+    setState(() {
+      if (front) {
+        _aadhaarFrontFile = null;
+      } else {
+        _aadhaarBackFile = null;
+      }
+    });
+  }
+
+  // ============================================================
   // DATE OF BIRTH
-  // =====================================================
+  // ============================================================
 
   Future<void> _selectDateOfBirth() async {
     final DateTime now = DateTime.now();
@@ -97,7 +288,8 @@ class _MandatoryProfileSetupScreenState
       now.day,
     );
 
-    final DateTime? selectedDate = await showDatePicker(
+    final DateTime? selectedDate =
+        await showDatePicker(
       context: context,
       initialDate: initialDate,
       firstDate: firstDate,
@@ -114,27 +306,38 @@ class _MandatoryProfileSetupScreenState
     });
   }
 
-  // =====================================================
+  // ============================================================
   // MESSAGE
-  // =====================================================
+  // ============================================================
 
   void _showMessage(String message) {
     if (!mounted) {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      );
   }
 
-  // =====================================================
+  // ============================================================
   // SAVE PROFILE
-  // =====================================================
+  // ============================================================
 
   Future<void> _saveProfile() async {
+    if (_isSaving) {
+      return;
+    }
+
     final String name =
         _nameController.text.trim();
 
@@ -147,13 +350,13 @@ class _MandatoryProfileSetupScreenState
     final String pinCode =
         _pinCodeController.text.trim();
 
-    // =====================================================
+    // ----------------------------------------------------------
     // VALIDATION
-    // =====================================================
+    // ----------------------------------------------------------
 
     if (_selfieFile == null) {
       _showMessage(
-        'Please take your selfie.',
+        'Please take your profile selfie.',
       );
       return;
     }
@@ -175,6 +378,20 @@ class _MandatoryProfileSetupScreenState
     if (aadhaar.length != 12) {
       _showMessage(
         'Please enter a valid 12-digit Aadhaar number.',
+      );
+      return;
+    }
+
+    if (_aadhaarFrontFile == null) {
+      _showMessage(
+        'Please upload Aadhaar front side.',
+      );
+      return;
+    }
+
+    if (_aadhaarBackFile == null) {
+      _showMessage(
+        'Please upload Aadhaar back side.',
       );
       return;
     }
@@ -208,9 +425,12 @@ class _MandatoryProfileSetupScreenState
     });
 
     try {
-      // =================================================
-      // FIREBASE PROFILE SERVICE
-      // =================================================
+      // ========================================================
+      // SAVE PROFILE
+      //
+      // authUid is sent internally only.
+      // It is NOT displayed anywhere in this UI.
+      // ========================================================
 
       await ProfileSetupService.saveWalkerProfile(
         walkerUid: user.uid,
@@ -221,6 +441,8 @@ class _MandatoryProfileSetupScreenState
         address: address,
         pinCode: pinCode,
         selfieFile: _selfieFile!,
+        aadhaarFrontFile: _aadhaarFrontFile!,
+        aadhaarBackFile: _aadhaarBackFile!,
       );
 
       if (!mounted) {
@@ -228,12 +450,12 @@ class _MandatoryProfileSetupScreenState
       }
 
       _showMessage(
-        'Profile saved successfully!',
+        'Walker profile saved successfully!',
       );
 
-      // =================================================
-      // GO TO MAIN NAVIGATION
-      // =================================================
+      // ========================================================
+      // GO TO MAIN APP
+      // ========================================================
 
       Navigator.pushAndRemoveUntil(
         context,
@@ -249,7 +471,7 @@ class _MandatoryProfileSetupScreenState
       );
 
       _showMessage(
-        'Profile save failed: $e',
+        'Profile save failed. Please try again.',
       );
     } finally {
       if (mounted) {
@@ -260,9 +482,251 @@ class _MandatoryProfileSetupScreenState
     }
   }
 
-  // =====================================================
+  // ============================================================
+  // AADHAAR UPLOAD CARD
+  // ============================================================
+
+  Widget _aadhaarUploadCard({
+    required String title,
+    required String subtitle,
+    required File? file,
+    required bool front,
+  }) {
+    final bool uploaded = file != null;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: uploaded
+              ? const Color(0xFFB9DEC6)
+              : const Color(0xFFE1E6EA),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.045),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: uploaded
+                      ? const Color(0xFFEAF7EF)
+                      : const Color(0xFFFFF3ED),
+                  borderRadius:
+                      BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  uploaded
+                      ? Icons.check_circle_rounded
+                      : Icons.badge_outlined,
+                  color: uploaded
+                      ? const Color(0xFF16A34A)
+                      : AppColors.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Color(0xFF263746),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      uploaded
+                          ? 'Document selected'
+                          : subtitle,
+                      style: TextStyle(
+                        color: uploaded
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFF7A8289),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          if (uploaded)
+            ClipRRect(
+              borderRadius:
+                  BorderRadius.circular(14),
+              child: Stack(
+                children: [
+                  Image.file(
+                    file,
+                    width: double.infinity,
+                    height: 145,
+                    fit: BoxFit.cover,
+                  ),
+
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Material(
+                      color: Colors.black.withOpacity(.55),
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder:
+                            const CircleBorder(),
+                        onTap: _isSaving
+                            ? null
+                            : () =>
+                                _removeAadhaarImage(
+                                  front: front,
+                                ),
+                        child: const Padding(
+                          padding:
+                              EdgeInsets.all(7),
+                          child: Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          if (uploaded)
+            const SizedBox(height: 10),
+
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: OutlinedButton.icon(
+              onPressed: _isSaving
+                  ? null
+                  : () =>
+                      _pickAadhaarImage(
+                        front: front,
+                      ),
+              icon: Icon(
+                uploaded
+                    ? Icons.refresh_rounded
+                    : Icons.upload_file_rounded,
+                size: 19,
+              ),
+              label: Text(
+                uploaded
+                    ? 'Change Document'
+                    : 'Upload Document',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              style:
+                  OutlinedButton.styleFrom(
+                foregroundColor:
+                    AppColors.primary,
+                side: BorderSide(
+                  color: AppColors.primary
+                      .withOpacity(.45),
+                ),
+                shape:
+                    RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(13),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // SECTION TITLE
+  // ============================================================
+
+  Widget _sectionTitle({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color:
+                AppColors.primary.withOpacity(.10),
+            borderRadius:
+                BorderRadius.circular(11),
+          ),
+          child: Icon(
+            icon,
+            color: AppColors.primary,
+            size: 21,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Color(0xFF263746),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  color: Color(0xFF7A8289),
+                  fontSize: 11,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
   // DISPOSE
-  // =====================================================
+  // ============================================================
 
   @override
   void dispose() {
@@ -273,42 +737,133 @@ class _MandatoryProfileSetupScreenState
     super.dispose();
   }
 
-  // =====================================================
+  // ============================================================
   // BUILD
-  // =====================================================
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
     final User? user =
         FirebaseAuth.instance.currentUser;
 
-    final String walkerUid =
-        user?.uid ?? '';
-
     final String phoneNumber =
         user?.phoneNumber ?? 'Not available';
 
     return Scaffold(
+      backgroundColor:
+          const Color(0xFFF5F7F8),
+
+      // ========================================================
+      // APP BAR
+      // ========================================================
+
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         automaticallyImplyLeading: false,
-        title: const Text(
-          'Complete Walker Profile',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+        elevation: 0,
+        titleSpacing: 20,
+        title: const Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Complete Walker Profile',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            SizedBox(height: 2),
+            Text(
+              'Verify your profile to continue',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
+
+      // ========================================================
+      // BODY
+      // ========================================================
+
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(
+          18,
+          18,
+          18,
+          35,
+        ),
         child: Column(
           crossAxisAlignment:
               CrossAxisAlignment.start,
           children: [
-            // =================================================
-            // SELFIE
-            // =================================================
+            // ==================================================
+            // INTRO CARD
+            // ==================================================
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient:
+                    const LinearGradient(
+                  colors: [
+                    Color(0xFFFFF3EC),
+                    Colors.white,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius:
+                    BorderRadius.circular(20),
+                border: Border.all(
+                  color: AppColors.primary
+                      .withOpacity(.15),
+                ),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.verified_user_rounded,
+                    color: AppColors.primary,
+                    size: 27,
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Complete your verification details. '
+                      'All required information must be submitted before continuing.',
+                      style: TextStyle(
+                        color: Color(0xFF46515A),
+                        fontSize: 12,
+                        height: 1.4,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 22),
+
+            // ==================================================
+            // SELFIE SECTION
+            // ==================================================
+
+            _sectionTitle(
+              icon: Icons.camera_front_rounded,
+              title: 'Profile Selfie',
+              subtitle:
+                  'Take a clear front-facing selfie.',
+            ),
+
+            const SizedBox(height: 14),
 
             SelfieSection(
               selfieFile: _selfieFile,
@@ -317,23 +872,33 @@ class _MandatoryProfileSetupScreenState
                   : _takeSelfie,
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 7),
 
             const Center(
               child: Text(
                 'Take Selfie',
                 style: TextStyle(
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w800,
                   color: AppColors.primary,
+                  fontSize: 12,
                 ),
               ),
             ),
 
-            const SizedBox(height: 28),
+            const SizedBox(height: 26),
 
-            // =================================================
-            // FULL NAME
-            // =================================================
+            // ==================================================
+            // PERSONAL DETAILS
+            // ==================================================
+
+            _sectionTitle(
+              icon: Icons.person_outline_rounded,
+              title: 'Personal Details',
+              subtitle:
+                  'Enter your basic profile information.',
+            ),
+
+            const SizedBox(height: 14),
 
             ProfileTextField(
               label: 'Full Name',
@@ -343,11 +908,7 @@ class _MandatoryProfileSetupScreenState
                   TextCapitalization.words,
             ),
 
-            const SizedBox(height: 18),
-
-            // =================================================
-            // DATE OF BIRTH
-            // =================================================
+            const SizedBox(height: 16),
 
             DateOfBirthField(
               dateOfBirth: _dateOfBirth,
@@ -356,26 +917,65 @@ class _MandatoryProfileSetupScreenState
                   : _selectDateOfBirth,
             ),
 
-            const SizedBox(height: 18),
+            const SizedBox(height: 24),
 
-            // =================================================
-            // AADHAAR
-            // =================================================
+            // ==================================================
+            // IDENTITY VERIFICATION
+            // ==================================================
+
+            _sectionTitle(
+              icon: Icons.badge_outlined,
+              title: 'Aadhaar Verification',
+              subtitle:
+                  'Enter your Aadhaar number and upload both sides.',
+            ),
+
+            const SizedBox(height: 14),
 
             ProfileTextField(
               label: 'Aadhaar Number',
-              hint: 'Enter 12-digit Aadhaar number',
+              hint:
+                  'Enter 12-digit Aadhaar number',
               controller: _aadhaarController,
               keyboardType:
                   TextInputType.number,
               maxLength: 12,
             ),
 
-            const SizedBox(height: 18),
+            const SizedBox(height: 12),
 
-            // =================================================
+            _aadhaarUploadCard(
+              title: 'Aadhaar Front',
+              subtitle:
+                  'Upload the front side of Aadhaar',
+              file: _aadhaarFrontFile,
+              front: true,
+            ),
+
+            const SizedBox(height: 12),
+
+            _aadhaarUploadCard(
+              title: 'Aadhaar Back',
+              subtitle:
+                  'Upload the back side of Aadhaar',
+              file: _aadhaarBackFile,
+              front: false,
+            ),
+
+            const SizedBox(height: 24),
+
+            // ==================================================
             // ADDRESS
-            // =================================================
+            // ==================================================
+
+            _sectionTitle(
+              icon: Icons.location_on_outlined,
+              title: 'Address Details',
+              subtitle:
+                  'Provide your current residential address.',
+            ),
+
+            const SizedBox(height: 14),
 
             ProfileTextField(
               label: 'Address',
@@ -386,11 +986,7 @@ class _MandatoryProfileSetupScreenState
                   TextCapitalization.sentences,
             ),
 
-            const SizedBox(height: 18),
-
-            // =================================================
-            // PIN CODE
-            // =================================================
+            const SizedBox(height: 16),
 
             ProfileTextField(
               label: 'PIN Code',
@@ -401,37 +997,40 @@ class _MandatoryProfileSetupScreenState
               maxLength: 6,
             ),
 
-            const SizedBox(height: 18),
+            const SizedBox(height: 24),
 
-            // =================================================
-            // MOBILE NUMBER
-            // =================================================
+            // ==================================================
+            // LINKED MOBILE
+            // ==================================================
+
+            _sectionTitle(
+              icon: Icons.phone_outlined,
+              title: 'Account Information',
+              subtitle:
+                  'Your login mobile number is linked automatically.',
+            ),
+
+            const SizedBox(height: 14),
 
             LockedInfoCard(
               label: 'Linked Mobile Number',
               value: phoneNumber,
-              icon: Icons.phone,
+              icon: Icons.phone_rounded,
             ),
 
-            const SizedBox(height: 18),
+            // ==================================================
+            // IMPORTANT:
+            //
+            // Firebase Auth UID intentionally NOT displayed.
+            // Walker ID also intentionally NOT displayed here.
+            // They remain backend/profile data only.
+            // ==================================================
 
-            // =================================================
-            // WALKER UID
-            // =================================================
+            const SizedBox(height: 28),
 
-            LockedInfoCard(
-              label: 'Walker UID',
-              value: walkerUid.isEmpty
-                  ? 'UID not available'
-                  : walkerUid,
-              icon: Icons.verified_user,
-            ),
-
-            const SizedBox(height: 30),
-
-            // =================================================
-            // SAVE BUTTON
-            // =================================================
+            // ==================================================
+            // SAVE
+            // ==================================================
 
             SaveProfileButton(
               isSaving: _isSaving,
@@ -440,14 +1039,15 @@ class _MandatoryProfileSetupScreenState
                   : _saveProfile,
             ),
 
-            const SizedBox(height: 15),
+            const SizedBox(height: 14),
 
             const Center(
               child: Text(
-                'Your profile information will be securely linked to your Walker UID.',
+                'Your verification information is securely linked to your Walker profile.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
+                  height: 1.4,
                   color: Colors.grey,
                 ),
               ),
