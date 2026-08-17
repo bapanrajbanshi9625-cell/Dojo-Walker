@@ -23,6 +23,10 @@ class WalksScreen extends StatefulWidget {
 
 class _WalksScreenState extends State<WalksScreen>
     with SingleTickerProviderStateMixin {
+  // ============================================================
+  // FIREBASE
+  // ============================================================
+
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
@@ -32,12 +36,33 @@ class _WalksScreenState extends State<WalksScreen>
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _requestSubscription;
 
-  bool _searching = false;
-  bool _loading = false;
+  // ============================================================
+  // WALKER IDENTITY
+  // ============================================================
 
   String? _walkerUid;
 
+  /// MAIN BUSINESS ID
+  ///
+  /// This is the ID used throughout the Walker system.
+  String? _walkerId;
+
+  // ============================================================
+  // SEARCH STATE
+  // ============================================================
+
+  bool _searching = false;
+  bool _loading = false;
+
+  // ============================================================
+  // REQUESTS
+  // ============================================================
+
   final List<WalkRequest> _requests = [];
+
+  // ============================================================
+  // RADAR
+  // ============================================================
 
   late final AnimationController _radarController;
 
@@ -51,11 +76,17 @@ class _WalksScreenState extends State<WalksScreen>
 
   bool _dotVisible = false;
 
+  // ============================================================
+  // INIT
+  // ============================================================
+
   @override
   void initState() {
     super.initState();
 
-    _walkerUid = _auth.currentUser?.uid;
+    final User? user = _auth.currentUser;
+
+    _walkerUid = user?.uid;
 
     _radarController = AnimationController(
       vsync: this,
@@ -74,55 +105,203 @@ class _WalksScreenState extends State<WalksScreen>
     _loadWalkerState();
   }
 
+  // ============================================================
+  // LOAD WALKER ID + SEARCH STATE
+  // ============================================================
+
   Future<void> _loadWalkerState() async {
     final String? uid = _walkerUid;
 
-    if (uid == null) return;
+    if (uid == null) {
+      return;
+    }
 
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(uid)
-          .get();
+      // ========================================================
+      // 1. GET WALKER ID
+      //
+      // phoneAccounts/{UID}
+      // Same strategy as Owner ID.
+      // ========================================================
 
-      final data = snapshot.data();
+      final DocumentSnapshot<Map<String, dynamic>>
+          accountSnapshot = await _firestore
+              .collection('phoneAccounts')
+              .doc(uid)
+              .get();
 
-      if (!mounted) return;
+      final Map<String, dynamic>? accountData =
+          accountSnapshot.data();
+
+      final dynamic savedWalkerId =
+          accountData?['walkerId'];
+
+      if (savedWalkerId is String &&
+          savedWalkerId.trim().isNotEmpty) {
+        _walkerId = savedWalkerId.trim();
+      }
+
+      // ========================================================
+      // 2. LOAD SEARCH STATE
+      //
+      // users/{UID}
+      // ========================================================
+
+      final DocumentSnapshot<Map<String, dynamic>>
+          userSnapshot = await _firestore
+              .collection('users')
+              .doc(uid)
+              .get();
+
+      final Map<String, dynamic>? userData =
+          userSnapshot.data();
 
       final bool searching =
-          data?['instaWalkSearching'] == true;
+          userData?['instaWalkSearching'] == true;
+
+      // ========================================================
+      // 3. KEEP WALKER ID IN USERS DOCUMENT TOO
+      //
+      // This is only a convenience/reference.
+      // Main identity remains phoneAccounts/{UID}.walkerId
+      // ========================================================
+
+      if (_walkerId != null) {
+        await _firestore
+            .collection('users')
+            .doc(uid)
+            .set(
+          {
+            'walkerId': _walkerId,
+          },
+          SetOptions(merge: true),
+        );
+      }
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _searching = searching;
       });
 
-      if (searching) {
+      // ========================================================
+      // 4. RESTORE ACTIVE SEARCH
+      // ========================================================
+
+      if (searching && _walkerId != null) {
         _startRequestListener();
         _moveRadarDot();
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint(
+        'Walker State Load Error: $e',
+      );
+    }
   }
+
+  // ============================================================
+  // GET WALKER ID SAFELY
+  // ============================================================
+
+  Future<String?> _getWalkerId() async {
+    if (_walkerId != null &&
+        _walkerId!.trim().isNotEmpty) {
+      return _walkerId;
+    }
+
+    final User? user = _auth.currentUser;
+
+    if (user == null) {
+      return null;
+    }
+
+    try {
+      final DocumentSnapshot<Map<String, dynamic>>
+          snapshot = await _firestore
+              .collection('phoneAccounts')
+              .doc(user.uid)
+              .get();
+
+      final Map<String, dynamic>? data =
+          snapshot.data();
+
+      final dynamic value = data?['walkerId'];
+
+      if (value is String &&
+          value.trim().isNotEmpty) {
+        final String id = value.trim();
+
+        if (mounted) {
+          setState(() {
+            _walkerId = id;
+          });
+        } else {
+          _walkerId = id;
+        }
+
+        return id;
+      }
+    } catch (e) {
+      debugPrint(
+        'Walker ID Load Error: $e',
+      );
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // START INSTA WALK SEARCH
+  // ============================================================
 
   Future<void> _startSearch() async {
     final User? user = _auth.currentUser;
 
     if (user == null) {
-      _showMessage('Please login first.');
+      _showMessage(
+        'Please login first.',
+      );
       return;
     }
 
-    if (_loading) return;
+    if (_loading) {
+      return;
+    }
+
+    // ========================================================
+    // MAIN WALKER ID
+    // ========================================================
+
+    final String? walkerId =
+        await _getWalkerId();
+
+    if (walkerId == null ||
+        walkerId.trim().isEmpty) {
+      _showMessage(
+        'Walker ID is not available. Please complete your Walker profile.',
+      );
+      return;
+    }
 
     setState(() {
       _loading = true;
     });
 
     try {
+      // ========================================================
+      // SAVE SEARCH STATE
+      //
+      // users/{UID}
+      // ========================================================
+
       await _firestore
           .collection('users')
           .doc(user.uid)
           .set(
         {
+          'walkerId': walkerId,
           'instaWalkSearching': true,
           'instaWalkSearchRadiusKm':
               WalksConstants.searchRadiusKm,
@@ -132,17 +311,26 @@ class _WalksScreenState extends State<WalksScreen>
         SetOptions(merge: true),
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
+        _walkerId = walkerId;
         _searching = true;
         _loading = false;
       });
 
       _startRequestListener();
       _moveRadarDot();
-    } catch (_) {
-      if (!mounted) return;
+    } catch (e) {
+      debugPrint(
+        'Start Insta Walk Error: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _loading = false;
@@ -153,6 +341,10 @@ class _WalksScreenState extends State<WalksScreen>
       );
     }
   }
+
+  // ============================================================
+  // REQUEST LISTENER
+  // ============================================================
 
   void _startRequestListener() {
     _requestSubscription?.cancel();
@@ -166,17 +358,25 @@ class _WalksScreenState extends State<WalksScreen>
         .snapshots()
         .listen(
       (snapshot) {
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
 
         final List<WalkRequest> incoming = [];
 
-        for (final document in snapshot.docs) {
-          final data = document.data();
+        for (final QueryDocumentSnapshot<
+                Map<String, dynamic>> document
+            in snapshot.docs) {
+          final Map<String, dynamic> data =
+              document.data();
 
           final double distance =
-              _readDistance(data['distanceKm']);
+              _readDistance(
+            data['distanceKm'],
+          );
 
-          if (distance <= WalksConstants.searchRadiusKm) {
+          if (distance <=
+              WalksConstants.searchRadiusKm) {
             incoming.add(
               WalkRequest.fromFirestore(
                 document.id,
@@ -188,7 +388,9 @@ class _WalksScreenState extends State<WalksScreen>
 
         incoming.sort(
           (a, b) =>
-              a.distanceKm.compareTo(b.distanceKm),
+              a.distanceKm.compareTo(
+            b.distanceKm,
+          ),
         );
 
         setState(() {
@@ -197,8 +399,14 @@ class _WalksScreenState extends State<WalksScreen>
             ..addAll(incoming);
         });
       },
-      onError: (_) {
-        if (!mounted) return;
+      onError: (Object error) {
+        debugPrint(
+          'Walk Request Listener Error: $error',
+        );
+
+        if (!mounted) {
+          return;
+        }
 
         _showMessage(
           'Unable to receive walk requests.',
@@ -206,6 +414,10 @@ class _WalksScreenState extends State<WalksScreen>
       },
     );
   }
+
+  // ============================================================
+  // READ DISTANCE
+  // ============================================================
 
   double _readDistance(dynamic value) {
     if (value is num) {
@@ -218,26 +430,51 @@ class _WalksScreenState extends State<WalksScreen>
         999;
   }
 
+  // ============================================================
+  // ACCEPT REQUEST
+  // ============================================================
+
   Future<void> _acceptRequest(
     WalkRequest request,
   ) async {
-    final String? uid = _walkerUid;
+    final User? user = _auth.currentUser;
 
-    if (uid == null) {
-      _showMessage('Please login first.');
+    if (user == null) {
+      _showMessage(
+        'Please login first.',
+      );
+      return;
+    }
+
+    final String? walkerId =
+        await _getWalkerId();
+
+    if (walkerId == null ||
+        walkerId.trim().isEmpty) {
+      _showMessage(
+        'Walker ID is not available.',
+      );
       return;
     }
 
     try {
-      final DocumentReference<Map<String, dynamic>>
-          requestRef = _firestore
+      final DocumentReference<
+          Map<String, dynamic>> requestRef =
+          _firestore
               .collection('walk_requests')
               .doc(request.id);
 
+      // ========================================================
+      // TRANSACTION
+      // ========================================================
+
       await _firestore.runTransaction(
         (transaction) async {
-          final snapshot =
-              await transaction.get(requestRef);
+          final DocumentSnapshot<
+              Map<String, dynamic>> snapshot =
+              await transaction.get(
+            requestRef,
+          );
 
           if (!snapshot.exists) {
             throw Exception(
@@ -245,7 +482,8 @@ class _WalksScreenState extends State<WalksScreen>
             );
           }
 
-          final data = snapshot.data();
+          final Map<String, dynamic>? data =
+              snapshot.data();
 
           final String status =
               data?['status']?.toString() ?? '';
@@ -256,12 +494,25 @@ class _WalksScreenState extends State<WalksScreen>
             );
           }
 
+          // ====================================================
+          // WALKER ID = MAIN IDENTITY
+          // UID = INTERNAL FIREBASE IDENTITY
+          // ====================================================
+
           transaction.update(
             requestRef,
             {
               'status': 'accepted',
-              'acceptedBy': uid,
-              'walkerUid': uid,
+
+              // MAIN BUSINESS ID
+              'walkerId': walkerId,
+
+              // Firebase authentication reference
+              'walkerUid': user.uid,
+
+              // Backward-compatible field
+              'acceptedBy': walkerId,
+
               'acceptedAt':
                   FieldValue.serverTimestamp(),
             },
@@ -269,11 +520,16 @@ class _WalksScreenState extends State<WalksScreen>
         },
       );
 
+      // ========================================================
+      // STOP SEARCH
+      // ========================================================
+
       await _firestore
           .collection('users')
-          .doc(uid)
+          .doc(user.uid)
           .set(
         {
+          'walkerId': walkerId,
           'instaWalkSearching': false,
           'instaWalkSearchUpdatedAt':
               FieldValue.serverTimestamp(),
@@ -281,20 +537,31 @@ class _WalksScreenState extends State<WalksScreen>
         SetOptions(merge: true),
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _searching = false;
+
         _requests.removeWhere(
           (item) => item.id == request.id,
         );
+
+        _dotVisible = false;
       });
 
       _showMessage(
         'Walk request accepted successfully.',
       );
-    } catch (_) {
-      if (!mounted) return;
+    } catch (e) {
+      debugPrint(
+        'Accept Walk Request Error: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
 
       _showMessage(
         'This walk request is no longer available.',
@@ -302,10 +569,16 @@ class _WalksScreenState extends State<WalksScreen>
     }
   }
 
+  // ============================================================
+  // STOP SEARCH
+  // ============================================================
+
   Future<void> _stopSearch() async {
     final String? uid = _walkerUid;
 
-    if (uid == null) return;
+    if (uid == null) {
+      return;
+    }
 
     try {
       await _firestore
@@ -320,19 +593,31 @@ class _WalksScreenState extends State<WalksScreen>
         SetOptions(merge: true),
       );
 
-      if (!mounted) return;
+      await _requestSubscription?.cancel();
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _searching = false;
         _requests.clear();
         _dotVisible = false;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint(
+        'Stop Insta Walk Error: $e',
+      );
+
       _showMessage(
         'Unable to stop searching.',
       );
     }
   }
+
+  // ============================================================
+  // SEARCH BUTTON
+  // ============================================================
 
   void _searchButtonPressed() {
     if (!_searching) {
@@ -342,20 +627,27 @@ class _WalksScreenState extends State<WalksScreen>
     }
   }
 
+  // ============================================================
+  // STOP SEARCH DIALOG
+  // ============================================================
+
   Future<void> _showStopDialog() async {
     final bool? confirm =
         await showDialog<bool>(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withOpacity(.48),
+      barrierColor:
+          Colors.black.withOpacity(.48),
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(26),
+            borderRadius:
+                BorderRadius.circular(26),
           ),
           title: const Text(
             'Stop Searching?',
+            textAlign: TextAlign.center,
             style: TextStyle(
               color: WalksConstants.darkText,
               fontSize: 20,
@@ -374,7 +666,9 @@ class _WalksScreenState extends State<WalksScreen>
                   false,
                 );
               },
-              child: const Text('Cancel'),
+              child: const Text(
+                'Cancel',
+              ),
             ),
             ElevatedButton(
               onPressed: () {
@@ -383,12 +677,16 @@ class _WalksScreenState extends State<WalksScreen>
                   true,
                 );
               },
-              style: ElevatedButton.styleFrom(
+              style:
+                  ElevatedButton.styleFrom(
                 backgroundColor:
                     WalksConstants.buttonBlue,
-                foregroundColor: Colors.white,
+                foregroundColor:
+                    Colors.white,
               ),
-              child: const Text('Confirm'),
+              child: const Text(
+                'Confirm',
+              ),
             ),
           ],
         );
@@ -400,21 +698,37 @@ class _WalksScreenState extends State<WalksScreen>
     }
   }
 
+  // ============================================================
+  // RADAR DOT
+  // ============================================================
+
   void _moveRadarDot() {
     _dotGlowTimer?.cancel();
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
-      _dotX = -.78 + _random.nextDouble() * 1.56;
-      _dotY = -.65 + _random.nextDouble() * 1.30;
+      _dotX =
+          -.78 +
+          _random.nextDouble() * 1.56;
+
+      _dotY =
+          -.65 +
+          _random.nextDouble() * 1.30;
+
       _dotVisible = true;
     });
 
     _dotGlowTimer = Timer(
-      const Duration(milliseconds: 1200),
+      const Duration(
+        milliseconds: 1200,
+      ),
       () {
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
 
         setState(() {
           _dotVisible = false;
@@ -423,21 +737,33 @@ class _WalksScreenState extends State<WalksScreen>
     );
   }
 
+  // ============================================================
+  // MESSAGE
+  // ============================================================
+
   void _showMessage(String message) {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior: SnackBarBehavior.floating,
+          behavior:
+              SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius:
+                BorderRadius.circular(12),
           ),
         ),
       );
   }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
 
   @override
   void dispose() {
@@ -449,16 +775,22 @@ class _WalksScreenState extends State<WalksScreen>
     super.dispose();
   }
 
+  // ============================================================
+  // BUILD
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor:
+          const Color(0xFFF5F6F8),
       body: Column(
         children: [
           const WalkerHomeHeader(),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.only(
+              padding:
+                  const EdgeInsets.only(
                 bottom: 30,
               ),
               children: [
@@ -471,100 +803,138 @@ class _WalksScreenState extends State<WalksScreen>
     );
   }
 
+  // ============================================================
+  // MAIN INSTA WALK CONTAINER
+  // ============================================================
+
   Widget _buildMainContainer() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(
+      margin:
+          const EdgeInsets.fromLTRB(
         18,
         16,
         18,
         10,
       ),
-      padding: const EdgeInsets.all(18),
+      padding:
+          const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient:
+            const LinearGradient(
           colors: [
             WalksConstants.lightBlue,
             WalksConstants.lightBlue2,
           ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin:
+              Alignment.topLeft,
+          end:
+              Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(28),
+        borderRadius:
+            BorderRadius.circular(28),
         border: Border.all(
-          color: Colors.white.withOpacity(.75),
+          color: Colors.white
+              .withOpacity(.75),
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(.08),
+            color: Colors.black
+                .withOpacity(.08),
             blurRadius: 20,
-            offset: const Offset(0, 8),
+            offset:
+                const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           InstaWalkHeader(
             searching: _searching,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(
+            height: 18,
+          ),
           if (!_searching)
             const InstaWalkInfo(),
           if (_searching) ...[
             InstaWalkRadar(
-              animation: _radarController,
-              dotVisible: _dotVisible,
+              animation:
+                  _radarController,
+              dotVisible:
+                  _dotVisible,
               dotX: _dotX,
               dotY: _dotY,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(
+              height: 14,
+            ),
             _buildRequests(),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(
+            height: 16,
+          ),
           InstaWalkSearchButton(
             loading: _loading,
             searching: _searching,
-            onPressed: _searchButtonPressed,
+            onPressed:
+                _searchButtonPressed,
           ),
         ],
       ),
     );
   }
 
+  // ============================================================
+  // REQUEST LIST
+  // ============================================================
+
   Widget _buildRequests() {
     if (_requests.isEmpty) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(
+        padding:
+            const EdgeInsets.symmetric(
           horizontal: 15,
           vertical: 14,
         ),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(.52),
-          borderRadius: BorderRadius.circular(16),
+        decoration:
+            BoxDecoration(
+          color: Colors.white
+              .withOpacity(.52),
+          borderRadius:
+              BorderRadius.circular(16),
         ),
         child: const Row(
           children: [
             SizedBox(
               width: 18,
               height: 18,
-              child: CircularProgressIndicator(
+              child:
+                  CircularProgressIndicator(
                 strokeWidth: 2,
                 valueColor:
-                    AlwaysStoppedAnimation<Color>(
-                  WalksConstants.radarGreen,
+                    AlwaysStoppedAnimation<
+                        Color>(
+                  WalksConstants
+                      .radarGreen,
                 ),
               ),
             ),
-            SizedBox(width: 10),
+            SizedBox(
+              width: 10,
+            ),
             Expanded(
               child: Text(
                 'Waiting for nearby walk requests...',
                 style: TextStyle(
-                  color: Color(0xFF35443A),
+                  color:
+                      Color(0xFF35443A),
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight:
+                      FontWeight.w600,
                 ),
               ),
             ),
@@ -574,28 +944,35 @@ class _WalksScreenState extends State<WalksScreen>
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.only(
+          padding:
+              EdgeInsets.only(
             left: 3,
             bottom: 9,
           ),
           child: Text(
             'AVAILABLE WALK REQUESTS',
             style: TextStyle(
-              color: Color(0xFF26352A),
+              color:
+                  Color(0xFF26352A),
               fontSize: 10,
-              fontWeight: FontWeight.w900,
+              fontWeight:
+                  FontWeight.w900,
               letterSpacing: 1.1,
             ),
           ),
         ),
         ..._requests.map(
-          (request) => WalkRequestCard(
+          (request) =>
+              WalkRequestCard(
             request: request,
             onAccept: () =>
-                _acceptRequest(request),
+                _acceptRequest(
+              request,
+            ),
           ),
         ),
       ],
