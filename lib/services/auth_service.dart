@@ -1,11 +1,219 @@
 // File location: lib/services/auth_service.dart
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  // =====================================================
+  // WALKER ID SETTINGS
+  // =====================================================
+
+  static const String _role = 'walker';
+
+  // =====================================================
+  // MONTH LETTER
+  // =====================================================
+
+  String _monthLetter(int month) {
+    const Map<int, String> months = {
+      1: 'J', // January
+      2: 'F', // February
+      3: 'R', // March
+      4: 'A', // April
+      5: 'Y', // May
+      6: 'U', // June
+      7: 'L', // July
+      8: 'G', // August
+      9: 'P', // September
+      10: 'O', // October
+      11: 'N', // November
+      12: 'D', // December
+    };
+
+    return months[month]!;
+  }
+
+  // =====================================================
+  // DAY LETTER
+  // =====================================================
+
+  String _dayLetter(int weekday) {
+    const Map<int, String> days = {
+      DateTime.monday: 'M',
+      DateTime.tuesday: 'T',
+      DateTime.wednesday: 'W',
+      DateTime.thursday: 'R',
+      DateTime.friday: 'F',
+      DateTime.saturday: 'S',
+      DateTime.sunday: 'N',
+    };
+
+    return days[weekday]!;
+  }
+
+  // =====================================================
+  // CREATE / GET WALKER ID
+  // =====================================================
+
+  Future<String> _ensureWalkerAccount(User user) async {
+    final String uid = user.uid;
+
+    final DocumentReference<Map<String, dynamic>>
+        accountRef =
+        _firestore.collection('phoneAccounts').doc(uid);
+
+    final DocumentReference<Map<String, dynamic>>
+        counterRef =
+        _firestore.collection('counters').doc('walker');
+
+    final DateTime now = DateTime.now();
+
+    final String year = now.year.toString();
+
+    final String month =
+        _monthLetter(now.month);
+
+    final String day =
+        _dayLetter(now.weekday);
+
+    final String walkerId =
+        await _firestore.runTransaction<String>(
+      (transaction) async {
+        // =================================================
+        // READ ACCOUNT
+        // =================================================
+
+        final DocumentSnapshot<Map<String, dynamic>>
+            accountSnapshot =
+            await transaction.get(accountRef);
+
+        final Map<String, dynamic> accountData =
+            accountSnapshot.data() ?? {};
+
+        // =================================================
+        // IF WALKER ID ALREADY EXISTS
+        // =================================================
+
+        final dynamic existingWalkerId =
+            accountData['walkerId'];
+
+        if (existingWalkerId is String &&
+            existingWalkerId.isNotEmpty) {
+          return existingWalkerId;
+        }
+
+        // =================================================
+        // READ WALKER COUNTER
+        // =================================================
+
+        final DocumentSnapshot<Map<String, dynamic>>
+            counterSnapshot =
+            await transaction.get(counterRef);
+
+        final Map<String, dynamic> counterData =
+            counterSnapshot.data() ?? {};
+
+        final int lastSerial =
+            (counterData['lastSerial'] as num?)
+                    ?.toInt() ??
+                0;
+
+        final int nextSerial =
+            lastSerial + 1;
+
+        // =================================================
+        // SERIAL LIMIT
+        // =================================================
+
+        if (nextSerial > 9999) {
+          throw Exception(
+            'Walker serial number limit reached.',
+          );
+        }
+
+        // =================================================
+        // 4 DIGIT SERIAL
+        // =================================================
+
+        final String serial =
+            nextSerial.toString().padLeft(4, '0');
+
+        // =================================================
+        // FINAL 10 CHARACTER WALKER ID
+        // =================================================
+
+        final String newWalkerId =
+            '$year$month$day$serial';
+
+        // =================================================
+        // UPDATE COUNTER
+        // =================================================
+
+        transaction.set(
+          counterRef,
+          {
+            'lastSerial': nextSerial,
+          },
+          SetOptions(merge: true),
+        );
+
+        // =================================================
+        // CREATE / UPDATE PHONE ACCOUNT
+        // =================================================
+
+        transaction.set(
+          accountRef,
+          {
+            'authUid': uid,
+            'walkerId': newWalkerId,
+            'updatedAt':
+                FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+
+        // =================================================
+        // WALKER PROFILE
+        // =================================================
+
+        final DocumentReference<Map<String, dynamic>>
+            profileRef =
+            _firestore
+                .collection('walkerProfiles')
+                .doc(newWalkerId);
+
+        transaction.set(
+          profileRef,
+          {
+            'walkerId': newWalkerId,
+            'authUid': uid,
+            'role': _role,
+            'createdAt':
+                FieldValue.serverTimestamp(),
+            'updatedAt':
+                FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+
+        return newWalkerId;
+      },
+    );
+
+    debugPrint('========================================');
+    debugPrint('WALKER ACCOUNT READY');
+    debugPrint('WALKER ID: $walkerId');
+    debugPrint('AUTH UID: $uid');
+    debugPrint('========================================');
+
+    return walkerId;
+  }
 
   // =====================================================
   // SEND OTP
@@ -17,27 +225,21 @@ class AuthService {
     required Function(String error) onError,
   }) async {
     try {
-      final String cleanPhone = phoneNumber.trim();
+      final String cleanPhone =
+          phoneNumber.trim();
 
       debugPrint('========================================');
       debugPrint('FIREBASE PHONE VERIFICATION START');
       debugPrint('PHONE: +91$cleanPhone');
       debugPrint('========================================');
 
-      // ---------------------------------------------------
-      // PHONE VALIDATION
-      // ---------------------------------------------------
-
-      if (!RegExp(r'^[0-9]{10}$').hasMatch(cleanPhone)) {
+      if (!RegExp(r'^[0-9]{10}$')
+          .hasMatch(cleanPhone)) {
         onError(
           'Please enter a valid 10-digit mobile number.',
         );
         return;
       }
-
-      // ---------------------------------------------------
-      // FIREBASE PHONE VERIFICATION
-      // ---------------------------------------------------
 
       await _auth.verifyPhoneNumber(
         phoneNumber: '+91$cleanPhone',
@@ -48,10 +250,6 @@ class AuthService {
 
         verificationCompleted:
             (PhoneAuthCredential credential) async {
-          debugPrint('========================================');
-          debugPrint('FIREBASE AUTOMATIC VERIFICATION');
-          debugPrint('========================================');
-
           try {
             final UserCredential result =
                 await _auth.signInWithCredential(
@@ -61,36 +259,36 @@ class AuthService {
             final User? user = result.user;
 
             if (user != null) {
-              debugPrint('AUTO LOGIN SUCCESS');
-              debugPrint('UID: ${user.uid}');
-              debugPrint('PHONE: ${user.phoneNumber}');
+              final String walkerId =
+                  await _ensureWalkerAccount(user);
 
               final SharedPreferences prefs =
-                  await SharedPreferences.getInstance();
+                  await SharedPreferences
+                      .getInstance();
 
               await prefs.setBool(
                 'isLoggedIn',
                 true,
               );
-            } else {
+
+              await prefs.setString(
+                'walkerId',
+                walkerId,
+              );
+
               debugPrint(
-                'AUTO LOGIN FAILED: USER IS NULL',
+                'AUTO LOGIN SUCCESS',
+              );
+              debugPrint(
+                'WALKER ID: $walkerId',
               );
             }
-          } on FirebaseAuthException catch (e) {
-            debugPrint(
-              'AUTO LOGIN FIREBASE ERROR',
-            );
-            debugPrint(
-              'CODE: ${e.code}',
-            );
-            debugPrint(
-              'MESSAGE: ${e.message}',
-            );
           } catch (e) {
             debugPrint(
-              'AUTO LOGIN GENERAL ERROR: $e',
+              'AUTO LOGIN ACCOUNT SETUP ERROR: $e',
             );
+
+            await _auth.signOut();
           }
         },
 
@@ -101,11 +299,11 @@ class AuthService {
         verificationFailed: (
           FirebaseAuthException e,
         ) {
-          debugPrint('========================================');
-          debugPrint('FIREBASE PHONE VERIFICATION FAILED');
+          debugPrint(
+            'FIREBASE PHONE VERIFICATION FAILED',
+          );
           debugPrint('CODE: ${e.code}');
           debugPrint('MESSAGE: ${e.message}');
-          debugPrint('========================================');
 
           onError(
             '${e.code}: '
@@ -121,15 +319,9 @@ class AuthService {
           String verificationId,
           int? resendToken,
         ) {
-          debugPrint('========================================');
-          debugPrint('FIREBASE OTP SENT');
           debugPrint(
-            'VERIFICATION ID LENGTH: ${verificationId.length}',
+            'FIREBASE OTP SENT',
           );
-          debugPrint(
-            'RESEND TOKEN: $resendToken',
-          );
-          debugPrint('========================================');
 
           onCodeSent(
             verificationId,
@@ -137,43 +329,23 @@ class AuthService {
         },
 
         // =================================================
-        // AUTO RETRIEVAL TIMEOUT
+        // TIMEOUT
         // =================================================
 
         codeAutoRetrievalTimeout: (
           String verificationId,
         ) {
-          debugPrint('========================================');
           debugPrint(
             'FIREBASE OTP AUTO RETRIEVAL TIMEOUT',
           );
-          debugPrint(
-            'VERIFICATION ID LENGTH: ${verificationId.length}',
-          );
-          debugPrint('========================================');
         },
       );
     } on FirebaseAuthException catch (e) {
-      debugPrint('========================================');
-      debugPrint(
-        'PHONE VERIFICATION FIREBASE EXCEPTION',
-      );
-      debugPrint('CODE: ${e.code}');
-      debugPrint('MESSAGE: ${e.message}');
-      debugPrint('========================================');
-
       onError(
         '${e.code}: '
         '${e.message ?? 'Phone verification failed.'}',
       );
     } catch (e) {
-      debugPrint('========================================');
-      debugPrint(
-        'PHONE VERIFICATION GENERAL EXCEPTION',
-      );
-      debugPrint('ERROR: $e');
-      debugPrint('========================================');
-
       onError(
         e.toString(),
       );
@@ -194,26 +366,7 @@ class AuthService {
     final String cleanOtp =
         smsCode.trim();
 
-    debugPrint('========================================');
-    debugPrint('FIREBASE OTP VERIFICATION START');
-    debugPrint(
-      'VERIFICATION ID LENGTH: '
-      '${cleanVerificationId.length}',
-    );
-    debugPrint(
-      'OTP LENGTH: ${cleanOtp.length}',
-    );
-    debugPrint('========================================');
-
-    // ===================================================
-    // BASIC VALIDATION
-    // ===================================================
-
     if (cleanVerificationId.isEmpty) {
-      debugPrint(
-        'ERROR: VERIFICATION ID IS EMPTY',
-      );
-
       throw FirebaseAuthException(
         code: 'missing-verification-id',
         message:
@@ -221,11 +374,8 @@ class AuthService {
       );
     }
 
-    if (!RegExp(r'^[0-9]{6}$').hasMatch(cleanOtp)) {
-      debugPrint(
-        'ERROR: OTP MUST CONTAIN EXACTLY 6 DIGITS',
-      );
-
+    if (!RegExp(r'^[0-9]{6}$')
+        .hasMatch(cleanOtp)) {
       throw FirebaseAuthException(
         code: 'invalid-otp-format',
         message:
@@ -235,21 +385,18 @@ class AuthService {
 
     try {
       // =================================================
-      // CREATE FIREBASE PHONE CREDENTIAL
+      // CREATE CREDENTIAL
       // =================================================
 
       final PhoneAuthCredential credential =
           PhoneAuthProvider.credential(
-        verificationId: cleanVerificationId,
+        verificationId:
+            cleanVerificationId,
         smsCode: cleanOtp,
       );
 
-      debugPrint(
-        'FIREBASE PHONE AUTH CREDENTIAL CREATED',
-      );
-
       // =================================================
-      // SIGN IN WITH FIREBASE
+      // FIREBASE LOGIN
       // =================================================
 
       final UserCredential userCredential =
@@ -260,15 +407,7 @@ class AuthService {
       final User? user =
           userCredential.user;
 
-      // =================================================
-      // CHECK USER
-      // =================================================
-
       if (user == null) {
-        debugPrint(
-          'ERROR: FIREBASE RETURNED NULL USER',
-        );
-
         throw FirebaseAuthException(
           code: 'null-user',
           message:
@@ -277,41 +416,38 @@ class AuthService {
       }
 
       // =================================================
-      // OTP SUCCESS
+      // CREATE / GET WALKER ACCOUNT
       // =================================================
 
-      debugPrint('========================================');
-      debugPrint('OTP VERIFICATION SUCCESS');
-      debugPrint('FIREBASE UID: ${user.uid}');
-      debugPrint(
-        'FIREBASE PHONE: ${user.phoneNumber}',
-      );
-      debugPrint('========================================');
+      final String walkerId =
+          await _ensureWalkerAccount(user);
 
       // =================================================
-      // SAVE LOCAL LOGIN STATUS
+      // SAVE LOCAL LOGIN
       // =================================================
 
       final SharedPreferences prefs =
-          await SharedPreferences.getInstance();
+          await SharedPreferences
+              .getInstance();
 
       await prefs.setBool(
         'isLoggedIn',
         true,
       );
 
+      await prefs.setString(
+        'walkerId',
+        walkerId,
+      );
+
       // =================================================
-      // CONFIRM FIREBASE SESSION
+      // CONFIRM SESSION
       // =================================================
 
       final User? currentUser =
           _auth.currentUser;
 
       if (currentUser == null) {
-        debugPrint(
-          'ERROR: FIREBASE CURRENT USER IS NULL',
-        );
-
         throw FirebaseAuthException(
           code: 'session-not-created',
           message:
@@ -320,43 +456,25 @@ class AuthService {
       }
 
       debugPrint('========================================');
-      debugPrint('FIREBASE SESSION CONFIRMED');
+      debugPrint('WALKER LOGIN SUCCESS');
       debugPrint(
-        'CURRENT UID: ${currentUser.uid}',
+        'FIREBASE UID: ${currentUser.uid}',
       );
       debugPrint(
-        'CURRENT PHONE: ${currentUser.phoneNumber}',
+        'WALKER ID: $walkerId',
       );
       debugPrint('========================================');
 
       return true;
-    }
-
-    // ===================================================
-    // IMPORTANT:
-    // DO NOT HIDE FIREBASE ERROR
-    // ===================================================
-
-    on FirebaseAuthException catch (e) {
-      debugPrint('========================================');
-      debugPrint('FIREBASE OTP VERIFICATION ERROR');
-      debugPrint('ERROR CODE: ${e.code}');
-      debugPrint(
-        'ERROR MESSAGE: ${e.message}',
-      );
-      debugPrint('========================================');
-
-      // IMPORTANT:
-      // Screen को exact Firebase error मिलेगा.
+    } on FirebaseAuthException {
       rethrow;
     } catch (e) {
-      debugPrint('========================================');
-      debugPrint('OTP VERIFICATION GENERAL ERROR');
-      debugPrint('ERROR: $e');
-      debugPrint('========================================');
+      debugPrint(
+        'WALKER ACCOUNT SETUP ERROR: $e',
+      );
 
       throw FirebaseAuthException(
-        code: 'otp-verification-failed',
+        code: 'walker-account-setup-failed',
         message: e.toString(),
       );
     }
@@ -387,11 +505,16 @@ class AuthService {
       await _auth.signOut();
 
       final SharedPreferences prefs =
-          await SharedPreferences.getInstance();
+          await SharedPreferences
+              .getInstance();
 
       await prefs.setBool(
         'isLoggedIn',
         false,
+      );
+
+      await prefs.remove(
+        'walkerId',
       );
 
       debugPrint(
