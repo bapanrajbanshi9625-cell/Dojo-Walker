@@ -23,6 +23,10 @@ class MandatoryProfileSetupScreen extends StatefulWidget {
 
 class _MandatoryProfileSetupScreenState
     extends State<MandatoryProfileSetupScreen> {
+  // ============================================================
+  // CONTROLLERS
+  // ============================================================
+
   final TextEditingController _nameController =
       TextEditingController();
 
@@ -37,6 +41,10 @@ class _MandatoryProfileSetupScreenState
 
   final ImagePicker _imagePicker = ImagePicker();
 
+  // ============================================================
+  // STATE
+  // ============================================================
+
   DateTime? _dateOfBirth;
 
   File? _selfieFile;
@@ -50,6 +58,10 @@ class _MandatoryProfileSetupScreenState
   // ============================================================
 
   Future<void> _takeSelfie() async {
+    if (_isSaving) {
+      return;
+    }
+
     try {
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.camera,
@@ -70,7 +82,7 @@ class _MandatoryProfileSetupScreenState
       debugPrint('Selfie camera error: $e');
 
       _showMessage(
-        'Unable to open camera.',
+        'Unable to open camera. Please check camera permission.',
       );
     }
   }
@@ -82,6 +94,10 @@ class _MandatoryProfileSetupScreenState
   Future<void> _pickAadhaarImage({
     required bool front,
   }) async {
+    if (_isSaving) {
+      return;
+    }
+
     final ImageSource? source =
         await _showImageSourceDialog(
       title: front
@@ -89,7 +105,7 @@ class _MandatoryProfileSetupScreenState
           : 'Aadhaar Back',
     );
 
-    if (source == null) {
+    if (source == null || !mounted) {
       return;
     }
 
@@ -125,7 +141,7 @@ class _MandatoryProfileSetupScreenState
   }
 
   // ============================================================
-  // IMAGE SOURCE DIALOG
+  // IMAGE SOURCE BOTTOM SHEET
   // ============================================================
 
   Future<ImageSource?> _showImageSourceDialog({
@@ -134,9 +150,10 @@ class _MandatoryProfileSetupScreenState
     return showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: Colors.white,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
+          top: Radius.circular(26),
         ),
       ),
       builder: (context) {
@@ -144,38 +161,85 @@ class _MandatoryProfileSetupScreenState
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
               20,
-              18,
+              12,
               20,
-              20,
+              24,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 42,
+                  width: 44,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.black12,
+                    color: const Color(0xFFD7DCE0),
                     borderRadius:
-                        BorderRadius.circular(10),
+                        BorderRadius.circular(20),
                   ),
                 ),
-                const SizedBox(height: 18),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF263746),
-                  ),
+
+                const SizedBox(height: 20),
+
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary
+                            .withOpacity(.10),
+                        borderRadius:
+                            BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.badge_outlined,
+                        color: AppColors.primary,
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight:
+                                  FontWeight.w900,
+                              color:
+                                  Color(0xFF263746),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          const Text(
+                            'Choose how you want to upload the document.',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color:
+                                  Color(0xFF7A8289),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 18),
+
+                const SizedBox(height: 20),
+
                 Row(
                   children: [
                     Expanded(
                       child: _sourceButton(
-                        icon: Icons.camera_alt_rounded,
+                        icon:
+                            Icons.camera_alt_rounded,
                         title: 'Camera',
+                        subtitle:
+                            'Take photo',
                         onTap: () {
                           Navigator.pop(
                             context,
@@ -184,11 +248,16 @@ class _MandatoryProfileSetupScreenState
                         },
                       ),
                     ),
+
                     const SizedBox(width: 12),
+
                     Expanded(
                       child: _sourceButton(
-                        icon: Icons.photo_library_rounded,
+                        icon:
+                            Icons.photo_library_rounded,
                         title: 'Gallery',
+                        subtitle:
+                            'Choose photo',
                         onTap: () {
                           Navigator.pop(
                             context,
@@ -210,38 +279,66 @@ class _MandatoryProfileSetupScreenState
   Widget _sourceButton({
     required IconData icon,
     required String title,
+    required String subtitle,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          vertical: 18,
-        ),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF7F8FA),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFFE1E5E8),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            vertical: 18,
+            horizontal: 10,
           ),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              size: 28,
-              color: AppColors.primary,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7F8FA),
+            borderRadius:
+                BorderRadius.circular(18),
+            border: Border.all(
+              color: const Color(0xFFE1E5E8),
             ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF263746),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.primary
+                      .withOpacity(.10),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  size: 25,
+                  color: AppColors.primary,
+                ),
               ),
-            ),
-          ],
+
+              const SizedBox(height: 9),
+
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF263746),
+                  fontSize: 13,
+                ),
+              ),
+
+              const SizedBox(height: 3),
+
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF7A8289),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -254,6 +351,10 @@ class _MandatoryProfileSetupScreenState
   void _removeAadhaarImage({
     required bool front,
   }) {
+    if (_isSaving) {
+      return;
+    }
+
     setState(() {
       if (front) {
         _aadhaarFrontFile = null;
@@ -268,6 +369,10 @@ class _MandatoryProfileSetupScreenState
   // ============================================================
 
   Future<void> _selectDateOfBirth() async {
+    if (_isSaving) {
+      return;
+    }
+
     final DateTime now = DateTime.now();
 
     final DateTime initialDate = DateTime(
@@ -295,6 +400,8 @@ class _MandatoryProfileSetupScreenState
       firstDate: firstDate,
       lastDate: lastDate,
       helpText: 'Select Date of Birth',
+      cancelText: 'Cancel',
+      confirmText: 'Confirm',
     );
 
     if (selectedDate == null || !mounted) {
@@ -319,11 +426,19 @@ class _MandatoryProfileSetupScreenState
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: Text(
+            message,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
+          duration:
+              const Duration(seconds: 3),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius:
+                BorderRadius.circular(14),
           ),
         ),
       );
@@ -350,9 +465,9 @@ class _MandatoryProfileSetupScreenState
     final String pinCode =
         _pinCodeController.text.trim();
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // VALIDATION
-    // ----------------------------------------------------------
+    // ==========================================================
 
     if (_selfieFile == null) {
       _showMessage(
@@ -410,6 +525,10 @@ class _MandatoryProfileSetupScreenState
       return;
     }
 
+    // ==========================================================
+    // FIREBASE AUTH USER
+    // ==========================================================
+
     final User? user =
         FirebaseAuth.instance.currentUser;
 
@@ -420,20 +539,46 @@ class _MandatoryProfileSetupScreenState
       return;
     }
 
+    // ==========================================================
+    // SAVE START
+    // ==========================================================
+
     setState(() {
       _isSaving = true;
     });
 
     try {
+      debugPrint(
+        '========================================',
+      );
+      debugPrint(
+        'WALKER PROFILE SAVE',
+      );
+      debugPrint(
+        'Firebase Auth UID: ${user.uid}',
+      );
+      debugPrint(
+        'Phone: ${user.phoneNumber}',
+      );
+      debugPrint(
+        '========================================',
+      );
+
       // ========================================================
-      // SAVE PROFILE
+      // IMPORTANT
       //
-      // authUid is sent internally only.
-      // It is NOT displayed anywhere in this UI.
+      // ProfileSetupService now requires:
+      //
+      //     authUid
+      //
+      // NOT walkerUid.
+      //
+      // Firebase Auth UID is used internally.
+      // It is not displayed in the UI.
       // ========================================================
 
       await ProfileSetupService.saveWalkerProfile(
-        walkerUid: user.uid,
+        authUid: user.uid,
         phoneNumber: user.phoneNumber ?? '',
         name: name,
         dateOfBirth: _dateOfBirth!,
@@ -445,6 +590,10 @@ class _MandatoryProfileSetupScreenState
         aadhaarBackFile: _aadhaarBackFile!,
       );
 
+      debugPrint(
+        'Walker profile saved successfully.',
+      );
+
       if (!mounted) {
         return;
       }
@@ -454,24 +603,40 @@ class _MandatoryProfileSetupScreenState
       );
 
       // ========================================================
-      // GO TO MAIN APP
+      // OPEN MAIN APP
       // ========================================================
 
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (context) =>
+          builder: (_) =>
               const MainNavigationScreen(),
         ),
         (route) => false,
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint(
-        'Walker profile save error: $e',
+        '========================================',
+      );
+      debugPrint(
+        'WALKER PROFILE SAVE ERROR',
+      );
+      debugPrint(
+        '$e',
+      );
+      debugPrint(
+        '$stackTrace',
+      );
+      debugPrint(
+        '========================================',
       );
 
+      if (!mounted) {
+        return;
+      }
+
       _showMessage(
-        'Profile save failed. Please try again.',
+        'Profile save failed. Please check your internet connection and try again.',
       );
     } finally {
       if (mounted) {
@@ -499,7 +664,8 @@ class _MandatoryProfileSetupScreenState
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius:
+            BorderRadius.circular(18),
         border: Border.all(
           color: uploaded
               ? const Color(0xFFB9DEC6)
@@ -507,9 +673,11 @@ class _MandatoryProfileSetupScreenState
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(.045),
+            color:
+                Colors.black.withOpacity(.035),
             blurRadius: 12,
-            offset: const Offset(0, 5),
+            offset:
+                const Offset(0, 5),
           ),
         ],
       ),
@@ -520,26 +688,29 @@ class _MandatoryProfileSetupScreenState
           Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
                   color: uploaded
                       ? const Color(0xFFEAF7EF)
                       : const Color(0xFFFFF3ED),
                   borderRadius:
-                      BorderRadius.circular(12),
+                      BorderRadius.circular(13),
                 ),
                 child: Icon(
                   uploaded
-                      ? Icons.check_circle_rounded
+                      ? Icons
+                          .check_circle_rounded
                       : Icons.badge_outlined,
                   color: uploaded
                       ? const Color(0xFF16A34A)
                       : AppColors.primary,
-                  size: 22,
+                  size: 23,
                 ),
               ),
+
               const SizedBox(width: 11),
+
               Expanded(
                 child: Column(
                   crossAxisAlignment:
@@ -547,23 +718,31 @@ class _MandatoryProfileSetupScreenState
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: Color(0xFF263746),
+                      style:
+                          const TextStyle(
+                        color:
+                            Color(0xFF263746),
                         fontSize: 14,
-                        fontWeight: FontWeight.w800,
+                        fontWeight:
+                            FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       uploaded
-                          ? 'Document selected'
+                          ? 'Document selected successfully'
                           : subtitle,
                       style: TextStyle(
                         color: uploaded
-                            ? const Color(0xFF16A34A)
-                            : const Color(0xFF7A8289),
+                            ? const Color(
+                                0xFF16A34A,
+                              )
+                            : const Color(
+                                0xFF7A8289,
+                              ),
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        fontWeight:
+                            FontWeight.w600,
                       ),
                     ),
                   ],
@@ -572,9 +751,9 @@ class _MandatoryProfileSetupScreenState
             ],
           ),
 
-          const SizedBox(height: 12),
+          if (uploaded) ...[
+            const SizedBox(height: 13),
 
-          if (uploaded)
             ClipRRect(
               borderRadius:
                   BorderRadius.circular(14),
@@ -582,8 +761,9 @@ class _MandatoryProfileSetupScreenState
                 children: [
                   Image.file(
                     file,
-                    width: double.infinity,
-                    height: 145,
+                    width:
+                        double.infinity,
+                    height: 155,
                     fit: BoxFit.cover,
                   ),
 
@@ -591,8 +771,10 @@ class _MandatoryProfileSetupScreenState
                     top: 8,
                     right: 8,
                     child: Material(
-                      color: Colors.black.withOpacity(.55),
-                      shape: const CircleBorder(),
+                      color: Colors.black
+                          .withOpacity(.58),
+                      shape:
+                          const CircleBorder(),
                       child: InkWell(
                         customBorder:
                             const CircleBorder(),
@@ -602,14 +784,49 @@ class _MandatoryProfileSetupScreenState
                                 _removeAadhaarImage(
                                   front: front,
                                 ),
-                        child: const Padding(
+                        child:
+                            const Padding(
                           padding:
-                              EdgeInsets.all(7),
+                              EdgeInsets.all(8),
                           child: Icon(
-                            Icons.close_rounded,
-                            color: Colors.white,
+                            Icons
+                                .close_rounded,
+                            color:
+                                Colors.white,
                             size: 18,
                           ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  Positioned(
+                    left: 9,
+                    bottom: 9,
+                    child: Container(
+                      padding:
+                          const EdgeInsets
+                              .symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration:
+                          BoxDecoration(
+                        color: Colors.black
+                            .withOpacity(.55),
+                        borderRadius:
+                            BorderRadius
+                                .circular(20),
+                      ),
+                      child: const Text(
+                        'Selected',
+                        style:
+                            TextStyle(
+                          color:
+                              Colors.white,
+                          fontSize: 10,
+                          fontWeight:
+                              FontWeight.w700,
                         ),
                       ),
                     ),
@@ -618,12 +835,12 @@ class _MandatoryProfileSetupScreenState
               ),
             ),
 
-          if (uploaded)
             const SizedBox(height: 10),
+          ],
 
           SizedBox(
             width: double.infinity,
-            height: 44,
+            height: 45,
             child: OutlinedButton.icon(
               onPressed: _isSaving
                   ? null
@@ -633,16 +850,21 @@ class _MandatoryProfileSetupScreenState
                       ),
               icon: Icon(
                 uploaded
-                    ? Icons.refresh_rounded
-                    : Icons.upload_file_rounded,
+                    ? Icons
+                        .refresh_rounded
+                    : Icons
+                        .upload_file_rounded,
                 size: 19,
               ),
               label: Text(
                 uploaded
                     ? 'Change Document'
                     : 'Upload Document',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
+                style:
+                    const TextStyle(
+                  fontWeight:
+                      FontWeight.w800,
+                  fontSize: 12,
                 ),
               ),
               style:
@@ -656,7 +878,9 @@ class _MandatoryProfileSetupScreenState
                 shape:
                     RoundedRectangleBorder(
                   borderRadius:
-                      BorderRadius.circular(13),
+                      BorderRadius.circular(
+                    13,
+                  ),
                 ),
               ),
             ),
@@ -680,13 +904,13 @@ class _MandatoryProfileSetupScreenState
           CrossAxisAlignment.start,
       children: [
         Container(
-          width: 38,
-          height: 38,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
-            color:
-                AppColors.primary.withOpacity(.10),
+            color: AppColors.primary
+                .withOpacity(.10),
             borderRadius:
-                BorderRadius.circular(11),
+                BorderRadius.circular(12),
           ),
           child: Icon(
             icon,
@@ -694,7 +918,9 @@ class _MandatoryProfileSetupScreenState
             size: 21,
           ),
         ),
+
         const SizedBox(width: 10),
+
         Expanded(
           child: Column(
             crossAxisAlignment:
@@ -702,17 +928,24 @@ class _MandatoryProfileSetupScreenState
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  color: Color(0xFF263746),
+                style:
+                    const TextStyle(
+                  color:
+                      Color(0xFF263746),
                   fontSize: 16,
-                  fontWeight: FontWeight.w900,
+                  fontWeight:
+                      FontWeight.w900,
                 ),
               ),
+
               const SizedBox(height: 3),
+
               Text(
                 subtitle,
-                style: const TextStyle(
-                  color: Color(0xFF7A8289),
+                style:
+                    const TextStyle(
+                  color:
+                      Color(0xFF7A8289),
                   fontSize: 11,
                   height: 1.35,
                 ),
@@ -747,7 +980,8 @@ class _MandatoryProfileSetupScreenState
         FirebaseAuth.instance.currentUser;
 
     final String phoneNumber =
-        user?.phoneNumber ?? 'Not available';
+        user?.phoneNumber ??
+            'Not available';
 
     return Scaffold(
       backgroundColor:
@@ -758,10 +992,13 @@ class _MandatoryProfileSetupScreenState
       // ========================================================
 
       appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        automaticallyImplyLeading: false,
+        backgroundColor:
+            AppColors.primary,
+        automaticallyImplyLeading:
+            false,
         elevation: 0,
         titleSpacing: 20,
+        toolbarHeight: 68,
         title: const Column(
           crossAxisAlignment:
               CrossAxisAlignment.start,
@@ -771,16 +1008,18 @@ class _MandatoryProfileSetupScreenState
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 18,
-                fontWeight: FontWeight.w900,
+                fontWeight:
+                    FontWeight.w900,
               ),
             ),
-            SizedBox(height: 2),
+            SizedBox(height: 3),
             Text(
               'Verify your profile to continue',
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 10,
-                fontWeight: FontWeight.w500,
+                fontWeight:
+                    FontWeight.w500,
               ),
             ),
           ],
@@ -791,268 +1030,329 @@ class _MandatoryProfileSetupScreenState
       // BODY
       // ========================================================
 
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          18,
-          18,
-          18,
-          35,
-        ),
-        child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
-          children: [
-            // ==================================================
-            // INTRO CARD
-            // ==================================================
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics:
+              const BouncingScrollPhysics(),
+          padding:
+              const EdgeInsets.fromLTRB(
+            18,
+            18,
+            18,
+            35,
+          ),
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              // ==================================================
+              // INTRO CARD
+              // ==================================================
 
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient:
-                    const LinearGradient(
-                  colors: [
-                    Color(0xFFFFF3EC),
-                    Colors.white,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius:
-                    BorderRadius.circular(20),
-                border: Border.all(
-                  color: AppColors.primary
-                      .withOpacity(.15),
-                ),
-              ),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.verified_user_rounded,
-                    color: AppColors.primary,
-                    size: 27,
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.all(16),
+                decoration:
+                    BoxDecoration(
+                  gradient:
+                      const LinearGradient(
+                    colors: [
+                      Color(0xFFFFF3EC),
+                      Colors.white,
+                    ],
+                    begin:
+                        Alignment.topLeft,
+                    end:
+                        Alignment.bottomRight,
                   ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Complete your verification details. '
-                      'All required information must be submitted before continuing.',
-                      style: TextStyle(
-                        color: Color(0xFF46515A),
-                        fontSize: 12,
-                        height: 1.4,
-                        fontWeight: FontWeight.w600,
+                  borderRadius:
+                      BorderRadius.circular(
+                    20,
+                  ),
+                  border: Border.all(
+                    color: AppColors
+                        .primary
+                        .withOpacity(.15),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black
+                          .withOpacity(.025),
+                      blurRadius: 12,
+                      offset:
+                          const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  crossAxisAlignment:
+                      CrossAxisAlignment
+                          .start,
+                  children: [
+                    Icon(
+                      Icons
+                          .verified_user_rounded,
+                      color:
+                          AppColors.primary,
+                      size: 27,
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Complete your verification details. '
+                        'All required information must be submitted before continuing.',
+                        style: TextStyle(
+                          color:
+                              Color(0xFF46515A),
+                          fontSize: 12,
+                          height: 1.4,
+                          fontWeight:
+                              FontWeight.w600,
+                        ),
                       ),
                     ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // ==================================================
+              // SELFIE
+              // ==================================================
+
+              _sectionTitle(
+                icon:
+                    Icons
+                        .camera_front_rounded,
+                title:
+                    'Profile Selfie',
+                subtitle:
+                    'Take a clear front-facing selfie.',
+              ),
+
+              const SizedBox(height: 14),
+
+              SelfieSection(
+                selfieFile:
+                    _selfieFile,
+                onTap: _isSaving
+                    ? null
+                    : _takeSelfie,
+              ),
+
+              const SizedBox(height: 7),
+
+              const Center(
+                child: Text(
+                  'Take Selfie',
+                  style: TextStyle(
+                    fontWeight:
+                        FontWeight.w800,
+                    color:
+                        AppColors.primary,
+                    fontSize: 12,
                   ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 22),
-
-            // ==================================================
-            // SELFIE SECTION
-            // ==================================================
-
-            _sectionTitle(
-              icon: Icons.camera_front_rounded,
-              title: 'Profile Selfie',
-              subtitle:
-                  'Take a clear front-facing selfie.',
-            ),
-
-            const SizedBox(height: 14),
-
-            SelfieSection(
-              selfieFile: _selfieFile,
-              onTap: _isSaving
-                  ? null
-                  : _takeSelfie,
-            ),
-
-            const SizedBox(height: 7),
-
-            const Center(
-              child: Text(
-                'Take Selfie',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primary,
-                  fontSize: 12,
                 ),
               ),
-            ),
 
-            const SizedBox(height: 26),
+              const SizedBox(height: 28),
 
-            // ==================================================
-            // PERSONAL DETAILS
-            // ==================================================
+              // ==================================================
+              // PERSONAL DETAILS
+              // ==================================================
 
-            _sectionTitle(
-              icon: Icons.person_outline_rounded,
-              title: 'Personal Details',
-              subtitle:
-                  'Enter your basic profile information.',
-            ),
+              _sectionTitle(
+                icon:
+                    Icons
+                        .person_outline_rounded,
+                title:
+                    'Personal Details',
+                subtitle:
+                    'Enter your basic profile information.',
+              ),
 
-            const SizedBox(height: 14),
+              const SizedBox(height: 14),
 
-            ProfileTextField(
-              label: 'Full Name',
-              hint: 'Enter full name',
-              controller: _nameController,
-              textCapitalization:
-                  TextCapitalization.words,
-            ),
+              ProfileTextField(
+                label:
+                    'Full Name',
+                hint:
+                    'Enter full name',
+                controller:
+                    _nameController,
+                textCapitalization:
+                    TextCapitalization
+                        .words,
+              ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            DateOfBirthField(
-              dateOfBirth: _dateOfBirth,
-              onTap: _isSaving
-                  ? null
-                  : _selectDateOfBirth,
-            ),
+              DateOfBirthField(
+                dateOfBirth:
+                    _dateOfBirth,
+                onTap: _isSaving
+                    ? null
+                    : _selectDateOfBirth,
+              ),
 
-            const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
-            // ==================================================
-            // IDENTITY VERIFICATION
-            // ==================================================
+              // ==================================================
+              // AADHAAR
+              // ==================================================
 
-            _sectionTitle(
-              icon: Icons.badge_outlined,
-              title: 'Aadhaar Verification',
-              subtitle:
-                  'Enter your Aadhaar number and upload both sides.',
-            ),
+              _sectionTitle(
+                icon:
+                    Icons.badge_outlined,
+                title:
+                    'Aadhaar Verification',
+                subtitle:
+                    'Enter your Aadhaar number and upload both sides.',
+              ),
 
-            const SizedBox(height: 14),
+              const SizedBox(height: 14),
 
-            ProfileTextField(
-              label: 'Aadhaar Number',
-              hint:
-                  'Enter 12-digit Aadhaar number',
-              controller: _aadhaarController,
-              keyboardType:
-                  TextInputType.number,
-              maxLength: 12,
-            ),
+              ProfileTextField(
+                label:
+                    'Aadhaar Number',
+                hint:
+                    'Enter 12-digit Aadhaar number',
+                controller:
+                    _aadhaarController,
+                keyboardType:
+                    TextInputType.number,
+                maxLength: 12,
+              ),
 
-            const SizedBox(height: 12),
+              const SizedBox(height: 13),
 
-            _aadhaarUploadCard(
-              title: 'Aadhaar Front',
-              subtitle:
-                  'Upload the front side of Aadhaar',
-              file: _aadhaarFrontFile,
-              front: true,
-            ),
+              _aadhaarUploadCard(
+                title:
+                    'Aadhaar Front',
+                subtitle:
+                    'Upload the front side of Aadhaar',
+                file:
+                    _aadhaarFrontFile,
+                front: true,
+              ),
 
-            const SizedBox(height: 12),
+              const SizedBox(height: 13),
 
-            _aadhaarUploadCard(
-              title: 'Aadhaar Back',
-              subtitle:
-                  'Upload the back side of Aadhaar',
-              file: _aadhaarBackFile,
-              front: false,
-            ),
+              _aadhaarUploadCard(
+                title:
+                    'Aadhaar Back',
+                subtitle:
+                    'Upload the back side of Aadhaar',
+                file:
+                    _aadhaarBackFile,
+                front: false,
+              ),
 
-            const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
-            // ==================================================
-            // ADDRESS
-            // ==================================================
+              // ==================================================
+              // ADDRESS
+              // ==================================================
 
-            _sectionTitle(
-              icon: Icons.location_on_outlined,
-              title: 'Address Details',
-              subtitle:
-                  'Provide your current residential address.',
-            ),
+              _sectionTitle(
+                icon:
+                    Icons
+                        .location_on_outlined,
+                title:
+                    'Address Details',
+                subtitle:
+                    'Provide your current residential address.',
+              ),
 
-            const SizedBox(height: 14),
+              const SizedBox(height: 14),
 
-            ProfileTextField(
-              label: 'Address',
-              hint: 'Enter complete address',
-              controller: _addressController,
-              maxLines: 3,
-              textCapitalization:
-                  TextCapitalization.sentences,
-            ),
+              ProfileTextField(
+                label:
+                    'Address',
+                hint:
+                    'Enter complete address',
+                controller:
+                    _addressController,
+                maxLines: 3,
+                textCapitalization:
+                    TextCapitalization
+                        .sentences,
+              ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            ProfileTextField(
-              label: 'PIN Code',
-              hint: 'Enter 6-digit PIN code',
-              controller: _pinCodeController,
-              keyboardType:
-                  TextInputType.number,
-              maxLength: 6,
-            ),
+              ProfileTextField(
+                label:
+                    'PIN Code',
+                hint:
+                    'Enter 6-digit PIN code',
+                controller:
+                    _pinCodeController,
+                keyboardType:
+                    TextInputType.number,
+                maxLength: 6,
+              ),
 
-            const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
-            // ==================================================
-            // LINKED MOBILE
-            // ==================================================
+              // ==================================================
+              // ACCOUNT INFORMATION
+              // ==================================================
 
-            _sectionTitle(
-              icon: Icons.phone_outlined,
-              title: 'Account Information',
-              subtitle:
-                  'Your login mobile number is linked automatically.',
-            ),
+              _sectionTitle(
+                icon:
+                    Icons.phone_outlined,
+                title:
+                    'Account Information',
+                subtitle:
+                    'Your login mobile number is linked automatically.',
+              ),
 
-            const SizedBox(height: 14),
+              const SizedBox(height: 14),
 
-            LockedInfoCard(
-              label: 'Linked Mobile Number',
-              value: phoneNumber,
-              icon: Icons.phone_rounded,
-            ),
+              LockedInfoCard(
+                label:
+                    'Linked Mobile Number',
+                value:
+                    phoneNumber,
+                icon:
+                    Icons.phone_rounded,
+              ),
 
-            // ==================================================
-            // IMPORTANT:
-            //
-            // Firebase Auth UID intentionally NOT displayed.
-            // Walker ID also intentionally NOT displayed here.
-            // They remain backend/profile data only.
-            // ==================================================
+              const SizedBox(height: 28),
 
-            const SizedBox(height: 28),
+              // ==================================================
+              // SAVE BUTTON
+              // ==================================================
 
-            // ==================================================
-            // SAVE
-            // ==================================================
+              SaveProfileButton(
+                isSaving:
+                    _isSaving,
+                onPressed:
+                    _isSaving
+                        ? null
+                        : _saveProfile,
+              ),
 
-            SaveProfileButton(
-              isSaving: _isSaving,
-              onPressed: _isSaving
-                  ? null
-                  : _saveProfile,
-            ),
+              const SizedBox(height: 14),
 
-            const SizedBox(height: 14),
-
-            const Center(
-              child: Text(
-                'Your verification information is securely linked to your Walker profile.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10,
-                  height: 1.4,
-                  color: Colors.grey,
+              const Center(
+                child: Text(
+                  'Your verification information is securely linked to your Walker profile.',
+                  textAlign:
+                      TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 10,
+                    height: 1.4,
+                    color:
+                        Colors.grey,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
