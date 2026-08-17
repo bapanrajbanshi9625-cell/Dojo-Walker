@@ -40,64 +40,51 @@ class WalkRequest {
     return WalkRequest(
       id: id,
 
-      // Custom Owner ID — NOT Firebase Auth UID.
+      // Custom Owner ID — Firebase Auth UID नहीं।
       ownerId:
-          data['ownerId']?.toString() ?? '',
+          data['ownerid']?.toString() ?? '',
 
       ownerName:
-          data['ownerName']?.toString() ??
-              'Owner',
+          data['ownername']?.toString() ?? 'Owner',
 
       dogName:
-          data['dogName']?.toString() ??
-              'Dog',
+          data['dogname']?.toString() ?? 'Dog',
 
       ownerPhone:
-          data['ownerPhone']?.toString() ??
-              '',
+          data['ownermobilenumber']?.toString() ?? '',
 
       pickupAddress:
-          data['pickupAddress']?.toString() ??
-              'Pickup location unavailable',
+          data['address']?.toString() ??
+          'Pickup location unavailable',
 
       distanceKm:
           _readDouble(data['distanceKm']),
 
       estimatedTime:
-          data['estimatedTime']?.toString() ??
-              '—',
+          data['estimatedtime']?.toString() ?? '—',
 
       pickupLatitude:
-          _readDouble(
-        data['pickupLatitude'],
-      ),
+          _readDouble(data['pickuplatitude']),
 
       pickupLongitude:
-          _readDouble(
-        data['pickupLongitude'],
-      ),
+          _readDouble(data['pickuplongitude']),
 
       status:
-          data['status']?.toString() ??
-              'searching',
+          data['status']?.toString() ?? 'searching',
 
       acceptedBy:
           data['acceptedBy']?.toString(),
 
-      // Custom Walker ID — NOT Firebase Auth UID.
+      // Custom Walker ID — Firebase Auth UID नहीं।
       walkerId:
-          data['walkerId']?.toString(),
+          data['walkerid']?.toString(),
 
       createdAt:
-          _readDate(
-        data['createdAt'],
-      ),
+          _readDate(data['createdAt']),
     );
   }
 
-  static double _readDouble(
-    dynamic value,
-  ) {
+  static double _readDouble(dynamic value) {
     if (value is num) {
       return value.toDouble();
     }
@@ -105,12 +92,10 @@ class WalkRequest {
     return double.tryParse(
           value?.toString() ?? '',
         ) ??
-        0;
+        0.0;
   }
 
-  static DateTime? _readDate(
-    dynamic value,
-  ) {
+  static DateTime? _readDate(dynamic value) {
     if (value is Timestamp) {
       return value.toDate();
     }
