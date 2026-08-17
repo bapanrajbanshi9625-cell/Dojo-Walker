@@ -54,7 +54,9 @@ class _OtpVerificationScreenState
     });
 
     try {
-      debugPrint('========================================');
+      debugPrint(
+        '========================================',
+      );
       debugPrint('OTP SCREEN');
       debugPrint(
         'Verification ID length: '
@@ -63,7 +65,9 @@ class _OtpVerificationScreenState
       debugPrint(
         'OTP length: ${otp.length}',
       );
-      debugPrint('========================================');
+      debugPrint(
+        '========================================',
+      );
 
       // =================================================
       // VERIFY OTP
@@ -131,16 +135,29 @@ class _OtpVerificationScreenState
       // OTP SUCCESS
       // =================================================
 
-      debugPrint('========================================');
-      debugPrint('OTP VERIFIED SUCCESSFULLY');
-      debugPrint('Firebase UID: ${user.uid}');
+      debugPrint(
+        '========================================',
+      );
+      debugPrint(
+        'OTP VERIFIED SUCCESSFULLY',
+      );
+      debugPrint(
+        'Firebase UID: ${user.uid}',
+      );
       debugPrint(
         'Firebase Phone: ${user.phoneNumber}',
       );
-      debugPrint('========================================');
+      debugPrint(
+        '========================================',
+      );
 
       // =================================================
       // CHECK WALKER PROFILE
+      //
+      // Firestore:
+      //
+      // walkerProfiles/{Firebase UID}
+      //
       // =================================================
 
       debugPrint(
@@ -150,7 +167,7 @@ class _OtpVerificationScreenState
       final bool profileCompleted =
           await ProfileSetupService
               .isWalkerProfileCompleted(
-        walkerUid: user.uid,
+        authUid: user.uid,
       );
 
       debugPrint(
@@ -167,7 +184,7 @@ class _OtpVerificationScreenState
       });
 
       // =================================================
-      // PROFILE ALREADY EXISTS
+      // PROFILE ALREADY COMPLETE
       // =================================================
 
       if (profileCompleted) {
@@ -188,11 +205,12 @@ class _OtpVerificationScreenState
       }
 
       // =================================================
-      // PROFILE DOES NOT EXIST
+      // PROFILE INCOMPLETE
       // =================================================
 
       debugPrint(
-        'PROFILE NOT FOUND → OPENING PROFILE SETUP',
+        'PROFILE NOT COMPLETE '
+        '→ OPENING PROFILE SETUP',
       );
 
       Navigator.pushAndRemoveUntil(
@@ -204,11 +222,21 @@ class _OtpVerificationScreenState
         (route) => false,
       );
     } on FirebaseAuthException catch (e) {
-      debugPrint('========================================');
-      debugPrint('OTP SCREEN FIREBASE ERROR');
-      debugPrint('CODE: ${e.code}');
-      debugPrint('MESSAGE: ${e.message}');
-      debugPrint('========================================');
+      debugPrint(
+        '========================================',
+      );
+      debugPrint(
+        'OTP SCREEN FIREBASE ERROR',
+      );
+      debugPrint(
+        'CODE: ${e.code}',
+      );
+      debugPrint(
+        'MESSAGE: ${e.message}',
+      );
+      debugPrint(
+        '========================================',
+      );
 
       if (!mounted) {
         return;
@@ -227,10 +255,18 @@ class _OtpVerificationScreenState
         'Firebase Error: ${e.code}',
       );
     } catch (e) {
-      debugPrint('========================================');
-      debugPrint('OTP SCREEN GENERAL ERROR');
-      debugPrint('$e');
-      debugPrint('========================================');
+      debugPrint(
+        '========================================',
+      );
+      debugPrint(
+        'OTP SCREEN GENERAL ERROR',
+      );
+      debugPrint(
+        '$e',
+      );
+      debugPrint(
+        '========================================',
+      );
 
       if (!mounted) {
         return;
@@ -257,12 +293,14 @@ class _OtpVerificationScreenState
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 4),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 4),
+        ),
+      );
   }
 
   // =====================================================
@@ -310,10 +348,6 @@ class _OtpVerificationScreenState
                 crossAxisAlignment:
                     CrossAxisAlignment.center,
                 children: [
-                  // =================================================
-                  // ICON
-                  // =================================================
-
                   const CircleAvatar(
                     radius: 40,
                     backgroundColor:
@@ -326,10 +360,6 @@ class _OtpVerificationScreenState
                   ),
 
                   const SizedBox(height: 20),
-
-                  // =================================================
-                  // TITLE
-                  // =================================================
 
                   const Text(
                     'Verify Your Mobile Number',
@@ -345,10 +375,6 @@ class _OtpVerificationScreenState
                   ),
 
                   const SizedBox(height: 8),
-
-                  // =================================================
-                  // PHONE
-                  // =================================================
 
                   Text(
                     '+91 ${widget.phoneNumber}',
@@ -379,10 +405,6 @@ class _OtpVerificationScreenState
 
                   const SizedBox(height: 30),
 
-                  // =================================================
-                  // OTP LABEL
-                  // =================================================
-
                   const Align(
                     alignment:
                         Alignment.centerLeft,
@@ -399,10 +421,6 @@ class _OtpVerificationScreenState
                   ),
 
                   const SizedBox(height: 6),
-
-                  // =================================================
-                  // OTP INPUT
-                  // =================================================
 
                   TextField(
                     controller:
@@ -463,10 +481,6 @@ class _OtpVerificationScreenState
 
                   const SizedBox(height: 24),
 
-                  // =================================================
-                  // VERIFY BUTTON
-                  // =================================================
-
                   SizedBox(
                     width:
                         double.infinity,
@@ -519,10 +533,6 @@ class _OtpVerificationScreenState
                   ),
 
                   const SizedBox(height: 20),
-
-                  // =================================================
-                  // FIREBASE ERROR
-                  // =================================================
 
                   if (_firebaseError !=
                       null)
