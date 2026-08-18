@@ -19,11 +19,10 @@ class MandatoryProfileSetupScreen extends StatefulWidget {
 class _MandatoryProfileSetupScreenState
     extends State<MandatoryProfileSetupScreen> {
   final PageController _pageController = PageController();
-
   final ImagePicker _picker = ImagePicker();
 
   // ============================================================
-  // PAGE 1 CONTROLLERS
+  // PAGE 1
   // ============================================================
 
   final TextEditingController _nameController =
@@ -46,10 +45,6 @@ class _MandatoryProfileSetupScreenState
 
   final TextEditingController _pinCodeController =
       TextEditingController();
-
-  // ============================================================
-  // DATE
-  // ============================================================
 
   DateTime? _dateOfBirth;
 
@@ -75,7 +70,7 @@ class _MandatoryProfileSetupScreenState
   bool _isVerifying = false;
 
   // ============================================================
-  // VERIFIED DATA
+  // VERIFICATION STATE
   // ============================================================
 
   bool _aadhaarVerified = false;
@@ -88,20 +83,13 @@ class _MandatoryProfileSetupScreenState
   // COLORS
   // ============================================================
 
-  static const Color _green =
-      Color(0xFF16A34A);
+  static const Color _green = Color(0xFF16A34A);
 
-  static const Color _greenDark =
-      Color(0xFF15803D);
+  static const Color _background = Color(0xFFF5F7F8);
 
-  static const Color _background =
-      Color(0xFFF5F7F8);
+  static const Color _text = Color(0xFF263746);
 
-  static const Color _text =
-      Color(0xFF263746);
-
-  static const Color _muted =
-      Color(0xFF7A8289);
+  static const Color _muted = Color(0xFF7A8289);
 
   // ============================================================
   // IMAGE PICKER
@@ -146,13 +134,13 @@ class _MandatoryProfileSetupScreenState
       });
     } catch (e) {
       _showError(
-        'Unable to open $title. Please check permission.',
+        'Unable to open $title. Please check camera permission.',
       );
     }
   }
 
   // ============================================================
-  // URL DIALOG
+  // URL INPUT
   // ============================================================
 
   Future<void> _enterImageUrl({
@@ -182,8 +170,8 @@ class _MandatoryProfileSetupScreenState
           ),
           content: TextField(
             controller: controller,
-            keyboardType: TextInputType.url,
             autofocus: true,
+            keyboardType: TextInputType.url,
             decoration: InputDecoration(
               hintText: 'Paste image URL',
               prefixIcon: const Icon(
@@ -192,8 +180,7 @@ class _MandatoryProfileSetupScreenState
               filled: true,
               fillColor: const Color(0xFFF5F7F8),
               border: OutlineInputBorder(
-                borderRadius:
-                    BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
               ),
             ),
@@ -210,8 +197,9 @@ class _MandatoryProfileSetupScreenState
                 final String value =
                     controller.text.trim();
 
-                if (value.isEmpty ||
-                    !value.startsWith('http')) {
+                if (!Uri.tryParse(value)
+                        .toString()
+                        .startsWith('http')) {
                   ScaffoldMessenger.of(dialogContext)
                       .showSnackBar(
                     const SnackBar(
@@ -262,13 +250,12 @@ class _MandatoryProfileSetupScreenState
   }
 
   // ============================================================
-  // SOURCE POPUP
+  // IMAGE OPTIONS
   // ============================================================
 
   Future<void> _showImageOptions({
     required String type,
     required String title,
-    bool cameraOnly = false,
   }) async {
     if (_isSaving || _isVerifying) {
       return;
@@ -303,9 +290,7 @@ class _MandatoryProfileSetupScreenState
                         BorderRadius.circular(20),
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 Text(
                   title,
                   style: const TextStyle(
@@ -314,9 +299,7 @@ class _MandatoryProfileSetupScreenState
                     color: _text,
                   ),
                 ),
-
                 const SizedBox(height: 6),
-
                 const Text(
                   'Choose how you want to add the image.',
                   style: TextStyle(
@@ -324,9 +307,7 @@ class _MandatoryProfileSetupScreenState
                     color: _muted,
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 Row(
                   children: [
                     Expanded(
@@ -336,9 +317,7 @@ class _MandatoryProfileSetupScreenState
                         title: 'Photo',
                         subtitle: 'Take photo',
                         onTap: () {
-                          Navigator.pop(
-                            sheetContext,
-                          );
+                          Navigator.pop(sheetContext);
 
                           _chooseImage(
                             title: title,
@@ -349,28 +328,22 @@ class _MandatoryProfileSetupScreenState
                         },
                       ),
                     ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _optionCard(
+                        icon: Icons.link_rounded,
+                        title: 'URL',
+                        subtitle: 'Paste image URL',
+                        onTap: () {
+                          Navigator.pop(sheetContext);
 
-                    if (!cameraOnly) ...[
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _optionCard(
-                          icon:
-                              Icons.link_rounded,
-                          title: 'URL',
-                          subtitle: 'Paste image URL',
-                          onTap: () {
-                            Navigator.pop(
-                              sheetContext,
-                            );
-
-                            _enterImageUrl(
-                              type: type,
-                              title: '$title URL',
-                            );
-                          },
-                        ),
+                          _enterImageUrl(
+                            type: type,
+                            title: '$title URL',
+                          );
+                        },
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ],
@@ -462,7 +435,7 @@ class _MandatoryProfileSetupScreenState
   }) {
     final bool hasImage =
         file != null ||
-        (url != null && url.isNotEmpty);
+        (url != null && url.trim().isNotEmpty);
 
     return Container(
       width: double.infinity,
@@ -541,10 +514,8 @@ class _MandatoryProfileSetupScreenState
               ),
             ],
           ),
-
           if (hasImage) ...[
             const SizedBox(height: 13),
-
             ClipRRect(
               borderRadius:
                   BorderRadius.circular(14),
@@ -560,11 +531,7 @@ class _MandatoryProfileSetupScreenState
                         url!,
                         fit: BoxFit.cover,
                         loadingBuilder:
-                            (
-                              context,
-                              child,
-                              progress,
-                            ) {
+                            (context, child, progress) {
                           if (progress == null) {
                             return child;
                           }
@@ -577,21 +544,15 @@ class _MandatoryProfileSetupScreenState
                           );
                         },
                         errorBuilder:
-                            (
-                              context,
-                              error,
-                              stackTrace,
-                            ) {
+                            (context, error, stackTrace) {
                           return Container(
-                            color: const Color(
-                              0xFFF5F7F8,
-                            ),
+                            color:
+                                const Color(0xFFF5F7F8),
                             alignment:
                                 Alignment.center,
                             child: const Column(
                               mainAxisAlignment:
-                                  MainAxisAlignment
-                                      .center,
+                                  MainAxisAlignment.center,
                               children: [
                                 Icon(
                                   Icons
@@ -614,10 +575,8 @@ class _MandatoryProfileSetupScreenState
                       ),
               ),
             ),
-
             const SizedBox(height: 10),
           ],
-
           SizedBox(
             width: double.infinity,
             height: 45,
@@ -646,8 +605,7 @@ class _MandatoryProfileSetupScreenState
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              style:
-                  OutlinedButton.styleFrom(
+              style: OutlinedButton.styleFrom(
                 foregroundColor:
                     AppColors.primary,
                 side: BorderSide(
@@ -668,7 +626,7 @@ class _MandatoryProfileSetupScreenState
   }
 
   // ============================================================
-  // TEXT FIELD
+  // FIELD
   // ============================================================
 
   Widget _field({
@@ -739,7 +697,7 @@ class _MandatoryProfileSetupScreenState
   }
 
   // ============================================================
-  // DATE PICKER
+  // DATE
   // ============================================================
 
   Future<void> _selectDate() async {
@@ -899,7 +857,7 @@ class _MandatoryProfileSetupScreenState
   }
 
   // ============================================================
-  // FINAL SAVE & VERIFY
+  // FINAL VERIFY + SAVE
   // ============================================================
 
   Future<void> _saveAndContinue() async {
@@ -945,33 +903,29 @@ class _MandatoryProfileSetupScreenState
 
     setState(() {
       _isVerifying = true;
-      _verificationMessage =
-          'Verifying Aadhaar and matching Name & Date of Birth...';
       _aadhaarVerified = false;
       _nameMatched = false;
       _dobMatched = false;
+      _verificationMessage =
+          'Submitting Aadhaar for verification...';
     });
 
     try {
       // ========================================================
-      // IMPORTANT
-      //
-      // This method MUST be connected to your actual
-      // verification/admin backend.
-      //
-      // It must NOT simply return true.
+      // VERIFY
       // ========================================================
 
       final AadhaarVerificationResult result =
           await AadhaarVerificationService.verify(
+        authUid: user.uid,
         name: _nameController.text.trim(),
         dateOfBirth: _dateOfBirth!,
         aadhaarNumber:
             _aadhaarController.text.trim(),
-        frontUrl:
-            _aadhaarFrontUrl?.trim(),
-        backUrl:
-            _aadhaarBackUrl?.trim(),
+        frontFile: _aadhaarFrontFile,
+        backFile: _aadhaarBackFile,
+        frontUrl: _aadhaarFrontUrl,
+        backUrl: _aadhaarBackUrl,
       );
 
       if (!mounted) {
@@ -980,10 +934,10 @@ class _MandatoryProfileSetupScreenState
 
       if (!result.verified) {
         _showVerificationPopup(
-          title: 'Verification Failed',
+          title: 'Aadhaar Verification Failed',
           message:
               result.message ??
-                  'Aadhaar verification failed.',
+                  'Aadhaar verification was not successful.',
         );
         return;
       }
@@ -992,7 +946,7 @@ class _MandatoryProfileSetupScreenState
         _showVerificationPopup(
           title: 'Name Not Matched',
           message:
-              'The name entered in your profile does not match the verified Aadhaar name.',
+              'The entered name does not match the verified Aadhaar name.',
         );
         return;
       }
@@ -1001,17 +955,21 @@ class _MandatoryProfileSetupScreenState
         _showVerificationPopup(
           title: 'Date of Birth Not Matched',
           message:
-              'The Date of Birth entered in your profile does not match the verified Aadhaar Date of Birth.',
+              'The entered Date of Birth does not match the verified Aadhaar Date of Birth.',
         );
         return;
       }
+
+      // ========================================================
+      // VERIFIED
+      // ========================================================
 
       setState(() {
         _aadhaarVerified = true;
         _nameMatched = true;
         _dobMatched = true;
         _verificationMessage =
-            'Verification complete. Saving profile...';
+            'Aadhaar, Name and Date of Birth verified. Saving profile...';
         _isSaving = true;
       });
 
@@ -1021,36 +979,24 @@ class _MandatoryProfileSetupScreenState
 
       await ProfileSetupService.saveWalkerProfile(
         authUid: user.uid,
-        phoneNumber:
-            user.phoneNumber ?? '',
-        name:
-            _nameController.text.trim(),
-        dateOfBirth:
-            _dateOfBirth!,
-        aadhaar:
-            _aadhaarController.text.trim(),
-        village:
-            _villageController.text.trim(),
-        city:
-            _cityController.text.trim(),
-        district:
-            _districtController.text.trim(),
-        state:
-            _stateController.text.trim(),
-        pinCode:
-            _pinCodeController.text.trim(),
-        selfieUrl:
-            _selfieUrl ?? '',
-        aadhaarFrontUrl:
-            _aadhaarFrontUrl ?? '',
-        aadhaarBackUrl:
-            _aadhaarBackUrl ?? '',
-        aadhaarVerified:
-            true,
-        nameMatched:
-            true,
-        dobMatched:
-            true,
+        phoneNumber: user.phoneNumber ?? '',
+        name: _nameController.text.trim(),
+        dateOfBirth: _dateOfBirth!,
+        aadhaar: _aadhaarController.text.trim(),
+        village: _villageController.text.trim(),
+        city: _cityController.text.trim(),
+        district: _districtController.text.trim(),
+        state: _stateController.text.trim(),
+        pinCode: _pinCodeController.text.trim(),
+        selfieFile: _selfieFile,
+        selfieUrl: _selfieUrl,
+        aadhaarFrontFile: _aadhaarFrontFile,
+        aadhaarFrontUrl: _aadhaarFrontUrl,
+        aadhaarBackFile: _aadhaarBackFile,
+        aadhaarBackUrl: _aadhaarBackUrl,
+        aadhaarVerified: true,
+        nameMatched: true,
+        dobMatched: true,
         aadhaarVerifiedName:
             result.verifiedName ?? '',
       );
@@ -1081,7 +1027,7 @@ class _MandatoryProfileSetupScreenState
       );
     } catch (e) {
       debugPrint(
-        'Mandatory profile verification/save error: $e',
+        'Profile verification/save error: $e',
       );
 
       if (!mounted) {
@@ -1105,7 +1051,7 @@ class _MandatoryProfileSetupScreenState
   }
 
   // ============================================================
-  // RESET VERIFICATION
+  // RESET
   // ============================================================
 
   void _resetVerification() {
@@ -1129,10 +1075,11 @@ class _MandatoryProfileSetupScreenState
 
     await showDialog<void>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius:
+                BorderRadius.circular(22),
           ),
           title: Row(
             children: [
@@ -1174,7 +1121,7 @@ class _MandatoryProfileSetupScreenState
           actions: [
             ElevatedButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor:
@@ -1190,7 +1137,53 @@ class _MandatoryProfileSetupScreenState
   }
 
   // ============================================================
-  // MESSAGE
+  // VERIFICATION STATUS
+  // ============================================================
+
+  Widget _verificationRow(
+    String title,
+    bool verified,
+  ) {
+    return Row(
+      children: [
+        Icon(
+          verified
+              ? Icons.check_circle_rounded
+              : Icons.cancel_rounded,
+          color: verified
+              ? _green
+              : Colors.red,
+          size: 18,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: _text,
+            ),
+          ),
+        ),
+        Text(
+          verified
+              ? 'MATCHED'
+              : 'NOT MATCHED',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            color: verified
+                ? _green
+                : Colors.red,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // MESSAGES
   // ============================================================
 
   void _showError(String message) {
@@ -1289,7 +1282,7 @@ class _MandatoryProfileSetupScreenState
           _progressCircle(
             number: '2',
             active: _currentPage == 1,
-            completed: false,
+            completed: _aadhaarVerified,
           ),
         ],
       ),
@@ -1394,7 +1387,7 @@ class _MandatoryProfileSetupScreenState
   }
 
   // ============================================================
-  // GREEN PRIMARY BUTTON
+  // GREEN BUTTON
   // ============================================================
 
   Widget _greenButton({
@@ -1415,7 +1408,8 @@ class _MandatoryProfileSetupScreenState
           elevation: 2,
           shadowColor:
               _green.withOpacity(.25),
-          shape: RoundedRectangleBorder(
+          shape:
+              RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(16),
           ),
@@ -1518,7 +1512,7 @@ class _MandatoryProfileSetupScreenState
                 SizedBox(width: 11),
                 Expanded(
                   child: Text(
-                    'Complete your basic profile details to continue to Aadhaar verification.',
+                    'Complete your profile details. Aadhaar verification will be performed on the next step.',
                     style: TextStyle(
                       color: _text,
                       fontSize: 12,
@@ -1779,7 +1773,7 @@ class _MandatoryProfileSetupScreenState
                 Icons.badge_outlined,
             title: 'Aadhaar Verification',
             subtitle:
-                'Add both sides. Verification starts only when you tap Save & Continue.',
+                'Add both sides. Verification starts only after Save & Continue.',
           ),
 
           const SizedBox(height: 16),
@@ -1830,40 +1824,63 @@ class _MandatoryProfileSetupScreenState
                           .withOpacity(.20),
                 ),
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  if (_isVerifying)
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child:
-                          CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                        color:
-                            AppColors.primary,
+                  Row(
+                    children: [
+                      if (_isVerifying)
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child:
+                              CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color:
+                                AppColors.primary,
+                          ),
+                        )
+                      else
+                        const Icon(
+                          Icons
+                              .check_circle_rounded,
+                          color: _green,
+                          size: 22,
+                        ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _verificationMessage,
+                          style:
+                              const TextStyle(
+                            fontSize: 11,
+                            height: 1.35,
+                            fontWeight:
+                                FontWeight.w700,
+                            color: _text,
+                          ),
+                        ),
                       ),
-                    )
-                  else
-                    const Icon(
-                      Icons
-                          .check_circle_rounded,
-                      color: _green,
-                      size: 22,
-                    ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      _verificationMessage,
-                      style:
-                          const TextStyle(
-                        fontSize: 11,
-                        height: 1.35,
-                        fontWeight:
-                            FontWeight.w700,
-                        color: _text,
-                      ),
-                    ),
+                    ],
                   ),
+
+                  if (_aadhaarVerified &&
+                      !_isVerifying) ...[
+                    const SizedBox(height: 12),
+                    _verificationRow(
+                      'Aadhaar',
+                      _aadhaarVerified,
+                    ),
+                    const SizedBox(height: 6),
+                    _verificationRow(
+                      'Name',
+                      _nameMatched,
+                    ),
+                    const SizedBox(height: 6),
+                    _verificationRow(
+                      'Date of Birth',
+                      _dobMatched,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -2011,7 +2028,6 @@ class _MandatoryProfileSetupScreenState
 
     _nameController.dispose();
     _aadhaarController.dispose();
-
     _villageController.dispose();
     _cityController.dispose();
     _districtController.dispose();
@@ -2019,74 +2035,5 @@ class _MandatoryProfileSetupScreenState
     _pinCodeController.dispose();
 
     super.dispose();
-  }
-}
-
-// =================================================================
-// VERIFICATION RESULT
-// =================================================================
-
-class AadhaarVerificationResult {
-  final bool verified;
-  final bool nameMatched;
-  final bool dobMatched;
-  final String? verifiedName;
-  final String? message;
-
-  const AadhaarVerificationResult({
-    required this.verified,
-    required this.nameMatched,
-    required this.dobMatched,
-    this.verifiedName,
-    this.message,
-  });
-}
-
-// =================================================================
-// VERIFICATION SERVICE
-// =================================================================
-
-class AadhaarVerificationService {
-  AadhaarVerificationService._();
-
-  static Future<AadhaarVerificationResult> verify({
-    required String name,
-    required DateTime dateOfBirth,
-    required String aadhaarNumber,
-    String? frontUrl,
-    String? backUrl,
-  }) async {
-    /*
-     * IMPORTANT
-     *
-     * DO NOT return verified=true here.
-     *
-     * Connect this method to your actual verification/admin
-     * backend before enabling real profile completion.
-     *
-     * The UI is already ready for:
-     *
-     *   Front/Back
-     *   Name verification
-     *   DOB verification
-     *   Loading
-     *   Failure popup
-     *   Final Firestore save
-     *
-     * Until a real verification result is supplied, profile
-     * completion must remain blocked.
-     */
-
-    await Future<void>.delayed(
-      const Duration(milliseconds: 700),
-    );
-
-    return const AadhaarVerificationResult(
-      verified: false,
-      nameMatched: false,
-      dobMatched: false,
-      message:
-          'Aadhaar verification service is not connected yet. Please complete verification from the admin/backend system.',
-    );
   }
 }
