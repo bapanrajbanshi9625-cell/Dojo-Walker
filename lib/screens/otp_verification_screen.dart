@@ -6,7 +6,7 @@ import '../features/profile_setup/services/profile_setup_service.dart';
 import '../services/auth_service.dart';
 import '../services/walker_id_service.dart';
 import 'main_navigation_screen.dart';
-import 'profile_setup_screen.dart';
+import '../features/profile_setup/screens/mandatory_profile_setup_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String verificationId;
