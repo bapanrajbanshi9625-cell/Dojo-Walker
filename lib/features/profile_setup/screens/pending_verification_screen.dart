@@ -46,7 +46,6 @@ class _PendingVerificationScreenState
 
   bool _openingMain = false;
 
-  bool _profileExists = false;
 
   // ============================================================
   // INIT
