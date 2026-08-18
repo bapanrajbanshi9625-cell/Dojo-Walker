@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'pending_verification_screen.dart';
 
-class MandatoryProfileSetup2 extends StatefulWidget {
+class MandatoryProfileSetupScreen2 extends StatefulWidget {
   final String name;
   final String aadhaar;
 
@@ -22,7 +22,7 @@ class MandatoryProfileSetup2 extends StatefulWidget {
   final File? selfieFile;
   final String? selfieUrl;
 
-  const MandatoryProfileSetup2({
+  const MandatoryProfileSetupScreen2({
     super.key,
     required this.name,
     required this.aadhaar,
@@ -37,12 +37,12 @@ class MandatoryProfileSetup2 extends StatefulWidget {
   });
 
   @override
-  State<MandatoryProfileSetup2> createState() =>
-      _MandatoryProfileSetup2State();
+  State<MandatoryProfileSetupScreen2> createState() =>
+      _MandatoryProfileSetupScreen2State();
 }
 
-class _MandatoryProfileSetup2State
-    extends State<MandatoryProfileSetup2> {
+class _MandatoryProfileSetupScreen2State
+    extends State<MandatoryProfileSetupScreen2> {
   // ============================================================
   // COLORS
   // ============================================================
@@ -80,9 +80,10 @@ class _MandatoryProfileSetup2State
   }
 
   // ============================================================
-  // ADDRESS
-  // IMPORTANT:
-  // Firestore main address field = "Address"
+  // COMPLETE ADDRESS
+  //
+  // MAIN FIRESTORE FIELD:
+  // "Address"
   // ============================================================
 
   String get fullAddress {
@@ -125,7 +126,7 @@ class _MandatoryProfileSetup2State
   }
 
   // ============================================================
-  // SUBMIT PROFILE
+  // SUBMIT
   // ============================================================
 
   Future<void> submitProfile() async {
@@ -135,7 +136,8 @@ class _MandatoryProfileSetup2State
 
     if (!validate()) return;
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user =
+        FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       _showMessage(
@@ -150,21 +152,27 @@ class _MandatoryProfileSetup2State
     });
 
     try {
-      final uid = user.uid;
-
-      String? profileSelfieUrl = widget.selfieUrl;
+      final String uid = user.uid;
 
       // ========================================================
-      // 1. UPLOAD SELFIE TO FIREBASE STORAGE
+      // SELFIE URL
+      // ========================================================
+
+      String profileSelfieUrl =
+          widget.selfieUrl?.trim() ?? '';
+
+      // ========================================================
+      // UPLOAD SELFIE FILE TO FIREBASE STORAGE
       // ========================================================
 
       if (widget.selfieFile != null) {
-        final storageRef = FirebaseStorage.instance
-            .ref()
-            .child('walkers')
-            .child(uid)
-            .child('profile')
-            .child('profile_selfie.jpg');
+        final Reference storageRef =
+            FirebaseStorage.instance
+                .ref()
+                .child('walkers')
+                .child(uid)
+                .child('profile')
+                .child('profile_selfie.jpg');
 
         await storageRef.putFile(
           widget.selfieFile!,
@@ -178,25 +186,28 @@ class _MandatoryProfileSetup2State
       }
 
       // ========================================================
-      // 2. FIRESTORE DOCUMENT
+      // WALKER FIRESTORE DOCUMENT
       // ========================================================
 
-      final walkerRef = FirebaseFirestore.instance
-          .collection('walkers')
-          .doc(uid);
+      final DocumentReference<
+          Map<String, dynamic>> walkerRef =
+          FirebaseFirestore.instance
+              .collection('walkers')
+              .doc(uid);
 
       // ========================================================
-      // 3. COMPLETE PROFILE DATA
+      // ALL PROFILE DATA
       // ========================================================
 
       final Map<String, dynamic> profileData = {
-        // ------------------------------------------------------
-        // IDENTITY
-        // ------------------------------------------------------
+        // ======================================================
+        // USER / WALKER
+        // ======================================================
 
         'Walker Uid': uid,
 
-        'Full Name': widget.name.trim(),
+        'Full Name':
+            widget.name.trim(),
 
         'Mobile number':
             user.phoneNumber ?? '',
@@ -205,48 +216,62 @@ class _MandatoryProfileSetup2State
             widget.aadhaar.trim(),
 
         'Date Of Birth':
-            Timestamp.fromDate(widget.dateOfBirth),
+            Timestamp.fromDate(
+          widget.dateOfBirth,
+        ),
 
-        // ------------------------------------------------------
+        // ======================================================
         // ADDRESS
-        // MAIN FIRESTORE FIELD = Address
-        // ------------------------------------------------------
+        //
+        // EXACT MAIN FIELD = "Address"
+        // ======================================================
 
         'Address': fullAddress,
 
-        // Individual address fields also stored
-        // for Admin/search/display purposes.
+        // Individual address fields
+        // are also saved.
 
-        'Village': widget.village.trim(),
+        'Village':
+            widget.village.trim(),
 
-        'City': widget.city.trim(),
+        'City':
+            widget.city.trim(),
 
-        'District': widget.district.trim(),
+        'District':
+            widget.district.trim(),
 
-        'State': widget.state.trim(),
+        'State':
+            widget.state.trim(),
 
-        'Pincode': widget.pinCode.trim(),
+        'Pincode':
+            widget.pinCode.trim(),
 
-        // ------------------------------------------------------
+        // ======================================================
         // SELFIE
-        // ------------------------------------------------------
+        // ======================================================
 
         'Profile Selfie':
-            profileSelfieUrl ?? '',
+            profileSelfieUrl,
 
-        // ------------------------------------------------------
-        // VERIFICATION
-        // ------------------------------------------------------
+        // ======================================================
+        // PROFILE STATUS
+        // ======================================================
 
         'profileCompleted': true,
 
+        // IMPORTANT:
+        // Admin must change this to "approved".
+
         'verificationStatus': 'pending',
+
+        // IMPORTANT:
+        // Walker remains locked until admin approval.
 
         'walkerIdActive': false,
 
-        // ------------------------------------------------------
+        // ======================================================
         // EMERGENCY CONTACT
-        // ------------------------------------------------------
+        // ======================================================
 
         'Emergency Contact Name':
             emergencyNameController.text.trim(),
@@ -254,9 +279,9 @@ class _MandatoryProfileSetup2State
         'Emergency Contact Mobile':
             emergencyMobileController.text.trim(),
 
-        // ------------------------------------------------------
+        // ======================================================
         // TIMESTAMPS
-        // ------------------------------------------------------
+        // ======================================================
 
         'profileSubmittedAt':
             FieldValue.serverTimestamp(),
@@ -266,17 +291,15 @@ class _MandatoryProfileSetup2State
       };
 
       // ========================================================
-      // 4. SAVE EVERYTHING TO WALKERS/{UID}
+      // SAVE TO:
+      //
+      // walkers/{UID}
       // ========================================================
 
       await walkerRef.set(
         profileData,
         SetOptions(merge: true),
       );
-
-      // ========================================================
-      // 5. SUCCESS
-      // ========================================================
 
       if (!mounted) return;
 
@@ -285,7 +308,7 @@ class _MandatoryProfileSetup2State
       });
 
       // ========================================================
-      // 6. GO TO PENDING VERIFICATION SCREEN
+      // PENDING VERIFICATION
       // ========================================================
 
       Navigator.of(context).pushAndRemoveUntil(
@@ -306,7 +329,7 @@ class _MandatoryProfileSetup2State
         _firebaseError(e),
         false,
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       setState(() {
@@ -324,22 +347,21 @@ class _MandatoryProfileSetup2State
   // FIREBASE ERROR
   // ============================================================
 
-  String _firebaseError(FirebaseException e) {
+  String _firebaseError(
+    FirebaseException e,
+  ) {
     switch (e.code) {
       case 'permission-denied':
         return 'Firebase permission denied. Please check Firestore rules.';
-
-      case 'unauthorized':
-        return 'You are not authorized to upload this profile.';
-
-      case 'object-not-found':
-        return 'Profile image could not be uploaded.';
 
       case 'unauthenticated':
         return 'Your login session has expired.';
 
       case 'network-request-failed':
         return 'Network error. Please check your internet connection.';
+
+      case 'object-not-found':
+        return 'Profile image could not be uploaded.';
 
       default:
         return e.message ??
@@ -362,10 +384,14 @@ class _MandatoryProfileSetup2State
           content: Text(message),
           backgroundColor:
               success ? green : red,
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+          behavior:
+              SnackBarBehavior.floating,
+          margin:
+              const EdgeInsets.all(16),
+          shape:
+              RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(14),
           ),
         ),
       );
@@ -383,7 +409,8 @@ class _MandatoryProfileSetup2State
     int? maxLength,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding:
+          const EdgeInsets.only(bottom: 14),
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
@@ -398,18 +425,26 @@ class _MandatoryProfileSetup2State
           fillColor: Colors.white,
           counterText: '',
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
+            borderRadius:
+                BorderRadius.circular(16),
+            borderSide:
+                BorderSide.none,
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(
+          enabledBorder:
+              OutlineInputBorder(
+            borderRadius:
+                BorderRadius.circular(16),
+            borderSide:
+                const BorderSide(
               color: Color(0xFFE3E8ED),
             ),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(
+          focusedBorder:
+              OutlineInputBorder(
+            borderRadius:
+                BorderRadius.circular(16),
+            borderSide:
+                const BorderSide(
               color: green,
               width: 1.5,
             ),
@@ -420,18 +455,21 @@ class _MandatoryProfileSetup2State
   }
 
   // ============================================================
-  // SUMMARY CARD
+  // SUMMARY
   // ============================================================
 
   Widget _summaryCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding:
+          const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius:
+            BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFFE3E8ED),
+          color:
+              const Color(0xFFE3E8ED),
         ),
       ),
       child: Column(
@@ -449,7 +487,8 @@ class _MandatoryProfileSetup2State
                 'Profile Summary',
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w900,
+                  fontWeight:
+                      FontWeight.w900,
                   color: textDark,
                 ),
               ),
@@ -471,6 +510,11 @@ class _MandatoryProfileSetup2State
           ),
 
           _summaryRow(
+            'Aadhaar',
+            '•••• •••• ${widget.aadhaar.substring(8)}',
+          ),
+
+          _summaryRow(
             'Address',
             fullAddress,
           ),
@@ -488,7 +532,10 @@ class _MandatoryProfileSetup2State
     String value,
   ) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 11),
+      padding:
+          const EdgeInsets.only(
+        bottom: 11,
+      ),
       child: Row(
         crossAxisAlignment:
             CrossAxisAlignment.start,
@@ -497,10 +544,12 @@ class _MandatoryProfileSetup2State
             width: 100,
             child: Text(
               title,
-              style: const TextStyle(
+              style:
+                  const TextStyle(
                 fontSize: 11,
                 color: muted,
-                fontWeight: FontWeight.w700,
+                fontWeight:
+                    FontWeight.w700,
               ),
             ),
           ),
@@ -508,10 +557,60 @@ class _MandatoryProfileSetup2State
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
+              style:
+                  const TextStyle(
                 fontSize: 12,
                 color: textDark,
-                fontWeight: FontWeight.w700,
+                fontWeight:
+                    FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ADDRESS ITEM
+  // ============================================================
+
+  Widget _addressItem(
+    String title,
+    String value,
+  ) {
+    return Padding(
+      padding:
+          const EdgeInsets.only(
+        bottom: 9,
+      ),
+      child: Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 115,
+            child: Text(
+              title,
+              style:
+                  const TextStyle(
+                fontSize: 11,
+                color: muted,
+                fontWeight:
+                    FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style:
+                  const TextStyle(
+                fontSize: 12,
+                color: textDark,
+                fontWeight:
+                    FontWeight.w700,
               ),
             ),
           ),
@@ -529,7 +628,8 @@ class _MandatoryProfileSetup2State
     return PopScope(
       canPop: !_saving,
       child: Scaffold(
-        backgroundColor: background,
+        backgroundColor:
+            background,
         body: SafeArea(
           child: Column(
             children: [
@@ -539,17 +639,20 @@ class _MandatoryProfileSetup2State
 
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(
+                padding:
+                    const EdgeInsets.fromLTRB(
                   20,
                   18,
                   20,
                   18,
                 ),
-                decoration: const BoxDecoration(
+                decoration:
+                    const BoxDecoration(
                   color: Colors.white,
                   border: Border(
                     bottom: BorderSide(
-                      color: Color(0xFFE8EDF1),
+                      color:
+                          Color(0xFFE8EDF1),
                     ),
                   ),
                 ),
@@ -558,41 +661,56 @@ class _MandatoryProfileSetup2State
                     Container(
                       width: 46,
                       height: 46,
-                      decoration: BoxDecoration(
+                      decoration:
+                          BoxDecoration(
                         color: orange,
                         borderRadius:
-                            BorderRadius.circular(14),
+                            BorderRadius
+                                .circular(14),
                       ),
-                      child: const Icon(
+                      child:
+                          const Icon(
                         Icons.pets_rounded,
-                        color: Colors.white,
+                        color:
+                            Colors.white,
                       ),
                     ),
 
-                    const SizedBox(width: 12),
+                    const SizedBox(
+                      width: 12,
+                    ),
 
                     const Expanded(
                       child: Column(
                         crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                            CrossAxisAlignment
+                                .start,
                         children: [
                           Text(
                             'Walker',
-                            style: TextStyle(
+                            style:
+                                TextStyle(
                               fontSize: 11,
-                              color: orange,
+                              color:
+                                  orange,
                               fontWeight:
-                                  FontWeight.w800,
+                                  FontWeight
+                                      .w800,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          SizedBox(
+                            height: 2,
+                          ),
                           Text(
                             'Verification Details',
-                            style: TextStyle(
+                            style:
+                                TextStyle(
                               fontSize: 19,
-                              color: textDark,
+                              color:
+                                  textDark,
                               fontWeight:
-                                  FontWeight.w900,
+                                  FontWeight
+                                      .w900,
                             ),
                           ),
                         ],
@@ -601,21 +719,31 @@ class _MandatoryProfileSetup2State
 
                     Container(
                       padding:
-                          const EdgeInsets.symmetric(
+                          const EdgeInsets
+                              .symmetric(
                         horizontal: 10,
                         vertical: 7,
                       ),
-                      decoration: BoxDecoration(
-                        color: green.withOpacity(.10),
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            green.withOpacity(
+                          .10,
+                        ),
                         borderRadius:
-                            BorderRadius.circular(12),
+                            BorderRadius
+                                .circular(12),
                       ),
-                      child: const Text(
+                      child:
+                          const Text(
                         'STEP 2',
-                        style: TextStyle(
+                        style:
+                            TextStyle(
                           color: green,
                           fontSize: 10,
-                          fontWeight: FontWeight.w900,
+                          fontWeight:
+                              FontWeight
+                                  .w900,
                         ),
                       ),
                     ),
@@ -628,9 +756,11 @@ class _MandatoryProfileSetup2State
               // ==================================================
 
               Expanded(
-                child: SingleChildScrollView(
+                child:
+                    SingleChildScrollView(
                   padding:
-                      const EdgeInsets.fromLTRB(
+                      const EdgeInsets
+                          .fromLTRB(
                     18,
                     18,
                     18,
@@ -638,73 +768,111 @@ class _MandatoryProfileSetup2State
                   ),
                   child: Column(
                     crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                        CrossAxisAlignment
+                            .start,
                     children: [
                       const Text(
                         'Almost there!',
-                        style: TextStyle(
+                        style:
+                            TextStyle(
                           fontSize: 23,
-                          fontWeight: FontWeight.w900,
-                          color: textDark,
+                          fontWeight:
+                              FontWeight
+                                  .w900,
+                          color:
+                              textDark,
                         ),
                       ),
 
-                      const SizedBox(height: 5),
+                      const SizedBox(
+                        height: 5,
+                      ),
 
                       const Text(
                         'Review your information and add an emergency contact.',
-                        style: TextStyle(
+                        style:
+                            TextStyle(
                           fontSize: 12.5,
                           color: muted,
                         ),
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(
+                        height: 18,
+                      ),
 
+                      // ==================================================
                       // SUMMARY
+                      // ==================================================
+
                       _summaryCard(),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(
+                        height: 18,
+                      ),
 
-                      // ADDRESS CARD
+                      // ==================================================
+                      // ADDRESS
+                      // ==================================================
+
                       Container(
-                        width: double.infinity,
+                        width:
+                            double.infinity,
                         padding:
-                            const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
+                            const EdgeInsets
+                                .all(18),
+                        decoration:
+                            BoxDecoration(
+                          color:
+                              Colors.white,
                           borderRadius:
-                              BorderRadius.circular(20),
-                          border: Border.all(
-                            color: const Color(
+                              BorderRadius
+                                  .circular(
+                            20,
+                          ),
+                          border:
+                              Border.all(
+                            color:
+                                const Color(
                               0xFFE3E8ED,
                             ),
                           ),
                         ),
                         child: Column(
                           crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                              CrossAxisAlignment
+                                  .start,
                           children: [
                             const Row(
                               children: [
                                 Icon(
-                                  Icons.location_on_rounded,
-                                  color: blue,
+                                  Icons
+                                      .location_on_rounded,
+                                  color:
+                                      blue,
                                 ),
-                                SizedBox(width: 9),
+                                SizedBox(
+                                  width: 9,
+                                ),
                                 Text(
                                   'Address',
-                                  style: TextStyle(
-                                    fontSize: 16,
+                                  style:
+                                      TextStyle(
+                                    fontSize:
+                                        16,
                                     fontWeight:
-                                        FontWeight.w900,
-                                    color: textDark,
+                                        FontWeight
+                                            .w900,
+                                    color:
+                                        textDark,
                                   ),
                                 ),
                               ],
                             ),
 
-                            const SizedBox(height: 14),
+                            const SizedBox(
+                              height: 14,
+                            ),
 
                             _addressItem(
                               'Village / Locality',
@@ -731,39 +899,57 @@ class _MandatoryProfileSetup2State
                               widget.pinCode,
                             ),
 
-                            const SizedBox(height: 4),
+                            const SizedBox(
+                              height: 4,
+                            ),
 
                             Container(
-                              width: double.infinity,
+                              width:
+                                  double.infinity,
                               padding:
-                                  const EdgeInsets.all(13),
-                              decoration: BoxDecoration(
+                                  const EdgeInsets
+                                      .all(13),
+                              decoration:
+                                  BoxDecoration(
                                 color:
-                                    const Color(0xFFF5F8FC),
+                                    const Color(
+                                  0xFFF5F8FC,
+                                ),
                                 borderRadius:
-                                    BorderRadius.circular(14),
+                                    BorderRadius
+                                        .circular(
+                                  14,
+                                ),
                               ),
                               child: Row(
                                 crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                    CrossAxisAlignment
+                                        .start,
                                 children: [
                                   const Icon(
                                     Icons
                                         .home_rounded,
                                     size: 19,
-                                    color: green,
+                                    color:
+                                        green,
                                   ),
-                                  const SizedBox(width: 9),
+                                  const SizedBox(
+                                    width: 9,
+                                  ),
                                   Expanded(
                                     child: Text(
                                       fullAddress,
                                       style:
                                           const TextStyle(
-                                        fontSize: 12,
-                                        height: 1.5,
-                                        color: textDark,
+                                        fontSize:
+                                            12,
+                                        height:
+                                            1.5,
+                                        color:
+                                            textDark,
                                         fontWeight:
-                                            FontWeight.w600,
+                                            FontWeight
+                                                .w600,
                                       ),
                                     ),
                                   ),
@@ -774,58 +960,87 @@ class _MandatoryProfileSetup2State
                         ),
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(
+                        height: 18,
+                      ),
 
+                      // ==================================================
                       // EMERGENCY CONTACT
+                      // ==================================================
+
                       Container(
-                        width: double.infinity,
+                        width:
+                            double.infinity,
                         padding:
-                            const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
+                            const EdgeInsets
+                                .all(18),
+                        decoration:
+                            BoxDecoration(
+                          color:
+                              Colors.white,
                           borderRadius:
-                              BorderRadius.circular(20),
-                          border: Border.all(
-                            color: const Color(
+                              BorderRadius
+                                  .circular(
+                            20,
+                          ),
+                          border:
+                              Border.all(
+                            color:
+                                const Color(
                               0xFFE3E8ED,
                             ),
                           ),
                         ),
                         child: Column(
                           crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                              CrossAxisAlignment
+                                  .start,
                           children: [
                             const Row(
                               children: [
                                 Icon(
                                   Icons
                                       .contact_emergency_rounded,
-                                  color: orange,
+                                  color:
+                                      orange,
                                 ),
-                                SizedBox(width: 9),
+                                SizedBox(
+                                  width: 9,
+                                ),
                                 Text(
                                   'Emergency Contact',
-                                  style: TextStyle(
-                                    fontSize: 16,
+                                  style:
+                                      TextStyle(
+                                    fontSize:
+                                        16,
                                     fontWeight:
-                                        FontWeight.w900,
-                                    color: textDark,
+                                        FontWeight
+                                            .w900,
+                                    color:
+                                        textDark,
                                   ),
                                 ),
                               ],
                             ),
 
-                            const SizedBox(height: 6),
+                            const SizedBox(
+                              height: 6,
+                            ),
 
                             const Text(
                               'This person can be contacted if required.',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: muted,
+                              style:
+                                  TextStyle(
+                                fontSize:
+                                    11.5,
+                                color:
+                                    muted,
                               ),
                             ),
 
-                            const SizedBox(height: 16),
+                            const SizedBox(
+                              height: 16,
+                            ),
 
                             _field(
                               controller:
@@ -833,7 +1048,8 @@ class _MandatoryProfileSetup2State
                               label:
                                   'Emergency Contact Name',
                               icon:
-                                  Icons.person_outline_rounded,
+                                  Icons
+                                      .person_outline_rounded,
                             ),
 
                             _field(
@@ -842,46 +1058,70 @@ class _MandatoryProfileSetup2State
                               label:
                                   'Emergency Contact Mobile',
                               icon:
-                                  Icons.phone_rounded,
+                                  Icons
+                                      .phone_rounded,
                               keyboardType:
-                                  TextInputType.phone,
+                                  TextInputType
+                                      .phone,
                               maxLength: 10,
                             ),
                           ],
                         ),
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(
+                        height: 18,
+                      ),
 
-                      // INFORMATION
+                      // ==================================================
+                      // VERIFICATION INFORMATION
+                      // ==================================================
+
                       Container(
-                        width: double.infinity,
+                        width:
+                            double.infinity,
                         padding:
-                            const EdgeInsets.all(15),
-                        decoration: BoxDecoration(
+                            const EdgeInsets
+                                .all(15),
+                        decoration:
+                            BoxDecoration(
                           color:
-                              const Color(0xFFF0F6FF),
+                              const Color(
+                            0xFFF0F6FF,
+                          ),
                           borderRadius:
-                              BorderRadius.circular(17),
+                              BorderRadius
+                                  .circular(
+                            17,
+                          ),
                         ),
                         child: const Row(
                           crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                              CrossAxisAlignment
+                                  .start,
                           children: [
                             Icon(
-                              Icons.info_outline_rounded,
+                              Icons
+                                  .info_outline_rounded,
                               color: blue,
                               size: 21,
                             ),
-                            SizedBox(width: 9),
+                            SizedBox(
+                              width: 9,
+                            ),
                             Expanded(
                               child: Text(
                                 'After submitting, your profile will be sent to DOJO Platform for verification. Your Walker account will remain locked until an admin approves your verification.',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  height: 1.5,
+                                style:
+                                    TextStyle(
+                                  fontSize:
+                                      11.5,
+                                  height:
+                                      1.5,
                                   color:
-                                      Color(0xFF34506E),
+                                      Color(
+                                    0xFF34506E,
+                                  ),
                                 ),
                               ),
                             ),
@@ -889,32 +1129,43 @@ class _MandatoryProfileSetup2State
                         ),
                       ),
 
-                      const SizedBox(height: 22),
+                      const SizedBox(
+                        height: 22,
+                      ),
 
                       // ==================================================
                       // SUBMIT BUTTON
                       // ==================================================
 
                       SizedBox(
-                        width: double.infinity,
+                        width:
+                            double.infinity,
                         height: 55,
-                        child: ElevatedButton(
+                        child:
+                            ElevatedButton(
                           onPressed:
                               _saving
                                   ? null
                                   : submitProfile,
                           style:
-                              ElevatedButton.styleFrom(
-                            backgroundColor: green,
+                              ElevatedButton
+                                  .styleFrom(
+                            backgroundColor:
+                                green,
                             disabledBackgroundColor:
-                                green.withOpacity(.55),
+                                green.withOpacity(
+                              .55,
+                            ),
                             foregroundColor:
                                 Colors.white,
                             elevation: 0,
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
-                                  BorderRadius.circular(17),
+                                  BorderRadius
+                                      .circular(
+                                17,
+                              ),
                             ),
                           ),
                           child: _saving
@@ -924,21 +1175,30 @@ class _MandatoryProfileSetup2State
                                           .center,
                                   children: [
                                     SizedBox(
-                                      width: 21,
-                                      height: 21,
+                                      width:
+                                          21,
+                                      height:
+                                          21,
                                       child:
                                           CircularProgressIndicator(
-                                        strokeWidth: 2.5,
+                                        strokeWidth:
+                                            2.5,
                                         color:
-                                            Colors.white,
+                                            Colors
+                                                .white,
                                       ),
                                     ),
-                                    SizedBox(width: 12),
+                                    SizedBox(
+                                      width:
+                                          12,
+                                    ),
                                     Text(
                                       'SUBMITTING...',
-                                      style: TextStyle(
+                                      style:
+                                          TextStyle(
                                         fontWeight:
-                                            FontWeight.w900,
+                                            FontWeight
+                                                .w900,
                                       ),
                                     ),
                                   ],
@@ -952,13 +1212,19 @@ class _MandatoryProfileSetup2State
                                       Icons
                                           .verified_rounded,
                                     ),
-                                    SizedBox(width: 9),
+                                    SizedBox(
+                                      width:
+                                          9,
+                                    ),
                                     Text(
                                       'SUBMIT FOR VERIFICATION',
-                                      style: TextStyle(
+                                      style:
+                                          TextStyle(
                                         fontWeight:
-                                            FontWeight.w900,
-                                        letterSpacing: .3,
+                                            FontWeight
+                                                .w900,
+                                        letterSpacing:
+                                            .3,
                                       ),
                                     ),
                                   ],
@@ -966,15 +1232,21 @@ class _MandatoryProfileSetup2State
                         ),
                       ),
 
-                      const SizedBox(height: 12),
+                      const SizedBox(
+                        height: 12,
+                      ),
 
                       const Center(
                         child: Text(
                           'You can continue after DOJO Platform approval.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            color: muted,
+                          textAlign:
+                              TextAlign.center,
+                          style:
+                              TextStyle(
+                            fontSize:
+                                10.5,
+                            color:
+                                muted,
                           ),
                         ),
                       ),
@@ -985,47 +1257,6 @@ class _MandatoryProfileSetup2State
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // ADDRESS ITEM
-  // ============================================================
-
-  Widget _addressItem(
-    String title,
-    String value,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
-      child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 115,
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 11,
-                color: muted,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 12,
-                color: textDark,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
