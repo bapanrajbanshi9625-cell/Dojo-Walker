@@ -90,7 +90,6 @@ class _PendingVerificationScreenState
 
         if (!snapshot.exists) {
           setState(() {
-            _profileExists = false;
             verificationStatus = 'pending';
             walkerIdActive = false;
           });
