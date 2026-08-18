@@ -4,41 +4,32 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'pending_verification_screen.dart';
 
 class MandatoryProfileSetupScreen2 extends StatefulWidget {
-  // ============================================================
-  // DATA FROM SCREEN 1
-  // ============================================================
-
-  final String name;
-  final String aadhaar;
-
-  final String village;
-  final String city;
-  final String district;
-  final String state;
-  final String pinCode;
-
-  final DateTime dateOfBirth;
-
-  final File? selfieFile;
-  final String? selfieUrl;
-
   const MandatoryProfileSetupScreen2({
     super.key,
+
     required this.name,
-    required this.aadhaar,
-    required this.village,
-    required this.city,
-    required this.district,
-    required this.state,
-    required this.pinCode,
     required this.dateOfBirth,
+    required this.gender,
+
     this.selfieFile,
     this.selfieUrl,
   });
+
+  // ============================================================
+  // SCREEN 1 DATA
+  // ============================================================
+
+  final String name;
+  final DateTime dateOfBirth;
+  final String gender;
+
+  final File? selfieFile;
+  final String? selfieUrl;
 
   @override
   State<MandatoryProfileSetupScreen2> createState() =>
@@ -47,10 +38,6 @@ class MandatoryProfileSetupScreen2 extends StatefulWidget {
 
 class _MandatoryProfileSetupScreen2State
     extends State<MandatoryProfileSetupScreen2> {
-  // ============================================================
-  // COLORS
-  // ============================================================
-
   static const Color orange = Color(0xFFFF6600);
   static const Color green = Color(0xFF22A447);
   static const Color blue = Color(0xFF1976D2);
@@ -60,9 +47,25 @@ class _MandatoryProfileSetupScreen2State
   static const Color muted = Color(0xFF7A858F);
   static const Color red = Color(0xFFD92D20);
 
-  // ============================================================
-  // CONTROLLERS
-  // ============================================================
+  final ImagePicker _picker = ImagePicker();
+
+  final TextEditingController aadhaarController =
+      TextEditingController();
+
+  final TextEditingController villageController =
+      TextEditingController();
+
+  final TextEditingController cityController =
+      TextEditingController();
+
+  final TextEditingController districtController =
+      TextEditingController();
+
+  final TextEditingController stateController =
+      TextEditingController();
+
+  final TextEditingController pinController =
+      TextEditingController();
 
   final TextEditingController emergencyNameController =
       TextEditingController();
@@ -70,107 +73,490 @@ class _MandatoryProfileSetupScreen2State
   final TextEditingController emergencyMobileController =
       TextEditingController();
 
-  bool _saving = false;
+  File? aadhaarFrontFile;
+  String? aadhaarFrontUrl;
 
-  // ============================================================
-  // DISPOSE
-  // ============================================================
+  File? aadhaarBackFile;
+  String? aadhaarBackUrl;
+
+  bool _saving = false;
 
   @override
   void dispose() {
+    aadhaarController.dispose();
+    villageController.dispose();
+    cityController.dispose();
+    districtController.dispose();
+    stateController.dispose();
+    pinController.dispose();
     emergencyNameController.dispose();
     emergencyMobileController.dispose();
+
     super.dispose();
   }
 
   // ============================================================
   // FULL ADDRESS
-  //
-  // MAIN FIRESTORE FIELD:
-  // "Address"
-  //
-  // Example:
-  // Village, City, District, State, 733124
   // ============================================================
 
   String get fullAddress {
     final parts = <String>[
-      widget.village.trim(),
-      widget.city.trim(),
-      widget.district.trim(),
-      widget.state.trim(),
-      widget.pinCode.trim(),
-    ].where((value) => value.isNotEmpty).toList();
+      villageController.text.trim(),
+      cityController.text.trim(),
+      districtController.text.trim(),
+      stateController.text.trim(),
+      pinController.text.trim(),
+    ].where((e) => e.isNotEmpty).toList();
 
     return parts.join(', ');
   }
 
   // ============================================================
-  // VALIDATION
+  // IMAGE OPTIONS
+  // ============================================================
+
+  Future<void> showDocumentOptions({
+    required String title,
+    required bool isFront,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(28),
+        ),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              12,
+              20,
+              25,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 45,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD5DADE),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    color: textDark,
+                  ),
+                ),
+
+                const SizedBox(height: 7),
+
+                const Text(
+                  'Camera से फोटो लें या image URL दें।',
+                  style: TextStyle(
+                    color: muted,
+                    fontSize: 12,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: _imageOption(
+                        icon: Icons.camera_alt_rounded,
+                        title: 'Camera',
+                        subtitle: 'Take Photo',
+                        color: orange,
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          pickAadhaarImage(
+                            isFront: isFront,
+                          );
+                        },
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    Expanded(
+                      child: _imageOption(
+                        icon: Icons.link_rounded,
+                        title: 'URL',
+                        subtitle: 'Image URL',
+                        color: blue,
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          enterAadhaarUrl(
+                            isFront: isFront,
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // IMAGE OPTION
+  // ============================================================
+
+  Widget _imageOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          vertical: 20,
+          horizontal: 8,
+        ),
+        decoration: BoxDecoration(
+          color: color.withOpacity(.06),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: color.withOpacity(.15),
+          ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: color.withOpacity(.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 25,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: textDark,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 10,
+                color: muted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // CAMERA — AADHAAR
+  // ============================================================
+
+  Future<void> pickAadhaarImage({
+    required bool isFront,
+  }) async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 1800,
+        maxHeight: 1200,
+      );
+
+      if (image == null || !mounted) return;
+
+      final File file = File(image.path);
+
+      setState(() {
+        if (isFront) {
+          aadhaarFrontFile = file;
+          aadhaarFrontUrl = null;
+        } else {
+          aadhaarBackFile = file;
+          aadhaarBackUrl = null;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      showMessage(
+        'Unable to open camera. Please check camera permission.',
+        false,
+      );
+    }
+  }
+
+  // ============================================================
+  // URL — AADHAAR
+  // ============================================================
+
+  Future<void> enterAadhaarUrl({
+    required bool isFront,
+  }) async {
+    final String oldUrl =
+        isFront
+            ? aadhaarFrontUrl ?? ''
+            : aadhaarBackUrl ?? '';
+
+    final controller = TextEditingController(
+      text: oldUrl,
+    );
+
+    final String? result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: Text(
+            isFront
+                ? 'Aadhaar Front URL'
+                : 'Aadhaar Back URL',
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.url,
+            decoration: InputDecoration(
+              hintText: 'https://...',
+              prefixIcon: const Icon(
+                Icons.link_rounded,
+              ),
+              filled: true,
+              fillColor: background,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: green,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                final value = controller.text.trim();
+
+                final uri = Uri.tryParse(value);
+
+                if (uri == null ||
+                    !(uri.scheme == 'http' ||
+                        uri.scheme == 'https')) {
+                  ScaffoldMessenger.of(dialogContext)
+                      .showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Enter a valid image URL.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.pop(
+                  dialogContext,
+                  value,
+                );
+              },
+              child: const Text('USE URL'),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (result == null || !mounted) return;
+
+    setState(() {
+      if (isFront) {
+        aadhaarFrontUrl = result;
+        aadhaarFrontFile = null;
+      } else {
+        aadhaarBackUrl = result;
+        aadhaarBackFile = null;
+      }
+    });
+  }
+
+  // ============================================================
+  // UPLOAD IMAGE
+  // ============================================================
+
+  Future<String> _resolveImage({
+    required String uid,
+    required String folder,
+    required String fileName,
+    File? file,
+    String? url,
+  }) async {
+    final String cleanUrl = url?.trim() ?? '';
+
+    // ----------------------------------------------------------
+    // URL PROVIDED
+    // ----------------------------------------------------------
+
+    if (cleanUrl.isNotEmpty) {
+      return cleanUrl;
+    }
+
+    // ----------------------------------------------------------
+    // CAMERA FILE PROVIDED
+    // ----------------------------------------------------------
+
+    if (file != null) {
+      final Reference ref = FirebaseStorage.instance
+          .ref()
+          .child('walkers')
+          .child(uid)
+          .child(folder)
+          .child(fileName);
+
+      await ref.putFile(
+        file,
+        SettableMetadata(
+          contentType: 'image/jpeg',
+        ),
+      );
+
+      return ref.getDownloadURL();
+    }
+
+    throw Exception(
+      'Required image is missing.',
+    );
+  }
+
+  // ============================================================
+  // VALIDATE
   // ============================================================
 
   bool validate() {
-    if (widget.name.trim().isEmpty) {
-      _showMessage(
-        'Full name is missing.',
-        false,
-      );
-      return false;
-    }
-
     if (!RegExp(r'^\d{12}$').hasMatch(
-      widget.aadhaar.trim(),
+      aadhaarController.text.trim(),
     )) {
-      _showMessage(
-        'Invalid Aadhaar number.',
+      showMessage(
+        'Enter a valid 12-digit Aadhaar number.',
         false,
       );
       return false;
     }
 
-    if (widget.village.trim().isEmpty ||
-        widget.city.trim().isEmpty ||
-        widget.district.trim().isEmpty ||
-        widget.state.trim().isEmpty) {
-      _showMessage(
-        'Address details are incomplete.',
+    if (aadhaarFrontFile == null &&
+        (aadhaarFrontUrl == null ||
+            aadhaarFrontUrl!.trim().isEmpty)) {
+      showMessage(
+        'Please add Aadhaar Front.',
+        false,
+      );
+      return false;
+    }
+
+    if (aadhaarBackFile == null &&
+        (aadhaarBackUrl == null ||
+            aadhaarBackUrl!.trim().isEmpty)) {
+      showMessage(
+        'Please add Aadhaar Back.',
+        false,
+      );
+      return false;
+    }
+
+    if (villageController.text.trim().isEmpty) {
+      showMessage(
+        'Please enter Village / Locality.',
+        false,
+      );
+      return false;
+    }
+
+    if (cityController.text.trim().isEmpty) {
+      showMessage(
+        'Please enter City / Town.',
+        false,
+      );
+      return false;
+    }
+
+    if (districtController.text.trim().isEmpty) {
+      showMessage(
+        'Please enter District.',
+        false,
+      );
+      return false;
+    }
+
+    if (stateController.text.trim().isEmpty) {
+      showMessage(
+        'Please enter State.',
         false,
       );
       return false;
     }
 
     if (!RegExp(r'^\d{6}$').hasMatch(
-      widget.pinCode.trim(),
+      pinController.text.trim(),
     )) {
-      _showMessage(
-        'Invalid PIN code.',
-        false,
-      );
-      return false;
-    }
-
-    if (widget.selfieFile == null &&
-        (widget.selfieUrl == null ||
-            widget.selfieUrl!.trim().isEmpty)) {
-      _showMessage(
-        'Profile selfie is missing.',
+      showMessage(
+        'Enter a valid 6-digit PIN code.',
         false,
       );
       return false;
     }
 
     if (emergencyNameController.text.trim().isEmpty) {
-      _showMessage(
+      showMessage(
         'Please enter emergency contact name.',
         false,
       );
       return false;
     }
 
-    final mobile = emergencyMobileController.text.trim();
-
-    if (!RegExp(r'^\d{10}$').hasMatch(mobile)) {
-      _showMessage(
+    if (!RegExp(r'^\d{10}$').hasMatch(
+      emergencyMobileController.text.trim(),
+    )) {
+      showMessage(
         'Enter a valid 10-digit emergency mobile number.',
         false,
       );
@@ -181,7 +567,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // SUBMIT PROFILE
+  // SUBMIT
   // ============================================================
 
   Future<void> submitProfile() async {
@@ -195,179 +581,145 @@ class _MandatoryProfileSetupScreen2State
         FirebaseAuth.instance.currentUser;
 
     if (user == null) {
-      _showMessage(
+      showMessage(
         'Session expired. Please login again.',
         false,
       );
       return;
     }
 
-    if (!mounted) return;
-
     setState(() {
       _saving = true;
     });
 
     try {
-      // ========================================================
-      // UID
-      // ========================================================
-
       final String uid = user.uid;
 
       // ========================================================
       // SELFIE
       // ========================================================
 
-      String profileSelfieUrl =
-          widget.selfieUrl?.trim() ?? '';
+      final String selfieUrl =
+          await _resolveImage(
+        uid: uid,
+        folder: 'profile',
+        fileName: 'selfie.jpg',
+        file: widget.selfieFile,
+        url: widget.selfieUrl,
+      );
 
       // ========================================================
-      // CAMERA FILE
-      //
-      // Firebase Storage:
-      //
-      // walkers/{UID}/profile/profile_selfie.jpg
+      // AADHAAR FRONT
       // ========================================================
 
-      if (widget.selfieFile != null) {
-        final Reference storageRef =
-            FirebaseStorage.instance
-                .ref()
-                .child('walkers')
-                .child(uid)
-                .child('profile')
-                .child('profile_selfie.jpg');
-
-        await storageRef.putFile(
-          widget.selfieFile!,
-          SettableMetadata(
-            contentType: 'image/jpeg',
-          ),
-        );
-
-        profileSelfieUrl =
-            await storageRef.getDownloadURL();
-      }
+      final String aadhaarFront =
+          await _resolveImage(
+        uid: uid,
+        folder: 'aadhaar',
+        fileName: 'front.jpg',
+        file: aadhaarFrontFile,
+        url: aadhaarFrontUrl,
+      );
 
       // ========================================================
-      // FIRESTORE DOCUMENT
-      //
-      // walkers/{UID}
+      // AADHAAR BACK
       // ========================================================
 
-      final DocumentReference<Map<String, dynamic>>
-          walkerRef = FirebaseFirestore.instance
-              .collection('walkers')
-              .doc(uid);
+      final String aadhaarBack =
+          await _resolveImage(
+        uid: uid,
+        folder: 'aadhaar',
+        fileName: 'back.jpg',
+        file: aadhaarBackFile,
+        url: aadhaarBackUrl,
+      );
 
       // ========================================================
-      // COMPLETE PROFILE DATA
+      // WALKER ID
       // ========================================================
 
-      final Map<String, dynamic> profileData = {
-        // ------------------------------------------------------
-        // IDENTIFICATION
-        // ------------------------------------------------------
+      final String walkerId =
+          'WKR-${uid.length >= 8 ? uid.substring(0, 8).toUpperCase() : uid.toUpperCase()}';
 
-        'Walker Uid': uid,
+      // ========================================================
+      // ADDRESS
+      // ========================================================
 
-        'Full Name':
-            widget.name.trim(),
+      final String address = fullAddress;
 
-        'Mobile number':
-            user.phoneNumber ?? '',
+      // ========================================================
+      // FIRESTORE
+      // ========================================================
 
-        'Aadhar Number':
-            widget.aadhaar.trim(),
+      final Map<String, dynamic> data = {
+        'authUid': uid,
+        'walkerId': walkerId,
 
-        'Date Of Birth':
-            Timestamp.fromDate(
-          widget.dateOfBirth,
-        ),
+        'fullName': widget.name.trim(),
+        'phoneNumber': user.phoneNumber ?? '',
 
-        // ------------------------------------------------------
-        // MAIN ADDRESS FIELD
-        //
-        // EVERYTHING COMBINED HERE
-        // ------------------------------------------------------
+        'dateofbirth':
+            '${widget.dateOfBirth.year}-'
+            '${widget.dateOfBirth.month.toString().padLeft(2, '0')}-'
+            '${widget.dateOfBirth.day.toString().padLeft(2, '0')}',
 
-        'Address':
-            fullAddress,
+        'gender': widget.gender,
 
-        // ------------------------------------------------------
-        // INDIVIDUAL ADDRESS FIELDS
-        // ------------------------------------------------------
+        'aadhaarNumber':
+            aadhaarController.text.trim(),
 
-        'Village':
-            widget.village.trim(),
+        'aadhaarVerified': false,
+        'nameMatched': false,
+        'dobMatched': false,
 
-        'City':
-            widget.city.trim(),
+        'aadhaarfront': aadhaarFront,
+        'aadhaarback': aadhaarBack,
 
-        'District':
-            widget.district.trim(),
+        'selfie': selfieUrl,
 
-        'State':
-            widget.state.trim(),
+        'village':
+            villageController.text.trim(),
 
-        'Pincode':
-            widget.pinCode.trim(),
+        'city':
+            cityController.text.trim(),
 
-        // ------------------------------------------------------
-        // PROFILE SELFIE
-        // ------------------------------------------------------
+        'district':
+            districtController.text.trim(),
 
-        'Profile Selfie':
-            profileSelfieUrl,
+        'state':
+            stateController.text.trim(),
 
-        // ------------------------------------------------------
-        // PROFILE STATUS
-        // ------------------------------------------------------
+        'pincode':
+            pinController.text.trim(),
+
+        'address': address,
+
+        'emergencyContactName':
+            emergencyNameController.text.trim(),
+
+        'emergencyContactMobile':
+            emergencyMobileController.text.trim(),
+
+        'role': 'walker',
 
         'profileCompleted': true,
 
-        'verificationStatus':
-            'pending',
+        'verificationStatus': 'pending',
 
-        'walkerIdActive':
-            false,
-
-        // ------------------------------------------------------
-        // EMERGENCY CONTACT
-        // ------------------------------------------------------
-
-        'Emergency Contact Name':
-            emergencyNameController.text.trim(),
-
-        'Emergency Contact Mobile':
-            emergencyMobileController.text.trim(),
-
-        // ------------------------------------------------------
-        // TIMESTAMPS
-        // ------------------------------------------------------
-
-        'profileSubmittedAt':
+        'createdAt':
             FieldValue.serverTimestamp(),
 
         'updatedAt':
             FieldValue.serverTimestamp(),
       };
 
-      // ========================================================
-      // SAVE TO FIRESTORE
-      // ========================================================
-
-      await walkerRef.set(
-        profileData,
-        SetOptions(
-          merge: true,
-        ),
-      );
-
-      // ========================================================
-      // FINISHED
-      // ========================================================
+      await FirebaseFirestore.instance
+          .collection('walkers')
+          .doc(uid)
+          .set(
+            data,
+            SetOptions(merge: true),
+          );
 
       if (!mounted) return;
 
@@ -376,7 +728,7 @@ class _MandatoryProfileSetupScreen2State
       });
 
       // ========================================================
-      // GO TO PENDING VERIFICATION
+      // PENDING VERIFICATION
       // ========================================================
 
       Navigator.of(context).pushAndRemoveUntil(
@@ -393,7 +745,7 @@ class _MandatoryProfileSetupScreen2State
         _saving = false;
       });
 
-      _showMessage(
+      showMessage(
         _firebaseError(e),
         false,
       );
@@ -404,8 +756,11 @@ class _MandatoryProfileSetupScreen2State
         _saving = false;
       });
 
-      _showMessage(
-        'Unable to submit profile. Please try again.',
+      showMessage(
+        e.toString().replaceFirst(
+          'Exception: ',
+          '',
+        ),
         false,
       );
     }
@@ -420,22 +775,22 @@ class _MandatoryProfileSetupScreen2State
   ) {
     switch (e.code) {
       case 'permission-denied':
-        return 'Firebase permission denied. Check Firestore rules.';
+        return 'Firebase permission denied. Check Firestore/Storage rules.';
 
       case 'unauthenticated':
-        return 'Your login session has expired.';
+        return 'Login session expired.';
 
       case 'network-request-failed':
-        return 'Network error. Check your internet connection.';
+        return 'Network error. Check internet connection.';
 
       case 'object-not-found':
-        return 'Profile image could not be uploaded.';
+        return 'Image could not be uploaded.';
 
       case 'unauthorized':
         return 'Firebase Storage permission denied.';
 
       case 'quota-exceeded':
-        return 'Firebase storage quota exceeded.';
+        return 'Firebase Storage quota exceeded.';
 
       default:
         return e.message ??
@@ -444,40 +799,10 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // MESSAGE
-  // ============================================================
-
-  void _showMessage(
-    String message,
-    bool success,
-  ) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor:
-              success ? green : red,
-          behavior:
-              SnackBarBehavior.floating,
-          margin:
-              const EdgeInsets.all(16),
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(14),
-          ),
-        ),
-      );
-  }
-
-  // ============================================================
   // FIELD
   // ============================================================
 
-  Widget _field({
+  Widget field({
     required TextEditingController controller,
     required String label,
     required IconData icon,
@@ -485,51 +810,36 @@ class _MandatoryProfileSetupScreen2State
     int? maxLength,
   }) {
     return Padding(
-      padding:
-          const EdgeInsets.only(
+      padding: const EdgeInsets.only(
         bottom: 14,
       ),
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
         maxLength: maxLength,
-        textInputAction:
-            TextInputAction.next,
-        decoration:
-            InputDecoration(
+        textInputAction: TextInputAction.next,
+        decoration: InputDecoration(
           labelText: label,
-          prefixIcon:
-              Icon(
+          prefixIcon: Icon(
             icon,
             color: blue,
           ),
           filled: true,
-          fillColor:
-              Colors.white,
+          fillColor: Colors.white,
           counterText: '',
-          border:
-              OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(16),
-            borderSide:
-                BorderSide.none,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
           ),
-          enabledBorder:
-              OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(16),
-            borderSide:
-                const BorderSide(
-              color:
-                  Color(0xFFE3E8ED),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: Color(0xFFE3E8ED),
             ),
           ),
-          focusedBorder:
-              OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(16),
-            borderSide:
-                const BorderSide(
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
               color: green,
               width: 1.5,
             ),
@@ -540,23 +850,139 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // SUMMARY CARD
+  // DOCUMENT CARD
   // ============================================================
 
-  Widget _summaryCard() {
+  Widget documentCard({
+    required String title,
+    required String subtitle,
+    required bool isFront,
+  }) {
+    final File? file =
+        isFront ? aadhaarFrontFile : aadhaarBackFile;
+
+    final String? url =
+        isFront ? aadhaarFrontUrl : aadhaarBackUrl;
+
+    return InkWell(
+      onTap: _saving
+          ? null
+          : () {
+              showDocumentOptions(
+                title: title,
+                isFront: isFront,
+              );
+            },
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: file != null ||
+                    (url != null && url.isNotEmpty)
+                ? green.withOpacity(.45)
+                : const Color(0xFFE3E8ED),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 62,
+              height: 62,
+              decoration: BoxDecoration(
+                color: blue.withOpacity(.08),
+                borderRadius:
+                    BorderRadius.circular(15),
+              ),
+              child: file != null
+                  ? ClipRRect(
+                      borderRadius:
+                          BorderRadius.circular(15),
+                      child: Image.file(
+                        file,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : url != null && url.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius:
+                              BorderRadius.circular(15),
+                          child: Image.network(
+                            url,
+                            fit: BoxFit.cover,
+                            errorBuilder: (
+                              context,
+                              error,
+                              stackTrace,
+                            ) {
+                              return const Icon(
+                                Icons.badge_rounded,
+                                color: blue,
+                                size: 29,
+                              );
+                            },
+                          ),
+                        )
+                      : const Icon(
+                          Icons.badge_rounded,
+                          color: blue,
+                          size: 29,
+                        ),
+            ),
+
+            const SizedBox(width: 13),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: muted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // SUMMARY
+  // ============================================================
+
+  Widget summaryCard() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(18),
-      decoration:
-          BoxDecoration(
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(20),
-        border:
-            Border.all(
-          color:
-              const Color(0xFFE3E8ED),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFE3E8ED),
         ),
       ),
       child: Column(
@@ -566,27 +992,22 @@ class _MandatoryProfileSetupScreen2State
           const Row(
             children: [
               Icon(
-                Icons.fact_check_rounded,
+                Icons.person_rounded,
                 color: green,
               ),
               SizedBox(width: 9),
               Text(
-                'Profile Summary',
-                style:
-                    TextStyle(
+                'Walker Information',
+                style: TextStyle(
                   fontSize: 16,
-                  fontWeight:
-                      FontWeight.w900,
-                  color:
-                      textDark,
+                  fontWeight: FontWeight.w900,
+                  color: textDark,
                 ),
               ),
             ],
           ),
 
-          const SizedBox(
-            height: 16,
-          ),
+          const SizedBox(height: 14),
 
           _summaryRow(
             'Full Name',
@@ -601,80 +1022,20 @@ class _MandatoryProfileSetupScreen2State
           ),
 
           _summaryRow(
-            'Aadhaar',
-            '•••• •••• ${widget.aadhaar.substring(8)}',
-          ),
-
-          _summaryRow(
-            'Address',
-            fullAddress,
+            'Gender',
+            widget.gender,
           ),
         ],
       ),
     );
   }
-
-  // ============================================================
-  // SUMMARY ROW
-  // ============================================================
 
   Widget _summaryRow(
     String title,
     String value,
   ) {
     return Padding(
-      padding:
-          const EdgeInsets.only(
-        bottom: 11,
-      ),
-      child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              title,
-              style:
-                  const TextStyle(
-                fontSize: 11,
-                color: muted,
-                fontWeight:
-                    FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(
-            width: 8,
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style:
-                  const TextStyle(
-                fontSize: 12,
-                color: textDark,
-                fontWeight:
-                    FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // ADDRESS ROW
-  // ============================================================
-
-  Widget _addressItem(
-    String title,
-    String value,
-  ) {
-    return Padding(
-      padding:
-          const EdgeInsets.only(
+      padding: const EdgeInsets.only(
         bottom: 9,
       ),
       child: Row(
@@ -682,32 +1043,24 @@ class _MandatoryProfileSetupScreen2State
             CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 115,
+            width: 105,
             child: Text(
               title,
-              style:
-                  const TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
                 color: muted,
-                fontWeight:
-                    FontWeight.w700,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          const SizedBox(
-            width: 8,
-          ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
-              value.isEmpty
-                  ? '—'
-                  : value,
-              style:
-                  const TextStyle(
+              value,
+              style: const TextStyle(
                 fontSize: 12,
                 color: textDark,
-                fontWeight:
-                    FontWeight.w700,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -725,8 +1078,7 @@ class _MandatoryProfileSetupScreen2State
     return PopScope(
       canPop: !_saving,
       child: Scaffold(
-        backgroundColor:
-            background,
+        backgroundColor: background,
         body: SafeArea(
           child: Column(
             children: [
@@ -736,21 +1088,17 @@ class _MandatoryProfileSetupScreen2State
 
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.fromLTRB(
+                padding: const EdgeInsets.fromLTRB(
                   20,
                   18,
                   20,
                   18,
                 ),
-                decoration:
-                    const BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.white,
                   border: Border(
-                    bottom:
-                        BorderSide(
-                      color:
-                          Color(0xFFE8EDF1),
+                    bottom: BorderSide(
+                      color: Color(0xFFE8EDF1),
                     ),
                   ),
                 ),
@@ -759,57 +1107,39 @@ class _MandatoryProfileSetupScreen2State
                     Container(
                       width: 46,
                       height: 46,
-                      decoration:
-                          BoxDecoration(
+                      decoration: BoxDecoration(
                         color: orange,
                         borderRadius:
-                            BorderRadius.circular(
-                          14,
-                        ),
+                            BorderRadius.circular(14),
                       ),
-                      child:
-                          const Icon(
+                      child: const Icon(
                         Icons.pets_rounded,
-                        color:
-                            Colors.white,
+                        color: Colors.white,
                       ),
                     ),
 
-                    const SizedBox(
-                      width: 12,
-                    ),
+                    const SizedBox(width: 12),
 
                     const Expanded(
                       child: Column(
                         crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
+                            CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Walker',
-                            style:
-                                TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color:
-                                  orange,
-                              fontWeight:
-                                  FontWeight
-                                      .w800,
+                              color: orange,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                          SizedBox(
-                            height: 2,
-                          ),
+                          SizedBox(height: 2),
                           Text(
-                            'Verification Details',
-                            style:
-                                TextStyle(
+                            'Aadhaar & Address',
+                            style: TextStyle(
                               fontSize: 19,
-                              color:
-                                  textDark,
-                              fontWeight:
-                                  FontWeight
-                                      .w900,
+                              color: textDark,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                         ],
@@ -818,31 +1148,21 @@ class _MandatoryProfileSetupScreen2State
 
                     Container(
                       padding:
-                          const EdgeInsets
-                              .symmetric(
+                          const EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 7,
                       ),
-                      decoration:
-                          BoxDecoration(
-                        color:
-                            green.withOpacity(
-                          .10,
-                        ),
+                      decoration: BoxDecoration(
+                        color: green.withOpacity(.10),
                         borderRadius:
-                            BorderRadius.circular(
-                          12,
-                        ),
+                            BorderRadius.circular(12),
                       ),
-                      child:
-                          const Text(
+                      child: const Text(
                         'STEP 2',
-                        style:
-                            TextStyle(
+                        style: TextStyle(
                           color: green,
                           fontSize: 10,
-                          fontWeight:
-                              FontWeight.w900,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ),
@@ -855,11 +1175,8 @@ class _MandatoryProfileSetupScreen2State
               // ==================================================
 
               Expanded(
-                child:
-                    SingleChildScrollView(
-                  padding:
-                      const EdgeInsets
-                          .fromLTRB(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(
                     18,
                     18,
                     18,
@@ -867,190 +1184,233 @@ class _MandatoryProfileSetupScreen2State
                   ),
                   child: Column(
                     crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
+                        CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Almost there!',
-                        style:
-                            TextStyle(
+                        'Aadhaar & Address',
+                        style: TextStyle(
                           fontSize: 23,
-                          fontWeight:
-                              FontWeight
-                                  .w900,
-                          color:
-                              textDark,
+                          fontWeight: FontWeight.w900,
+                          color: textDark,
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 5,
-                      ),
+                      const SizedBox(height: 5),
 
                       const Text(
-                        'Review your information and add an emergency contact.',
-                        style:
-                            TextStyle(
+                        'Complete your Aadhaar and address details.',
+                        style: TextStyle(
                           fontSize: 12.5,
                           color: muted,
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
-                      // PROFILE SUMMARY
+                      // WALKER SUMMARY
                       // ==================================================
 
-                      _summaryCard(),
+                      summaryCard(),
 
-                      const SizedBox(
-                        height: 18,
+                      const SizedBox(height: 18),
+
+                      // ==================================================
+                      // AADHAAR
+                      // ==================================================
+
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius:
+                              BorderRadius.circular(20),
+                          border: Border.all(
+                            color:
+                                const Color(0xFFE3E8ED),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.badge_rounded,
+                                  color: blue,
+                                ),
+                                SizedBox(width: 9),
+                                Text(
+                                  'Aadhaar',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight:
+                                        FontWeight.w900,
+                                    color: textDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 14),
+
+                            field(
+                              controller:
+                                  aadhaarController,
+                              label:
+                                  'Aadhaar Number',
+                              icon:
+                                  Icons.credit_card_rounded,
+                              keyboardType:
+                                  TextInputType.number,
+                              maxLength: 12,
+                            ),
+
+                            const SizedBox(height: 2),
+
+                            documentCard(
+                              title:
+                                  'Aadhaar Front',
+                              subtitle:
+                                  'Camera or image URL',
+                              isFront: true,
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            documentCard(
+                              title:
+                                  'Aadhaar Back',
+                              subtitle:
+                                  'Camera or image URL',
+                              isFront: false,
+                            ),
+                          ],
+                        ),
                       ),
+
+                      const SizedBox(height: 18),
 
                       // ==================================================
                       // ADDRESS
                       // ==================================================
 
                       Container(
-                        width:
-                            double.infinity,
-                        padding:
-                            const EdgeInsets
-                                .all(18),
-                        decoration:
-                            BoxDecoration(
-                          color:
-                              Colors.white,
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
                           borderRadius:
-                              BorderRadius.circular(
-                            20,
-                          ),
-                          border:
-                              Border.all(
+                              BorderRadius.circular(20),
+                          border: Border.all(
                             color:
-                                const Color(
-                              0xFFE3E8ED,
-                            ),
+                                const Color(0xFFE3E8ED),
                           ),
                         ),
-                        child:
-                            Column(
+                        child: Column(
                           crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
+                              CrossAxisAlignment.start,
                           children: [
                             const Row(
                               children: [
                                 Icon(
-                                  Icons
-                                      .location_on_rounded,
-                                  color:
-                                      blue,
+                                  Icons.location_on_rounded,
+                                  color: blue,
                                 ),
-                                SizedBox(
-                                  width: 9,
-                                ),
+                                SizedBox(width: 9),
                                 Text(
                                   'Address',
-                                  style:
-                                      TextStyle(
-                                    fontSize:
-                                        16,
+                                  style: TextStyle(
+                                    fontSize: 16,
                                     fontWeight:
-                                        FontWeight
-                                            .w900,
-                                    color:
-                                        textDark,
+                                        FontWeight.w900,
+                                    color: textDark,
                                   ),
                                 ),
                               ],
                             ),
 
-                            const SizedBox(
-                              height: 14,
+                            const SizedBox(height: 14),
+
+                            field(
+                              controller:
+                                  villageController,
+                              label:
+                                  'Village / Locality',
+                              icon:
+                                  Icons.location_on_rounded,
                             ),
 
-                            _addressItem(
-                              'Village / Locality',
-                              widget.village,
+                            field(
+                              controller:
+                                  cityController,
+                              label:
+                                  'City / Town',
+                              icon:
+                                  Icons.location_city_rounded,
                             ),
 
-                            _addressItem(
-                              'City / Town',
-                              widget.city,
+                            field(
+                              controller:
+                                  districtController,
+                              label: 'District',
+                              icon:
+                                  Icons.map_rounded,
                             ),
 
-                            _addressItem(
-                              'District',
-                              widget.district,
+                            field(
+                              controller:
+                                  stateController,
+                              label: 'State',
+                              icon:
+                                  Icons.public_rounded,
                             ),
 
-                            _addressItem(
-                              'State',
-                              widget.state,
-                            ),
-
-                            _addressItem(
-                              'PIN Code',
-                              widget.pinCode,
-                            ),
-
-                            const SizedBox(
-                              height: 4,
+                            field(
+                              controller:
+                                  pinController,
+                              label: 'PIN Code',
+                              icon:
+                                  Icons.pin_drop_rounded,
+                              keyboardType:
+                                  TextInputType.number,
+                              maxLength: 6,
                             ),
 
                             Container(
-                              width:
-                                  double.infinity,
+                              width: double.infinity,
                               padding:
-                                  const EdgeInsets
-                                      .all(13),
-                              decoration:
-                                  BoxDecoration(
+                                  const EdgeInsets.all(13),
+                              decoration: BoxDecoration(
                                 color:
-                                    const Color(
-                                  0xFFF5F8FC,
-                                ),
+                                    const Color(0xFFF5F8FC),
                                 borderRadius:
-                                    BorderRadius
-                                        .circular(
-                                  14,
-                                ),
+                                    BorderRadius.circular(14),
                               ),
-                              child:
-                                  Row(
+                              child: Row(
                                 crossAxisAlignment:
-                                    CrossAxisAlignment
-                                        .start,
+                                    CrossAxisAlignment.start,
                                 children: [
                                   const Icon(
-                                    Icons
-                                        .home_rounded,
+                                    Icons.home_rounded,
+                                    color: green,
                                     size: 19,
-                                    color:
-                                        green,
                                   ),
-                                  const SizedBox(
-                                    width: 9,
-                                  ),
+                                  const SizedBox(width: 9),
                                   Expanded(
-                                    child:
-                                        Text(
-                                      fullAddress,
+                                    child: Text(
+                                      fullAddress.isEmpty
+                                          ? 'Address preview'
+                                          : fullAddress,
                                       style:
                                           const TextStyle(
-                                        fontSize:
-                                            12,
-                                        height:
-                                            1.5,
-                                        color:
-                                            textDark,
+                                        fontSize: 12,
+                                        height: 1.5,
+                                        color: textDark,
                                         fontWeight:
-                                            FontWeight
-                                                .w600,
+                                            FontWeight.w600,
                                       ),
                                     ),
                                   ),
@@ -1061,170 +1421,118 @@ class _MandatoryProfileSetupScreen2State
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
-                      // EMERGENCY CONTACT
+                      // EMERGENCY
                       // ==================================================
 
                       Container(
-                        width:
-                            double.infinity,
-                        padding:
-                            const EdgeInsets
-                                .all(18),
-                        decoration:
-                            BoxDecoration(
-                          color:
-                              Colors.white,
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
                           borderRadius:
-                              BorderRadius.circular(
-                            20,
-                          ),
-                          border:
-                              Border.all(
+                              BorderRadius.circular(20),
+                          border: Border.all(
                             color:
-                                const Color(
-                              0xFFE3E8ED,
-                            ),
+                                const Color(0xFFE3E8ED),
                           ),
                         ),
-                        child:
-                            Column(
+                        child: Column(
                           crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
+                              CrossAxisAlignment.start,
                           children: [
                             const Row(
                               children: [
                                 Icon(
                                   Icons
                                       .contact_emergency_rounded,
-                                  color:
-                                      orange,
+                                  color: orange,
                                 ),
-                                SizedBox(
-                                  width: 9,
-                                ),
+                                SizedBox(width: 9),
                                 Text(
                                   'Emergency Contact',
-                                  style:
-                                      TextStyle(
-                                    fontSize:
-                                        16,
+                                  style: TextStyle(
+                                    fontSize: 16,
                                     fontWeight:
-                                        FontWeight
-                                            .w900,
-                                    color:
-                                        textDark,
+                                        FontWeight.w900,
+                                    color: textDark,
                                   ),
                                 ),
                               ],
                             ),
 
-                            const SizedBox(
-                              height: 6,
-                            ),
+                            const SizedBox(height: 6),
 
                             const Text(
                               'This person can be contacted if required.',
-                              style:
-                                  TextStyle(
-                                fontSize:
-                                    11.5,
-                                color:
-                                    muted,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: muted,
                               ),
                             ),
 
-                            const SizedBox(
-                              height: 16,
-                            ),
+                            const SizedBox(height: 16),
 
-                            _field(
+                            field(
                               controller:
                                   emergencyNameController,
                               label:
                                   'Emergency Contact Name',
                               icon:
-                                  Icons
-                                      .person_outline_rounded,
+                                  Icons.person_outline_rounded,
                             ),
 
-                            _field(
+                            field(
                               controller:
                                   emergencyMobileController,
                               label:
                                   'Emergency Contact Mobile',
                               icon:
-                                  Icons
-                                      .phone_rounded,
+                                  Icons.phone_rounded,
                               keyboardType:
                                   TextInputType.phone,
-                              maxLength:
-                                  10,
+                              maxLength: 10,
                             ),
                           ],
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
                       // INFO
                       // ==================================================
 
                       Container(
-                        width:
-                            double.infinity,
+                        width: double.infinity,
                         padding:
-                            const EdgeInsets
-                                .all(15),
-                        decoration:
-                            BoxDecoration(
+                            const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
                           color:
-                              const Color(
-                            0xFFF0F6FF,
-                          ),
+                              const Color(0xFFF0F6FF),
                           borderRadius:
-                              BorderRadius.circular(
-                            17,
-                          ),
+                              BorderRadius.circular(17),
                         ),
-                        child:
-                            const Row(
+                        child: const Row(
                           crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
+                              CrossAxisAlignment.start,
                           children: [
                             Icon(
-                              Icons
-                                  .info_outline_rounded,
-                              color:
-                                  blue,
+                              Icons.info_outline_rounded,
+                              color: blue,
                               size: 21,
                             ),
-                            SizedBox(
-                              width: 9,
-                            ),
+                            SizedBox(width: 9),
                             Expanded(
-                              child:
-                                  Text(
-                                'After submitting, your profile will be sent to DOJO Platform for verification. Your Walker account will remain locked until an admin approves your verification.',
-                                style:
-                                    TextStyle(
-                                  fontSize:
-                                      11.5,
-                                  height:
-                                      1.5,
+                              child: Text(
+                                'आपकी जानकारी DOJO Platform verification के लिए भेजी जाएगी। Admin approval तक Walker account verification में रहेगा।',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  height: 1.5,
                                   color:
-                                      Color(
-                                    0xFF34506E,
-                                  ),
+                                      Color(0xFF34506E),
                                 ),
                               ),
                             ),
@@ -1232,124 +1540,92 @@ class _MandatoryProfileSetupScreen2State
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 22,
-                      ),
+                      const SizedBox(height: 22),
 
                       // ==================================================
-                      // SUBMIT BUTTON
+                      // SUBMIT
                       // ==================================================
 
                       SizedBox(
-                        width:
-                            double.infinity,
+                        width: double.infinity,
                         height: 55,
-                        child:
-                            ElevatedButton(
+                        child: ElevatedButton(
                           onPressed:
                               _saving
                                   ? null
                                   : submitProfile,
                           style:
-                              ElevatedButton
-                                  .styleFrom(
-                            backgroundColor:
-                                green,
+                              ElevatedButton.styleFrom(
+                            backgroundColor: green,
                             disabledBackgroundColor:
-                                green.withOpacity(
-                              .55,
-                            ),
+                                green.withOpacity(.55),
                             foregroundColor:
                                 Colors.white,
-                            elevation:
-                                0,
+                            elevation: 0,
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
-                                  BorderRadius
-                                      .circular(
-                                17,
-                              ),
+                                  BorderRadius.circular(17),
                             ),
                           ),
-                          child:
-                              _saving
-                                  ? const Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment
-                                              .center,
-                                      children: [
-                                        SizedBox(
-                                          width:
-                                              21,
-                                          height:
-                                              21,
-                                          child:
-                                              CircularProgressIndicator(
-                                            strokeWidth:
-                                                2.5,
-                                            color:
-                                                Colors.white,
-                                          ),
-                                        ),
-                                        SizedBox(
-                                          width:
-                                              12,
-                                        ),
-                                        Text(
-                                          'SUBMITTING...',
-                                          style:
-                                              TextStyle(
-                                            fontWeight:
-                                                FontWeight.w900,
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                  : const Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment
-                                              .center,
-                                      children: [
-                                        Icon(
-                                          Icons
-                                              .verified_rounded,
-                                        ),
-                                        SizedBox(
-                                          width:
-                                              9,
-                                        ),
-                                        Text(
-                                          'SUBMIT FOR VERIFICATION',
-                                          style:
-                                              TextStyle(
-                                            fontWeight:
-                                                FontWeight.w900,
-                                            letterSpacing:
-                                                .3,
-                                          ),
-                                        ),
-                                      ],
+                          child: _saving
+                              ? const Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment
+                                          .center,
+                                  children: [
+                                    SizedBox(
+                                      width: 21,
+                                      height: 21,
+                                      child:
+                                          CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color:
+                                            Colors.white,
+                                      ),
                                     ),
+                                    SizedBox(width: 12),
+                                    Text(
+                                      'SUBMITTING...',
+                                      style: TextStyle(
+                                        fontWeight:
+                                            FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : const Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment
+                                          .center,
+                                  children: [
+                                    Icon(
+                                      Icons
+                                          .verified_rounded,
+                                    ),
+                                    SizedBox(width: 9),
+                                    Text(
+                                      'SUBMIT FOR VERIFICATION',
+                                      style: TextStyle(
+                                        fontWeight:
+                                            FontWeight.w900,
+                                        letterSpacing: .3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 12,
-                      ),
+                      const SizedBox(height: 12),
 
                       const Center(
-                        child:
-                            Text(
+                        child: Text(
                           'You can continue after DOJO Platform approval.',
-                          textAlign:
-                              TextAlign.center,
-                          style:
-                              TextStyle(
-                            fontSize:
-                                10.5,
-                            color:
-                                muted,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: muted,
                           ),
                         ),
                       ),
