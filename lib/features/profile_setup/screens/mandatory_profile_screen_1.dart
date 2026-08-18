@@ -1,0 +1,910 @@
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import 'mandatory_profile_setup_2.dart';
+
+class MandatoryProfileSetup1 extends StatefulWidget {
+  const MandatoryProfileSetup1({
+    super.key,
+  });
+
+  @override
+  State<MandatoryProfileSetup1> createState() =>
+      _MandatoryProfileSetup1State();
+}
+
+class _MandatoryProfileSetup1State
+    extends State<MandatoryProfileSetup1> {
+  // ============================================================
+  // COLORS
+  // ============================================================
+
+  static const Color orange = Color(0xFFFF6600);
+  static const Color green = Color(0xFF22A447);
+  static const Color blue = Color(0xFF1976D2);
+
+  static const Color background = Color(0xFFF5F8FC);
+  static const Color textDark = Color(0xFF263238);
+  static const Color muted = Color(0xFF7A858F);
+
+  // ============================================================
+  // CONTROLLERS
+  // ============================================================
+
+  final TextEditingController nameController =
+      TextEditingController();
+
+  final TextEditingController aadhaarController =
+      TextEditingController();
+
+  final TextEditingController villageController =
+      TextEditingController();
+
+  final TextEditingController cityController =
+      TextEditingController();
+
+  final TextEditingController districtController =
+      TextEditingController();
+
+  final TextEditingController stateController =
+      TextEditingController();
+
+  final TextEditingController pinController =
+      TextEditingController();
+
+  final ImagePicker picker = ImagePicker();
+
+  DateTime? dateOfBirth;
+
+  File? selfieFile;
+  String? selfieUrl;
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    aadhaarController.dispose();
+    villageController.dispose();
+    cityController.dispose();
+    districtController.dispose();
+    stateController.dispose();
+    pinController.dispose();
+
+    super.dispose();
+  }
+
+  // ============================================================
+  // DATE OF BIRTH
+  // ============================================================
+
+  Future<void> selectDate() async {
+    final now = DateTime.now();
+
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: DateTime(
+        now.year - 18,
+        now.month,
+        now.day,
+      ),
+      firstDate: DateTime(1900),
+      lastDate: now,
+      helpText: 'Select Date of Birth',
+    );
+
+    if (selected == null) return;
+
+    setState(() {
+      dateOfBirth = selected;
+    });
+  }
+
+  // ============================================================
+  // IMAGE OPTIONS
+  // ============================================================
+
+  Future<void> showSelfieOptions() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(28),
+        ),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              12,
+              20,
+              25,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 45,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD5DADE),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+
+                const SizedBox(height: 22),
+
+                const Text(
+                  'Add Walker Selfie',
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    color: textDark,
+                  ),
+                ),
+
+                const SizedBox(height: 7),
+
+                const Text(
+                  'Choose how you want to add your selfie.',
+                  style: TextStyle(
+                    color: muted,
+                    fontSize: 12,
+                  ),
+                ),
+
+                const SizedBox(height: 22),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: _imageOption(
+                        icon: Icons.camera_alt_rounded,
+                        title: 'Camera',
+                        subtitle: 'Take selfie',
+                        color: orange,
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          pickSelfie();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _imageOption(
+                        icon: Icons.link_rounded,
+                        title: 'URL',
+                        subtitle: 'Paste image URL',
+                        color: blue,
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          enterSelfieUrl();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _imageOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          vertical: 20,
+          horizontal: 8,
+        ),
+        decoration: BoxDecoration(
+          color: color.withOpacity(.06),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: color.withOpacity(.15),
+          ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: color.withOpacity(.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 25,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: textDark,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 10,
+                color: muted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // CAMERA
+  // ============================================================
+
+  Future<void> pickSelfie() async {
+    try {
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+
+      if (image == null) return;
+
+      setState(() {
+        selfieFile = File(image.path);
+        selfieUrl = null;
+      });
+    } catch (_) {
+      showMessage(
+        'Unable to open camera. Please check camera permission.',
+        false,
+      );
+    }
+  }
+
+  // ============================================================
+  // SELFIE URL
+  // ============================================================
+
+  Future<void> enterSelfieUrl() async {
+    final controller = TextEditingController();
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: const Text(
+            'Profile Selfie URL',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.url,
+            decoration: InputDecoration(
+              hintText: 'https://...',
+              prefixIcon: const Icon(
+                Icons.link_rounded,
+              ),
+              filled: true,
+              fillColor: background,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: green,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                final value = controller.text.trim();
+
+                final uri = Uri.tryParse(value);
+
+                if (uri == null ||
+                    !(uri.scheme == 'http' ||
+                        uri.scheme == 'https')) {
+                  ScaffoldMessenger.of(dialogContext)
+                      .showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Enter a valid image URL.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.pop(
+                  dialogContext,
+                  value,
+                );
+              },
+              child: const Text('USE URL'),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (result == null) return;
+
+    setState(() {
+      selfieUrl = result;
+      selfieFile = null;
+    });
+  }
+
+  // ============================================================
+  // VALIDATION
+  // ============================================================
+
+  bool validate() {
+    if (selfieFile == null &&
+        (selfieUrl == null ||
+            selfieUrl!.trim().isEmpty)) {
+      showMessage(
+        'Please add your profile selfie.',
+        false,
+      );
+      return false;
+    }
+
+    if (nameController.text.trim().isEmpty) {
+      showMessage(
+        'Please enter your full name.',
+        false,
+      );
+      return false;
+    }
+
+    if (dateOfBirth == null) {
+      showMessage(
+        'Please select your date of birth.',
+        false,
+      );
+      return false;
+    }
+
+    if (!RegExp(r'^\d{12}$').hasMatch(
+      aadhaarController.text.trim(),
+    )) {
+      showMessage(
+        'Enter a valid 12-digit Aadhaar number.',
+        false,
+      );
+      return false;
+    }
+
+    if (villageController.text.trim().isEmpty ||
+        cityController.text.trim().isEmpty ||
+        districtController.text.trim().isEmpty ||
+        stateController.text.trim().isEmpty) {
+      showMessage(
+        'Please complete your address details.',
+        false,
+      );
+      return false;
+    }
+
+    if (!RegExp(r'^\d{6}$').hasMatch(
+      pinController.text.trim(),
+    )) {
+      showMessage(
+        'Enter a valid 6-digit PIN code.',
+        false,
+      );
+      return false;
+    }
+
+    return true;
+  }
+
+  // ============================================================
+  // NEXT
+  // ============================================================
+
+  void next() {
+    FocusScope.of(context).unfocus();
+
+    if (!validate()) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MandatoryProfileSetup2(
+          name: nameController.text.trim(),
+          aadhaar: aadhaarController.text.trim(),
+          village: villageController.text.trim(),
+          city: cityController.text.trim(),
+          district: districtController.text.trim(),
+          state: stateController.text.trim(),
+          pinCode: pinController.text.trim(),
+          dateOfBirth: dateOfBirth!,
+          selfieFile: selfieFile,
+          selfieUrl: selfieUrl,
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // MESSAGE
+  // ============================================================
+
+  void showMessage(
+    String message,
+    bool success,
+  ) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              success ? green : const Color(0xFFD92D20),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      );
+  }
+
+  // ============================================================
+  // FIELD
+  // ============================================================
+
+  Widget field({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+    int? maxLength,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        maxLength: maxLength,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(
+            icon,
+            color: blue,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          counterText: '',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: Color(0xFFE3E8ED),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: green,
+              width: 1.5,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ==================================================
+            // CUSTOM HEADER
+            // ==================================================
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(
+                20,
+                18,
+                20,
+                18,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  bottom: BorderSide(
+                    color: Color(0xFFE8EDF1),
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: orange,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.pets_rounded,
+                      color: Colors.white,
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Walker',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: orange,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Personal Information',
+                          style: TextStyle(
+                            fontSize: 19,
+                            color: textDark,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ==================================================
+            // CONTENT
+            // ==================================================
+
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  18,
+                  18,
+                  18,
+                  25,
+                ),
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Tell us about yourself',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: textDark,
+                      ),
+                    ),
+
+                    const SizedBox(height: 5),
+
+                    const Text(
+                      'Complete your Walker profile to continue.',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: muted,
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // SELFIE
+                    InkWell(
+                      onTap: showSelfieOptions,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius:
+                              BorderRadius.circular(20),
+                          border: Border.all(
+                            color: selfieFile != null ||
+                                    selfieUrl != null
+                                ? green.withOpacity(.45)
+                                : const Color(0xFFE3E8ED),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: orange.withOpacity(.10),
+                                borderRadius:
+                                    BorderRadius.circular(17),
+                              ),
+                              child: selfieFile != null
+                                  ? ClipRRect(
+                                      borderRadius:
+                                          BorderRadius.circular(17),
+                                      child: Image.file(
+                                        selfieFile!,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons
+                                          .add_a_photo_rounded,
+                                      color: orange,
+                                      size: 28,
+                                    ),
+                            ),
+
+                            const SizedBox(width: 13),
+
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Walker Selfie',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight:
+                                          FontWeight.w800,
+                                      color: textDark,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Camera or image URL',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: muted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: muted,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    field(
+                      controller: nameController,
+                      label: 'Full Name',
+                      icon: Icons.person_rounded,
+                    ),
+
+                    // DOB
+                    InkWell(
+                      onTap: selectDate,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: double.infinity,
+                        padding:
+                            const EdgeInsets.symmetric(
+                          horizontal: 15,
+                          vertical: 17,
+                        ),
+                        margin:
+                            const EdgeInsets.only(bottom: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius:
+                              BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0xFFE3E8ED),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.calendar_month_rounded,
+                              color: blue,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                dateOfBirth == null
+                                    ? 'Date of Birth'
+                                    : '${dateOfBirth!.day.toString().padLeft(2, '0')}/'
+                                        '${dateOfBirth!.month.toString().padLeft(2, '0')}/'
+                                        '${dateOfBirth!.year}',
+                                style: TextStyle(
+                                  color: dateOfBirth == null
+                                      ? muted
+                                      : textDark,
+                                  fontWeight:
+                                      dateOfBirth == null
+                                          ? FontWeight.w400
+                                          : FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const Icon(
+                              Icons
+                                  .keyboard_arrow_down_rounded,
+                              color: muted,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    field(
+                      controller: aadhaarController,
+                      label: 'Aadhaar Number',
+                      icon: Icons.badge_rounded,
+                      keyboardType:
+                          TextInputType.number,
+                      maxLength: 12,
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    const Text(
+                      'Address',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: textDark,
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    field(
+                      controller: villageController,
+                      label: 'Village / Locality',
+                      icon: Icons.location_on_rounded,
+                    ),
+
+                    field(
+                      controller: cityController,
+                      label: 'City / Town',
+                      icon: Icons.location_city_rounded,
+                    ),
+
+                    field(
+                      controller: districtController,
+                      label: 'District',
+                      icon: Icons.map_rounded,
+                    ),
+
+                    field(
+                      controller: stateController,
+                      label: 'State',
+                      icon: Icons.public_rounded,
+                    ),
+
+                    field(
+                      controller: pinController,
+                      label: 'PIN Code',
+                      icon: Icons.pin_drop_rounded,
+                      keyboardType:
+                          TextInputType.number,
+                      maxLength: 6,
+                    ),
+
+                    const SizedBox(height: 5),
+
+                    // ==================================================
+                    // NEXT BUTTON - RIGHT
+                    // ==================================================
+
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: SizedBox(
+                        width: 145,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: next,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: green,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape:
+                                RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(17),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'NEXT',
+                                style: TextStyle(
+                                  fontWeight:
+                                      FontWeight.w900,
+                                  letterSpacing: .5,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Icon(
+                                Icons
+                                    .arrow_forward_rounded,
+                                size: 19,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
