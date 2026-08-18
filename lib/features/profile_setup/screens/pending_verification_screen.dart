@@ -133,7 +133,6 @@ class _PendingVerificationScreenState
         );
 
         setState(() {
-          _profileExists = true;
           verificationStatus = status;
           walkerIdActive = active;
         });
