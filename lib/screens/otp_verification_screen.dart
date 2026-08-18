@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../features/profile_setup/services/profile_setup_service.dart';
+import '../features/profile_setup/screens/mandatory_profile_setup_screen1.dart';
 import '../services/auth_service.dart';
 import '../services/walker_id_service.dart';
 import 'main_navigation_screen.dart';
-import '../features/profile_setup/screens/mandatory_profile_setup_screen1.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String verificationId;
@@ -28,29 +28,22 @@ class _OtpVerificationScreenState
   final TextEditingController _otpController =
       TextEditingController();
 
-  final AuthService _authService =
-      AuthService();
+  final AuthService _authService = AuthService();
 
   bool _isLoading = false;
 
   String? _firebaseError;
 
-  static const Color orange =
-      Color(0xFFF4511E);
-
-  static const Color dark =
-      Color(0xFF263746);
-
-  static const Color background =
-      Color(0xFFF7F8FA);
+  static const Color orange = Color(0xFFF4511E);
+  static const Color dark = Color(0xFF263746);
+  static const Color background = Color(0xFFF7F8FA);
 
   // =====================================================
   // VERIFY OTP
   // =====================================================
 
   Future<void> _verifyOtp() async {
-    final String otp =
-        _otpController.text.trim();
+    final String otp = _otpController.text.trim();
 
     if (otp.length != 6) {
       _showMessage(
@@ -69,20 +62,14 @@ class _OtpVerificationScreenState
     });
 
     try {
-      debugPrint(
-        '========================================',
-      );
+      debugPrint('========================================');
       debugPrint('WALKER OTP VERIFICATION');
       debugPrint(
         'Verification ID length: '
         '${widget.verificationId.length}',
       );
-      debugPrint(
-        'OTP length: ${otp.length}',
-      );
-      debugPrint(
-        '========================================',
-      );
+      debugPrint('OTP length: ${otp.length}');
+      debugPrint('========================================');
 
       // =================================================
       // 1. VERIFY OTP
@@ -90,8 +77,7 @@ class _OtpVerificationScreenState
 
       final bool success =
           await _authService.verifyOTP(
-        verificationId:
-            widget.verificationId,
+        verificationId: widget.verificationId,
         smsCode: otp,
       );
 
@@ -136,8 +122,7 @@ class _OtpVerificationScreenState
         return;
       }
 
-      final String uid =
-          user.uid.trim();
+      final String uid = user.uid.trim();
 
       if (uid.isEmpty) {
         throw Exception(
@@ -153,59 +138,43 @@ class _OtpVerificationScreenState
           user.phoneNumber?.trim() ?? '';
 
       if (phoneNumber.isEmpty) {
-        phoneNumber =
-            widget.phoneNumber.trim();
+        phoneNumber = widget.phoneNumber.trim();
 
         if (!phoneNumber.startsWith('+')) {
-          phoneNumber =
-              '+91$phoneNumber';
+          phoneNumber = '+91$phoneNumber';
         }
       }
 
-      debugPrint(
-        'Firebase UID: $uid',
-      );
-
-      debugPrint(
-        'Firebase Phone: $phoneNumber',
-      );
+      debugPrint('Firebase UID: $uid');
+      debugPrint('Firebase Phone: $phoneNumber');
 
       // =================================================
       // 4. GET / CREATE WALKER ID
       // =================================================
 
-      debugPrint(
-        'Getting Walker ID...',
-      );
+      debugPrint('Getting Walker ID...');
 
       final String walkerId =
-          await WalkerIdService.instance
-              .getOrCreateWalkerId(
+          await WalkerIdService.instance.getOrCreateWalkerId(
         uid: uid,
         phoneNumber: phoneNumber,
       );
 
-      debugPrint(
-        'Walker ID: $walkerId',
-      );
+      debugPrint('Walker ID: $walkerId');
 
       // =================================================
       // 5. CHECK WALKER PROFILE
       // =================================================
 
-      debugPrint(
-        'Checking Walker profile...',
-      );
+      debugPrint('Checking Walker profile...');
 
       final bool profileCompleted =
-          await ProfileSetupService
-              .isWalkerProfileCompleted(
+          await ProfileSetupService.isWalkerProfileCompleted(
         authUid: uid,
       );
 
       debugPrint(
-        'Walker profile completed: '
-        '$profileCompleted',
+        'Walker profile completed: $profileCompleted',
       );
 
       if (!mounted) return;
@@ -215,7 +184,7 @@ class _OtpVerificationScreenState
       });
 
       // =================================================
-      // 6. PROFILE COMPLETE
+      // 6. PROFILE COMPLETE → HOME
       // =================================================
 
       if (profileCompleted) {
@@ -236,20 +205,22 @@ class _OtpVerificationScreenState
       }
 
       // =================================================
-      // 7. PROFILE INCOMPLETE
+      // 7. PROFILE INCOMPLETE → STEP 1
       // =================================================
 
       debugPrint(
-  'PROFILE INCOMPLETE → PROFILE SETUP',
-);
+        'PROFILE INCOMPLETE → PROFILE SETUP STEP 1',
+      );
 
-Navigator.pushAndRemoveUntil(
-  context,
-  MaterialPageRoute(
-    builder: (context) => const MandatoryProfileSetupScreen1(),
-  ),
-  (route) => false,
-);
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              const MandatoryProfileSetupScreen1(),
+        ),
+        (route) => false,
+      );
+    }
 
     // ==================================================
     // FIREBASE AUTH ERROR
@@ -339,16 +310,11 @@ Navigator.pushAndRemoveUntil(
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior:
-              SnackBarBehavior.floating,
-          margin:
-              const EdgeInsets.all(16),
-          duration:
-              const Duration(seconds: 4),
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(14),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 4),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
       );
@@ -372,7 +338,6 @@ Navigator.pushAndRemoveUntil(
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: background,
-
       appBar: AppBar(
         backgroundColor: background,
         foregroundColor: dark,
@@ -388,361 +353,201 @@ Navigator.pushAndRemoveUntil(
           ),
         ),
       ),
-
       body: SafeArea(
         child: GestureDetector(
           onTap: () {
             FocusScope.of(context).unfocus();
           },
-
           child: SingleChildScrollView(
             keyboardDismissBehavior:
-                ScrollViewKeyboardDismissBehavior
-                    .onDrag,
-
-            padding:
-                const EdgeInsets.fromLTRB(
+                ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(
               20,
               10,
               20,
               30,
             ),
-
             child: Column(
               children: [
-                // ==================================================
-                // HEADER ICON
-                // ==================================================
-
                 Container(
                   height: 82,
                   width: 82,
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        orange.withOpacity(
-                      0.10,
-                    ),
-                    shape:
-                        BoxShape.circle,
+                  decoration: BoxDecoration(
+                    color: orange.withOpacity(0.10),
+                    shape: BoxShape.circle,
                   ),
-
                   child: Center(
                     child: Container(
                       height: 62,
                       width: 62,
-                      decoration:
-                          BoxDecoration(
+                      decoration: BoxDecoration(
                         color: orange,
-                        shape:
-                            BoxShape.circle,
+                        shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: orange
-                                .withOpacity(
-                              0.25,
-                            ),
+                            color: orange.withOpacity(0.25),
                             blurRadius: 18,
-                            offset:
-                                const Offset(
-                              0,
-                              7,
-                            ),
+                            offset: const Offset(0, 7),
                           ),
                         ],
                       ),
                       child: const Icon(
-                        Icons
-                            .verified_user_rounded,
-                        color:
-                            Colors.white,
+                        Icons.verified_user_rounded,
+                        color: Colors.white,
                         size: 31,
                       ),
                     ),
                   ),
                 ),
 
-                const SizedBox(
-                  height: 22,
-                ),
-
-                // ==================================================
-                // TITLE
-                // ==================================================
+                const SizedBox(height: 22),
 
                 const Text(
                   'Verify your number',
-                  textAlign:
-                      TextAlign.center,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: dark,
                     fontSize: 27,
-                    fontWeight:
-                        FontWeight.w900,
-                    letterSpacing:
-                        -0.4,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.4,
                   ),
                 ),
 
-                const SizedBox(
-                  height: 8,
-                ),
+                const SizedBox(height: 8),
 
                 Text(
                   'Enter the 6-digit OTP sent to',
-                  textAlign:
-                      TextAlign.center,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    color:
-                        Colors.grey.shade600,
+                    color: Colors.grey.shade600,
                     fontSize: 14,
-                    fontWeight:
-                        FontWeight.w500,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
 
-                const SizedBox(
-                  height: 6,
-                ),
-
-                // ==================================================
-                // PHONE
-                // ==================================================
+                const SizedBox(height: 6),
 
                 Container(
-                  padding:
-                      const EdgeInsets
-                          .symmetric(
+                  padding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 8,
                   ),
-
-                  decoration:
-                      BoxDecoration(
-                    color: orange
-                        .withOpacity(
-                      0.08,
-                    ),
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      20,
-                    ),
+                  decoration: BoxDecoration(
+                    color: orange.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-
                   child: Text(
                     _displayPhoneNumber(),
-                    style:
-                        const TextStyle(
+                    style: const TextStyle(
                       color: orange,
                       fontSize: 15,
-                      fontWeight:
-                          FontWeight.w800,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
 
-                const SizedBox(
-                  height: 26,
-                ),
-
-                // ==================================================
-                // OTP CARD
-                // ==================================================
+                const SizedBox(height: 26),
 
                 Container(
-                  width:
-                      double.infinity,
-
-                  padding:
-                      const EdgeInsets
-                          .fromLTRB(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(
                     18,
                     20,
                     18,
                     20,
                   ),
-
-                  decoration:
-                      BoxDecoration(
+                  decoration: BoxDecoration(
                     color: Colors.white,
-
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      22,
-                    ),
-
+                    borderRadius: BorderRadius.circular(22),
                     border: Border.all(
-                      color:
-                          const Color(
-                        0xFFE1E5EA,
-                      ),
+                      color: const Color(0xFFE1E5EA),
                     ),
-
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black
-                            .withOpacity(
-                          0.045,
-                        ),
+                        color: Colors.black.withOpacity(0.045),
                         blurRadius: 20,
-                        offset:
-                            const Offset(
-                          0,
-                          8,
-                        ),
+                        offset: const Offset(0, 8),
                       ),
                     ],
                   ),
-
                   child: Column(
                     crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
-
+                        CrossAxisAlignment.start,
                     children: [
-                      // ==================================================
-                      // LABEL
-                      // ==================================================
-
                       const Row(
                         children: [
                           Icon(
-                            Icons
-                                .password_rounded,
+                            Icons.password_rounded,
                             color: orange,
                             size: 19,
                           ),
-                          SizedBox(
-                            width: 8,
-                          ),
+                          SizedBox(width: 8),
                           Text(
                             'Enter 6-Digit OTP',
-                            style:
-                                TextStyle(
+                            style: TextStyle(
                               color: dark,
                               fontSize: 14,
-                              fontWeight:
-                                  FontWeight
-                                      .w800,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ],
                       ),
 
-                      const SizedBox(
-                        height: 12,
-                      ),
-
-                      // ==================================================
-                      // OTP FIELD
-                      // ==================================================
+                      const SizedBox(height: 12),
 
                       TextField(
-                        controller:
-                            _otpController,
-
-                        enabled:
-                            !_isLoading,
-
-                        keyboardType:
-                            TextInputType
-                                .number,
-
+                        controller: _otpController,
+                        enabled: !_isLoading,
+                        keyboardType: TextInputType.number,
                         textInputAction:
-                            TextInputAction
-                                .done,
-
+                            TextInputAction.done,
                         maxLength: 6,
-
-                        textAlign:
-                            TextAlign.center,
-
+                        textAlign: TextAlign.center,
                         inputFormatters: [
-                          FilteringTextInputFormatter
-                              .digitsOnly,
+                          FilteringTextInputFormatter.digitsOnly,
                         ],
-
                         onSubmitted: (_) {
                           if (!_isLoading) {
                             _verifyOtp();
                           }
                         },
-
-                        style:
-                            const TextStyle(
+                        style: const TextStyle(
                           color: dark,
                           fontSize: 24,
-                          fontWeight:
-                              FontWeight.w900,
+                          fontWeight: FontWeight.w900,
                           letterSpacing: 9,
                         ),
-
-                        decoration:
-                            InputDecoration(
-                          hintText:
-                              '••••••',
-
-                          hintStyle:
-                              TextStyle(
-                            color: Colors.grey
-                                .shade300,
+                        decoration: InputDecoration(
+                          hintText: '••••••',
+                          hintStyle: TextStyle(
+                            color: Colors.grey.shade300,
                             fontSize: 25,
-                            letterSpacing:
-                                8,
+                            letterSpacing: 8,
                           ),
-
                           counterText: '',
-
                           filled: true,
-
-                          fillColor:
-                              const Color(
-                            0xFFF8F9FA,
-                          ),
-
+                          fillColor: const Color(0xFFF8F9FA),
                           contentPadding:
-                              const EdgeInsets
-                                  .symmetric(
+                              const EdgeInsets.symmetric(
                             vertical: 17,
                           ),
-
-                          border:
-                              OutlineInputBorder(
+                          border: OutlineInputBorder(
                             borderRadius:
-                                BorderRadius
-                                    .circular(
-                              15,
-                            ),
-                            borderSide:
-                                BorderSide(
-                              color: Colors.grey
-                                  .shade200,
+                                BorderRadius.circular(15),
+                            borderSide: BorderSide(
+                              color: Colors.grey.shade200,
                             ),
                           ),
-
-                          enabledBorder:
-                              OutlineInputBorder(
+                          enabledBorder: OutlineInputBorder(
                             borderRadius:
-                                BorderRadius
-                                    .circular(
-                              15,
-                            ),
-                            borderSide:
-                                BorderSide(
-                              color: Colors.grey
-                                  .shade200,
+                                BorderRadius.circular(15),
+                            borderSide: BorderSide(
+                              color: Colors.grey.shade200,
                             ),
                           ),
-
-                          focusedBorder:
-                              OutlineInputBorder(
+                          focusedBorder: OutlineInputBorder(
                             borderRadius:
-                                BorderRadius
-                                    .circular(
-                              15,
-                            ),
+                                BorderRadius.circular(15),
                             borderSide:
                                 const BorderSide(
                               color: orange,
@@ -752,185 +557,107 @@ Navigator.pushAndRemoveUntil(
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
-
-                      // ==================================================
-                      // VERIFY BUTTON
-                      // ==================================================
+                      const SizedBox(height: 18),
 
                       SizedBox(
-                        width:
-                            double.infinity,
-
+                        width: double.infinity,
                         height: 56,
-
-                        child:
-                            ElevatedButton(
-                          onPressed:
-                              _isLoading
-                                  ? null
-                                  : _verifyOtp,
-
+                        child: ElevatedButton(
+                          onPressed: _isLoading
+                              ? null
+                              : _verifyOtp,
                           style:
-                              ElevatedButton
-                                  .styleFrom(
-                            backgroundColor:
-                                orange,
-
+                              ElevatedButton.styleFrom(
+                            backgroundColor: orange,
                             disabledBackgroundColor:
-                                orange
-                                    .withOpacity(
-                              0.55,
-                            ),
-
+                                orange.withOpacity(0.55),
                             elevation: 2,
-
                             shadowColor:
-                                orange
-                                    .withOpacity(
-                              0.25,
-                            ),
-
+                                orange.withOpacity(0.25),
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
-                                  BorderRadius
-                                      .circular(
-                                15,
-                              ),
+                                  BorderRadius.circular(15),
                             ),
                           ),
-
-                          child:
-                              _isLoading
-                                  ? const SizedBox(
-                                      width: 23,
-                                      height: 23,
-                                      child:
-                                          CircularProgressIndicator(
-                                        color:
-                                            Colors.white,
-                                        strokeWidth:
-                                            2.5,
-                                      ),
-                                    )
-                                  : const Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment
-                                              .center,
-                                      children: [
-                                        Icon(
-                                          Icons
-                                              .check_circle_outline_rounded,
-                                          color:
-                                              Colors.white,
-                                          size:
-                                              22,
-                                        ),
-                                        SizedBox(
-                                          width:
-                                              9,
-                                        ),
-                                        Text(
-                                          'Verify & Continue',
-                                          style:
-                                              TextStyle(
-                                            color:
-                                                Colors.white,
-                                            fontSize:
-                                                16,
-                                            fontWeight:
-                                                FontWeight.w900,
-                                          ),
-                                        ),
-                                      ],
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 23,
+                                  height: 23,
+                                  child:
+                                      CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                              : const Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons
+                                          .check_circle_outline_rounded,
+                                      color: Colors.white,
+                                      size: 22,
                                     ),
+                                    SizedBox(width: 9),
+                                    Text(
+                                      'Verify & Continue',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight:
+                                            FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(
-                  height: 18,
-                ),
-
-                // ==================================================
-                // SECURITY CARD
-                // ==================================================
+                const SizedBox(height: 18),
 
                 Container(
-                  width:
-                      double.infinity,
-
-                  padding:
-                      const EdgeInsets
-                          .all(
-                    14,
-                  ),
-
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        const Color(
-                      0xFFF1F4F7,
-                    ),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F4F7),
                     borderRadius:
-                        BorderRadius
-                            .circular(
-                      15,
-                    ),
+                        BorderRadius.circular(15),
                   ),
-
                   child: Row(
                     crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
-
+                        CrossAxisAlignment.start,
                     children: [
                       Container(
                         height: 34,
                         width: 34,
                         decoration:
                             const BoxDecoration(
-                          color:
-                              Colors.white,
-                          shape:
-                              BoxShape.circle,
+                          color: Colors.white,
+                          shape: BoxShape.circle,
                         ),
-                        child:
-                            const Icon(
-                          Icons
-                              .lock_outline_rounded,
-                          color:
-                              Color(
-                            0xFF64748B,
-                          ),
+                        child: const Icon(
+                          Icons.lock_outline_rounded,
+                          color: Color(0xFF64748B),
                           size: 18,
                         ),
                       ),
-
-                      const SizedBox(
-                        width: 10,
-                      ),
-
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'Your mobile number is securely '
                           'verified through Firebase. '
                           'Your Firebase UID remains '
                           'protected in the backend.',
-
                           style: TextStyle(
-                            color:
-                                Colors.grey
-                                    .shade700,
+                            color: Colors.grey.shade700,
                             fontSize: 11.5,
                             height: 1.45,
-                            fontWeight:
-                                FontWeight.w500,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
@@ -938,76 +665,39 @@ Navigator.pushAndRemoveUntil(
                   ),
                 ),
 
-                const SizedBox(
-                  height: 15,
-                ),
-
-                // ==================================================
-                // FIREBASE ERROR
-                // ==================================================
+                const SizedBox(height: 15),
 
                 if (_firebaseError != null)
                   Container(
-                    width:
-                        double.infinity,
-
-                    padding:
-                        const EdgeInsets
-                            .all(
-                      14,
-                    ),
-
-                    decoration:
-                        BoxDecoration(
-                      color:
-                          Colors.red.shade50,
-
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
                       borderRadius:
-                          BorderRadius
-                              .circular(
-                        14,
-                      ),
-
-                      border:
-                          Border.all(
-                        color:
-                            Colors.red
-                                .shade200,
+                          BorderRadius.circular(14),
+                      border: Border.all(
+                        color: Colors.red.shade200,
                       ),
                     ),
-
                     child: Row(
                       crossAxisAlignment:
-                          CrossAxisAlignment
-                              .start,
-
+                          CrossAxisAlignment.start,
                       children: [
                         Icon(
-                          Icons
-                              .error_outline_rounded,
-                          color:
-                              Colors.red
-                                  .shade700,
+                          Icons.error_outline_rounded,
+                          color: Colors.red.shade700,
                           size: 20,
                         ),
-
-                        const SizedBox(
-                          width: 9,
-                        ),
-
+                        const SizedBox(width: 9),
                         Expanded(
                           child: Text(
                             _firebaseError!,
                             style: TextStyle(
-                              fontSize:
-                                  12,
-                              color: Colors
-                                  .red
-                                  .shade800,
+                              fontSize: 12,
+                              color: Colors.red.shade800,
                               fontWeight:
                                   FontWeight.w600,
-                              height:
-                                  1.4,
+                              height: 1.4,
                             ),
                           ),
                         ),
@@ -1015,43 +705,24 @@ Navigator.pushAndRemoveUntil(
                     ),
                   ),
 
-                const SizedBox(
-                  height: 20,
-                ),
-
-                // ==================================================
-                // FOOTER
-                // ==================================================
+                const SizedBox(height: 20),
 
                 Row(
                   mainAxisAlignment:
-                      MainAxisAlignment
-                          .center,
-
+                      MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons
-                          .verified_user_outlined,
+                      Icons.verified_user_outlined,
                       size: 15,
-                      color:
-                          Colors.grey
-                              .shade500,
+                      color: Colors.grey.shade500,
                     ),
-
-                    const SizedBox(
-                      width: 6,
-                    ),
-
+                    const SizedBox(width: 6),
                     Text(
                       'Secure Firebase verification',
-                      style:
-                          TextStyle(
-                        color: Colors
-                            .grey
-                            .shade500,
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
                         fontSize: 11,
-                        fontWeight:
-                            FontWeight.w500,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -1072,8 +743,7 @@ Navigator.pushAndRemoveUntil(
     final String raw =
         widget.phoneNumber.trim();
 
-    final String clean =
-        raw.replaceAll(
+    final String clean = raw.replaceAll(
       RegExp(r'[^0-9]'),
       '',
     );
@@ -1086,9 +756,7 @@ Navigator.pushAndRemoveUntil(
 
     if (clean.length >= 10) {
       final String last10 =
-          clean.substring(
-        clean.length - 10,
-      );
+          clean.substring(clean.length - 10);
 
       return '+91 '
           '${last10.substring(0, 5)} '
