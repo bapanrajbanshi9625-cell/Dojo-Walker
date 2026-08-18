@@ -1,13 +1,27 @@
+// lib/features/profile_setup/screens/mandatory_profile_setup_2.dart
+
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
-import '../services/aadhaar_verification_service.dart';
-import '../services/profile_setup_service.dart';
+import 'pending_verification_screen.dart';
 
 class MandatoryProfileSetup2 extends StatefulWidget {
+  final String name;
+  final String aadhaar;
+  final String village;
+  final String city;
+  final String district;
+  final String state;
+  final String pinCode;
+  final DateTime dateOfBirth;
+
+  final File? selfieFile;
+  final String? selfieUrl;
+
   const MandatoryProfileSetup2({
     super.key,
     required this.name,
@@ -22,20 +36,6 @@ class MandatoryProfileSetup2 extends StatefulWidget {
     this.selfieUrl,
   });
 
-  final String name;
-  final String aadhaar;
-
-  final String village;
-  final String city;
-  final String district;
-  final String state;
-  final String pinCode;
-
-  final DateTime dateOfBirth;
-
-  final File? selfieFile;
-  final String? selfieUrl;
-
   @override
   State<MandatoryProfileSetup2> createState() =>
       _MandatoryProfileSetup2State();
@@ -49,353 +49,72 @@ class _MandatoryProfileSetup2State
 
   static const Color orange = Color(0xFFFF6600);
   static const Color green = Color(0xFF22A447);
-  static const Color lightGreen = Color(0xFF6FCF97);
   static const Color blue = Color(0xFF1976D2);
+  static const Color red = Color(0xFFD92D20);
 
   static const Color background = Color(0xFFF5F8FC);
   static const Color textDark = Color(0xFF263238);
   static const Color muted = Color(0xFF7A858F);
 
   // ============================================================
+  // CONTROLLERS
+  // ============================================================
+
+  final TextEditingController emergencyNameController =
+      TextEditingController();
+
+  final TextEditingController emergencyPhoneController =
+      TextEditingController();
+
+  final TextEditingController experienceController =
+      TextEditingController();
+
+  // ============================================================
   // STATE
   // ============================================================
 
-  final ImagePicker picker = ImagePicker();
-
-  File? frontFile;
-  File? backFile;
-
-  String? frontUrl;
-  String? backUrl;
-
-  bool isVerifying = false;
-  bool isSaving = false;
-
-  bool aadhaarVerified = false;
-  bool nameMatched = false;
-  bool dobMatched = false;
-
-  String statusMessage = '';
-
-  bool get busy => isVerifying || isSaving;
+  bool agreeTerms = false;
+  bool isSubmitting = false;
 
   // ============================================================
-  // IMAGE OPTIONS
+  // DISPOSE
   // ============================================================
 
-  Future<void> showImageOptions({
-    required String type,
-  }) async {
-    if (busy) return;
-
-    final String title = type == 'front'
-        ? 'Aadhaar Front'
-        : 'Aadhaar Back';
-
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              20,
-              12,
-              20,
-              25,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 45,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD5DADE),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-
-                const SizedBox(height: 22),
-
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w900,
-                    color: textDark,
-                  ),
-                ),
-
-                const SizedBox(height: 7),
-
-                const Text(
-                  'Choose how you want to add the document.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: muted,
-                  ),
-                ),
-
-                const SizedBox(height: 22),
-
-                Row(
-                  children: [
-                    Expanded(
-                      child: _option(
-                        icon:
-                            Icons.camera_alt_rounded,
-                        title: 'Camera',
-                        subtitle: 'Take photo',
-                        color: orange,
-                        onTap: () {
-                          Navigator.pop(sheetContext);
-                          pickDocument(type);
-                        },
-                      ),
-                    ),
-
-                    const SizedBox(width: 12),
-
-                    Expanded(
-                      child: _option(
-                        icon: Icons.link_rounded,
-                        title: 'URL',
-                        subtitle: 'Paste image URL',
-                        color: blue,
-                        onTap: () {
-                          Navigator.pop(sheetContext);
-                          enterUrl(type);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _option({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          vertical: 20,
-        ),
-        decoration: BoxDecoration(
-          color: color.withOpacity(.06),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: color.withOpacity(.15),
-          ),
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: color.withOpacity(.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 25,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                color: textDark,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                fontSize: 10,
-                color: muted,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // CAMERA
-  // ============================================================
-
-  Future<void> pickDocument(String type) async {
-    try {
-      final XFile? image =
-          await picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
-        maxWidth: 1600,
-        maxHeight: 1600,
-      );
-
-      if (image == null) return;
-
-      setState(() {
-        if (type == 'front') {
-          frontFile = File(image.path);
-          frontUrl = null;
-        } else {
-          backFile = File(image.path);
-          backUrl = null;
-        }
-      });
-    } catch (_) {
-      showMessage(
-        'Unable to open camera.',
-        false,
-      );
-    }
-  }
-
-  // ============================================================
-  // URL
-  // ============================================================
-
-  Future<void> enterUrl(String type) async {
-    final controller = TextEditingController();
-
-    final result = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-          title: Text(
-            type == 'front'
-                ? 'Aadhaar Front URL'
-                : 'Aadhaar Back URL',
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          content: TextField(
-            controller: controller,
-            keyboardType: TextInputType.url,
-            decoration: InputDecoration(
-              hintText: 'https://...',
-              prefixIcon: const Icon(
-                Icons.link_rounded,
-              ),
-              filled: true,
-              fillColor: background,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('CANCEL'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: green,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                final value = controller.text.trim();
-                final uri = Uri.tryParse(value);
-
-                if (uri == null ||
-                    !(uri.scheme == 'http' ||
-                        uri.scheme == 'https')) {
-                  ScaffoldMessenger.of(dialogContext)
-                      .showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Enter a valid image URL.',
-                      ),
-                    ),
-                  );
-                  return;
-                }
-
-                Navigator.pop(
-                  dialogContext,
-                  value,
-                );
-              },
-              child: const Text('USE URL'),
-            ),
-          ],
-        );
-      },
-    );
-
-    controller.dispose();
-
-    if (result == null) return;
-
-    setState(() {
-      if (type == 'front') {
-        frontUrl = result;
-        frontFile = null;
-      } else {
-        backUrl = result;
-        backFile = null;
-      }
-    });
+  @override
+  void dispose() {
+    emergencyNameController.dispose();
+    emergencyPhoneController.dispose();
+    experienceController.dispose();
+    super.dispose();
   }
 
   // ============================================================
   // VALIDATION
   // ============================================================
 
-  bool validateDocuments() {
-    final frontAvailable =
-        frontFile != null ||
-        (frontUrl != null &&
-            frontUrl!.trim().isNotEmpty);
-
-    final backAvailable =
-        backFile != null ||
-        (backUrl != null &&
-            backUrl!.trim().isNotEmpty);
-
-    if (!frontAvailable) {
+  bool validate() {
+    if (emergencyNameController.text.trim().isEmpty) {
       showMessage(
-        'Please add Aadhaar Front.',
+        'Please enter emergency contact name.',
         false,
       );
       return false;
     }
 
-    if (!backAvailable) {
+    final phone =
+        emergencyPhoneController.text.trim();
+
+    if (!RegExp(r'^\d{10}$').hasMatch(phone)) {
       showMessage(
-        'Please add Aadhaar Back.',
+        'Enter a valid 10-digit emergency contact number.',
+        false,
+      );
+      return false;
+    }
+
+    if (!agreeTerms) {
+      showMessage(
+        'Please accept the DOJO Walker terms to continue.',
         false,
       );
       return false;
@@ -405,254 +124,226 @@ class _MandatoryProfileSetup2State
   }
 
   // ============================================================
-  // SAVE
+  // SUBMIT
   // ============================================================
 
-  Future<void> saveAndContinue() async {
-    if (busy) return;
+  Future<void> submitProfile() async {
+    FocusScope.of(context).unfocus();
 
-    if (!validateDocuments()) return;
+    if (isSubmitting) return;
 
-    final User? user =
-        FirebaseAuth.instance.currentUser;
+    if (!validate()) return;
+
+    final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       showMessage(
-        'Login session not found. Please login again.',
+        'Your login session has expired. Please login again.',
         false,
       );
       return;
     }
 
-    FocusScope.of(context).unfocus();
-
     setState(() {
-      isVerifying = true;
-      statusMessage =
-          'Submitting documents for verification...';
-
-      aadhaarVerified = false;
-      nameMatched = false;
-      dobMatched = false;
+      isSubmitting = true;
     });
 
     try {
+      final uid = user.uid;
+
       // ========================================================
-      // AADHAAR VERIFICATION
+      // SELFIE URL
       // ========================================================
 
-      final AadhaarVerificationResult result =
-          await AadhaarVerificationService.verify(
-        authUid: user.uid,
-        name: widget.name,
-        dateOfBirth: widget.dateOfBirth,
-        aadhaarNumber: widget.aadhaar,
-        frontFile: frontFile,
-        backFile: backFile,
-        frontUrl: frontUrl,
-        backUrl: backUrl,
-      );
+      String? profileSelfieUrl = widget.selfieUrl;
 
-      if (!mounted) return;
+      // --------------------------------------------------------
+      // If selfie came from camera, upload to Firebase Storage.
+      // --------------------------------------------------------
 
-      if (!result.verified) {
-        setState(() {
-          isVerifying = false;
-          statusMessage = '';
-        });
+      if (widget.selfieFile != null) {
+        final file = widget.selfieFile!;
 
-        await showVerificationError(
-          'Document Verification Failed',
-          result.message ??
-              'Aadhaar verification was not successful.',
-        );
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('walkers')
+            .child(uid)
+            .child('profile')
+            .child('profile_selfie.jpg');
 
-        return;
-      }
+        await storageRef.putFile(file);
 
-      if (!result.nameMatched) {
-        setState(() {
-          isVerifying = false;
-          statusMessage = '';
-        });
-
-        await showVerificationError(
-          'Name Not Matched',
-          'The name entered in the profile does not match the verified Aadhaar name.',
-        );
-
-        return;
-      }
-
-      if (!result.dobMatched) {
-        setState(() {
-          isVerifying = false;
-          statusMessage = '';
-        });
-
-        await showVerificationError(
-          'Date of Birth Not Matched',
-          'The Date of Birth does not match the verified Aadhaar details.',
-        );
-
-        return;
+        profileSelfieUrl =
+            await storageRef.getDownloadURL();
       }
 
       // ========================================================
-      // VERIFIED
+      // FIRESTORE DATA
       // ========================================================
 
-      setState(() {
-        aadhaarVerified = true;
-        nameMatched = true;
-        dobMatched = true;
-        isVerifying = false;
-        isSaving = true;
+      final walkerData = <String, dynamic>{
+        // ------------------------------------------------------
+        // Identity
+        // ------------------------------------------------------
 
-        statusMessage =
-            'Documents verified. Saving Walker profile...';
-      });
+        'Walker Uid': uid,
+
+        'uid': uid,
+
+        // ------------------------------------------------------
+        // Personal Information
+        // ------------------------------------------------------
+
+        'Full Name': widget.name,
+
+        'Mobile number':
+            user.phoneNumber ?? '',
+
+        'Date Of Birth':
+            Timestamp.fromDate(widget.dateOfBirth),
+
+        'Aadhar Number':
+            widget.aadhaar,
+
+        // ------------------------------------------------------
+        // Address
+        // ------------------------------------------------------
+
+        'Adress': {
+          'Village / Locality': widget.village,
+          'City / Town': widget.city,
+          'District': widget.district,
+          'State': widget.state,
+          'Pincode': widget.pinCode,
+        },
+
+        'Pincode': widget.pinCode,
+
+        // ------------------------------------------------------
+        // Selfie
+        // ------------------------------------------------------
+
+        'Profile Selfie':
+            profileSelfieUrl ?? '',
+
+        // ------------------------------------------------------
+        // Emergency Contact
+        // ------------------------------------------------------
+
+        'emergencyContactName':
+            emergencyNameController.text.trim(),
+
+        'emergencyContactPhone':
+            emergencyPhoneController.text.trim(),
+
+        // ------------------------------------------------------
+        // Walker Experience
+        // ------------------------------------------------------
+
+        'experience':
+            experienceController.text.trim(),
+
+        // ------------------------------------------------------
+        // PROFILE STATE
+        // ------------------------------------------------------
+
+        'profileCompleted': true,
+
+        'profileSetupCompleted': true,
+
+        // ------------------------------------------------------
+        // VERIFICATION STATE
+        // IMPORTANT
+        // ------------------------------------------------------
+
+        'verificationStatus': 'pending',
+
+        'walkerIdActive': false,
+
+        // ------------------------------------------------------
+        // Admin fields
+        // ------------------------------------------------------
+
+        'adminApproved': false,
+
+        'adminRejected': false,
+
+        // ------------------------------------------------------
+        // Timestamps
+        // ------------------------------------------------------
+
+        'profileSubmittedAt':
+            FieldValue.serverTimestamp(),
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+
+        'createdAt':
+            FieldValue.serverTimestamp(),
+      };
 
       // ========================================================
-      // SAVE FIREBASE PROFILE
+      // SAVE / MERGE
       // ========================================================
 
-      await ProfileSetupService.saveWalkerProfile(
-        authUid: user.uid,
-        phoneNumber: user.phoneNumber ?? '',
-        name: widget.name,
-        dateOfBirth: widget.dateOfBirth,
-        aadhaar: widget.aadhaar,
-        village: widget.village,
-        city: widget.city,
-        district: widget.district,
-        state: widget.state,
-        pinCode: widget.pinCode,
-        selfieFile: widget.selfieFile,
-        selfieUrl: widget.selfieUrl,
-        aadhaarFrontFile: frontFile,
-        aadhaarFrontUrl: frontUrl,
-        aadhaarBackFile: backFile,
-        aadhaarBackUrl: backUrl,
-        aadhaarVerified: true,
-        nameMatched: true,
-        dobMatched: true,
-        aadhaarVerifiedName:
-            result.verifiedName ?? '',
-      );
+      await FirebaseFirestore.instance
+          .collection('walkers')
+          .doc(uid)
+          .set(
+            walkerData,
+            SetOptions(merge: true),
+          );
 
       if (!mounted) return;
 
-      setState(() {
-        isSaving = false;
-        statusMessage =
-            'Profile submitted successfully.';
-      });
-
       // ========================================================
-      // GO TO DOJO PLATFORM VERIFICATION PENDING
+      // OPEN PENDING VERIFICATION
       // ========================================================
 
-      await Future<void>.delayed(
-        const Duration(milliseconds: 400),
-      );
-
-      if (!mounted) return;
-
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/verification-pending',
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) =>
+              const PendingVerificationScreen(),
+        ),
         (route) => false,
       );
-    } catch (e) {
-      debugPrint(
-        'Mandatory profile setup error: $e',
-      );
-
+    } on FirebaseException catch (e) {
       if (!mounted) return;
 
       setState(() {
-        isVerifying = false;
-        isSaving = false;
-        statusMessage = '';
+        isSubmitting = false;
+      });
+
+      String message =
+          'Unable to submit your profile.';
+
+      if (e.code == 'permission-denied') {
+        message =
+            'Firebase permission denied. Please check Firestore rules.';
+      } else if (e.code == 'unauthenticated') {
+        message =
+            'Login session expired. Please login again.';
+      } else if (e.code == 'storage/unauthorized') {
+        message =
+            'Unable to upload selfie. Storage permission denied.';
+      } else if (e.message != null &&
+          e.message!.trim().isNotEmpty) {
+        message = e.message!;
+      }
+
+      showMessage(message, false);
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        isSubmitting = false;
       });
 
       showMessage(
-        e.toString().replaceFirst(
-              'Exception: ',
-              '',
-            ),
+        'Something went wrong. Please try again.',
         false,
       );
     }
-  }
-
-  // ============================================================
-  // ERROR DIALOG
-  // ============================================================
-
-  Future<void> showVerificationError(
-    String title,
-    String message,
-  ) async {
-    if (!mounted) return;
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-          title: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFEAEA),
-                  borderRadius:
-                      BorderRadius.circular(13),
-                ),
-                child: const Icon(
-                  Icons.error_outline_rounded,
-                  color: Color(0xFFD92D20),
-                ),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            message,
-            style: const TextStyle(
-              fontSize: 13,
-              height: 1.5,
-              color: muted,
-            ),
-          ),
-          actions: [
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: green,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   // ============================================================
@@ -663,15 +354,13 @@ class _MandatoryProfileSetup2State
     String message,
     bool success,
   ) {
-    if (!mounted) return;
-
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(message),
           backgroundColor:
-              success ? green : const Color(0xFFD92D20),
+              success ? green : red,
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
           shape: RoundedRectangleBorder(
@@ -682,108 +371,114 @@ class _MandatoryProfileSetup2State
   }
 
   // ============================================================
-  // DOCUMENT CARD
+  // FIELD
   // ============================================================
 
-  Widget documentCard({
-    required String title,
-    required String subtitle,
-    required String type,
-    required File? file,
-    required String? url,
-    required Color color,
+  Widget field({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+    int? maxLength,
   }) {
-    final bool added =
-        file != null ||
-        (url != null && url.trim().isNotEmpty);
-
-    return InkWell(
-      onTap: () {
-        showImageOptions(type: type);
-      },
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: added
-                ? green.withOpacity(.45)
-                : const Color(0xFFE3E8ED),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        maxLength: maxLength,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(
+            icon,
+            color: blue,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+          counterText: '',
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: Color(0xFFE3E8ED),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: green,
+              width: 1.5,
+            ),
           ),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 62,
-              height: 62,
-              decoration: BoxDecoration(
-                color: color.withOpacity(.09),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: file != null
-                  ? ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(16),
-                      child: Image.file(
-                        file,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  : Icon(
-                      added
-                          ? Icons.check_circle_rounded
-                          : Icons.badge_rounded,
-                      color:
-                          added ? green : color,
-                      size: 29,
-                    ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // SUMMARY ITEM
+  // ============================================================
+
+  Widget summaryItem({
+    required IconData icon,
+    required String title,
+    required String value,
+  }) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: blue.withOpacity(.09),
+              borderRadius: BorderRadius.circular(12),
             ),
-
-            const SizedBox(width: 13),
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      color: textDark,
-                    ),
+            child: Icon(
+              icon,
+              color: blue,
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: muted,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    added
-                        ? 'Document added'
-                        : subtitle,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color:
-                          added ? green : muted,
-                      fontWeight:
-                          added
-                              ? FontWeight.w700
-                              : FontWeight.w400,
-                    ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: textDark,
+                    fontWeight: FontWeight.w800,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-
-            Icon(
-              added
-                  ? Icons.check_circle_rounded
-                  : Icons.add_circle_outline_rounded,
-              color: added ? green : color,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -800,16 +495,16 @@ class _MandatoryProfileSetup2State
         child: Column(
           children: [
             // ==================================================
-            // CUSTOM HEADER
+            // HEADER
             // ==================================================
 
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(
+                20,
                 18,
-                15,
+                20,
                 18,
-                17,
               ),
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -821,33 +516,47 @@ class _MandatoryProfileSetup2State
               ),
               child: Row(
                 children: [
-                  IconButton(
-                    onPressed: busy
+                  // BACK
+                  InkWell(
+                    onTap: isSubmitting
                         ? null
                         : () {
                             Navigator.pop(context);
                           },
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 19,
+                    borderRadius:
+                        BorderRadius.circular(14),
+                    child: Container(
+                      width: 43,
+                      height: 43,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F4F7),
+                        borderRadius:
+                            BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_rounded,
+                        color: textDark,
+                      ),
                     ),
                   ),
 
+                  const SizedBox(width: 12),
+
                   Container(
-                    width: 43,
-                    height: 43,
+                    width: 46,
+                    height: 46,
                     decoration: BoxDecoration(
-                      color: blue,
+                      color: orange,
                       borderRadius:
-                          BorderRadius.circular(13),
+                          BorderRadius.circular(14),
                     ),
                     child: const Icon(
-                      Icons.verified_user_rounded,
+                      Icons.pets_rounded,
                       color: Colors.white,
                     ),
                   ),
 
-                  const SizedBox(width: 11),
+                  const SizedBox(width: 12),
 
                   const Expanded(
                     child: Column(
@@ -858,17 +567,19 @@ class _MandatoryProfileSetup2State
                           'Walker',
                           style: TextStyle(
                             fontSize: 11,
-                            color: blue,
-                            fontWeight: FontWeight.w800,
+                            color: orange,
+                            fontWeight:
+                                FontWeight.w800,
                           ),
                         ),
                         SizedBox(height: 2),
                         Text(
-                          'Document Verification',
+                          'Final Verification',
                           style: TextStyle(
-                            fontSize: 18,
+                            fontSize: 19,
                             color: textDark,
-                            fontWeight: FontWeight.w900,
+                            fontWeight:
+                                FontWeight.w900,
                           ),
                         ),
                       ],
@@ -884,20 +595,22 @@ class _MandatoryProfileSetup2State
 
             Expanded(
               child: SingleChildScrollView(
+                physics:
+                    const BouncingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(
                   18,
-                  20,
                   18,
-                  25,
+                  18,
+                  30,
                 ),
                 child: Column(
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Document Requirements',
+                      'Almost there!',
                       style: TextStyle(
-                        fontSize: 22,
+                        fontSize: 23,
                         fontWeight: FontWeight.w900,
                         color: textDark,
                       ),
@@ -906,7 +619,7 @@ class _MandatoryProfileSetup2State
                     const SizedBox(height: 5),
 
                     const Text(
-                      'Add both sides of your Aadhaar for verification.',
+                      'Review your information and complete the final details.',
                       style: TextStyle(
                         fontSize: 12.5,
                         color: muted,
@@ -915,64 +628,292 @@ class _MandatoryProfileSetup2State
 
                     const SizedBox(height: 20),
 
-                    // FRONT
-                    documentCard(
-                      title: 'Aadhaar Front',
-                      subtitle:
-                          'Camera or image URL',
-                      type: 'front',
-                      file: frontFile,
-                      url: frontUrl,
-                      color: orange,
-                    ),
+                    // ==================================================
+                    // PROFILE SUMMARY
+                    // ==================================================
 
-                    const SizedBox(height: 14),
-
-                    // BACK
-                    documentCard(
-                      title: 'Aadhaar Back',
-                      subtitle:
-                          'Camera or image URL',
-                      type: 'back',
-                      file: backFile,
-                      url: backUrl,
-                      color: blue,
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // SECURITY CARD
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(15),
+                      padding:
+                          const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        color:
-                            const Color(0xFFEFFAF3),
+                        color: Colors.white,
                         borderRadius:
-                            BorderRadius.circular(18),
+                            BorderRadius.circular(21),
                         border: Border.all(
-                          color: green.withOpacity(.15),
+                          color: const Color(
+                            0xFFE3E8ED,
+                          ),
                         ),
                       ),
-                      child: const Row(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.lock_rounded,
-                            color: green,
-                            size: 23,
-                          ),
-                          SizedBox(width: 11),
-                          Expanded(
-                            child: Text(
-                              'Your documents are securely submitted for DOJO Platform verification.',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                height: 1.4,
-                                color: Color(
-                                  0xFF37604A,
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons
+                                    .person_pin_rounded,
+                                color: blue,
+                              ),
+                              SizedBox(width: 9),
+                              Text(
+                                'Profile Information',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight:
+                                      FontWeight.w900,
+                                  color: textDark,
                                 ),
-                                fontWeight:
-                                    FontWeight.w600,
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 15),
+
+                          summaryItem(
+                            icon:
+                                Icons.person_rounded,
+                            title: 'Full Name',
+                            value: widget.name,
+                          ),
+
+                          summaryItem(
+                            icon:
+                                Icons.badge_rounded,
+                            title:
+                                'Aadhaar Number',
+                            value:
+                                '•••• •••• ${widget.aadhaar.substring(widget.aadhaar.length - 4)}',
+                          ),
+
+                          summaryItem(
+                            icon: Icons
+                                .calendar_month_rounded,
+                            title:
+                                'Date of Birth',
+                            value:
+                                '${widget.dateOfBirth.day.toString().padLeft(2, '0')}/'
+                                '${widget.dateOfBirth.month.toString().padLeft(2, '0')}/'
+                                '${widget.dateOfBirth.year}',
+                          ),
+
+                          summaryItem(
+                            icon: Icons
+                                .location_on_rounded,
+                            title: 'Address',
+                            value:
+                                '${widget.village}, ${widget.city}, '
+                                '${widget.district}, ${widget.state} - '
+                                '${widget.pinCode}',
+                          ),
+
+                          if (widget.selfieFile != null ||
+                              widget.selfieUrl != null)
+                            Container(
+                              width: double.infinity,
+                              padding:
+                                  const EdgeInsets.all(
+                                      12),
+                              decoration: BoxDecoration(
+                                color:
+                                    const Color(
+                                  0xFFF0FFF5,
+                                ),
+                                borderRadius:
+                                    BorderRadius.circular(
+                                        14),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(
+                                    Icons
+                                        .check_circle_rounded,
+                                    color: green,
+                                  ),
+                                  SizedBox(width: 9),
+                                  Expanded(
+                                    child: Text(
+                                      'Walker selfie added successfully',
+                                      style: TextStyle(
+                                        color: green,
+                                        fontSize: 12,
+                                        fontWeight:
+                                            FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // ==================================================
+                    // EMERGENCY CONTACT
+                    // ==================================================
+
+                    Container(
+                      width: double.infinity,
+                      padding:
+                          const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius:
+                            BorderRadius.circular(21),
+                      ),
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons
+                                    .contact_emergency_rounded,
+                                color: orange,
+                              ),
+                              SizedBox(width: 9),
+                              Text(
+                                'Emergency Contact',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight:
+                                      FontWeight.w900,
+                                  color: textDark,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 6),
+
+                          const Text(
+                            'Someone we can contact if needed.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: muted,
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          field(
+                            controller:
+                                emergencyNameController,
+                            label:
+                                'Emergency Contact Name',
+                            icon:
+                                Icons.person_outline_rounded,
+                          ),
+
+                          field(
+                            controller:
+                                emergencyPhoneController,
+                            label:
+                                'Emergency Contact Number',
+                            icon:
+                                Icons.phone_rounded,
+                            keyboardType:
+                                TextInputType.phone,
+                            maxLength: 10,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // ==================================================
+                    // EXPERIENCE
+                    // ==================================================
+
+                    Container(
+                      width: double.infinity,
+                      padding:
+                          const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius:
+                            BorderRadius.circular(21),
+                      ),
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons
+                                    .workspace_premium_rounded,
+                                color: blue,
+                              ),
+                              SizedBox(width: 9),
+                              Text(
+                                'Walker Experience',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight:
+                                      FontWeight.w900,
+                                  color: textDark,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 6),
+
+                          const Text(
+                            'Optional — tell us about your dog walking experience.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: muted,
+                            ),
+                          ),
+
+                          const SizedBox(height: 15),
+
+                          TextField(
+                            controller:
+                                experienceController,
+                            maxLines: 4,
+                            maxLength: 300,
+                            decoration:
+                                InputDecoration(
+                              hintText:
+                                  'Example: I have experience walking dogs for 2 years...',
+                              hintStyle:
+                                  const TextStyle(
+                                color: muted,
+                                fontSize: 12,
+                              ),
+                              filled: true,
+                              fillColor:
+                                  const Color(
+                                0xFFF8FAFC,
+                              ),
+                              border:
+                                  OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.circular(
+                                        16),
+                                borderSide:
+                                    BorderSide.none,
+                              ),
+                              enabledBorder:
+                                  OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.circular(
+                                        16),
+                                borderSide:
+                                    const BorderSide(
+                                  color:
+                                      Color(0xFFE3E8ED),
+                                ),
                               ),
                             ),
                           ),
@@ -980,122 +921,144 @@ class _MandatoryProfileSetup2State
                       ),
                     ),
 
+                    const SizedBox(height: 18),
+
                     // ==================================================
-                    // VERIFICATION STATUS
+                    // TERMS
                     // ==================================================
 
-                    if (statusMessage.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-
-                      Container(
-                        width: double.infinity,
-                        padding:
-                            const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: lightGreen
-                              .withOpacity(.10),
-                          borderRadius:
-                              BorderRadius.circular(16),
+                    Container(
+                      width: double.infinity,
+                      padding:
+                          const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        color: const Color(
+                          0xFFFFF8F2,
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              aadhaarVerified
-                                  ? Icons
-                                      .check_circle_rounded
-                                  : Icons
-                                      .verified_user_rounded,
-                              color: green,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                statusMessage,
-                                style:
-                                    const TextStyle(
-                                  color: Color(
-                                    0xFF37604A,
-                                  ),
-                                  fontSize: 12,
-                                  fontWeight:
-                                      FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
+                        borderRadius:
+                            BorderRadius.circular(17),
+                        border: Border.all(
+                          color: orange.withOpacity(.15),
                         ),
                       ),
-                    ],
-
-                    const SizedBox(height: 28),
-
-                    // ==================================================
-                    // SAVE BUTTON - CENTER
-                    // ==================================================
-
-                    Center(
-                      child: SizedBox(
-                        width: 225,
-                        height: 55,
-                        child: ElevatedButton(
-                          onPressed:
-                              busy
-                                  ? null
-                                  : saveAndContinue,
-                          style:
-                              ElevatedButton.styleFrom(
-                            backgroundColor:
-                                lightGreen,
-                            disabledBackgroundColor:
-                                const Color(
-                              0xFFB9DEC8,
-                            ),
-                            foregroundColor:
-                                Colors.white,
-                            elevation: 0,
-                            shape:
-                                RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(
-                                18,
+                      child: Row(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          Checkbox(
+                            value: agreeTerms,
+                            activeColor: green,
+                            onChanged: isSubmitting
+                                ? null
+                                : (value) {
+                                    setState(() {
+                                      agreeTerms =
+                                          value ?? false;
+                                    });
+                                  },
+                          ),
+                          const SizedBox(width: 5),
+                          const Expanded(
+                            child: Padding(
+                              padding:
+                                  EdgeInsets.only(top: 11),
+                              child: Text(
+                                'I confirm that the information provided by me is correct and I agree to the DOJO Walker terms and verification process.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  height: 1.5,
+                                  color: Color(
+                                    0xFF6B4B35,
+                                  ),
+                                  fontWeight:
+                                      FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
-                          child: busy
-                              ? const SizedBox(
-                                  width: 23,
-                                  height: 23,
-                                  child:
-                                      CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color:
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    // ==================================================
+                    // SUBMIT BUTTON
+                    // ==================================================
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed:
+                            isSubmitting
+                                ? null
+                                : submitProfile,
+                        style:
+                            ElevatedButton.styleFrom(
+                          backgroundColor: green,
+                          disabledBackgroundColor:
+                              green.withOpacity(.45),
+                          foregroundColor:
+                              Colors.white,
+                          elevation: 0,
+                          shape:
+                              RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(
+                                    17),
+                          ),
+                        ),
+                        child: isSubmitting
+                            ? const Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment
+                                        .center,
+                                children: [
+                                  SizedBox(
+                                    width: 21,
+                                    height: 21,
+                                    child:
+                                        CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      valueColor:
+                                          AlwaysStoppedAnimation<
+                                              Color>(
                                         Colors.white,
-                                  ),
-                                )
-                              : const Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment
-                                          .center,
-                                  children: [
-                                    Icon(
-                                      Icons
-                                          .verified_rounded,
-                                      size: 20,
-                                    ),
-                                    SizedBox(width: 9),
-                                    Text(
-                                      'SAVE & CONTINUE',
-                                      style: TextStyle(
-                                        fontWeight:
-                                            FontWeight
-                                                .w900,
-                                        letterSpacing:
-                                            .3,
                                       ),
                                     ),
-                                  ],
-                                ),
-                        ),
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    'SUBMITTING...',
+                                    style: TextStyle(
+                                      fontWeight:
+                                          FontWeight.w900,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : const Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment
+                                        .center,
+                                children: [
+                                  Icon(
+                                    Icons
+                                        .verified_rounded,
+                                    size: 21,
+                                  ),
+                                  SizedBox(width: 9),
+                                  Text(
+                                    'SUBMIT FOR VERIFICATION',
+                                    style: TextStyle(
+                                      fontWeight:
+                                          FontWeight.w900,
+                                      letterSpacing: .3,
+                                    ),
+                                  ),
+                                ],
+                              ),
                       ),
                     ),
 
@@ -1103,11 +1066,26 @@ class _MandatoryProfileSetup2State
 
                     const Center(
                       child: Text(
-                        'Your profile will be submitted to DOJO Platform after verification.',
+                        'After submission, your account will remain locked until DOJO Platform approves your verification.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 10.5,
+                          height: 1.45,
                           color: muted,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    const Center(
+                      child: Text(
+                        'DOJO Platform • DOJO Walker',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: orange,
+                          fontWeight:
+                              FontWeight.w800,
                         ),
                       ),
                     ),
