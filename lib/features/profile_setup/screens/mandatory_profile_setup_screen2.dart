@@ -8,6 +8,10 @@ import 'package:flutter/material.dart';
 import 'pending_verification_screen.dart';
 
 class MandatoryProfileSetupScreen2 extends StatefulWidget {
+  // ============================================================
+  // DATA FROM SCREEN 1
+  // ============================================================
+
   final String name;
   final String aadhaar;
 
@@ -80,10 +84,13 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // COMPLETE ADDRESS
+  // FULL ADDRESS
   //
   // MAIN FIRESTORE FIELD:
   // "Address"
+  //
+  // Example:
+  // Village, City, District, State, 733124
   // ============================================================
 
   String get fullAddress {
@@ -103,6 +110,55 @@ class _MandatoryProfileSetupScreen2State
   // ============================================================
 
   bool validate() {
+    if (widget.name.trim().isEmpty) {
+      _showMessage(
+        'Full name is missing.',
+        false,
+      );
+      return false;
+    }
+
+    if (!RegExp(r'^\d{12}$').hasMatch(
+      widget.aadhaar.trim(),
+    )) {
+      _showMessage(
+        'Invalid Aadhaar number.',
+        false,
+      );
+      return false;
+    }
+
+    if (widget.village.trim().isEmpty ||
+        widget.city.trim().isEmpty ||
+        widget.district.trim().isEmpty ||
+        widget.state.trim().isEmpty) {
+      _showMessage(
+        'Address details are incomplete.',
+        false,
+      );
+      return false;
+    }
+
+    if (!RegExp(r'^\d{6}$').hasMatch(
+      widget.pinCode.trim(),
+    )) {
+      _showMessage(
+        'Invalid PIN code.',
+        false,
+      );
+      return false;
+    }
+
+    if (widget.selfieFile == null &&
+        (widget.selfieUrl == null ||
+            widget.selfieUrl!.trim().isEmpty)) {
+      _showMessage(
+        'Profile selfie is missing.',
+        false,
+      );
+      return false;
+    }
+
     if (emergencyNameController.text.trim().isEmpty) {
       _showMessage(
         'Please enter emergency contact name.',
@@ -111,8 +167,7 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    final mobile =
-        emergencyMobileController.text.trim();
+    final mobile = emergencyMobileController.text.trim();
 
     if (!RegExp(r'^\d{10}$').hasMatch(mobile)) {
       _showMessage(
@@ -126,7 +181,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // SUBMIT
+  // SUBMIT PROFILE
   // ============================================================
 
   Future<void> submitProfile() async {
@@ -136,7 +191,7 @@ class _MandatoryProfileSetupScreen2State
 
     if (!validate()) return;
 
-    final user =
+    final User? user =
         FirebaseAuth.instance.currentUser;
 
     if (user == null) {
@@ -147,22 +202,32 @@ class _MandatoryProfileSetupScreen2State
       return;
     }
 
+    if (!mounted) return;
+
     setState(() {
       _saving = true;
     });
 
     try {
+      // ========================================================
+      // UID
+      // ========================================================
+
       final String uid = user.uid;
 
       // ========================================================
-      // SELFIE URL
+      // SELFIE
       // ========================================================
 
       String profileSelfieUrl =
           widget.selfieUrl?.trim() ?? '';
 
       // ========================================================
-      // UPLOAD SELFIE FILE TO FIREBASE STORAGE
+      // CAMERA FILE
+      //
+      // Firebase Storage:
+      //
+      // walkers/{UID}/profile/profile_selfie.jpg
       // ========================================================
 
       if (widget.selfieFile != null) {
@@ -186,23 +251,24 @@ class _MandatoryProfileSetupScreen2State
       }
 
       // ========================================================
-      // WALKER FIRESTORE DOCUMENT
+      // FIRESTORE DOCUMENT
+      //
+      // walkers/{UID}
       // ========================================================
 
-      final DocumentReference<
-          Map<String, dynamic>> walkerRef =
-          FirebaseFirestore.instance
+      final DocumentReference<Map<String, dynamic>>
+          walkerRef = FirebaseFirestore.instance
               .collection('walkers')
               .doc(uid);
 
       // ========================================================
-      // ALL PROFILE DATA
+      // COMPLETE PROFILE DATA
       // ========================================================
 
       final Map<String, dynamic> profileData = {
-        // ======================================================
-        // USER / WALKER
-        // ======================================================
+        // ------------------------------------------------------
+        // IDENTIFICATION
+        // ------------------------------------------------------
 
         'Walker Uid': uid,
 
@@ -220,16 +286,18 @@ class _MandatoryProfileSetupScreen2State
           widget.dateOfBirth,
         ),
 
-        // ======================================================
-        // ADDRESS
+        // ------------------------------------------------------
+        // MAIN ADDRESS FIELD
         //
-        // EXACT MAIN FIELD = "Address"
-        // ======================================================
+        // EVERYTHING COMBINED HERE
+        // ------------------------------------------------------
 
-        'Address': fullAddress,
+        'Address':
+            fullAddress,
 
-        // Individual address fields
-        // are also saved.
+        // ------------------------------------------------------
+        // INDIVIDUAL ADDRESS FIELDS
+        // ------------------------------------------------------
 
         'Village':
             widget.village.trim(),
@@ -246,32 +314,28 @@ class _MandatoryProfileSetupScreen2State
         'Pincode':
             widget.pinCode.trim(),
 
-        // ======================================================
-        // SELFIE
-        // ======================================================
+        // ------------------------------------------------------
+        // PROFILE SELFIE
+        // ------------------------------------------------------
 
         'Profile Selfie':
             profileSelfieUrl,
 
-        // ======================================================
+        // ------------------------------------------------------
         // PROFILE STATUS
-        // ======================================================
+        // ------------------------------------------------------
 
         'profileCompleted': true,
 
-        // IMPORTANT:
-        // Admin must change this to "approved".
+        'verificationStatus':
+            'pending',
 
-        'verificationStatus': 'pending',
+        'walkerIdActive':
+            false,
 
-        // IMPORTANT:
-        // Walker remains locked until admin approval.
-
-        'walkerIdActive': false,
-
-        // ======================================================
+        // ------------------------------------------------------
         // EMERGENCY CONTACT
-        // ======================================================
+        // ------------------------------------------------------
 
         'Emergency Contact Name':
             emergencyNameController.text.trim(),
@@ -279,9 +343,9 @@ class _MandatoryProfileSetupScreen2State
         'Emergency Contact Mobile':
             emergencyMobileController.text.trim(),
 
-        // ======================================================
+        // ------------------------------------------------------
         // TIMESTAMPS
-        // ======================================================
+        // ------------------------------------------------------
 
         'profileSubmittedAt':
             FieldValue.serverTimestamp(),
@@ -291,15 +355,19 @@ class _MandatoryProfileSetupScreen2State
       };
 
       // ========================================================
-      // SAVE TO:
-      //
-      // walkers/{UID}
+      // SAVE TO FIRESTORE
       // ========================================================
 
       await walkerRef.set(
         profileData,
-        SetOptions(merge: true),
+        SetOptions(
+          merge: true,
+        ),
       );
+
+      // ========================================================
+      // FINISHED
+      // ========================================================
 
       if (!mounted) return;
 
@@ -308,7 +376,7 @@ class _MandatoryProfileSetupScreen2State
       });
 
       // ========================================================
-      // PENDING VERIFICATION
+      // GO TO PENDING VERIFICATION
       // ========================================================
 
       Navigator.of(context).pushAndRemoveUntil(
@@ -329,7 +397,7 @@ class _MandatoryProfileSetupScreen2State
         _firebaseError(e),
         false,
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
 
       setState(() {
@@ -352,16 +420,22 @@ class _MandatoryProfileSetupScreen2State
   ) {
     switch (e.code) {
       case 'permission-denied':
-        return 'Firebase permission denied. Please check Firestore rules.';
+        return 'Firebase permission denied. Check Firestore rules.';
 
       case 'unauthenticated':
         return 'Your login session has expired.';
 
       case 'network-request-failed':
-        return 'Network error. Please check your internet connection.';
+        return 'Network error. Check your internet connection.';
 
       case 'object-not-found':
         return 'Profile image could not be uploaded.';
+
+      case 'unauthorized':
+        return 'Firebase Storage permission denied.';
+
+      case 'quota-exceeded':
+        return 'Firebase storage quota exceeded.';
 
       default:
         return e.message ??
@@ -377,6 +451,8 @@ class _MandatoryProfileSetupScreen2State
     String message,
     bool success,
   ) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -410,21 +486,29 @@ class _MandatoryProfileSetupScreen2State
   }) {
     return Padding(
       padding:
-          const EdgeInsets.only(bottom: 14),
+          const EdgeInsets.only(
+        bottom: 14,
+      ),
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
         maxLength: maxLength,
-        decoration: InputDecoration(
+        textInputAction:
+            TextInputAction.next,
+        decoration:
+            InputDecoration(
           labelText: label,
-          prefixIcon: Icon(
+          prefixIcon:
+              Icon(
             icon,
             color: blue,
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor:
+              Colors.white,
           counterText: '',
-          border: OutlineInputBorder(
+          border:
+              OutlineInputBorder(
             borderRadius:
                 BorderRadius.circular(16),
             borderSide:
@@ -436,7 +520,8 @@ class _MandatoryProfileSetupScreen2State
                 BorderRadius.circular(16),
             borderSide:
                 const BorderSide(
-              color: Color(0xFFE3E8ED),
+              color:
+                  Color(0xFFE3E8ED),
             ),
           ),
           focusedBorder:
@@ -455,7 +540,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // SUMMARY
+  // SUMMARY CARD
   // ============================================================
 
   Widget _summaryCard() {
@@ -463,11 +548,13 @@ class _MandatoryProfileSetupScreen2State
       width: double.infinity,
       padding:
           const EdgeInsets.all(18),
-      decoration: BoxDecoration(
+      decoration:
+          BoxDecoration(
         color: Colors.white,
         borderRadius:
             BorderRadius.circular(20),
-        border: Border.all(
+        border:
+            Border.all(
           color:
               const Color(0xFFE3E8ED),
         ),
@@ -485,17 +572,21 @@ class _MandatoryProfileSetupScreen2State
               SizedBox(width: 9),
               Text(
                 'Profile Summary',
-                style: TextStyle(
+                style:
+                    TextStyle(
                   fontSize: 16,
                   fontWeight:
                       FontWeight.w900,
-                  color: textDark,
+                  color:
+                      textDark,
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(
+            height: 16,
+          ),
 
           _summaryRow(
             'Full Name',
@@ -553,7 +644,9 @@ class _MandatoryProfileSetupScreen2State
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(
+            width: 8,
+          ),
           Expanded(
             child: Text(
               value,
@@ -572,7 +665,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // ADDRESS ITEM
+  // ADDRESS ROW
   // ============================================================
 
   Widget _addressItem(
@@ -601,10 +694,14 @@ class _MandatoryProfileSetupScreen2State
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(
+            width: 8,
+          ),
           Expanded(
             child: Text(
-              value,
+              value.isEmpty
+                  ? '—'
+                  : value,
               style:
                   const TextStyle(
                 fontSize: 12,
@@ -650,7 +747,8 @@ class _MandatoryProfileSetupScreen2State
                     const BoxDecoration(
                   color: Colors.white,
                   border: Border(
-                    bottom: BorderSide(
+                    bottom:
+                        BorderSide(
                       color:
                           Color(0xFFE8EDF1),
                     ),
@@ -665,8 +763,9 @@ class _MandatoryProfileSetupScreen2State
                           BoxDecoration(
                         color: orange,
                         borderRadius:
-                            BorderRadius
-                                .circular(14),
+                            BorderRadius.circular(
+                          14,
+                        ),
                       ),
                       child:
                           const Icon(
@@ -731,8 +830,9 @@ class _MandatoryProfileSetupScreen2State
                           .10,
                         ),
                         borderRadius:
-                            BorderRadius
-                                .circular(12),
+                            BorderRadius.circular(
+                          12,
+                        ),
                       ),
                       child:
                           const Text(
@@ -742,8 +842,7 @@ class _MandatoryProfileSetupScreen2State
                           color: green,
                           fontSize: 10,
                           fontWeight:
-                              FontWeight
-                                  .w900,
+                              FontWeight.w900,
                         ),
                       ),
                     ),
@@ -802,7 +901,7 @@ class _MandatoryProfileSetupScreen2State
                       ),
 
                       // ==================================================
-                      // SUMMARY
+                      // PROFILE SUMMARY
                       // ==================================================
 
                       _summaryCard(),
@@ -826,8 +925,7 @@ class _MandatoryProfileSetupScreen2State
                           color:
                               Colors.white,
                           borderRadius:
-                              BorderRadius
-                                  .circular(
+                              BorderRadius.circular(
                             20,
                           ),
                           border:
@@ -838,7 +936,8 @@ class _MandatoryProfileSetupScreen2State
                             ),
                           ),
                         ),
-                        child: Column(
+                        child:
+                            Column(
                           crossAxisAlignment:
                               CrossAxisAlignment
                                   .start,
@@ -921,7 +1020,8 @@ class _MandatoryProfileSetupScreen2State
                                   14,
                                 ),
                               ),
-                              child: Row(
+                              child:
+                                  Row(
                                 crossAxisAlignment:
                                     CrossAxisAlignment
                                         .start,
@@ -937,7 +1037,8 @@ class _MandatoryProfileSetupScreen2State
                                     width: 9,
                                   ),
                                   Expanded(
-                                    child: Text(
+                                    child:
+                                        Text(
                                       fullAddress,
                                       style:
                                           const TextStyle(
@@ -979,8 +1080,7 @@ class _MandatoryProfileSetupScreen2State
                           color:
                               Colors.white,
                           borderRadius:
-                              BorderRadius
-                                  .circular(
+                              BorderRadius.circular(
                             20,
                           ),
                           border:
@@ -991,7 +1091,8 @@ class _MandatoryProfileSetupScreen2State
                             ),
                           ),
                         ),
-                        child: Column(
+                        child:
+                            Column(
                           crossAxisAlignment:
                               CrossAxisAlignment
                                   .start,
@@ -1061,9 +1162,9 @@ class _MandatoryProfileSetupScreen2State
                                   Icons
                                       .phone_rounded,
                               keyboardType:
-                                  TextInputType
-                                      .phone,
-                              maxLength: 10,
+                                  TextInputType.phone,
+                              maxLength:
+                                  10,
                             ),
                           ],
                         ),
@@ -1074,7 +1175,7 @@ class _MandatoryProfileSetupScreen2State
                       ),
 
                       // ==================================================
-                      // VERIFICATION INFORMATION
+                      // INFO
                       // ==================================================
 
                       Container(
@@ -1090,12 +1191,12 @@ class _MandatoryProfileSetupScreen2State
                             0xFFF0F6FF,
                           ),
                           borderRadius:
-                              BorderRadius
-                                  .circular(
+                              BorderRadius.circular(
                             17,
                           ),
                         ),
-                        child: const Row(
+                        child:
+                            const Row(
                           crossAxisAlignment:
                               CrossAxisAlignment
                                   .start,
@@ -1103,14 +1204,16 @@ class _MandatoryProfileSetupScreen2State
                             Icon(
                               Icons
                                   .info_outline_rounded,
-                              color: blue,
+                              color:
+                                  blue,
                               size: 21,
                             ),
                             SizedBox(
                               width: 9,
                             ),
                             Expanded(
-                              child: Text(
+                              child:
+                                  Text(
                                 'After submitting, your profile will be sent to DOJO Platform for verification. Your Walker account will remain locked until an admin approves your verification.',
                                 style:
                                     TextStyle(
@@ -1158,7 +1261,8 @@ class _MandatoryProfileSetupScreen2State
                             ),
                             foregroundColor:
                                 Colors.white,
-                            elevation: 0,
+                            elevation:
+                                0,
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
@@ -1168,67 +1272,65 @@ class _MandatoryProfileSetupScreen2State
                               ),
                             ),
                           ),
-                          child: _saving
-                              ? const Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment
-                                          .center,
-                                  children: [
-                                    SizedBox(
-                                      width:
-                                          21,
-                                      height:
-                                          21,
-                                      child:
-                                          CircularProgressIndicator(
-                                        strokeWidth:
-                                            2.5,
-                                        color:
-                                            Colors
-                                                .white,
-                                      ),
+                          child:
+                              _saving
+                                  ? const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment
+                                              .center,
+                                      children: [
+                                        SizedBox(
+                                          width:
+                                              21,
+                                          height:
+                                              21,
+                                          child:
+                                              CircularProgressIndicator(
+                                            strokeWidth:
+                                                2.5,
+                                            color:
+                                                Colors.white,
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          width:
+                                              12,
+                                        ),
+                                        Text(
+                                          'SUBMITTING...',
+                                          style:
+                                              TextStyle(
+                                            fontWeight:
+                                                FontWeight.w900,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment
+                                              .center,
+                                      children: [
+                                        Icon(
+                                          Icons
+                                              .verified_rounded,
+                                        ),
+                                        SizedBox(
+                                          width:
+                                              9,
+                                        ),
+                                        Text(
+                                          'SUBMIT FOR VERIFICATION',
+                                          style:
+                                              TextStyle(
+                                            fontWeight:
+                                                FontWeight.w900,
+                                            letterSpacing:
+                                                .3,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    SizedBox(
-                                      width:
-                                          12,
-                                    ),
-                                    Text(
-                                      'SUBMITTING...',
-                                      style:
-                                          TextStyle(
-                                        fontWeight:
-                                            FontWeight
-                                                .w900,
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : const Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment
-                                          .center,
-                                  children: [
-                                    Icon(
-                                      Icons
-                                          .verified_rounded,
-                                    ),
-                                    SizedBox(
-                                      width:
-                                          9,
-                                    ),
-                                    Text(
-                                      'SUBMIT FOR VERIFICATION',
-                                      style:
-                                          TextStyle(
-                                        fontWeight:
-                                            FontWeight
-                                                .w900,
-                                        letterSpacing:
-                                            .3,
-                                      ),
-                                    ),
-                                  ],
-                                ),
                         ),
                       ),
 
@@ -1237,7 +1339,8 @@ class _MandatoryProfileSetupScreen2State
                       ),
 
                       const Center(
-                        child: Text(
+                        child:
+                            Text(
                           'You can continue after DOJO Platform approval.',
                           textAlign:
                               TextAlign.center,
