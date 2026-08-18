@@ -232,7 +232,7 @@ class WalkerIdService {
         // ======================================================
 
           transaction.set(
-           walkerProfilesRef
+           walkerRef,
            {
             'walkerId': walkerId,
             'authUid': cleanUid,
