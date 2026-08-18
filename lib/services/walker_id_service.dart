@@ -12,9 +12,6 @@ class WalkerIdService {
   static const String _phoneAccounts =
       'phoneAccounts';
 
-  static const String _walkerProfiles =
-      'walkerProfiles';
-
   static const String _walkers =
       'walkers';
 
