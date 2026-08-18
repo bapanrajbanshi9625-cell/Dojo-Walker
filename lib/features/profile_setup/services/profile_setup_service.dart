@@ -63,7 +63,7 @@ class ProfileSetupService {
   static const String _aadhaarBackField = 'Aadhaar Back';
 
   // ============================================================
-  // ADMIN VERIFICATION FIELDS
+  // VERIFICATION
   // ============================================================
 
   static const String _aadhaarVerifiedField =
@@ -127,8 +127,6 @@ class ProfileSetupService {
 
   // ============================================================
   // CHECK PROFILE COMPLETED
-  //
-  // ONLY ADMIN APPROVED PROFILE IS COMPLETE.
   // ============================================================
 
   static Future<bool> isWalkerProfileCompleted({
@@ -151,30 +149,10 @@ class ProfileSetupService {
     }
 
     final Map<String, dynamic> data =
-        document.data() ?? <String, dynamic>{};
+        document.data() ??
+            <String, dynamic>{};
 
-    final bool profileCompleted =
-        data[_profileCompletedField] == true;
-
-    final String verificationStatus =
-        _stringValue(
-      data[_verificationStatusField],
-    ).toLowerCase();
-
-    final bool aadhaarVerified =
-        data[_aadhaarVerifiedField] == true;
-
-    final bool nameMatched =
-        data[_nameMatchedField] == true;
-
-    final bool dobMatched =
-        data[_dobMatchedField] == true;
-
-    return profileCompleted &&
-        verificationStatus == 'approved' &&
-        aadhaarVerified &&
-        nameMatched &&
-        dobMatched;
+    return data[_profileCompletedField] == true;
   }
 
   // ============================================================
@@ -201,15 +179,14 @@ class ProfileSetupService {
     }
 
     final Map<String, dynamic> data =
-        document.data() ?? <String, dynamic>{};
+        document.data() ??
+            <String, dynamic>{};
 
-    return _stringValue(
+    final String status = _stringValue(
       data[_verificationStatusField],
-    ).toLowerCase().isEmpty
-        ? 'pending'
-        : _stringValue(
-            data[_verificationStatusField],
-          ).toLowerCase();
+    ).toLowerCase();
+
+    return status.isEmpty ? 'pending' : status;
   }
 
   // ============================================================
@@ -238,9 +215,7 @@ class ProfileSetupService {
   // STRING HELPER
   // ============================================================
 
-  static String _stringValue(
-    dynamic value,
-  ) {
+  static String _stringValue(dynamic value) {
     return value?.toString().trim() ?? '';
   }
 
@@ -320,15 +295,14 @@ class ProfileSetupService {
   // ============================================================
   // SAVE WALKER PROFILE
   //
-  // IMPORTANT:
+  // If verification is successful:
   //
-  // Walker केवल profile submit करता है.
+  // aadhaarVerified = true
+  // nameMatched = true
+  // dobMatched = true
+  // verificationStatus = approved
+  // profileCompleted = true
   //
-  // Walker:
-  //   verificationStatus = pending
-  //   profileCompleted = false
-  //
-  // Admin बाद में verification करेगा.
   // ============================================================
 
   static Future<void> saveWalkerProfile({
@@ -351,6 +325,15 @@ class ProfileSetupService {
 
     File? aadhaarBackFile,
     String? aadhaarBackUrl,
+
+    // ==========================================================
+    // VERIFICATION PARAMETERS
+    // ==========================================================
+
+    bool aadhaarVerified = false,
+    bool nameMatched = false,
+    bool dobMatched = false,
+    String aadhaarVerifiedName = '',
   }) async {
     // ==========================================================
     // CLEAN DATA
@@ -382,6 +365,9 @@ class ProfileSetupService {
 
     final String cleanPinCode =
         pinCode.trim();
+
+    final String cleanVerifiedName =
+        aadhaarVerifiedName.trim();
 
     // ==========================================================
     // BASIC VALIDATION
@@ -442,6 +428,26 @@ class ProfileSetupService {
         'Pincode must contain exactly 6 digits.',
       );
     }
+
+    // ==========================================================
+    // SECURITY:
+    // PROFILE CAN ONLY BE COMPLETED WHEN ALL MATCHES ARE TRUE
+    // ==========================================================
+
+    final bool profileCompleted =
+        aadhaarVerified &&
+        nameMatched &&
+        dobMatched;
+
+    final String verificationStatus =
+        profileCompleted
+            ? 'approved'
+            : 'pending';
+
+    final String verificationMessage =
+        profileCompleted
+            ? 'Aadhaar, Name and Date of Birth verified successfully.'
+            : 'Documents submitted. Waiting for verification.';
 
     // ==========================================================
     // UPLOAD SELFIE
@@ -593,7 +599,7 @@ class ProfileSetupService {
           walkerId,
 
       // --------------------------------------------------------
-      // ADDRESS COMPONENTS
+      // ADDRESS
       // --------------------------------------------------------
 
       _villageField:
@@ -609,7 +615,7 @@ class ProfileSetupService {
           cleanState,
 
       // --------------------------------------------------------
-      // AADHAAR DOCUMENTS
+      // AADHAAR
       // --------------------------------------------------------
 
       _aadhaarFrontField:
@@ -618,41 +624,48 @@ class ProfileSetupService {
       _aadhaarBackField:
           finalBackUrl,
 
-      // ========================================================
-      // ADMIN VERIFICATION
-      // ========================================================
+      // --------------------------------------------------------
+      // VERIFICATION
+      // --------------------------------------------------------
 
       _aadhaarVerifiedField:
-          false,
+          aadhaarVerified,
 
       _nameMatchedField:
-          false,
+          nameMatched,
 
       _dobMatchedField:
-          false,
+          dobMatched,
 
       _aadhaarVerifiedNameField:
-          '',
+          cleanVerifiedName,
 
       _verificationStatusField:
-          'pending',
+          verificationStatus,
 
       _verificationMessageField:
-          'Documents submitted. Waiting for admin verification.',
+          verificationMessage,
 
       _verifiedByField:
-          '',
+          profileCompleted
+              ? 'system'
+              : '',
 
-      // ========================================================
-      // PROFILE NOT COMPLETED YET
-      // ========================================================
+      _verifiedAtField:
+          profileCompleted
+              ? FieldValue.serverTimestamp()
+              : null,
+
+      // --------------------------------------------------------
+      // PROFILE COMPLETION
+      // --------------------------------------------------------
 
       _profileCompletedField:
-          false,
+          profileCompleted,
 
-      // ========================================================
-      // UPDATE TIME
-      // ========================================================
+      // --------------------------------------------------------
+      // UPDATED
+      // --------------------------------------------------------
 
       _updatedAtField:
           FieldValue.serverTimestamp(),
@@ -677,15 +690,35 @@ class ProfileSetupService {
     );
 
     // ==========================================================
+    // VERIFY SAVE
+    // ==========================================================
+
+    final DocumentSnapshot<Map<String, dynamic>>
+        saved = await profileRef.get();
+
+    final Map<String, dynamic> savedData =
+        saved.data() ??
+            <String, dynamic>{};
+
+    final bool savedCompleted =
+        savedData[_profileCompletedField] == true;
+
+    if (profileCompleted && !savedCompleted) {
+      throw Exception(
+        'Profile was saved but profileCompleted could not be confirmed.',
+      );
+    }
+
+    // ==========================================================
     // LOG
     // ==========================================================
 
     developer.log(
-      'Walker profile submitted successfully. '
+      'Walker profile saved successfully. '
       'uid=$cleanUid '
       'walkerId=$walkerId '
-      'verificationStatus=pending '
-      'profileCompleted=false',
+      'verificationStatus=$verificationStatus '
+      'profileCompleted=$profileCompleted',
       name: 'ProfileSetupService',
     );
   }
