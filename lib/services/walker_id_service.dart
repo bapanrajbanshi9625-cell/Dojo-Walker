@@ -189,11 +189,6 @@ class WalkerIdService {
             'WAL$year$monthCode$dayCode$serial';
 
         final DocumentReference<Map<String, dynamic>>
-            walkerProfileRef = _firestore
-                .collection(_walkerProfiles)
-                .doc(walkerId);
-
-        final DocumentReference<Map<String, dynamic>>
             walkerRef = _firestore
                 .collection(_walkers)
                 .doc(cleanUid);
