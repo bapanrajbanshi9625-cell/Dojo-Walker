@@ -3,21 +3,25 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class WalkerIdService {
   WalkerIdService._();
 
-  static final WalkerIdService instance = WalkerIdService._();
+  static final WalkerIdService instance =
+      WalkerIdService._();
 
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
-  static const String _phoneAccountsCollection =
+  static const String _phoneAccounts =
       'phoneAccounts';
 
-  static const String _walkerProfilesCollection =
+  static const String _walkerProfiles =
       'walkerProfiles';
 
-  static const String _countersCollection =
+  static const String _walkers =
+      'walkers';
+
+  static const String _counters =
       'counters';
 
-  static const String _walkerCounterDocument =
+  static const String _walkerCounter =
       'walker';
 
   // ============================================================
@@ -39,35 +43,45 @@ class WalkerIdService {
       throw Exception('Phone number is empty.');
     }
 
-    // ==========================================================
-    // PHONE ACCOUNT
-    // ==========================================================
-
     final DocumentReference<Map<String, dynamic>>
-        phoneAccountRef = _firestore
-            .collection(_phoneAccountsCollection)
+        accountRef = _firestore
+            .collection(_phoneAccounts)
             .doc(cleanUid);
 
+    // ==========================================================
+    // EXISTING UID ACCOUNT
+    // ==========================================================
+
     final DocumentSnapshot<Map<String, dynamic>>
-        phoneAccount = await phoneAccountRef.get();
+        accountSnapshot = await accountRef.get();
 
-    // ==========================================================
-    // EXISTING WALKER ID
-    // ==========================================================
-
-    if (phoneAccount.exists) {
+    if (accountSnapshot.exists) {
       final Map<String, dynamic>? data =
-          phoneAccount.data();
+          accountSnapshot.data();
 
-      final String existingWalkerId =
-          data?['walkerId']?.toString().trim() ?? '';
+      final String? role =
+          data?['role']?.toString().trim();
 
-      final String existingRole =
-          data?['role']?.toString().trim() ?? '';
+      final String? existingWalkerId =
+          data?['walkerId']?.toString().trim();
 
-      if (existingWalkerId.isNotEmpty &&
-          existingRole == 'walker') {
+      if (role == 'walker' &&
+          existingWalkerId != null &&
+          existingWalkerId.isNotEmpty) {
         return existingWalkerId;
+      }
+
+      // --------------------------------------------------------
+      // IMPORTANT:
+      // Same UID cannot change owner -> walker.
+      // --------------------------------------------------------
+
+      if (role != null &&
+          role.isNotEmpty &&
+          role != 'walker') {
+        throw Exception(
+          'This Firebase account is already registered as $role.',
+        );
       }
     }
 
@@ -79,8 +93,8 @@ class WalkerIdService {
       (transaction) async {
         final DocumentReference<Map<String, dynamic>>
             counterRef = _firestore
-                .collection(_countersCollection)
-                .doc(_walkerCounterDocument);
+                .collection(_counters)
+                .doc(_walkerCounter);
 
         final DocumentSnapshot<Map<String, dynamic>>
             counterSnapshot =
@@ -92,14 +106,13 @@ class WalkerIdService {
           final dynamic value =
               counterSnapshot.data()?['lastSerial'];
 
-          if (value is int) {
-            lastSerial = value;
-          } else if (value is num) {
+          if (value is num) {
             lastSerial = value.toInt();
           }
         }
 
-        final int nextSerial = lastSerial + 1;
+        final int nextSerial =
+            lastSerial + 1;
 
         if (nextSerial > 9999) {
           throw Exception(
@@ -111,7 +124,8 @@ class WalkerIdService {
         // DATE
         // ======================================================
 
-        final DateTime now = DateTime.now();
+        final DateTime now =
+            DateTime.now();
 
         final String year =
             (now.year % 100)
@@ -167,26 +181,24 @@ class WalkerIdService {
                 .padLeft(4, '0');
 
         // ======================================================
-        // FINAL WALKER ID
+        // WALKER ID
         //
         // Example:
         //
-        // WKR26G M0001
-        //
-        // Actual:
-        // WKR26GM0001
+        // WAL26GM0001
         // ======================================================
 
         final String walkerId =
-            'WKR$year$monthCode$dayCode$serial';
-
-        // ======================================================
-        // WALKER PROFILE
-        // ======================================================
+            'WAL$year$monthCode$dayCode$serial';
 
         final DocumentReference<Map<String, dynamic>>
             walkerProfileRef = _firestore
-                .collection(_walkerProfilesCollection)
+                .collection(_walkerProfiles)
+                .doc(walkerId);
+
+        final DocumentReference<Map<String, dynamic>>
+            walkerRef = _firestore
+                .collection(_walkers)
                 .doc(cleanUid);
 
         // ======================================================
@@ -215,6 +227,28 @@ class WalkerIdService {
             'phoneNumber': cleanPhone,
             'role': 'walker',
             'profileCompleted': false,
+            'createdAt':
+                FieldValue.serverTimestamp(),
+            'updatedAt':
+                FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+
+        // ======================================================
+        // WALKERS/{UID}
+        // ======================================================
+
+        transaction.set(
+          walkerRef,
+          {
+            'walkerId': walkerId,
+            'authUid': cleanUid,
+            'phoneNumber': cleanPhone,
+            'role': 'walker',
+            'profileCompleted': false,
+            'createdAt':
+                FieldValue.serverTimestamp(),
             'updatedAt':
                 FieldValue.serverTimestamp(),
           },
@@ -226,10 +260,11 @@ class WalkerIdService {
         // ======================================================
 
         transaction.set(
-          phoneAccountRef,
+          accountRef,
           {
             'authUid': cleanUid,
             'phone': cleanPhone,
+            'phoneNumber': cleanPhone,
             'role': 'walker',
             'walkerId': walkerId,
             'active': true,
@@ -259,7 +294,7 @@ class WalkerIdService {
 
     final DocumentSnapshot<Map<String, dynamic>>
         snapshot = await _firestore
-            .collection(_phoneAccountsCollection)
+            .collection(_phoneAccounts)
             .doc(cleanUid)
             .get();
 
@@ -267,14 +302,12 @@ class WalkerIdService {
       return null;
     }
 
-    final Map<String, dynamic>? data =
-        snapshot.data();
+    final dynamic walkerId =
+        snapshot.data()?['walkerId'];
 
-    final String walkerId =
-        data?['walkerId']?.toString().trim() ?? '';
-
-    if (walkerId.isNotEmpty) {
-      return walkerId;
+    if (walkerId is String &&
+        walkerId.trim().isNotEmpty) {
+      return walkerId.trim();
     }
 
     return null;
