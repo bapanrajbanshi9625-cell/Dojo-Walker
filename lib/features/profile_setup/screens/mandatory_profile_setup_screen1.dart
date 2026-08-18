@@ -1,24 +1,22 @@
-// lib/features/profile_setup/screens/mandatory_profile_setup_screen1.dart
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'mandatory_profile_setup_2.dart';
+import 'mandatory_profile_setup_screen2.dart';
 
-class MandatoryProfileSetup1 extends StatefulWidget {
-  const MandatoryProfileSetup1({
+class MandatoryProfileSetupScreen1 extends StatefulWidget {
+  const MandatoryProfileSetupScreen1({
     super.key,
   });
 
   @override
-  State<MandatoryProfileSetup1> createState() =>
-      _MandatoryProfileSetup1State();
+  State<MandatoryProfileSetupScreen1> createState() =>
+      _MandatoryProfileSetupScreen1State();
 }
 
-class _MandatoryProfileSetup1State
-    extends State<MandatoryProfileSetup1> {
+class _MandatoryProfileSetupScreen1State
+    extends State<MandatoryProfileSetupScreen1> {
   // ============================================================
   // COLORS
   // ============================================================
@@ -30,7 +28,7 @@ class _MandatoryProfileSetup1State
   static const Color background = Color(0xFFF5F8FC);
   static const Color textDark = Color(0xFF263238);
   static const Color muted = Color(0xFF7A858F);
-  static const Color borderColor = Color(0xFFE3E8ED);
+  static const Color red = Color(0xFFD92D20);
 
   // ============================================================
   // CONTROLLERS
@@ -57,16 +55,12 @@ class _MandatoryProfileSetup1State
   final TextEditingController pinController =
       TextEditingController();
 
-  // ============================================================
-  // IMAGE PICKER
-  // ============================================================
-
   final ImagePicker picker = ImagePicker();
+
+  DateTime? dateOfBirth;
 
   File? selfieFile;
   String? selfieUrl;
-
-  DateTime? dateOfBirth;
 
   // ============================================================
   // DISPOSE
@@ -81,7 +75,6 @@ class _MandatoryProfileSetup1State
     districtController.dispose();
     stateController.dispose();
     pinController.dispose();
-
     super.dispose();
   }
 
@@ -92,25 +85,19 @@ class _MandatoryProfileSetup1State
   Future<void> selectDate() async {
     final now = DateTime.now();
 
-    final eighteenYearsAgo = DateTime(
-      now.year - 18,
-      now.month,
-      now.day,
-    );
-
     final selected = await showDatePicker(
       context: context,
-      initialDate: eighteenYearsAgo,
+      initialDate: DateTime(
+        now.year - 18,
+        now.month,
+        now.day,
+      ),
       firstDate: DateTime(1900),
-      lastDate: eighteenYearsAgo,
+      lastDate: now,
       helpText: 'Select Date of Birth',
-      cancelText: 'CANCEL',
-      confirmText: 'SELECT',
     );
 
-    if (selected == null || !mounted) {
-      return;
-    }
+    if (selected == null || !mounted) return;
 
     setState(() {
       dateOfBirth = selected;
@@ -142,7 +129,6 @@ class _MandatoryProfileSetup1State
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Handle
                 Container(
                   width: 45,
                   height: 4,
@@ -276,7 +262,7 @@ class _MandatoryProfileSetup1State
   }
 
   // ============================================================
-  // CAMERA SELFIE
+  // CAMERA
   // ============================================================
 
   Future<void> pickSelfie() async {
@@ -286,18 +272,15 @@ class _MandatoryProfileSetup1State
         imageQuality: 85,
         maxWidth: 1600,
         maxHeight: 1600,
-        preferredCameraDevice: CameraDevice.front,
       );
 
-      if (image == null || !mounted) {
-        return;
-      }
+      if (image == null || !mounted) return;
 
       setState(() {
         selfieFile = File(image.path);
         selfieUrl = null;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
 
       showMessage(
@@ -330,7 +313,6 @@ class _MandatoryProfileSetup1State
           content: TextField(
             controller: controller,
             keyboardType: TextInputType.url,
-            textInputAction: TextInputAction.done,
             decoration: InputDecoration(
               hintText: 'https://...',
               prefixIcon: const Icon(
@@ -358,16 +340,11 @@ class _MandatoryProfileSetup1State
               ),
               onPressed: () {
                 final value = controller.text.trim();
-
                 final uri = Uri.tryParse(value);
 
                 if (uri == null ||
                     !(uri.scheme == 'http' ||
-                        uri.scheme == 'https') ||
-                    uri.host.isEmpty) {
-                  ScaffoldMessenger.of(dialogContext)
-                      .hideCurrentSnackBar();
-
+                        uri.scheme == 'https')) {
                   ScaffoldMessenger.of(dialogContext)
                       .showSnackBar(
                     const SnackBar(
@@ -376,7 +353,6 @@ class _MandatoryProfileSetup1State
                       ),
                     ),
                   );
-
                   return;
                 }
 
@@ -394,9 +370,7 @@ class _MandatoryProfileSetup1State
 
     controller.dispose();
 
-    if (result == null || !mounted) {
-      return;
-    }
+    if (result == null || !mounted) return;
 
     setState(() {
       selfieUrl = result;
@@ -409,10 +383,6 @@ class _MandatoryProfileSetup1State
   // ============================================================
 
   bool validate() {
-    // ----------------------------------------------------------
-    // SELFIE
-    // ----------------------------------------------------------
-
     if (selfieFile == null &&
         (selfieUrl == null ||
             selfieUrl!.trim().isEmpty)) {
@@ -423,31 +393,13 @@ class _MandatoryProfileSetup1State
       return false;
     }
 
-    // ----------------------------------------------------------
-    // NAME
-    // ----------------------------------------------------------
-
-    final name = nameController.text.trim();
-
-    if (name.isEmpty) {
+    if (nameController.text.trim().isEmpty) {
       showMessage(
         'Please enter your full name.',
         false,
       );
       return false;
     }
-
-    if (name.length < 3) {
-      showMessage(
-        'Please enter your complete name.',
-        false,
-      );
-      return false;
-    }
-
-    // ----------------------------------------------------------
-    // DOB
-    // ----------------------------------------------------------
 
     if (dateOfBirth == null) {
       showMessage(
@@ -457,14 +409,9 @@ class _MandatoryProfileSetup1State
       return false;
     }
 
-    // ----------------------------------------------------------
-    // AADHAAR
-    // ----------------------------------------------------------
-
-    final aadhaar =
-        aadhaarController.text.trim();
-
-    if (!RegExp(r'^\d{12}$').hasMatch(aadhaar)) {
+    if (!RegExp(r'^\d{12}$').hasMatch(
+      aadhaarController.text.trim(),
+    )) {
       showMessage(
         'Enter a valid 12-digit Aadhaar number.',
         false,
@@ -472,62 +419,20 @@ class _MandatoryProfileSetup1State
       return false;
     }
 
-    // ----------------------------------------------------------
-    // ADDRESS
-    // ----------------------------------------------------------
-
-    final village =
-        villageController.text.trim();
-
-    final city =
-        cityController.text.trim();
-
-    final district =
-        districtController.text.trim();
-
-    final state =
-        stateController.text.trim();
-
-    if (village.isEmpty) {
+    if (villageController.text.trim().isEmpty ||
+        cityController.text.trim().isEmpty ||
+        districtController.text.trim().isEmpty ||
+        stateController.text.trim().isEmpty) {
       showMessage(
-        'Please enter your village / locality.',
+        'Please complete your address details.',
         false,
       );
       return false;
     }
 
-    if (city.isEmpty) {
-      showMessage(
-        'Please enter your city / town.',
-        false,
-      );
-      return false;
-    }
-
-    if (district.isEmpty) {
-      showMessage(
-        'Please enter your district.',
-        false,
-      );
-      return false;
-    }
-
-    if (state.isEmpty) {
-      showMessage(
-        'Please enter your state.',
-        false,
-      );
-      return false;
-    }
-
-    // ----------------------------------------------------------
-    // PIN
-    // ----------------------------------------------------------
-
-    final pin =
-        pinController.text.trim();
-
-    if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
+    if (!RegExp(r'^\d{6}$').hasMatch(
+      pinController.text.trim(),
+    )) {
       showMessage(
         'Enter a valid 6-digit PIN code.',
         false,
@@ -545,13 +450,11 @@ class _MandatoryProfileSetup1State
   void next() {
     FocusScope.of(context).unfocus();
 
-    if (!validate()) {
-      return;
-    }
+    if (!validate()) return;
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => MandatoryProfileSetup2(
+        builder: (_) => MandatoryProfileSetupScreen2(
           name: nameController.text.trim(),
           aadhaar: aadhaarController.text.trim(),
           village: villageController.text.trim(),
@@ -575,16 +478,13 @@ class _MandatoryProfileSetup1State
     String message,
     bool success,
   ) {
-    if (!mounted) return;
-
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: success
-              ? green
-              : const Color(0xFFD92D20),
+          backgroundColor:
+              success ? green : red,
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
           shape: RoundedRectangleBorder(
@@ -595,7 +495,7 @@ class _MandatoryProfileSetup1State
   }
 
   // ============================================================
-  // TEXT FIELD
+  // FIELD
   // ============================================================
 
   Widget field({
@@ -604,15 +504,12 @@ class _MandatoryProfileSetup1State
     required IconData icon,
     TextInputType? keyboardType,
     int? maxLength,
-    TextCapitalization textCapitalization =
-        TextCapitalization.sentences,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
-        textCapitalization: textCapitalization,
         maxLength: maxLength,
         decoration: InputDecoration(
           labelText: label,
@@ -630,7 +527,7 @@ class _MandatoryProfileSetup1State
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(
-              color: borderColor,
+              color: Color(0xFFE3E8ED),
             ),
           ),
           focusedBorder: OutlineInputBorder(
@@ -642,67 +539,6 @@ class _MandatoryProfileSetup1State
           ),
         ),
       ),
-    );
-  }
-
-  // ============================================================
-  // SELFIE PREVIEW
-  // ============================================================
-
-  Widget _selfiePreview() {
-    if (selfieFile != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(17),
-        child: Image.file(
-          selfieFile!,
-          width: 60,
-          height: 60,
-          fit: BoxFit.cover,
-        ),
-      );
-    }
-
-    if (selfieUrl != null &&
-        selfieUrl!.trim().isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(17),
-        child: Image.network(
-          selfieUrl!,
-          width: 60,
-          height: 60,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) {
-            return const Icon(
-              Icons.link_rounded,
-              color: blue,
-              size: 28,
-            );
-          },
-          loadingBuilder:
-              (context, child, loadingProgress) {
-            if (loadingProgress == null) {
-              return child;
-            }
-
-            return const Center(
-              child: SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: blue,
-                ),
-              ),
-            );
-          },
-        ),
-      );
-    }
-
-    return const Icon(
-      Icons.add_a_photo_rounded,
-      color: orange,
-      size: 28,
     );
   }
 
@@ -750,12 +586,9 @@ class _MandatoryProfileSetup1State
                     child: const Icon(
                       Icons.pets_rounded,
                       color: Colors.white,
-                      size: 25,
                     ),
                   ),
-
                   const SizedBox(width: 12),
-
                   const Expanded(
                     child: Column(
                       crossAxisAlignment:
@@ -781,23 +614,22 @@ class _MandatoryProfileSetup1State
                       ],
                     ),
                   ),
-
-                  // STEP INDICATOR
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 11,
+                    padding:
+                        const EdgeInsets.symmetric(
+                      horizontal: 10,
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEAF8EF),
+                      color: green.withOpacity(.10),
                       borderRadius:
-                          BorderRadius.circular(20),
+                          BorderRadius.circular(12),
                     ),
                     child: const Text(
-                      '1 / 2',
+                      'STEP 1',
                       style: TextStyle(
                         color: green,
-                        fontSize: 12,
+                        fontSize: 10,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -812,22 +644,16 @@ class _MandatoryProfileSetup1State
 
             Expanded(
               child: SingleChildScrollView(
-                physics:
-                    const BouncingScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(
                   18,
                   18,
                   18,
-                  30,
+                  25,
                 ),
                 child: Column(
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
-                    // ------------------------------------------------
-                    // TITLE
-                    // ------------------------------------------------
-
                     const Text(
                       'Tell us about yourself',
                       style: TextStyle(
@@ -849,9 +675,9 @@ class _MandatoryProfileSetup1State
 
                     const SizedBox(height: 20),
 
-                    // ------------------------------------------------
+                    // ==================================================
                     // SELFIE
-                    // ------------------------------------------------
+                    // ==================================================
 
                     InkWell(
                       onTap: showSelfieOptions,
@@ -866,12 +692,12 @@ class _MandatoryProfileSetup1State
                           borderRadius:
                               BorderRadius.circular(20),
                           border: Border.all(
-                            color:
-                                selfieFile != null ||
-                                        selfieUrl != null
-                                    ? green.withOpacity(.45)
-                                    : borderColor,
-                            width: 1.2,
+                            color: selfieFile != null ||
+                                    selfieUrl != null
+                                ? green.withOpacity(.45)
+                                : const Color(
+                                    0xFFE3E8ED,
+                                  ),
                           ),
                         ),
                         child: Row(
@@ -883,19 +709,62 @@ class _MandatoryProfileSetup1State
                                 color:
                                     orange.withOpacity(.10),
                                 borderRadius:
-                                    BorderRadius.circular(17),
+                                    BorderRadius.circular(
+                                  17,
+                                ),
                               ),
-                              child: _selfiePreview(),
+                              child: selfieFile != null
+                                  ? ClipRRect(
+                                      borderRadius:
+                                          BorderRadius
+                                              .circular(17),
+                                      child: Image.file(
+                                        selfieFile!,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : selfieUrl != null
+                                      ? ClipRRect(
+                                          borderRadius:
+                                              BorderRadius
+                                                  .circular(
+                                            17,
+                                          ),
+                                          child:
+                                              Image.network(
+                                            selfieUrl!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (
+                                              context,
+                                              error,
+                                              stackTrace,
+                                            ) {
+                                              return const Icon(
+                                                Icons
+                                                    .add_a_photo_rounded,
+                                                color:
+                                                    orange,
+                                                size: 28,
+                                              );
+                                            },
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons
+                                              .add_a_photo_rounded,
+                                          color: orange,
+                                          size: 28,
+                                        ),
                             ),
-
                             const SizedBox(width: 13),
-
-                            Expanded(
+                            const Expanded(
                               child: Column(
                                 crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                    CrossAxisAlignment
+                                        .start,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'Walker Selfie',
                                     style: TextStyle(
                                       fontSize: 15,
@@ -904,31 +773,17 @@ class _MandatoryProfileSetup1State
                                       color: textDark,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
+                                  SizedBox(height: 4),
                                   Text(
-                                    selfieFile != null
-                                        ? 'Selfie selected'
-                                        : selfieUrl != null
-                                            ? 'Selfie URL added'
-                                            : 'Camera or image URL',
+                                    'Camera or image URL',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color:
-                                          selfieFile != null ||
-                                                  selfieUrl != null
-                                              ? green
-                                              : muted,
-                                      fontWeight:
-                                          selfieFile != null ||
-                                                  selfieUrl != null
-                                              ? FontWeight.w700
-                                              : FontWeight.w400,
+                                      color: muted,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-
                             const Icon(
                               Icons.chevron_right_rounded,
                               color: muted,
@@ -940,19 +795,15 @@ class _MandatoryProfileSetup1State
 
                     const SizedBox(height: 18),
 
-                    // ------------------------------------------------
-                    // NAME
-                    // ------------------------------------------------
-
                     field(
                       controller: nameController,
                       label: 'Full Name',
                       icon: Icons.person_rounded,
                     ),
 
-                    // ------------------------------------------------
+                    // ==================================================
                     // DOB
-                    // ------------------------------------------------
+                    // ==================================================
 
                     InkWell(
                       onTap: selectDate,
@@ -974,7 +825,8 @@ class _MandatoryProfileSetup1State
                           borderRadius:
                               BorderRadius.circular(16),
                           border: Border.all(
-                            color: borderColor,
+                            color:
+                                const Color(0xFFE3E8ED),
                           ),
                         ),
                         child: Row(
@@ -984,9 +836,7 @@ class _MandatoryProfileSetup1State
                                   .calendar_month_rounded,
                               color: blue,
                             ),
-
                             const SizedBox(width: 12),
-
                             Expanded(
                               child: Text(
                                 dateOfBirth == null
@@ -1001,12 +851,13 @@ class _MandatoryProfileSetup1State
                                           : textDark,
                                   fontWeight:
                                       dateOfBirth == null
-                                          ? FontWeight.w400
-                                          : FontWeight.w700,
+                                          ? FontWeight
+                                              .w400
+                                          : FontWeight
+                                              .w700,
                                 ),
                               ),
                             ),
-
                             const Icon(
                               Icons
                                   .keyboard_arrow_down_rounded,
@@ -1017,10 +868,6 @@ class _MandatoryProfileSetup1State
                       ),
                     ),
 
-                    // ------------------------------------------------
-                    // AADHAAR
-                    // ------------------------------------------------
-
                     field(
                       controller: aadhaarController,
                       label: 'Aadhaar Number',
@@ -1028,15 +875,9 @@ class _MandatoryProfileSetup1State
                       keyboardType:
                           TextInputType.number,
                       maxLength: 12,
-                      textCapitalization:
-                          TextCapitalization.none,
                     ),
 
                     const SizedBox(height: 4),
-
-                    // ------------------------------------------------
-                    // ADDRESS TITLE
-                    // ------------------------------------------------
 
                     const Text(
                       'Address',
@@ -1047,21 +888,7 @@ class _MandatoryProfileSetup1State
                       ),
                     ),
 
-                    const SizedBox(height: 4),
-
-                    const Text(
-                      'Enter your current residential address.',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: muted,
-                      ),
-                    ),
-
                     const SizedBox(height: 12),
-
-                    // ------------------------------------------------
-                    // VILLAGE
-                    // ------------------------------------------------
 
                     field(
                       controller: villageController,
@@ -1069,19 +896,11 @@ class _MandatoryProfileSetup1State
                       icon: Icons.location_on_rounded,
                     ),
 
-                    // ------------------------------------------------
-                    // CITY
-                    // ------------------------------------------------
-
                     field(
                       controller: cityController,
                       label: 'City / Town',
                       icon: Icons.location_city_rounded,
                     ),
-
-                    // ------------------------------------------------
-                    // DISTRICT
-                    // ------------------------------------------------
 
                     field(
                       controller: districtController,
@@ -1089,19 +908,11 @@ class _MandatoryProfileSetup1State
                       icon: Icons.map_rounded,
                     ),
 
-                    // ------------------------------------------------
-                    // STATE
-                    // ------------------------------------------------
-
                     field(
                       controller: stateController,
                       label: 'State',
                       icon: Icons.public_rounded,
                     ),
-
-                    // ------------------------------------------------
-                    // PIN
-                    // ------------------------------------------------
 
                     field(
                       controller: pinController,
@@ -1110,15 +921,9 @@ class _MandatoryProfileSetup1State
                       keyboardType:
                           TextInputType.number,
                       maxLength: 6,
-                      textCapitalization:
-                          TextCapitalization.none,
                     ),
 
                     const SizedBox(height: 5),
-
-                    // ------------------------------------------------
-                    // NEXT
-                    // ------------------------------------------------
 
                     Align(
                       alignment:
@@ -1137,12 +942,15 @@ class _MandatoryProfileSetup1State
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
-                                  BorderRadius.circular(17),
+                                  BorderRadius.circular(
+                                17,
+                              ),
                             ),
                           ),
                           child: const Row(
                             mainAxisAlignment:
-                                MainAxisAlignment.center,
+                                MainAxisAlignment
+                                    .center,
                             children: [
                               Text(
                                 'NEXT',
@@ -1162,36 +970,6 @@ class _MandatoryProfileSetup1State
                           ),
                         ),
                       ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // ------------------------------------------------
-                    // SECURITY NOTE
-                    // ------------------------------------------------
-
-                    const Row(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.lock_outline_rounded,
-                          size: 16,
-                          color: muted,
-                        ),
-                        SizedBox(width: 7),
-                        Expanded(
-                          child: Text(
-                            'Your information will be securely submitted '
-                            'for DOJO Platform verification.',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              height: 1.4,
-                              color: muted,
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
