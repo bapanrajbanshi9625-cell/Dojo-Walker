@@ -1,3 +1,7 @@
+// File:
+// lib/features/profile_setup/services/profile_setup_service.dart
+
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,11 +10,19 @@ import 'package:firebase_storage/firebase_storage.dart';
 class ProfileSetupService {
   ProfileSetupService._();
 
+  // ============================================================
+  // FIREBASE
+  // ============================================================
+
   static final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
   static final FirebaseStorage _storage =
       FirebaseStorage.instance;
+
+  // ============================================================
+  // COLLECTION
+  // ============================================================
 
   static const String _collection = 'walkerProfiles';
 
@@ -27,16 +39,32 @@ class ProfileSetupService {
   static const String _profileSelfieField = 'Profile Selfie';
   static const String _walkerUidField = 'Walker Uid';
 
+  // ============================================================
+  // ADDRESS
+  // ============================================================
+
   static const String _villageField = 'Village';
   static const String _cityField = 'City';
   static const String _districtField = 'District';
   static const String _stateField = 'State';
 
+  // ============================================================
+  // AUTH / ROLE
+  // ============================================================
+
   static const String _authUidField = 'authUid';
   static const String _roleField = 'role';
 
+  // ============================================================
+  // AADHAAR DOCUMENTS
+  // ============================================================
+
   static const String _aadhaarFrontField = 'Aadhaar Front';
   static const String _aadhaarBackField = 'Aadhaar Back';
+
+  // ============================================================
+  // ADMIN VERIFICATION FIELDS
+  // ============================================================
 
   static const String _aadhaarVerifiedField =
       'aadhaarVerified';
@@ -50,20 +78,33 @@ class ProfileSetupService {
   static const String _aadhaarVerifiedNameField =
       'aadhaarVerifiedName';
 
-  static const String _profileCompletedField =
-      'profileCompleted';
-
   static const String _verificationStatusField =
       'verificationStatus';
 
   static const String _verificationMessageField =
       'verificationMessage';
 
-  static const String _createdAtField = 'createdAt';
-  static const String _updatedAtField = 'updatedAt';
+  static const String _verifiedByField =
+      'verifiedBy';
+
+  static const String _verifiedAtField =
+      'verifiedAt';
 
   // ============================================================
-  // GET PROFILE
+  // PROFILE STATUS
+  // ============================================================
+
+  static const String _profileCompletedField =
+      'profileCompleted';
+
+  static const String _createdAtField =
+      'createdAt';
+
+  static const String _updatedAtField =
+      'updatedAt';
+
+  // ============================================================
+  // GET WALKER PROFILE
   // ============================================================
 
   static Future<DocumentSnapshot<Map<String, dynamic>>>
@@ -73,7 +114,9 @@ class ProfileSetupService {
     final String cleanUid = authUid.trim();
 
     if (cleanUid.isEmpty) {
-      throw Exception('Authentication UID is missing.');
+      throw Exception(
+        'Authentication UID is missing.',
+      );
     }
 
     return _firestore
@@ -83,9 +126,9 @@ class ProfileSetupService {
   }
 
   // ============================================================
-  // PROFILE COMPLETED
+  // CHECK PROFILE COMPLETED
   //
-  // ONLY ADMIN APPROVED PROFILE CAN RETURN TRUE.
+  // ONLY ADMIN APPROVED PROFILE IS COMPLETE.
   // ============================================================
 
   static Future<bool> isWalkerProfileCompleted({
@@ -97,8 +140,8 @@ class ProfileSetupService {
       return false;
     }
 
-    final DocumentSnapshot<Map<String, dynamic>> document =
-        await _firestore
+    final DocumentSnapshot<Map<String, dynamic>>
+        document = await _firestore
             .collection(_collection)
             .doc(cleanUid)
             .get();
@@ -114,14 +157,24 @@ class ProfileSetupService {
         data[_profileCompletedField] == true;
 
     final String verificationStatus =
-        data[_verificationStatusField]
-                ?.toString()
-                .trim()
-                .toLowerCase() ??
-            '';
+        _stringValue(
+      data[_verificationStatusField],
+    ).toLowerCase();
+
+    final bool aadhaarVerified =
+        data[_aadhaarVerifiedField] == true;
+
+    final bool nameMatched =
+        data[_nameMatchedField] == true;
+
+    final bool dobMatched =
+        data[_dobMatchedField] == true;
 
     return profileCompleted &&
-        verificationStatus == 'approved';
+        verificationStatus == 'approved' &&
+        aadhaarVerified &&
+        nameMatched &&
+        dobMatched;
   }
 
   // ============================================================
@@ -137,8 +190,8 @@ class ProfileSetupService {
       return 'not_found';
     }
 
-    final DocumentSnapshot<Map<String, dynamic>> document =
-        await _firestore
+    final DocumentSnapshot<Map<String, dynamic>>
+        document = await _firestore
             .collection(_collection)
             .doc(cleanUid)
             .get();
@@ -150,22 +203,28 @@ class ProfileSetupService {
     final Map<String, dynamic> data =
         document.data() ?? <String, dynamic>{};
 
-    return data[_verificationStatusField]
-            ?.toString()
-            .trim()
-            .toLowerCase() ??
-        'pending';
+    return _stringValue(
+      data[_verificationStatusField],
+    ).toLowerCase().isEmpty
+        ? 'pending'
+        : _stringValue(
+            data[_verificationStatusField],
+          ).toLowerCase();
   }
 
   // ============================================================
   // CREATE WALKER ID
   // ============================================================
 
-  static String createWalkerId(String authUid) {
+  static String createWalkerId(
+    String authUid,
+  ) {
     final String cleanUid = authUid.trim();
 
     if (cleanUid.isEmpty) {
-      throw Exception('Authentication UID is missing.');
+      throw Exception(
+        'Authentication UID is missing.',
+      );
     }
 
     if (cleanUid.length >= 8) {
@@ -173,6 +232,16 @@ class ProfileSetupService {
     }
 
     return 'WKR-${cleanUid.toUpperCase()}';
+  }
+
+  // ============================================================
+  // STRING HELPER
+  // ============================================================
+
+  static String _stringValue(
+    dynamic value,
+  ) {
+    return value?.toString().trim() ?? '';
   }
 
   // ============================================================
@@ -188,11 +257,15 @@ class ProfileSetupService {
     final String cleanUid = authUid.trim();
 
     if (cleanUid.isEmpty) {
-      throw Exception('Authentication UID is missing.');
+      throw Exception(
+        'Authentication UID is missing.',
+      );
     }
 
     if (!await file.exists()) {
-      throw Exception('Selected image file does not exist.');
+      throw Exception(
+        'Selected image file does not exist.',
+      );
     }
 
     final Reference reference = _storage
@@ -223,7 +296,8 @@ class ProfileSetupService {
     File? file,
     String? url,
   }) async {
-    final String cleanUrl = url?.trim() ?? '';
+    final String cleanUrl =
+        url?.trim() ?? '';
 
     if (cleanUrl.isNotEmpty) {
       return cleanUrl;
@@ -238,18 +312,23 @@ class ProfileSetupService {
       );
     }
 
-    throw Exception('Required image is missing.');
+    throw Exception(
+      'Required image is missing.',
+    );
   }
 
   // ============================================================
   // SAVE WALKER PROFILE
   //
   // IMPORTANT:
-  // THIS DOES NOT APPROVE THE WALKER.
   //
-  // It creates:
-  // verificationStatus = pending
-  // profileCompleted = false
+  // Walker केवल profile submit करता है.
+  //
+  // Walker:
+  //   verificationStatus = pending
+  //   profileCompleted = false
+  //
+  // Admin बाद में verification करेगा.
   // ============================================================
 
   static Future<void> saveWalkerProfile({
@@ -272,66 +351,100 @@ class ProfileSetupService {
 
     File? aadhaarBackFile,
     String? aadhaarBackUrl,
-
-    required bool aadhaarVerified,
-    required bool nameMatched,
-    required bool dobMatched,
-    required String aadhaarVerifiedName,
   }) async {
-    final String cleanUid = authUid.trim();
-    final String cleanPhone = phoneNumber.trim();
-    final String cleanName = name.trim();
-    final String cleanAadhaar = aadhaar.trim();
-    final String cleanVillage = village.trim();
-    final String cleanCity = city.trim();
-    final String cleanDistrict = district.trim();
-    final String cleanState = state.trim();
-    final String cleanPinCode = pinCode.trim();
-    final String cleanVerifiedName =
-        aadhaarVerifiedName.trim();
+    // ==========================================================
+    // CLEAN DATA
+    // ==========================================================
+
+    final String cleanUid =
+        authUid.trim();
+
+    final String cleanPhone =
+        phoneNumber.trim();
+
+    final String cleanName =
+        name.trim();
+
+    final String cleanAadhaar =
+        aadhaar.trim();
+
+    final String cleanVillage =
+        village.trim();
+
+    final String cleanCity =
+        city.trim();
+
+    final String cleanDistrict =
+        district.trim();
+
+    final String cleanState =
+        state.trim();
+
+    final String cleanPinCode =
+        pinCode.trim();
+
+    // ==========================================================
+    // BASIC VALIDATION
+    // ==========================================================
 
     if (cleanUid.isEmpty) {
-      throw Exception('Authentication UID is missing.');
+      throw Exception(
+        'Authentication UID is missing.',
+      );
     }
 
     if (cleanPhone.isEmpty) {
-      throw Exception('Mobile number is required.');
+      throw Exception(
+        'Mobile number is required.',
+      );
     }
 
     if (cleanName.isEmpty) {
-      throw Exception('Full Name is required.');
+      throw Exception(
+        'Full Name is required.',
+      );
     }
 
-    if (!RegExp(r'^\d{12}$').hasMatch(cleanAadhaar)) {
+    if (!RegExp(r'^\d{12}$')
+        .hasMatch(cleanAadhaar)) {
       throw Exception(
         'Aadhaar Number must contain exactly 12 digits.',
       );
     }
 
     if (cleanVillage.isEmpty) {
-      throw Exception('Village / Locality is required.');
+      throw Exception(
+        'Village / Locality is required.',
+      );
     }
 
     if (cleanCity.isEmpty) {
-      throw Exception('City / Town is required.');
+      throw Exception(
+        'City / Town is required.',
+      );
     }
 
     if (cleanDistrict.isEmpty) {
-      throw Exception('District is required.');
+      throw Exception(
+        'District is required.',
+      );
     }
 
     if (cleanState.isEmpty) {
-      throw Exception('State is required.');
+      throw Exception(
+        'State is required.',
+      );
     }
 
-    if (!RegExp(r'^\d{6}$').hasMatch(cleanPinCode)) {
+    if (!RegExp(r'^\d{6}$')
+        .hasMatch(cleanPinCode)) {
       throw Exception(
         'Pincode must contain exactly 6 digits.',
       );
     }
 
     // ==========================================================
-    // IMAGE UPLOADS
+    // UPLOAD SELFIE
     // ==========================================================
 
     final String finalSelfieUrl =
@@ -343,6 +456,10 @@ class ProfileSetupService {
       url: selfieUrl,
     );
 
+    // ==========================================================
+    // UPLOAD AADHAAR FRONT
+    // ==========================================================
+
     final String finalFrontUrl =
         await _resolveImage(
       authUid: cleanUid,
@@ -351,6 +468,10 @@ class ProfileSetupService {
       file: aadhaarFrontFile,
       url: aadhaarFrontUrl,
     );
+
+    // ==========================================================
+    // UPLOAD AADHAAR BACK
+    // ==========================================================
 
     final String finalBackUrl =
         await _resolveImage(
@@ -365,25 +486,35 @@ class ProfileSetupService {
     // PROFILE REFERENCE
     // ==========================================================
 
-    final DocumentReference<Map<String, dynamic>> profileRef =
-        _firestore
+    final DocumentReference<Map<String, dynamic>>
+        profileRef = _firestore
             .collection(_collection)
             .doc(cleanUid);
 
-    final DocumentSnapshot<Map<String, dynamic>> existing =
-        await profileRef.get();
+    // ==========================================================
+    // EXISTING PROFILE
+    // ==========================================================
+
+    final DocumentSnapshot<Map<String, dynamic>>
+        existing = await profileRef.get();
 
     final Map<String, dynamic> existingData =
-        existing.data() ?? <String, dynamic>{};
+        existing.data() ??
+            <String, dynamic>{};
+
+    // ==========================================================
+    // WALKER ID
+    // ==========================================================
 
     String walkerId =
-        existingData[_walkerUidField]
-                ?.toString()
-                .trim() ??
-            '';
+        _stringValue(
+      existingData[_walkerUidField],
+    );
 
     if (walkerId.isEmpty) {
-      walkerId = createWalkerId(cleanUid);
+      walkerId = createWalkerId(
+        cleanUid,
+      );
     }
 
     // ==========================================================
@@ -391,13 +522,19 @@ class ProfileSetupService {
     // ==========================================================
 
     final String month =
-        dateOfBirth.month.toString().padLeft(2, '0');
+        dateOfBirth.month
+            .toString()
+            .padLeft(2, '0');
 
     final String day =
-        dateOfBirth.day.toString().padLeft(2, '0');
+        dateOfBirth.day
+            .toString()
+            .padLeft(2, '0');
 
     final String formattedDate =
-        '${dateOfBirth.year}-$month-$day';
+        '${dateOfBirth.year}-'
+        '$month-'
+        '$day';
 
     // ==========================================================
     // FULL ADDRESS
@@ -414,53 +551,116 @@ class ProfileSetupService {
     // FIRESTORE DATA
     // ==========================================================
 
-    final Map<String, dynamic> profileData =
+    final Map<String, dynamic>
+        profileData =
         <String, dynamic>{
-      _authUidField: cleanUid,
-      _roleField: 'walker',
+      // --------------------------------------------------------
+      // AUTH
+      // --------------------------------------------------------
 
-      _fullNameField: cleanName,
-      _mobileNumberField: cleanPhone,
-      _dateOfBirthField: formattedDate,
-      _addressField: fullAddress,
-      _pinCodeField: cleanPinCode,
-      _aadhaarNumberField: cleanAadhaar,
-      _profileSelfieField: finalSelfieUrl,
-      _walkerUidField: walkerId,
+      _authUidField:
+          cleanUid,
 
-      _villageField: cleanVillage,
-      _cityField: cleanCity,
-      _districtField: cleanDistrict,
-      _stateField: cleanState,
+      _roleField:
+          'walker',
 
-      _aadhaarFrontField: finalFrontUrl,
-      _aadhaarBackField: finalBackUrl,
+      // --------------------------------------------------------
+      // MAIN PROFILE
+      // --------------------------------------------------------
+
+      _fullNameField:
+          cleanName,
+
+      _mobileNumberField:
+          cleanPhone,
+
+      _dateOfBirthField:
+          formattedDate,
+
+      _addressField:
+          fullAddress,
+
+      _pinCodeField:
+          cleanPinCode,
+
+      _aadhaarNumberField:
+          cleanAadhaar,
+
+      _profileSelfieField:
+          finalSelfieUrl,
+
+      _walkerUidField:
+          walkerId,
+
+      // --------------------------------------------------------
+      // ADDRESS COMPONENTS
+      // --------------------------------------------------------
+
+      _villageField:
+          cleanVillage,
+
+      _cityField:
+          cleanCity,
+
+      _districtField:
+          cleanDistrict,
+
+      _stateField:
+          cleanState,
+
+      // --------------------------------------------------------
+      // AADHAAR DOCUMENTS
+      // --------------------------------------------------------
+
+      _aadhaarFrontField:
+          finalFrontUrl,
+
+      _aadhaarBackField:
+          finalBackUrl,
 
       // ========================================================
-      // MANUAL ADMIN VERIFICATION
+      // ADMIN VERIFICATION
       // ========================================================
 
-      _aadhaarVerifiedField: false,
-      _nameMatchedField: false,
-      _dobMatchedField: false,
+      _aadhaarVerifiedField:
+          false,
+
+      _nameMatchedField:
+          false,
+
+      _dobMatchedField:
+          false,
 
       _aadhaarVerifiedNameField:
-          cleanVerifiedName,
+          '',
 
-      _verificationStatusField: 'pending',
+      _verificationStatusField:
+          'pending',
 
       _verificationMessageField:
-          'Waiting for admin verification.',
+          'Documents submitted. Waiting for admin verification.',
+
+      _verifiedByField:
+          '',
 
       // ========================================================
-      // NOT COMPLETED UNTIL ADMIN APPROVES
+      // PROFILE NOT COMPLETED YET
       // ========================================================
 
-      _profileCompletedField: false,
+      _profileCompletedField:
+          false,
+
+      // ========================================================
+      // UPDATE TIME
+      // ========================================================
 
       _updatedAtField:
           FieldValue.serverTimestamp(),
     };
+
+    // ==========================================================
+    // CREATED AT
+    // ==========================================================
 
     if (!existing.exists) {
       profileData[_createdAtField] =
@@ -476,13 +676,17 @@ class ProfileSetupService {
       SetOptions(merge: true),
     );
 
-    print('========================================');
-    print('WALKER PROFILE SUBMITTED');
-    print('COLLECTION: $_collection');
-    print('DOCUMENT UID: $cleanUid');
-    print('Walker Uid: $walkerId');
-    print('verificationStatus: pending');
-    print('profileCompleted: false');
-    print('========================================');
+    // ==========================================================
+    // LOG
+    // ==========================================================
+
+    developer.log(
+      'Walker profile submitted successfully. '
+      'uid=$cleanUid '
+      'walkerId=$walkerId '
+      'verificationStatus=pending '
+      'profileCompleted=false',
+      name: 'ProfileSetupService',
+    );
   }
 }
