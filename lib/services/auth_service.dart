@@ -10,6 +10,10 @@ class AuthService {
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
+  // =====================================================
+  // WALKER SETTINGS
+  // =====================================================
+
   static const String _role = 'walker';
 
   // =====================================================
@@ -66,6 +70,9 @@ class AuthService {
     final DocumentReference<Map<String, dynamic>> counterRef =
         _firestore.collection('counters').doc('walker');
 
+    final DocumentReference<Map<String, dynamic>> profileRef =
+        _firestore.collection('walkerProfiles').doc(uid);
+
     final DateTime now = DateTime.now();
 
     final String year = now.year.toString();
@@ -77,7 +84,7 @@ class AuthService {
           await _firestore.runTransaction<String>(
         (transaction) async {
           // =================================================
-          // READ EXISTING PHONE ACCOUNT
+          // READ PHONE ACCOUNT
           // =================================================
 
           final DocumentSnapshot<Map<String, dynamic>>
@@ -88,6 +95,24 @@ class AuthService {
               accountSnapshot.data() ?? {};
 
           // =================================================
+          // CHECK EXISTING ROLE
+          // =================================================
+
+          final dynamic existingRole =
+              accountData['role'];
+
+          if (existingRole != null &&
+              existingRole != _role) {
+            throw FirebaseException(
+              plugin: 'cloud_firestore',
+              code: 'account-role-conflict',
+              message:
+                  'This Firebase account is already registered as '
+                  '$existingRole, not walker.',
+            );
+          }
+
+          // =================================================
           // EXISTING WALKER ID
           // =================================================
 
@@ -96,11 +121,41 @@ class AuthService {
 
           if (existingWalkerId is String &&
               existingWalkerId.trim().isNotEmpty) {
-            return existingWalkerId.trim();
+            final String savedWalkerId =
+                existingWalkerId.trim();
+
+            // Keep account fields synchronized.
+            transaction.set(
+              accountRef,
+              {
+                'authUid': uid,
+                'role': _role,
+                'active': true,
+                'walkerId': savedWalkerId,
+                'updatedAt':
+                    FieldValue.serverTimestamp(),
+              },
+              SetOptions(merge: true),
+            );
+
+            // Keep walker profile available.
+            transaction.set(
+              profileRef,
+              {
+                'walkerId': savedWalkerId,
+                'authUid': uid,
+                'role': _role,
+                'updatedAt':
+                    FieldValue.serverTimestamp(),
+              },
+              SetOptions(merge: true),
+            );
+
+            return savedWalkerId;
           }
 
           // =================================================
-          // READ COUNTER
+          // READ WALKER COUNTER
           // =================================================
 
           final DocumentSnapshot<Map<String, dynamic>>
@@ -113,11 +168,19 @@ class AuthService {
           final int lastSerial =
               (counterData['lastSerial'] as num?)?.toInt() ?? 0;
 
-          final int nextSerial = lastSerial + 1;
+          final int nextSerial =
+              lastSerial + 1;
+
+          // =================================================
+          // SERIAL LIMIT
+          // =================================================
 
           if (nextSerial > 9999) {
-            throw Exception(
-              'Walker serial number limit reached.',
+            throw FirebaseException(
+              plugin: 'cloud_firestore',
+              code: 'walker-serial-limit',
+              message:
+                  'Walker serial number limit reached.',
             );
           }
 
@@ -128,18 +191,26 @@ class AuthService {
           final String serial =
               nextSerial.toString().padLeft(4, '0');
 
+          // =================================================
+          // FINAL WALKER ID
+          //
+          // Example:
+          // 2026G180001
+          // =================================================
+
           final String newWalkerId =
               '$year$month$day$serial';
 
           // =================================================
-          // COUNTER UPDATE
+          // COUNTER
           // =================================================
 
           transaction.set(
             counterRef,
             {
               'lastSerial': nextSerial,
-              'updatedAt': FieldValue.serverTimestamp(),
+              'updatedAt':
+                  FieldValue.serverTimestamp(),
             },
             SetOptions(merge: true),
           );
@@ -155,7 +226,33 @@ class AuthService {
               'role': _role,
               'active': true,
               'walkerId': newWalkerId,
-              'updatedAt': FieldValue.serverTimestamp(),
+              'createdAt':
+                  accountSnapshot.exists
+                      ? accountData['createdAt']
+                      : FieldValue.serverTimestamp(),
+              'updatedAt':
+                  FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true),
+          );
+
+          // =================================================
+          // WALKER PROFILE
+          //
+          // Document ID = Firebase Auth UID
+          // walkerId = custom Walker ID
+          // =================================================
+
+          transaction.set(
+            profileRef,
+            {
+              'walkerId': newWalkerId,
+              'authUid': uid,
+              'role': _role,
+              'createdAt':
+                  FieldValue.serverTimestamp(),
+              'updatedAt':
+                  FieldValue.serverTimestamp(),
             },
             SetOptions(merge: true),
           );
@@ -198,7 +295,8 @@ class AuthService {
     required Function(String error) onError,
   }) async {
     try {
-      final String cleanPhone = phoneNumber.trim();
+      final String cleanPhone =
+          phoneNumber.trim();
 
       if (!RegExp(r'^[0-9]{10}$').hasMatch(cleanPhone)) {
         onError(
@@ -215,6 +313,10 @@ class AuthService {
       await _auth.verifyPhoneNumber(
         phoneNumber: '+91$cleanPhone',
 
+        // =================================================
+        // AUTOMATIC VERIFICATION
+        // =================================================
+
         verificationCompleted:
             (PhoneAuthCredential credential) async {
           try {
@@ -223,7 +325,8 @@ class AuthService {
               credential,
             );
 
-            final User? user = result.user;
+            final User? user =
+                result.user;
 
             if (user == null) {
               return;
@@ -257,6 +360,10 @@ class AuthService {
           }
         },
 
+        // =================================================
+        // VERIFICATION FAILED
+        // =================================================
+
         verificationFailed: (
           FirebaseAuthException e,
         ) {
@@ -271,16 +378,26 @@ class AuthService {
           );
         },
 
+        // =================================================
+        // OTP SENT
+        // =================================================
+
         codeSent: (
           String verificationId,
           int? resendToken,
         ) {
-          debugPrint('FIREBASE OTP SENT');
+          debugPrint(
+            'FIREBASE OTP SENT',
+          );
 
           onCodeSent(
             verificationId,
           );
         },
+
+        // =================================================
+        // AUTO RETRIEVAL TIMEOUT
+        // =================================================
 
         codeAutoRetrievalTimeout: (
           String verificationId,
@@ -313,7 +430,12 @@ class AuthService {
     final String cleanVerificationId =
         verificationId.trim();
 
-    final String cleanOtp = smsCode.trim();
+    final String cleanOtp =
+        smsCode.trim();
+
+    // =====================================================
+    // VALIDATE VERIFICATION ID
+    // =====================================================
 
     if (cleanVerificationId.isEmpty) {
       throw FirebaseAuthException(
@@ -322,6 +444,10 @@ class AuthService {
             'Firebase verification ID is empty.',
       );
     }
+
+    // =====================================================
+    // VALIDATE OTP
+    // =====================================================
 
     if (!RegExp(r'^[0-9]{6}$').hasMatch(cleanOtp)) {
       throw FirebaseAuthException(
@@ -332,18 +458,29 @@ class AuthService {
     }
 
     try {
+      // =================================================
+      // CREATE PHONE CREDENTIAL
+      // =================================================
+
       final PhoneAuthCredential credential =
           PhoneAuthProvider.credential(
-        verificationId: cleanVerificationId,
-        smsCode: cleanOtp,
+        verificationId:
+            cleanVerificationId,
+        smsCode:
+            cleanOtp,
       );
+
+      // =================================================
+      // FIREBASE AUTH LOGIN
+      // =================================================
 
       final UserCredential userCredential =
           await _auth.signInWithCredential(
         credential,
       );
 
-      final User? user = userCredential.user;
+      final User? user =
+          userCredential.user;
 
       if (user == null) {
         throw FirebaseAuthException(
@@ -353,15 +490,22 @@ class AuthService {
         );
       }
 
+      debugPrint('========================================');
+      debugPrint('FIREBASE AUTH SUCCESS');
+      debugPrint(
+        'FIREBASE UID: ${user.uid}',
+      );
+      debugPrint('========================================');
+
       // =================================================
-      // FIRESTORE WALKER ACCOUNT
+      // CREATE / GET WALKER ACCOUNT
       // =================================================
 
       final String walkerId =
           await _ensureWalkerAccount(user);
 
       // =================================================
-      // LOCAL SESSION
+      // SAVE LOCAL SESSION
       // =================================================
 
       final SharedPreferences prefs =
@@ -381,7 +525,10 @@ class AuthService {
       // FINAL SESSION CHECK
       // =================================================
 
-      if (_auth.currentUser == null) {
+      final User? currentUser =
+          _auth.currentUser;
+
+      if (currentUser == null) {
         throw FirebaseAuthException(
           code: 'session-not-created',
           message:
@@ -392,7 +539,7 @@ class AuthService {
       debugPrint('========================================');
       debugPrint('WALKER LOGIN SUCCESS');
       debugPrint(
-        'FIREBASE UID: ${_auth.currentUser!.uid}',
+        'FIREBASE UID: ${currentUser.uid}',
       );
       debugPrint(
         'WALKER ID: $walkerId',
@@ -400,9 +547,15 @@ class AuthService {
       debugPrint('========================================');
 
       return true;
-    } on FirebaseException {
-      rethrow;
     } on FirebaseAuthException {
+      // IMPORTANT:
+      // FirebaseAuthException extends FirebaseException.
+      // Therefore this MUST come first.
+      rethrow;
+    } on FirebaseException {
+      debugPrint(
+        'FIREBASE ERROR DURING WALKER LOGIN',
+      );
       rethrow;
     } catch (e) {
       debugPrint(
@@ -410,8 +563,10 @@ class AuthService {
       );
 
       throw FirebaseAuthException(
-        code: 'walker-account-setup-failed',
-        message: e.toString(),
+        code:
+            'walker-account-setup-failed',
+        message:
+            e.toString(),
       );
     }
   }
@@ -425,7 +580,7 @@ class AuthService {
   }
 
   // =====================================================
-  // FIREBASE LOGIN
+  // FIREBASE LOGIN STATE
   // =====================================================
 
   bool get isFirebaseLoggedIn {
