@@ -4,34 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const DojoPlatformApp());
-}
-
-// =============================================================
-// APP
-// =============================================================
-
-class DojoPlatformApp extends StatelessWidget {
-  const DojoPlatformApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'DOJO Platform',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: const Color(0xFFFF6600),
-      ),
-      home: const PendingVerificationScreen(),
-    );
-  }
-}
-
-// =============================================================
-// PENDING VERIFICATION SCREEN
-// =============================================================
+import '../../../screens/main_navigation_screen.dart';
 
 class PendingVerificationScreen extends StatefulWidget {
   const PendingVerificationScreen({super.key});
@@ -52,6 +25,7 @@ class _PendingVerificationScreenState
 
   String verificationStatus = 'pending';
   bool walkerIdActive = false;
+  bool _openingMain = false;
 
   @override
   void initState() {
@@ -59,12 +33,12 @@ class _PendingVerificationScreenState
     _listenForVerification();
   }
 
-  // ===========================================================
-  // FIREBASE REAL-TIME VERIFICATION
-  // ===========================================================
+  // ============================================================
+  // FIREBASE REALTIME LISTENER
+  // ============================================================
 
   void _listenForVerification() {
-    final user = FirebaseAuth.instance.currentUser;
+    final User? user = FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       return;
@@ -74,46 +48,48 @@ class _PendingVerificationScreenState
         .collection('walkers')
         .doc(user.uid)
         .snapshots()
-        .listen((snapshot) {
-      if (!snapshot.exists) {
-        return;
-      }
+        .listen(
+      (snapshot) {
+        if (!snapshot.exists || !mounted) {
+          return;
+        }
 
-      final data = snapshot.data();
+        final Map<String, dynamic>? data = snapshot.data();
 
-      final status =
-          data?['verificationStatus']?.toString() ?? 'pending';
+        final String status =
+            data?['verificationStatus']?.toString().toLowerCase() ??
+                'pending';
 
-      final active =
-          data?['walkerIdActive'] == true;
+        final bool active = data?['walkerIdActive'] == true;
 
-      if (!mounted) {
-        return;
-      }
+        setState(() {
+          verificationStatus = status;
+          walkerIdActive = active;
+        });
 
-      setState(() {
-        verificationStatus = status;
-        walkerIdActive = active;
-      });
-
-      // ========================================================
-      // APPROVED
-      // ========================================================
-
-      if (status == 'approved' && active) {
-        _openMainNavigation();
-      }
-    });
+        // APPROVED → MAIN NAVIGATION
+        if (status == 'approved' && active) {
+          _openMainNavigation();
+        }
+      },
+      onError: (error) {
+        debugPrint(
+          'Verification listener error: $error',
+        );
+      },
+    );
   }
 
-  // ===========================================================
+  // ============================================================
   // OPEN MAIN NAVIGATION
-  // ===========================================================
+  // ============================================================
 
   void _openMainNavigation() {
-    if (!mounted) {
+    if (!mounted || _openingMain) {
       return;
     }
+
+    _openingMain = true;
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
@@ -129,15 +105,14 @@ class _PendingVerificationScreenState
     super.dispose();
   }
 
-  // ===========================================================
+  // ============================================================
   // BUILD
-  // ===========================================================
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
     final bool approved =
-        verificationStatus == 'approved' &&
-        walkerIdActive;
+        verificationStatus == 'approved' && walkerIdActive;
 
     return PopScope(
       canPop: false,
@@ -155,17 +130,9 @@ class _PendingVerificationScreenState
             ),
             child: Column(
               children: [
-                // =================================================
-                // ICON
-                // =================================================
-
                 _verificationIcon(),
 
                 const SizedBox(height: 25),
-
-                // =================================================
-                // TITLE
-                // =================================================
 
                 Text(
                   approved
@@ -195,41 +162,21 @@ class _PendingVerificationScreenState
 
                 const SizedBox(height: 24),
 
-                // =================================================
-                // MAIN STATUS
-                // =================================================
-
                 _mainStatusCard(),
 
                 const SizedBox(height: 18),
-
-                // =================================================
-                // VERIFICATION STEPS
-                // =================================================
 
                 _statusCard(),
 
                 const SizedBox(height: 18),
 
-                // =================================================
-                // NEXT STEP
-                // =================================================
-
                 _nextStepCard(),
 
                 const SizedBox(height: 18),
 
-                // =================================================
-                // LOCK MESSAGE
-                // =================================================
-
                 if (!approved) _lockedCard(),
 
                 const SizedBox(height: 20),
-
-                // =================================================
-                // SUPPORT
-                // =================================================
 
                 _supportButton(),
 
@@ -261,9 +208,9 @@ class _PendingVerificationScreenState
     );
   }
 
-  // =============================================================
+  // ============================================================
   // APP BAR
-  // =============================================================
+  // ============================================================
 
   PreferredSizeWidget _appBar() {
     return AppBar(
@@ -287,12 +234,9 @@ class _PendingVerificationScreenState
               size: 25,
             ),
           ),
-
           const SizedBox(width: 11),
-
           const Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'DOJO Platform',
@@ -314,40 +258,12 @@ class _PendingVerificationScreenState
           ),
         ],
       ),
-      actions: [
-        PopupMenuButton<String>(
-          icon: const Icon(
-            Icons.more_vert_rounded,
-            color: Color(0xFF344054),
-          ),
-          onSelected: (value) {
-            if (value == 'support') {
-              _showSupport();
-            }
-          },
-          itemBuilder: (_) => const [
-            PopupMenuItem(
-              value: 'support',
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.support_agent_rounded,
-                    color: blue,
-                  ),
-                  SizedBox(width: 10),
-                  Text('Support Chat'),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
-  // =============================================================
-  // ICON
-  // =============================================================
+  // ============================================================
+  // VERIFICATION ICON
+  // ============================================================
 
   Widget _verificationIcon() {
     return Container(
@@ -357,7 +273,7 @@ class _PendingVerificationScreenState
         shape: BoxShape.circle,
         color: const Color(0xFFEAF3FF),
         border: Border.all(
-          color: blue.withOpacity(0.15),
+          color: blue.withOpacity(.15),
           width: 7,
         ),
       ),
@@ -376,11 +292,14 @@ class _PendingVerificationScreenState
     );
   }
 
-  // =============================================================
-  // MAIN STATUS CARD
-  // =============================================================
+  // ============================================================
+  // MAIN STATUS
+  // ============================================================
 
   Widget _mainStatusCard() {
+    final bool approved =
+        verificationStatus == 'approved' && walkerIdActive;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -388,11 +307,11 @@ class _PendingVerificationScreenState
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: blue.withOpacity(0.12),
+          color: blue.withOpacity(.12),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withOpacity(.04),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -415,26 +334,27 @@ class _PendingVerificationScreenState
                   size: 27,
                 ),
               ),
-
               const SizedBox(width: 13),
-
-              const Expanded(
+              Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Waiting for DOJO Platform Verification',
-                      style: TextStyle(
+                      approved
+                          ? 'DOJO Platform Verification Approved'
+                          : 'Waiting for DOJO Platform Verification',
+                      style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: Color(0xFF17202A),
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Verification is currently in progress.',
-                      style: TextStyle(
+                      approved
+                          ? 'Your Walker account is active.'
+                          : 'Verification is currently in progress.',
+                      style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF7A8491),
                       ),
@@ -444,9 +364,7 @@ class _PendingVerificationScreenState
               ),
             ],
           ),
-
           const SizedBox(height: 17),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(14),
@@ -454,22 +372,21 @@ class _PendingVerificationScreenState
               color: const Color(0xFFF0F6FF),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Row(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
+                const Icon(
                   Icons.info_outline_rounded,
                   color: blue,
                   size: 20,
                 ),
-                SizedBox(width: 9),
+                const SizedBox(width: 9),
                 Expanded(
                   child: Text(
-                    'DOJO Platform is verifying your profile '
-                    'and submitted documents. Please wait '
-                    'for verification to complete.',
-                    style: TextStyle(
+                    approved
+                        ? 'Your profile has been approved by DOJO Platform. Walker ID activation is complete.'
+                        : 'DOJO Platform is verifying your profile and submitted documents. Please wait for verification to complete.',
+                    style: const TextStyle(
                       fontSize: 12,
                       height: 1.5,
                       color: Color(0xFF34506E),
@@ -484,14 +401,13 @@ class _PendingVerificationScreenState
     );
   }
 
-  // =============================================================
+  // ============================================================
   // STATUS CARD
-  // =============================================================
+  // ============================================================
 
   Widget _statusCard() {
     final bool approved =
-        verificationStatus == 'approved' &&
-        walkerIdActive;
+        verificationStatus == 'approved' && walkerIdActive;
 
     return Container(
       width: double.infinity,
@@ -501,8 +417,7 @@ class _PendingVerificationScreenState
         borderRadius: BorderRadius.circular(22),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'Verification Status',
@@ -511,18 +426,14 @@ class _PendingVerificationScreenState
               fontWeight: FontWeight.w800,
             ),
           ),
-
           const SizedBox(height: 20),
-
           _step(
             icon: Icons.check_circle_rounded,
             color: green,
             title: 'Profile Submitted',
             subtitle: 'Completed successfully',
           ),
-
           _line(),
-
           _step(
             icon: approved
                 ? Icons.check_circle_rounded
@@ -531,11 +442,9 @@ class _PendingVerificationScreenState
             title: 'DOJO Platform Verification',
             subtitle: approved
                 ? 'Verification approved'
-                : 'Verification is currently in progress',
+                : 'Waiting for DOJO Platform verification',
           ),
-
           _line(),
-
           _step(
             icon: approved
                 ? Icons.check_circle_rounded
@@ -553,10 +462,6 @@ class _PendingVerificationScreenState
     );
   }
 
-  // =============================================================
-  // STEP
-  // =============================================================
-
   Widget _step({
     required IconData icon,
     required Color color,
@@ -569,7 +474,7 @@ class _PendingVerificationScreenState
           width: 43,
           height: 43,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.10),
+            color: color.withOpacity(.10),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -578,13 +483,10 @@ class _PendingVerificationScreenState
             size: 24,
           ),
         ),
-
         const SizedBox(width: 13),
-
         Expanded(
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 title,
@@ -593,9 +495,7 @@ class _PendingVerificationScreenState
                   fontWeight: FontWeight.w800,
                 ),
               ),
-
               const SizedBox(height: 3),
-
               Text(
                 subtitle,
                 style: TextStyle(
@@ -611,10 +511,6 @@ class _PendingVerificationScreenState
     );
   }
 
-  // =============================================================
-  // LINE
-  // =============================================================
-
   Widget _line() {
     return Container(
       margin: const EdgeInsets.only(
@@ -628,9 +524,9 @@ class _PendingVerificationScreenState
     );
   }
 
-  // =============================================================
+  // ============================================================
   // NEXT STEP
-  // =============================================================
+  // ============================================================
 
   Widget _nextStepCard() {
     return Container(
@@ -646,8 +542,7 @@ class _PendingVerificationScreenState
         borderRadius: BorderRadius.circular(21),
       ),
       child: const Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -665,9 +560,7 @@ class _PendingVerificationScreenState
               ),
             ],
           ),
-
           SizedBox(height: 14),
-
           Text(
             '✓ Your profile has been submitted.',
             style: TextStyle(
@@ -676,7 +569,6 @@ class _PendingVerificationScreenState
               color: Color(0xFF667085),
             ),
           ),
-
           Text(
             '✓ DOJO Platform will verify your information.',
             style: TextStyle(
@@ -685,7 +577,6 @@ class _PendingVerificationScreenState
               color: Color(0xFF667085),
             ),
           ),
-
           Text(
             '✓ Your Walker ID will activate after approval.',
             style: TextStyle(
@@ -694,7 +585,6 @@ class _PendingVerificationScreenState
               color: Color(0xFF667085),
             ),
           ),
-
           Text(
             '✓ You can then enter the DOJO Walker app.',
             style: TextStyle(
@@ -708,9 +598,9 @@ class _PendingVerificationScreenState
     );
   }
 
-  // =============================================================
+  // ============================================================
   // LOCKED
-  // =============================================================
+  // ============================================================
 
   Widget _lockedCard() {
     return Container(
@@ -729,8 +619,7 @@ class _PendingVerificationScreenState
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Walker account is locked until DOJO Platform '
-              'verification is completed.',
+              'Walker account is locked until DOJO Platform verification is completed.',
               style: TextStyle(
                 fontSize: 12,
                 height: 1.45,
@@ -744,9 +633,9 @@ class _PendingVerificationScreenState
     );
   }
 
-  // =============================================================
+  // ============================================================
   // SUPPORT
-  // =============================================================
+  // ============================================================
 
   Widget _supportButton() {
     return OutlinedButton.icon(
@@ -758,7 +647,7 @@ class _PendingVerificationScreenState
         ),
         foregroundColor: blue,
         side: BorderSide(
-          color: blue.withOpacity(0.25),
+          color: blue.withOpacity(.25),
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
@@ -776,12 +665,8 @@ class _PendingVerificationScreenState
     );
   }
 
-  // =============================================================
-  // SUPPORT SHEET
-  // =============================================================
-
   void _showSupport() {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
@@ -789,7 +674,7 @@ class _PendingVerificationScreenState
           top: Radius.circular(24),
         ),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -801,9 +686,7 @@ class _PendingVerificationScreenState
                   color: blue,
                   size: 45,
                 ),
-
                 const SizedBox(height: 12),
-
                 const Text(
                   'DOJO Support',
                   style: TextStyle(
@@ -811,12 +694,9 @@ class _PendingVerificationScreenState
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-
                 const SizedBox(height: 8),
-
                 const Text(
-                  'Need help with your verification? '
-                  'Our support team is here to help.',
+                  'Need help with your verification? Our support team is here to help.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
@@ -824,26 +704,13 @@ class _PendingVerificationScreenState
                     color: Color(0xFF667085),
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
                 SizedBox(
                   width: double.infinity,
                   height: 50,
                   child: FilledButton.icon(
                     onPressed: () {
-                      Navigator.pop(context);
-
-                      ScaffoldMessenger.of(this.context)
-                          .showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Support Chat will open here.',
-                          ),
-                          behavior:
-                              SnackBarBehavior.floating,
-                        ),
-                      );
+                      Navigator.pop(sheetContext);
                     },
                     icon: const Icon(
                       Icons.chat_rounded,
@@ -858,56 +725,6 @@ class _PendingVerificationScreenState
           ),
         );
       },
-    );
-  }
-}
-
-// =============================================================
-// DEMO MAIN NAVIGATION
-// =============================================================
-// अपने project में इसे अपनी existing MainNavigationScreen
-// से replace करना है.
-// =============================================================
-
-class MainNavigationScreen extends StatelessWidget {
-  const MainNavigationScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('DOJO Walker'),
-        backgroundColor: const Color(0xFFFF6600),
-        foregroundColor: Colors.white,
-      ),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment:
-              MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.check_circle_rounded,
-              color: Color(0xFF22A447),
-              size: 70,
-            ),
-            SizedBox(height: 15),
-            Text(
-              'Walker ID Active',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 6),
-            Text(
-              'Welcome to DOJO Walker',
-              style: TextStyle(
-                color: Color(0xFF667085),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
