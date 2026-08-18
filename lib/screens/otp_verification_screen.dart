@@ -247,7 +247,7 @@ class _OtpVerificationScreenState
         context,
         MaterialPageRoute(
           builder: (context) =>
-              const MandatoryProfileSetupScreen(),
+              const MandatoryProfileSetupScreen1(
         ),
         (route) => false,
       );
