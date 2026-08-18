@@ -231,7 +231,9 @@ class WalkerIdService {
         // WALKERS/{UID}
         // ======================================================
 
-    
+          transaction.set(
+           walkerRef,
+           {
             'walkerId': walkerId,
             'authUid': cleanUid,
             'phoneNumber': cleanPhone,
