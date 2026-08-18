@@ -1,3 +1,5 @@
+import 'dart:io';
+
 class AadhaarVerificationResult {
   final bool verified;
   final bool nameMatched;
@@ -18,24 +20,71 @@ class AadhaarVerificationService {
   AadhaarVerificationService._();
 
   static Future<AadhaarVerificationResult> verify({
+    required String authUid,
     required String name,
     required DateTime dateOfBirth,
     required String aadhaarNumber,
+    File? frontFile,
+    File? backFile,
     String? frontUrl,
     String? backUrl,
   }) async {
     /*
+     * ==========================================================
+     * AADHAAR VERIFICATION
+     * ==========================================================
+     *
      * IMPORTANT:
      *
-     * यह अभी वास्तविक Aadhaar verification नहीं करता।
+     * यह method अभी वास्तविक Aadhaar verification नहीं करता।
      *
-     * जब आपका admin/backend verification तैयार होगा,
-     * इसी method को backend/API से connect किया जाएगा।
+     * Backend / Admin verification API तैयार होने के बाद
+     * इसी method के अंदर API call लगाई जाएगी।
      *
-     * जब तक backend true नहीं देता:
-     * profile save नहीं होगा
-     * और user Home पर नहीं जाएगा।
+     * अभी verification false रखा गया है ताकि बिना वास्तविक
+     * verification के profile को verified न माना जाए।
+     *
+     * authUid:
+     * Firebase Authentication का current user's UID.
+     *
+     * frontFile / backFile:
+     * Local Aadhaar images.
+     *
+     * frontUrl / backUrl:
+     * अगर image URL से दी गई है तो उसका URL.
      */
+
+    // Prevent unused-parameter warnings/errors in future implementations.
+    // These values will be used by the backend verification API.
+    final String uid = authUid;
+    final String fullName = name.trim();
+    final String aadhaar = aadhaarNumber.trim();
+
+    final File? aadhaarFront = frontFile;
+    final File? aadhaarBack = backFile;
+
+    final String? aadhaarFrontUrl =
+        frontUrl?.trim().isEmpty == true
+            ? null
+            : frontUrl?.trim();
+
+    final String? aadhaarBackUrl =
+        backUrl?.trim().isEmpty == true
+            ? null
+            : backUrl?.trim();
+
+    // Keep references ready for the future backend implementation.
+    // ignore: unnecessary_statements
+    (
+      uid,
+      fullName,
+      dateOfBirth,
+      aadhaar,
+      aadhaarFront,
+      aadhaarBack,
+      aadhaarFrontUrl,
+      aadhaarBackUrl,
+    );
 
     await Future<void>.delayed(
       const Duration(milliseconds: 700),
