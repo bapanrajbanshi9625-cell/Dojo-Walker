@@ -1,6 +1,7 @@
 // File location:
 // lib/features/profile_setup/services/profile_setup_service.dart
 
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -22,9 +23,6 @@ class ProfileSetupService {
   // ============================================================
   // COLLECTION
   //
-  // IMPORTANT:
-  // AuthService भी यही collection इस्तेमाल करता है.
-  //
   // walkerProfiles/{Firebase Auth UID}
   // ============================================================
 
@@ -35,19 +33,12 @@ class ProfileSetupService {
   // ============================================================
 
   static const String _fullNameField = 'Full Name';
-
   static const String _mobileNumberField = 'Mobile number';
-
   static const String _dateOfBirthField = 'Date Of Birth';
-
   static const String _addressField = 'Adress';
-
   static const String _pinCodeField = 'Pincode';
-
   static const String _aadhaarNumberField = 'Aadhar Number';
-
   static const String _profileSelfieField = 'Profile Selfie';
-
   static const String _walkerUidField = 'Walker Uid';
 
   // ============================================================
@@ -55,11 +46,8 @@ class ProfileSetupService {
   // ============================================================
 
   static const String _villageField = 'Village';
-
   static const String _cityField = 'City';
-
   static const String _districtField = 'District';
-
   static const String _stateField = 'State';
 
   // ============================================================
@@ -67,7 +55,6 @@ class ProfileSetupService {
   // ============================================================
 
   static const String _authUidField = 'authUid';
-
   static const String _roleField = 'role';
 
   // ============================================================
@@ -75,7 +62,6 @@ class ProfileSetupService {
   // ============================================================
 
   static const String _aadhaarFrontField = 'Aadhaar Front';
-
   static const String _aadhaarBackField = 'Aadhaar Back';
 
   static const String _aadhaarVerifiedField =
@@ -128,7 +114,7 @@ class ProfileSetupService {
   // ============================================================
   // CHECK PROFILE COMPLETED
   //
-  // SplashScreen इसी method को call करता है.
+  // Splash / startup flow can use this method.
   // ============================================================
 
   static Future<bool> isWalkerProfileCompleted({
@@ -153,84 +139,97 @@ class ProfileSetupService {
     final Map<String, dynamic> data =
         document.data() ?? <String, dynamic>{};
 
-    // ==========================================================
+    // ----------------------------------------------------------
     // PROFILE COMPLETED
-    // ==========================================================
+    // ----------------------------------------------------------
 
-    final bool profileCompleted =
-        data[_profileCompletedField] == true;
-
-    if (!profileCompleted) {
+    if (data[_profileCompletedField] != true) {
       return false;
     }
 
-    // ==========================================================
-    // REQUIRED FIELDS
-    // ==========================================================
+    // ----------------------------------------------------------
+    // REQUIRED MAIN FIELDS
+    // ----------------------------------------------------------
 
     final String walkerUid =
-        data[_walkerUidField]
-                ?.toString()
-                .trim() ??
-            '';
+        _stringValue(
+      data[_walkerUidField],
+    );
 
     final String fullName =
-        data[_fullNameField]
-                ?.toString()
-                .trim() ??
-            '';
+        _stringValue(
+      data[_fullNameField],
+    );
 
     final String mobileNumber =
-        data[_mobileNumberField]
-                ?.toString()
-                .trim() ??
-            '';
+        _stringValue(
+      data[_mobileNumberField],
+    );
 
     final String dateOfBirth =
-        data[_dateOfBirthField]
-                ?.toString()
-                .trim() ??
-            '';
+        _stringValue(
+      data[_dateOfBirthField],
+    );
 
     final String address =
-        data[_addressField]
-                ?.toString()
-                .trim() ??
-            '';
+        _stringValue(
+      data[_addressField],
+    );
 
     final String pinCode =
-        data[_pinCodeField]
-                ?.toString()
-                .trim() ??
-            '';
+        _stringValue(
+      data[_pinCodeField],
+    );
 
     final String aadhaarNumber =
-        data[_aadhaarNumberField]
-                ?.toString()
-                .trim() ??
-            '';
+        _stringValue(
+      data[_aadhaarNumberField],
+    );
 
     final String profileSelfie =
-        data[_profileSelfieField]
-                ?.toString()
-                .trim() ??
-            '';
+        _stringValue(
+      data[_profileSelfieField],
+    );
 
     final String aadhaarFront =
-        data[_aadhaarFrontField]
-                ?.toString()
-                .trim() ??
-            '';
+        _stringValue(
+      data[_aadhaarFrontField],
+    );
 
     final String aadhaarBack =
-        data[_aadhaarBackField]
-                ?.toString()
-                .trim() ??
-            '';
+        _stringValue(
+      data[_aadhaarBackField],
+    );
 
-    // ==========================================================
+    // ----------------------------------------------------------
+    // ADDRESS COMPONENTS
+    //
+    // These are checked too so the profile is actually complete.
+    // ----------------------------------------------------------
+
+    final String village =
+        _stringValue(
+      data[_villageField],
+    );
+
+    final String city =
+        _stringValue(
+      data[_cityField],
+    );
+
+    final String district =
+        _stringValue(
+      data[_districtField],
+    );
+
+    final String state =
+        _stringValue(
+      data[_stateField],
+    );
+
+    // ----------------------------------------------------------
     // VERIFICATION
-    // ==========================================================
+    // ----------------------------------------------------------
 
     final bool aadhaarVerified =
         data[_aadhaarVerifiedField] == true;
@@ -241,9 +240,14 @@ class ProfileSetupService {
     final bool dobMatched =
         data[_dobMatchedField] == true;
 
-    // ==========================================================
+    final String verifiedName =
+        _stringValue(
+      data[_aadhaarVerifiedNameField],
+    );
+
+    // ----------------------------------------------------------
     // FINAL CHECK
-    // ==========================================================
+    // ----------------------------------------------------------
 
     return walkerUid.isNotEmpty &&
         fullName.isNotEmpty &&
@@ -255,15 +259,28 @@ class ProfileSetupService {
         profileSelfie.isNotEmpty &&
         aadhaarFront.isNotEmpty &&
         aadhaarBack.isNotEmpty &&
+        village.isNotEmpty &&
+        city.isNotEmpty &&
+        district.isNotEmpty &&
+        state.isNotEmpty &&
         aadhaarVerified &&
         nameMatched &&
-        dobMatched;
+        dobMatched &&
+        verifiedName.isNotEmpty;
+  }
+
+  // ============================================================
+  // STRING HELPER
+  // ============================================================
+
+  static String _stringValue(
+    dynamic value,
+  ) {
+    return value?.toString().trim() ?? '';
   }
 
   // ============================================================
   // CREATE FALLBACK WALKER ID
-  //
-  // Normally AuthService पहले ही Walker Uid बना देता है.
   // ============================================================
 
   static String createWalkerId(
@@ -328,9 +345,9 @@ class ProfileSetupService {
   // ============================================================
   // RESOLVE IMAGE
   //
-  // URL मौजूद है → उसी को use करेगा
+  // URL मौजूद है → URL use होगा.
   //
-  // File मौजूद है → Firebase Storage में upload करेगा
+  // File मौजूद है → Firebase Storage upload होगा.
   // ============================================================
 
   static Future<String> _resolveImage({
@@ -447,8 +464,9 @@ class ProfileSetupService {
       );
     }
 
-    if (!RegExp(r'^\d{12}$')
-        .hasMatch(cleanAadhaar)) {
+    if (!RegExp(r'^\d{12}$').hasMatch(
+      cleanAadhaar,
+    )) {
       throw Exception(
         'Aadhaar Number must contain exactly 12 digits.',
       );
@@ -478,8 +496,9 @@ class ProfileSetupService {
       );
     }
 
-    if (!RegExp(r'^\d{6}$')
-        .hasMatch(cleanPinCode)) {
+    if (!RegExp(r'^\d{6}$').hasMatch(
+      cleanPinCode,
+    )) {
       throw Exception(
         'Pincode must contain exactly 6 digits.',
       );
@@ -507,15 +526,20 @@ class ProfileSetupService {
       );
     }
 
+    if (cleanVerifiedName.isEmpty) {
+      throw Exception(
+        'Verified Aadhaar name is missing.',
+      );
+    }
+
     // ==========================================================
     // PROFILE REFERENCE
     //
     // walkerProfiles/{Firebase Auth UID}
     // ==========================================================
 
-    final DocumentReference<
-        Map<String, dynamic>> profileRef =
-        _firestore
+    final DocumentReference<Map<String, dynamic>>
+        profileRef = _firestore
             .collection(_collection)
             .doc(cleanUid);
 
@@ -523,25 +547,20 @@ class ProfileSetupService {
     // EXISTING PROFILE
     // ==========================================================
 
-    final DocumentSnapshot<
-        Map<String, dynamic>> existing =
-        await profileRef.get();
+    final DocumentSnapshot<Map<String, dynamic>>
+        existing = await profileRef.get();
 
     final Map<String, dynamic> existingData =
         existing.data() ?? <String, dynamic>{};
 
     // ==========================================================
     // WALKER UID
-    //
-    // AuthService normally creates this first.
-    // If missing, create fallback.
     // ==========================================================
 
     String walkerId =
-        existingData[_walkerUidField]
-                ?.toString()
-                .trim() ??
-            '';
+        _stringValue(
+      existingData[_walkerUidField],
+    );
 
     if (walkerId.isEmpty) {
       walkerId = createWalkerId(cleanUid);
@@ -608,12 +627,7 @@ class ProfileSetupService {
     // ==========================================================
     // COMPLETE ADDRESS
     //
-    // IMPORTANT:
-    // यह EXACT "Adress" field में जाएगा.
-    //
-    // Example:
-    // Jormuil Rampara, Chenchera, Raiganj,
-    // Uttar Dinajpur, West Bengal - 733124
+    // EXACT "Adress" field
     // ==========================================================
 
     final String fullAddress =
@@ -638,69 +652,69 @@ class ProfileSetupService {
       _roleField: 'walker',
 
       // --------------------------------------------------------
-      // YOUR EXACT MAIN FIELDS
+      // MAIN FIELDS
       // --------------------------------------------------------
 
-      'Full Name': cleanName,
+      _fullNameField: cleanName,
 
-      'Mobile number': cleanPhone,
+      _mobileNumberField: cleanPhone,
 
-      'Date Of Birth': formattedDate,
+      _dateOfBirthField: formattedDate,
 
-      'Adress': fullAddress,
+      _addressField: fullAddress,
 
-      'Pincode': cleanPinCode,
+      _pinCodeField: cleanPinCode,
 
-      'Aadhar Number': cleanAadhaar,
+      _aadhaarNumberField: cleanAadhaar,
 
-      'Profile Selfie': finalSelfieUrl,
+      _profileSelfieField: finalSelfieUrl,
 
-      'Walker Uid': walkerId,
+      _walkerUidField: walkerId,
 
       // --------------------------------------------------------
       // ADDRESS COMPONENTS
       // --------------------------------------------------------
 
-      'Village': cleanVillage,
+      _villageField: cleanVillage,
 
-      'City': cleanCity,
+      _cityField: cleanCity,
 
-      'District': cleanDistrict,
+      _districtField: cleanDistrict,
 
-      'State': cleanState,
+      _stateField: cleanState,
 
       // --------------------------------------------------------
       // AADHAAR IMAGES
       // --------------------------------------------------------
 
-      'Aadhaar Front': finalFrontUrl,
+      _aadhaarFrontField: finalFrontUrl,
 
-      'Aadhaar Back': finalBackUrl,
+      _aadhaarBackField: finalBackUrl,
 
       // --------------------------------------------------------
       // VERIFICATION
       // --------------------------------------------------------
 
-      'aadhaarVerified': true,
+      _aadhaarVerifiedField: true,
 
-      'nameMatched': true,
+      _nameMatchedField: true,
 
-      'dobMatched': true,
+      _dobMatchedField: true,
 
-      'aadhaarVerifiedName':
+      _aadhaarVerifiedNameField:
           cleanVerifiedName,
 
       // --------------------------------------------------------
       // PROFILE COMPLETION
       // --------------------------------------------------------
 
-      'profileCompleted': true,
+      _profileCompletedField: true,
 
       // --------------------------------------------------------
       // UPDATED
       // --------------------------------------------------------
 
-      'updatedAt':
+      _updatedAtField:
           FieldValue.serverTimestamp(),
     };
 
@@ -709,7 +723,7 @@ class ProfileSetupService {
     // ==========================================================
 
     if (!existing.exists) {
-      profileData['createdAt'] =
+      profileData[_createdAtField] =
           FieldValue.serverTimestamp();
     }
 
@@ -723,23 +737,35 @@ class ProfileSetupService {
     );
 
     // ==========================================================
-    // DEBUG
+    // VERIFY SAVE
+    //
+    // यह अतिरिक्त check सुनिश्चित करता है कि Firestore में
+    // profileCompleted वास्तव में true लिखा गया है.
     // ==========================================================
 
-    print('========================================');
-    print('WALKER PROFILE SAVED');
-    print('COLLECTION: $_collection');
-    print('DOCUMENT UID: $cleanUid');
-    print('Walker Uid: $walkerId');
-    print('Full Name: $cleanName');
-    print('Mobile number: $cleanPhone');
-    print('Date Of Birth: $formattedDate');
-    print('Adress: $fullAddress');
-    print('Pincode: $cleanPinCode');
-    print('Profile Selfie: SAVED');
-    print('Aadhaar Front: SAVED');
-    print('Aadhaar Back: SAVED');
-    print('profileCompleted: true');
-    print('========================================');
+    final DocumentSnapshot<Map<String, dynamic>>
+        savedProfile = await profileRef.get();
+
+    final Map<String, dynamic> savedData =
+        savedProfile.data() ?? <String, dynamic>{};
+
+    if (savedData[_profileCompletedField] != true) {
+      throw Exception(
+        'Profile was saved, but profileCompleted was not confirmed.',
+      );
+    }
+
+    // ==========================================================
+    // DEBUG LOG
+    // ==========================================================
+
+    developer.log(
+      'Walker profile saved successfully. '
+      'collection=$_collection '
+      'uid=$cleanUid '
+      'walkerId=$walkerId '
+      'profileCompleted=true',
+      name: 'ProfileSetupService',
+    );
   }
 }
