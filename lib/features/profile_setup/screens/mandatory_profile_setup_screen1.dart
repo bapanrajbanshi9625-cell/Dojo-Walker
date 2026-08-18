@@ -26,8 +26,13 @@ class MandatoryProfileSetupScreen1 extends StatefulWidget {
     // ============================================================
 
     this.dateOfBirth,
+    this.gender,
     this.selfieFile,
     this.selfieUrl,
+    this.aadhaarFrontFile,
+    this.aadhaarFrontUrl,
+    this.aadhaarBackFile,
+    this.aadhaarBackUrl,
     this.isBusy = false,
 
     // ============================================================
@@ -49,8 +54,16 @@ class MandatoryProfileSetupScreen1 extends StatefulWidget {
 
   final DateTime? dateOfBirth;
 
+  final String? gender;
+
   final File? selfieFile;
   final String? selfieUrl;
+
+  final File? aadhaarFrontFile;
+  final String? aadhaarFrontUrl;
+
+  final File? aadhaarBackFile;
+  final String? aadhaarBackUrl;
 
   final bool isBusy;
 
@@ -91,7 +104,7 @@ class _MandatoryProfileSetupScreen1State
   late final TextEditingController pinController;
 
   // ============================================================
-  // OWNERSHIP FLAGS
+  // OWNERSHIP
   // ============================================================
 
   late final bool _ownsNameController;
@@ -103,15 +116,27 @@ class _MandatoryProfileSetupScreen1State
   late final bool _ownsPinController;
 
   // ============================================================
-  // IMAGE
+  // IMAGE PICKER
   // ============================================================
 
   final ImagePicker picker = ImagePicker();
 
+  // ============================================================
+  // LOCAL DATA
+  // ============================================================
+
   DateTime? dateOfBirth;
+
+  String? gender;
 
   File? selfieFile;
   String? selfieUrl;
+
+  File? aadhaarFrontFile;
+  String? aadhaarFrontUrl;
+
+  File? aadhaarBackFile;
+  String? aadhaarBackUrl;
 
   // ============================================================
   // INIT
@@ -120,10 +145,6 @@ class _MandatoryProfileSetupScreen1State
   @override
   void initState() {
     super.initState();
-
-    // ------------------------------------------------------------
-    // CONTROLLERS
-    // ------------------------------------------------------------
 
     _ownsNameController = widget.nameController == null;
     _ownsAadhaarController = widget.aadhaarController == null;
@@ -154,13 +175,17 @@ class _MandatoryProfileSetupScreen1State
     pinController =
         widget.pinCodeController ?? TextEditingController();
 
-    // ------------------------------------------------------------
-    // EXISTING VALUES
-    // ------------------------------------------------------------
-
     dateOfBirth = widget.dateOfBirth;
+    gender = widget.gender;
+
     selfieFile = widget.selfieFile;
     selfieUrl = widget.selfieUrl;
+
+    aadhaarFrontFile = widget.aadhaarFrontFile;
+    aadhaarFrontUrl = widget.aadhaarFrontUrl;
+
+    aadhaarBackFile = widget.aadhaarBackFile;
+    aadhaarBackUrl = widget.aadhaarBackUrl;
   }
 
   // ============================================================
@@ -201,7 +226,7 @@ class _MandatoryProfileSetupScreen1State
   }
 
   // ============================================================
-  // ADDRESS
+  // FULL ADDRESS
   // ============================================================
 
   String get fullAddress {
@@ -246,7 +271,141 @@ class _MandatoryProfileSetupScreen1State
   }
 
   // ============================================================
-  // SELFIE OPTIONS
+  // GENDER
+  // ============================================================
+
+  Future<void> selectGender() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(28),
+        ),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              14,
+              20,
+              24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 45,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD5DADE),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Select Gender',
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    color: textDark,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _genderOption(
+                  context: sheetContext,
+                  value: 'Male',
+                  icon: Icons.male_rounded,
+                ),
+                const SizedBox(height: 10),
+                _genderOption(
+                  context: sheetContext,
+                  value: 'Female',
+                  icon: Icons.female_rounded,
+                ),
+                const SizedBox(height: 10),
+                _genderOption(
+                  context: sheetContext,
+                  value: 'Other',
+                  icon: Icons.person_outline_rounded,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      gender = selected;
+    });
+  }
+
+  Widget _genderOption({
+    required BuildContext context,
+    required String value,
+    required IconData icon,
+  }) {
+    final bool selected = gender == value;
+
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context, value);
+      },
+      borderRadius: BorderRadius.circular(17),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 15,
+        ),
+        decoration: BoxDecoration(
+          color: selected
+              ? green.withOpacity(.08)
+              : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(
+            color: selected
+                ? green
+                : const Color(0xFFE3E8ED),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: selected ? green : blue,
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: textDark,
+                ),
+              ),
+            ),
+            if (selected)
+              const Icon(
+                Icons.check_circle_rounded,
+                color: green,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // IMAGE OPTIONS
   // ============================================================
 
   Future<void> showSelfieOptions() async {
@@ -283,9 +442,7 @@ class _MandatoryProfileSetupScreen1State
                     borderRadius: BorderRadius.circular(20),
                   ),
                 ),
-
-                const SizedBox(height: 22),
-
+                const SizedBox(height: 20),
                 const Text(
                   'Add Walker Selfie',
                   style: TextStyle(
@@ -294,19 +451,15 @@ class _MandatoryProfileSetupScreen1State
                     color: textDark,
                   ),
                 ),
-
                 const SizedBox(height: 7),
-
                 const Text(
-                  'Choose how you want to add your selfie.',
+                  'Choose Camera or Image URL.',
                   style: TextStyle(
                     color: muted,
                     fontSize: 12,
                   ),
                 ),
-
                 const SizedBox(height: 22),
-
                 Row(
                   children: [
                     Expanded(
@@ -321,14 +474,12 @@ class _MandatoryProfileSetupScreen1State
                         },
                       ),
                     ),
-
                     const SizedBox(width: 12),
-
                     Expanded(
                       child: _imageOption(
                         icon: Icons.link_rounded,
                         title: 'URL',
-                        subtitle: 'Paste image URL',
+                        subtitle: 'Image URL',
                         color: blue,
                         onTap: () {
                           Navigator.pop(sheetContext);
@@ -347,7 +498,7 @@ class _MandatoryProfileSetupScreen1State
   }
 
   // ============================================================
-  // IMAGE OPTION
+  // IMAGE OPTION CARD
   // ============================================================
 
   Widget _imageOption({
@@ -387,9 +538,7 @@ class _MandatoryProfileSetupScreen1State
                 size: 25,
               ),
             ),
-
             const SizedBox(height: 10),
-
             Text(
               title,
               style: const TextStyle(
@@ -397,9 +546,7 @@ class _MandatoryProfileSetupScreen1State
                 color: textDark,
               ),
             ),
-
             const SizedBox(height: 3),
-
             Text(
               subtitle,
               style: const TextStyle(
@@ -414,7 +561,7 @@ class _MandatoryProfileSetupScreen1State
   }
 
   // ============================================================
-  // CAMERA
+  // SELFIE CAMERA
   // ============================================================
 
   Future<void> pickSelfie() async {
@@ -435,9 +582,7 @@ class _MandatoryProfileSetupScreen1State
         selfieUrl = null;
       });
     } catch (_) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       showMessage(
         'Unable to open camera. Please check camera permission.',
@@ -451,7 +596,9 @@ class _MandatoryProfileSetupScreen1State
   // ============================================================
 
   Future<void> enterSelfieUrl() async {
-    final controller = TextEditingController();
+    final controller = TextEditingController(
+      text: selfieUrl ?? '',
+    );
 
     final result = await showDialog<String>(
       context: context,
@@ -489,7 +636,6 @@ class _MandatoryProfileSetupScreen1State
               },
               child: const Text('CANCEL'),
             ),
-
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: green,
@@ -497,7 +643,6 @@ class _MandatoryProfileSetupScreen1State
               ),
               onPressed: () {
                 final value = controller.text.trim();
-
                 final uri = Uri.tryParse(value);
 
                 if (uri == null ||
@@ -539,13 +684,262 @@ class _MandatoryProfileSetupScreen1State
   }
 
   // ============================================================
+  // AADHAAR IMAGE SOURCE
+  // ============================================================
+
+  Future<void> showAadhaarOptions({
+    required bool front,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(28),
+        ),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              12,
+              20,
+              25,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 45,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD5DADE),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  front
+                      ? 'Aadhaar Front'
+                      : 'Aadhaar Back',
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    color: textDark,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                const Text(
+                  'Use camera or provide an image URL.',
+                  style: TextStyle(
+                    color: muted,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _imageOption(
+                        icon: Icons.camera_alt_rounded,
+                        title: 'Camera',
+                        subtitle: 'Take photo',
+                        color: orange,
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          pickAadhaarImage(front: front);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _imageOption(
+                        icon: Icons.link_rounded,
+                        title: 'URL',
+                        subtitle: 'Image URL',
+                        color: blue,
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          enterAadhaarUrl(front: front);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // AADHAAR CAMERA
+  // ============================================================
+
+  Future<void> pickAadhaarImage({
+    required bool front,
+  }) async {
+    try {
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 90,
+        maxWidth: 1800,
+        maxHeight: 1200,
+      );
+
+      if (image == null || !mounted) {
+        return;
+      }
+
+      setState(() {
+        if (front) {
+          aadhaarFrontFile = File(image.path);
+          aadhaarFrontUrl = null;
+        } else {
+          aadhaarBackFile = File(image.path);
+          aadhaarBackUrl = null;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      showMessage(
+        'Unable to open camera. Please check camera permission.',
+        false,
+      );
+    }
+  }
+
+  // ============================================================
+  // AADHAAR URL
+  // ============================================================
+
+  Future<void> enterAadhaarUrl({
+    required bool front,
+  }) async {
+    final existingUrl = front
+        ? aadhaarFrontUrl
+        : aadhaarBackUrl;
+
+    final controller = TextEditingController(
+      text: existingUrl ?? '',
+    );
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          title: Text(
+            front
+                ? 'Aadhaar Front URL'
+                : 'Aadhaar Back URL',
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.url,
+            decoration: InputDecoration(
+              hintText: 'https://...',
+              prefixIcon: const Icon(
+                Icons.link_rounded,
+              ),
+              filled: true,
+              fillColor: background,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: green,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                final value = controller.text.trim();
+                final uri = Uri.tryParse(value);
+
+                if (uri == null ||
+                    !(uri.scheme == 'http' ||
+                        uri.scheme == 'https')) {
+                  ScaffoldMessenger.of(dialogContext)
+                      .showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Enter a valid image URL.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+
+                Navigator.pop(
+                  dialogContext,
+                  value,
+                );
+              },
+              child: const Text('USE URL'),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (result == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      if (front) {
+        aadhaarFrontUrl = result;
+        aadhaarFrontFile = null;
+      } else {
+        aadhaarBackUrl = result;
+        aadhaarBackFile = null;
+      }
+    });
+  }
+
+  // ============================================================
+  // IMAGE EXISTS
+  // ============================================================
+
+  bool get hasSelfie =>
+      selfieFile != null ||
+      (selfieUrl?.trim().isNotEmpty ?? false);
+
+  bool get hasAadhaarFront =>
+      aadhaarFrontFile != null ||
+      (aadhaarFrontUrl?.trim().isNotEmpty ?? false);
+
+  bool get hasAadhaarBack =>
+      aadhaarBackFile != null ||
+      (aadhaarBackUrl?.trim().isNotEmpty ?? false);
+
+  // ============================================================
   // VALIDATION
   // ============================================================
 
   bool validate() {
-    if (selfieFile == null &&
-        (selfieUrl == null ||
-            selfieUrl!.trim().isEmpty)) {
+    if (!hasSelfie) {
       showMessage(
         'Please add your profile selfie.',
         false,
@@ -569,11 +963,36 @@ class _MandatoryProfileSetupScreen1State
       return false;
     }
 
+    if (gender == null ||
+        gender!.trim().isEmpty) {
+      showMessage(
+        'Please select Male, Female or Other.',
+        false,
+      );
+      return false;
+    }
+
     if (!RegExp(r'^\d{12}$').hasMatch(
       aadhaarController.text.trim(),
     )) {
       showMessage(
         'Enter a valid 12-digit Aadhaar number.',
+        false,
+      );
+      return false;
+    }
+
+    if (!hasAadhaarFront) {
+      showMessage(
+        'Please add Aadhaar Front image.',
+        false,
+      );
+      return false;
+    }
+
+    if (!hasAadhaarBack) {
+      showMessage(
+        'Please add Aadhaar Back image.',
         false,
       );
       return false;
@@ -649,23 +1068,19 @@ class _MandatoryProfileSetupScreen1State
         builder: (_) => MandatoryProfileSetupScreen2(
           name: nameController.text.trim(),
           aadhaar: aadhaarController.text.trim(),
-
           village: villageController.text.trim(),
           city: cityController.text.trim(),
           district: districtController.text.trim(),
           state: stateController.text.trim(),
           pinCode: pinController.text.trim(),
-
-          // ======================================================
-          // FULL ADDRESS
-          // ======================================================
-
-          address: fullAddress,
-
           dateOfBirth: dateOfBirth!,
-
+          gender: gender,
           selfieFile: selfieFile,
           selfieUrl: selfieUrl,
+          aadhaarFrontFile: aadhaarFrontFile,
+          aadhaarFrontUrl: aadhaarFrontUrl,
+          aadhaarBackFile: aadhaarBackFile,
+          aadhaarBackUrl: aadhaarBackUrl,
         ),
       ),
     );
@@ -688,18 +1103,23 @@ class _MandatoryProfileSetupScreen1State
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: success ? green : red,
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+          backgroundColor:
+              success ? green : red,
+          behavior:
+              SnackBarBehavior.floating,
+          margin:
+              const EdgeInsets.all(16),
+          shape:
+              RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(14),
           ),
         ),
       );
   }
 
   // ============================================================
-  // FIELD
+  // TEXT FIELD
   // ============================================================
 
   Widget field({
@@ -710,44 +1130,185 @@ class _MandatoryProfileSetupScreen1State
     int? maxLength,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding:
+          const EdgeInsets.only(
+        bottom: 14,
+      ),
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
         maxLength: maxLength,
-        textInputAction: TextInputAction.next,
-        decoration: InputDecoration(
+        textInputAction:
+            TextInputAction.next,
+        decoration:
+            InputDecoration(
           labelText: label,
-
-          prefixIcon: Icon(
+          prefixIcon:
+              Icon(
             icon,
             color: blue,
           ),
-
           filled: true,
-          fillColor: Colors.white,
-
+          fillColor:
+              Colors.white,
           counterText: '',
-
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
+          border:
+              OutlineInputBorder(
+            borderRadius:
+                BorderRadius.circular(16),
+            borderSide:
+                BorderSide.none,
           ),
-
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(
-              color: Color(0xFFE3E8ED),
+          enabledBorder:
+              OutlineInputBorder(
+            borderRadius:
+                BorderRadius.circular(16),
+            borderSide:
+                const BorderSide(
+              color:
+                  Color(0xFFE3E8ED),
             ),
           ),
-
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(
+          focusedBorder:
+              OutlineInputBorder(
+            borderRadius:
+                BorderRadius.circular(16),
+            borderSide:
+                const BorderSide(
               color: green,
               width: 1.5,
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // DOCUMENT CARD
+  // ============================================================
+
+  Widget documentCard({
+    required String title,
+    required String subtitle,
+    required bool hasImage,
+    required VoidCallback onTap,
+    File? file,
+    String? url,
+  }) {
+    return InkWell(
+      onTap: widget.isBusy
+          ? null
+          : onTap,
+      borderRadius:
+          BorderRadius.circular(18),
+      child: Container(
+        width: double.infinity,
+        padding:
+            const EdgeInsets.all(14),
+        decoration:
+            BoxDecoration(
+          color: Colors.white,
+          borderRadius:
+              BorderRadius.circular(18),
+          border:
+              Border.all(
+            color: hasImage
+                ? green.withOpacity(.45)
+                : const Color(
+                    0xFFE3E8ED,
+                  ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 62,
+              height: 48,
+              decoration:
+                  BoxDecoration(
+                color:
+                    blue.withOpacity(.08),
+                borderRadius:
+                    BorderRadius.circular(
+                  12,
+                ),
+              ),
+              clipBehavior:
+                  Clip.antiAlias,
+              child: file != null
+                  ? Image.file(
+                      file,
+                      fit: BoxFit.cover,
+                    )
+                  : url != null &&
+                          url.trim().isNotEmpty
+                      ? Image.network(
+                          url,
+                          fit: BoxFit.cover,
+                          errorBuilder:
+                              (
+                            context,
+                            error,
+                            stackTrace,
+                          ) {
+                            return const Icon(
+                              Icons
+                                  .image_outlined,
+                              color: blue,
+                            );
+                          },
+                        )
+                      : const Icon(
+                          Icons
+                              .add_photo_alternate_rounded,
+                          color: blue,
+                        ),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style:
+                        const TextStyle(
+                      fontSize: 14,
+                      fontWeight:
+                          FontWeight.w800,
+                      color: textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    hasImage
+                        ? 'Image added'
+                        : subtitle,
+                    style:
+                        TextStyle(
+                      fontSize: 11,
+                      color: hasImage
+                          ? green
+                          : muted,
+                      fontWeight:
+                          hasImage
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              hasImage
+                  ? Icons.check_circle_rounded
+                  : Icons.chevron_right_rounded,
+              color:
+                  hasImage ? green : muted,
+            ),
+          ],
         ),
       ),
     );
@@ -763,7 +1324,6 @@ class _MandatoryProfileSetupScreen1State
 
     return Scaffold(
       backgroundColor: background,
-
       body: SafeArea(
         child: Column(
           children: [
@@ -773,39 +1333,48 @@ class _MandatoryProfileSetupScreen1State
 
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(
+              padding:
+                  const EdgeInsets.fromLTRB(
                 20,
                 18,
                 20,
                 18,
               ),
-              decoration: const BoxDecoration(
+              decoration:
+                  const BoxDecoration(
                 color: Colors.white,
-                border: Border(
-                  bottom: BorderSide(
-                    color: Color(0xFFE8EDF1),
+                border:
+                    Border(
+                  bottom:
+                      BorderSide(
+                    color:
+                        Color(0xFFE8EDF1),
                   ),
                 ),
               ),
-
               child: Row(
                 children: [
                   Container(
                     width: 46,
                     height: 46,
-                    decoration: BoxDecoration(
+                    decoration:
+                        BoxDecoration(
                       color: orange,
                       borderRadius:
-                          BorderRadius.circular(14),
+                          BorderRadius.circular(
+                        14,
+                      ),
                     ),
-                    child: const Icon(
+                    child:
+                        const Icon(
                       Icons.pets_rounded,
-                      color: Colors.white,
+                      color:
+                          Colors.white,
                     ),
                   ),
-
-                  const SizedBox(width: 12),
-
+                  const SizedBox(
+                    width: 12,
+                  ),
                   const Expanded(
                     child: Column(
                       crossAxisAlignment:
@@ -813,44 +1382,53 @@ class _MandatoryProfileSetupScreen1State
                       children: [
                         Text(
                           'Walker',
-                          style: TextStyle(
+                          style:
+                              TextStyle(
                             fontSize: 11,
                             color: orange,
-                            fontWeight: FontWeight.w800,
+                            fontWeight:
+                                FontWeight.w800,
                           ),
                         ),
-
                         SizedBox(height: 2),
-
                         Text(
                           'Personal Information',
-                          style: TextStyle(
+                          style:
+                              TextStyle(
                             fontSize: 19,
                             color: textDark,
-                            fontWeight: FontWeight.w900,
+                            fontWeight:
+                                FontWeight.w900,
                           ),
                         ),
                       ],
                     ),
                   ),
-
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(
+                        const EdgeInsets
+                            .symmetric(
                       horizontal: 10,
                       vertical: 7,
                     ),
-                    decoration: BoxDecoration(
-                      color: green.withOpacity(.10),
+                    decoration:
+                        BoxDecoration(
+                      color:
+                          green.withOpacity(.10),
                       borderRadius:
-                          BorderRadius.circular(12),
+                          BorderRadius.circular(
+                        12,
+                      ),
                     ),
-                    child: const Text(
+                    child:
+                        const Text(
                       'STEP 1',
-                      style: TextStyle(
+                      style:
+                          TextStyle(
                         color: green,
                         fontSize: 10,
-                        fontWeight: FontWeight.w900,
+                        fontWeight:
+                            FontWeight.w900,
                       ),
                     ),
                   ),
@@ -863,23 +1441,26 @@ class _MandatoryProfileSetupScreen1State
             // ==================================================
 
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
+              child:
+                  SingleChildScrollView(
+                padding:
+                    const EdgeInsets.fromLTRB(
                   18,
                   18,
                   18,
                   25,
                 ),
-
                 child: Column(
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Tell us about yourself',
-                      style: TextStyle(
+                      style:
+                          TextStyle(
                         fontSize: 22,
-                        fontWeight: FontWeight.w900,
+                        fontWeight:
+                            FontWeight.w900,
                         color: textDark,
                       ),
                     ),
@@ -888,7 +1469,8 @@ class _MandatoryProfileSetupScreen1State
 
                     const Text(
                       'Complete your Walker profile to continue.',
-                      style: TextStyle(
+                      style:
+                          TextStyle(
                         fontSize: 12.5,
                         color: muted,
                       ),
@@ -900,136 +1482,15 @@ class _MandatoryProfileSetupScreen1State
                     // SELFIE
                     // ==================================================
 
-                    InkWell(
-                      onTap: busy
-                          ? null
-                          : showSelfieOptions,
-
-                      borderRadius:
-                          BorderRadius.circular(20),
-
-                      child: Container(
-                        width: double.infinity,
-                        padding:
-                            const EdgeInsets.all(16),
-
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-
-                          borderRadius:
-                              BorderRadius.circular(20),
-
-                          border: Border.all(
-                            color:
-                                selfieFile != null ||
-                                        selfieUrl != null
-                                    ? green.withOpacity(.45)
-                                    : const Color(
-                                        0xFFE3E8ED,
-                                      ),
-                          ),
-                        ),
-
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 60,
-                              height: 60,
-
-                              decoration: BoxDecoration(
-                                color:
-                                    orange.withOpacity(.10),
-                                borderRadius:
-                                    BorderRadius.circular(
-                                  17,
-                                ),
-                              ),
-
-                              child: selfieFile != null
-                                  ? ClipRRect(
-                                      borderRadius:
-                                          BorderRadius
-                                              .circular(
-                                        17,
-                                      ),
-                                      child: Image.file(
-                                        selfieFile!,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    )
-                                  : selfieUrl != null
-                                      ? ClipRRect(
-                                          borderRadius:
-                                              BorderRadius
-                                                  .circular(
-                                            17,
-                                          ),
-                                          child:
-                                              Image.network(
-                                            selfieUrl!,
-                                            fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (
-                                              context,
-                                              error,
-                                              stackTrace,
-                                            ) {
-                                              return const Icon(
-                                                Icons
-                                                    .add_a_photo_rounded,
-                                                color:
-                                                    orange,
-                                                size: 28,
-                                              );
-                                            },
-                                          ),
-                                        )
-                                      : const Icon(
-                                          Icons
-                                              .add_a_photo_rounded,
-                                          color: orange,
-                                          size: 28,
-                                        ),
-                            ),
-
-                            const SizedBox(width: 13),
-
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment
-                                        .start,
-                                children: [
-                                  Text(
-                                    'Walker Selfie',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight:
-                                          FontWeight.w800,
-                                      color: textDark,
-                                    ),
-                                  ),
-
-                                  SizedBox(height: 4),
-
-                                  Text(
-                                    'Camera or image URL',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: muted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const Icon(
-                              Icons.chevron_right_rounded,
-                              color: muted,
-                            ),
-                          ],
-                        ),
-                      ),
+                    documentCard(
+                      title: 'Walker Selfie',
+                      subtitle:
+                          'Camera or image URL',
+                      hasImage: hasSelfie,
+                      file: selfieFile,
+                      url: selfieUrl,
+                      onTap:
+                          showSelfieOptions,
                     ),
 
                     const SizedBox(height: 18),
@@ -1039,9 +1500,12 @@ class _MandatoryProfileSetupScreen1State
                     // ==================================================
 
                     field(
-                      controller: nameController,
-                      label: 'Full Name',
-                      icon: Icons.person_rounded,
+                      controller:
+                          nameController,
+                      label:
+                          'Full Name',
+                      icon:
+                          Icons.person_rounded,
                     ),
 
                     // ==================================================
@@ -1052,74 +1516,87 @@ class _MandatoryProfileSetupScreen1State
                       onTap: busy
                           ? null
                           : () {
-                              if (widget.onSelectDate != null) {
-                                widget.onSelectDate!.call();
+                              if (widget
+                                      .onSelectDate !=
+                                  null) {
+                                widget
+                                    .onSelectDate!
+                                    .call();
                               } else {
                                 selectDate();
                               }
                             },
-
                       borderRadius:
-                          BorderRadius.circular(16),
-
-                      child: Container(
-                        width: double.infinity,
-
+                          BorderRadius.circular(
+                        16,
+                      ),
+                      child:
+                          Container(
+                        width:
+                            double.infinity,
                         padding:
-                            const EdgeInsets.symmetric(
+                            const EdgeInsets
+                                .symmetric(
                           horizontal: 15,
                           vertical: 17,
                         ),
-
                         margin:
-                            const EdgeInsets.only(
+                            const EdgeInsets
+                                .only(
                           bottom: 14,
                         ),
-
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-
+                        decoration:
+                            BoxDecoration(
+                          color:
+                              Colors.white,
                           borderRadius:
-                              BorderRadius.circular(16),
-
-                          border: Border.all(
+                              BorderRadius.circular(
+                            16,
+                          ),
+                          border:
+                              Border.all(
                             color:
-                                const Color(0xFFE3E8ED),
+                                const Color(
+                              0xFFE3E8ED,
+                            ),
                           ),
                         ),
-
-                        child: Row(
+                        child:
+                            Row(
                           children: [
                             const Icon(
                               Icons
                                   .calendar_month_rounded,
                               color: blue,
                             ),
-
-                            const SizedBox(width: 12),
-
+                            const SizedBox(
+                              width: 12,
+                            ),
                             Expanded(
-                              child: Text(
-                                dateOfBirth == null
+                              child:
+                                  Text(
+                                dateOfBirth ==
+                                        null
                                     ? 'Date of Birth'
                                     : '${dateOfBirth!.day.toString().padLeft(2, '0')}/'
                                         '${dateOfBirth!.month.toString().padLeft(2, '0')}/'
                                         '${dateOfBirth!.year}',
-
-                                style: TextStyle(
-                                  color:
-                                      dateOfBirth == null
-                                          ? muted
-                                          : textDark,
-
+                                style:
+                                    TextStyle(
+                                  color: dateOfBirth ==
+                                          null
+                                      ? muted
+                                      : textDark,
                                   fontWeight:
-                                      dateOfBirth == null
-                                          ? FontWeight.w400
-                                          : FontWeight.w700,
+                                      dateOfBirth ==
+                                              null
+                                          ? FontWeight
+                                              .w400
+                                          : FontWeight
+                                              .w700,
                                 ),
                               ),
                             ),
-
                             const Icon(
                               Icons
                                   .keyboard_arrow_down_rounded,
@@ -1131,13 +1608,110 @@ class _MandatoryProfileSetupScreen1State
                     ),
 
                     // ==================================================
-                    // AADHAAR
+                    // GENDER
+                    // ==================================================
+
+                    InkWell(
+                      onTap: busy
+                          ? null
+                          : selectGender,
+                      borderRadius:
+                          BorderRadius.circular(
+                        16,
+                      ),
+                      child:
+                          Container(
+                        width:
+                            double.infinity,
+                        padding:
+                            const EdgeInsets
+                                .symmetric(
+                          horizontal: 15,
+                          vertical: 17,
+                        ),
+                        margin:
+                            const EdgeInsets
+                                .only(
+                          bottom: 14,
+                        ),
+                        decoration:
+                            BoxDecoration(
+                          color:
+                              Colors.white,
+                          borderRadius:
+                              BorderRadius.circular(
+                            16,
+                          ),
+                          border:
+                              Border.all(
+                            color:
+                                const Color(
+                              0xFFE3E8ED,
+                            ),
+                          ),
+                        ),
+                        child:
+                            Row(
+                          children: [
+                            Icon(
+                              gender ==
+                                      'Female'
+                                  ? Icons
+                                      .female_rounded
+                                  : gender ==
+                                          'Male'
+                                      ? Icons
+                                          .male_rounded
+                                      : Icons
+                                          .person_outline_rounded,
+                              color: blue,
+                            ),
+                            const SizedBox(
+                              width: 12,
+                            ),
+                            Expanded(
+                              child:
+                                  Text(
+                                gender ??
+                                    'Gender',
+                                style:
+                                    TextStyle(
+                                  color:
+                                      gender ==
+                                              null
+                                          ? muted
+                                          : textDark,
+                                  fontWeight:
+                                      gender ==
+                                              null
+                                          ? FontWeight
+                                              .w400
+                                          : FontWeight
+                                              .w700,
+                                ),
+                              ),
+                            ),
+                            const Icon(
+                              Icons
+                                  .keyboard_arrow_down_rounded,
+                              color: muted,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // ==================================================
+                    // AADHAAR NUMBER
                     // ==================================================
 
                     field(
-                      controller: aadhaarController,
-                      label: 'Aadhaar Number',
-                      icon: Icons.badge_rounded,
+                      controller:
+                          aadhaarController,
+                      label:
+                          'Aadhaar Number',
+                      icon:
+                          Icons.badge_rounded,
                       keyboardType:
                           TextInputType.number,
                       maxLength: 12,
@@ -1146,14 +1720,82 @@ class _MandatoryProfileSetupScreen1State
                     const SizedBox(height: 4),
 
                     // ==================================================
-                    // ADDRESS TITLE
+                    // AADHAAR DOCUMENTS
+                    // ==================================================
+
+                    const Text(
+                      'Aadhaar Documents',
+                      style:
+                          TextStyle(
+                        fontSize: 16,
+                        fontWeight:
+                            FontWeight.w900,
+                        color: textDark,
+                      ),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    const Text(
+                      'For both documents, Camera and URL are supported.',
+                      style:
+                          TextStyle(
+                        fontSize: 11,
+                        color: muted,
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    documentCard(
+                      title:
+                          'Aadhaar Front',
+                      subtitle:
+                          'Camera or image URL',
+                      hasImage:
+                          hasAadhaarFront,
+                      file:
+                          aadhaarFrontFile,
+                      url:
+                          aadhaarFrontUrl,
+                      onTap: () =>
+                          showAadhaarOptions(
+                        front: true,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    documentCard(
+                      title:
+                          'Aadhaar Back',
+                      subtitle:
+                          'Camera or image URL',
+                      hasImage:
+                          hasAadhaarBack,
+                      file:
+                          aadhaarBackFile,
+                      url:
+                          aadhaarBackUrl,
+                      onTap: () =>
+                          showAadhaarOptions(
+                        front: false,
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ==================================================
+                    // ADDRESS
                     // ==================================================
 
                     const Text(
                       'Address',
-                      style: TextStyle(
+                      style:
+                          TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w900,
+                        fontWeight:
+                            FontWeight.w900,
                         color: textDark,
                       ),
                     ),
@@ -1162,7 +1804,8 @@ class _MandatoryProfileSetupScreen1State
 
                     const Text(
                       'All address details will be saved together.',
-                      style: TextStyle(
+                      style:
+                          TextStyle(
                         fontSize: 11,
                         color: muted,
                       ),
@@ -1170,54 +1813,49 @@ class _MandatoryProfileSetupScreen1State
 
                     const SizedBox(height: 12),
 
-                    // ==================================================
-                    // VILLAGE
-                    // ==================================================
-
                     field(
-                      controller: villageController,
-                      label: 'Village / Locality',
-                      icon: Icons.location_on_rounded,
+                      controller:
+                          villageController,
+                      label:
+                          'Village / Locality',
+                      icon:
+                          Icons.location_on_rounded,
                     ),
 
-                    // ==================================================
-                    // CITY
-                    // ==================================================
-
                     field(
-                      controller: cityController,
-                      label: 'City / Town',
-                      icon: Icons.location_city_rounded,
+                      controller:
+                          cityController,
+                      label:
+                          'City / Town',
+                      icon:
+                          Icons.location_city_rounded,
                     ),
 
-                    // ==================================================
-                    // DISTRICT
-                    // ==================================================
-
                     field(
-                      controller: districtController,
-                      label: 'District',
-                      icon: Icons.map_rounded,
+                      controller:
+                          districtController,
+                      label:
+                          'District',
+                      icon:
+                          Icons.map_rounded,
                     ),
 
-                    // ==================================================
-                    // STATE
-                    // ==================================================
-
                     field(
-                      controller: stateController,
-                      label: 'State',
-                      icon: Icons.public_rounded,
+                      controller:
+                          stateController,
+                      label:
+                          'State',
+                      icon:
+                          Icons.public_rounded,
                     ),
 
-                    // ==================================================
-                    // PIN
-                    // ==================================================
-
                     field(
-                      controller: pinController,
-                      label: 'PIN Code',
-                      icon: Icons.pin_drop_rounded,
+                      controller:
+                          pinController,
+                      label:
+                          'PIN Code',
+                      icon:
+                          Icons.pin_drop_rounded,
                       keyboardType:
                           TextInputType.number,
                       maxLength: 6,
@@ -1226,30 +1864,94 @@ class _MandatoryProfileSetupScreen1State
                     const SizedBox(height: 5),
 
                     // ==================================================
+                    // ADDRESS PREVIEW
+                    // ==================================================
+
+                    if (fullAddress.isNotEmpty)
+                      Container(
+                        width:
+                            double.infinity,
+                        margin:
+                            const EdgeInsets
+                                .only(
+                          bottom: 18,
+                        ),
+                        padding:
+                            const EdgeInsets
+                                .all(14),
+                        decoration:
+                            BoxDecoration(
+                          color:
+                              const Color(
+                            0xFFF0F6FF,
+                          ),
+                          borderRadius:
+                              BorderRadius.circular(
+                            15,
+                          ),
+                        ),
+                        child:
+                            Row(
+                          crossAxisAlignment:
+                              CrossAxisAlignment
+                                  .start,
+                          children: [
+                            const Icon(
+                              Icons
+                                  .home_rounded,
+                              color: blue,
+                              size: 20,
+                            ),
+                            const SizedBox(
+                              width: 9,
+                            ),
+                            Expanded(
+                              child:
+                                  Text(
+                                fullAddress,
+                                style:
+                                    const TextStyle(
+                                  fontSize: 11.5,
+                                  height: 1.45,
+                                  color:
+                                      textDark,
+                                  fontWeight:
+                                      FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // ==================================================
                     // NEXT
                     // ==================================================
 
                     Align(
                       alignment:
                           Alignment.centerRight,
-
-                      child: SizedBox(
+                      child:
+                          SizedBox(
                         width: 145,
                         height: 52,
-
-                        child: ElevatedButton(
+                        child:
+                            ElevatedButton(
                           onPressed:
-                              busy ? null : next,
-
+                              busy
+                                  ? null
+                                  : next,
                           style:
                               ElevatedButton.styleFrom(
-                            backgroundColor: green,
+                            backgroundColor:
+                                green,
                             disabledBackgroundColor:
-                                green.withOpacity(.45),
+                                green.withOpacity(
+                              .45,
+                            ),
                             foregroundColor:
                                 Colors.white,
                             elevation: 0,
-
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
@@ -1258,40 +1960,45 @@ class _MandatoryProfileSetupScreen1State
                               ),
                             ),
                           ),
-
-                          child: busy
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child:
-                                      CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment
-                                          .center,
-                                  children: [
-                                    Text(
-                                      'NEXT',
-                                      style: TextStyle(
-                                        fontWeight:
-                                            FontWeight.w900,
-                                        letterSpacing: .5,
+                          child:
+                              busy
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child:
+                                          CircularProgressIndicator(
+                                        strokeWidth:
+                                            2.5,
+                                        color:
+                                            Colors.white,
                                       ),
+                                    )
+                                  : const Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment
+                                              .center,
+                                      children: [
+                                        Text(
+                                          'NEXT',
+                                          style:
+                                              TextStyle(
+                                            fontWeight:
+                                                FontWeight
+                                                    .w900,
+                                            letterSpacing:
+                                                .5,
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          width: 8,
+                                        ),
+                                        Icon(
+                                          Icons
+                                              .arrow_forward_rounded,
+                                          size: 19,
+                                        ),
+                                      ],
                                     ),
-
-                                    SizedBox(width: 8),
-
-                                    Icon(
-                                      Icons
-                                          .arrow_forward_rounded,
-                                      size: 19,
-                                    ),
-                                  ],
-                                ),
                         ),
                       ),
                     ),
