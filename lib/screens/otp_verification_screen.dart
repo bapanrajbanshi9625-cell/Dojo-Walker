@@ -240,18 +240,16 @@ class _OtpVerificationScreenState
       // =================================================
 
       debugPrint(
-        'PROFILE INCOMPLETE → PROFILE SETUP',
-      );
+  'PROFILE INCOMPLETE → PROFILE SETUP',
+);
 
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              const MandatoryProfileSetupScreen1(
-        ),
-        (route) => false,
-      );
-    }
+Navigator.pushAndRemoveUntil(
+  context,
+  MaterialPageRoute(
+    builder: (context) => const MandatoryProfileSetupScreen1(),
+  ),
+  (route) => false,
+);
 
     // ==================================================
     // FIREBASE AUTH ERROR
