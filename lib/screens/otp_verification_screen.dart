@@ -28,8 +28,7 @@ class OtpVerificationScreen extends StatefulWidget {
 
 class _OtpVerificationScreenState
     extends State<OtpVerificationScreen> {
-  final AuthService _authService =
-      AuthService.instance;
+  final AuthService _authService = AuthService.instance;
 
   final TextEditingController _otpController =
       TextEditingController();
@@ -47,8 +46,7 @@ class _OtpVerificationScreenState
       return;
     }
 
-    final String otp =
-        _otpController.text.trim();
+    final String otp = _otpController.text.trim();
 
     if (!RegExp(r'^[0-9]{6}$').hasMatch(otp)) {
       if (!mounted) {
@@ -75,13 +73,10 @@ class _OtpVerificationScreenState
       // STEP 1 - VERIFY OTP
       // ========================================================
 
-      debugPrint(
-        'STEP 1: VERIFY OTP',
-      );
+      debugPrint('STEP 1: VERIFY OTP');
 
       await _authService.verifyOTP(
-        verificationId:
-            widget.verificationId,
+        verificationId: widget.verificationId,
         smsCode: otp,
       );
 
@@ -100,58 +95,44 @@ class _OtpVerificationScreenState
         );
       }
 
-      final String uid =
-          user.uid.trim();
+      final String uid = user.uid.trim();
 
       if (uid.isEmpty) {
         throw FirebaseAuthException(
           code: 'empty-uid',
-          message:
-              'Firebase UID is empty.',
+          message: 'Firebase UID is empty.',
         );
       }
 
       final String phone =
-          (user.phoneNumber ??
-                  widget.phoneNumber)
-              .trim();
+          (user.phoneNumber ?? widget.phoneNumber).trim();
 
-      debugPrint(
-        'STEP 2 SUCCESS: UID=$uid',
-      );
+      debugPrint('STEP 2 SUCCESS: UID=$uid');
 
       // ========================================================
       // STEP 3 - GET / CREATE WALKER ID
       // ========================================================
 
-      debugPrint(
-        'STEP 3: GET / CREATE WALKER ID',
-      );
+      debugPrint('STEP 3: GET / CREATE WALKER ID');
 
       final String walkerId =
-          await WalkerIdService.instance
-              .getOrCreateWalkerId(
+          await WalkerIdService.instance.getOrCreateWalkerId(
         uid: uid,
         phoneNumber: phone,
       );
 
       if (walkerId.trim().isEmpty) {
-        throw Exception(
-          'Walker ID is empty.',
-        );
+        throw Exception('Walker ID is empty.');
       }
 
-      debugPrint(
-        'STEP 3 SUCCESS: $walkerId',
-      );
+      debugPrint('STEP 3 SUCCESS: $walkerId');
 
       // ========================================================
       // STEP 4 - PROFILE
       // ========================================================
 
       final bool profileCompleted =
-          await ProfileSetupService
-              .isWalkerProfileCompleted(
+          await ProfileSetupService.isWalkerProfileCompleted(
         authUid: uid,
       );
 
@@ -164,8 +145,7 @@ class _OtpVerificationScreenState
       // ========================================================
 
       final SharedPreferences prefs =
-          await SharedPreferences
-              .getInstance();
+          await SharedPreferences.getInstance();
 
       await prefs.setBool(
         'isLoggedIn',
@@ -182,20 +162,10 @@ class _OtpVerificationScreenState
         uid,
       );
 
-      debugPrint(
-        'STEP 5 SUCCESS: SESSION SAVED',
-      );
+      debugPrint('STEP 5 SUCCESS: SESSION SAVED');
 
       // ========================================================
-      // STEP 6 - CHECK VERIFICATION + NAVIGATION
-      // ========================================================
-
-      if (!mounted) {
-        return;
-      }
-
-      // ========================================================
-      // READ WALKER DOCUMENT
+      // STEP 6 - READ WALKER DOCUMENT
       // ========================================================
 
       final DocumentSnapshot<Map<String, dynamic>>
@@ -206,6 +176,14 @@ class _OtpVerificationScreenState
               .get();
 
       // ========================================================
+      // CHECK MOUNTED AFTER ASYNC WORK
+      // ========================================================
+
+      if (!mounted) {
+        return;
+      }
+
+      // ========================================================
       // WALKER DOCUMENT NOT FOUND
       // ========================================================
 
@@ -214,13 +192,7 @@ class _OtpVerificationScreenState
           'OTP: Walker document not found → MANDATORY PROFILE',
         );
 
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) =>
-                const MandatoryProfileSetupScreen(),
-          ),
-          (route) => false,
-        );
+        _openMandatoryProfile();
 
         return;
       }
@@ -268,13 +240,7 @@ class _OtpVerificationScreenState
           'OTP → MANDATORY PROFILE SETUP',
         );
 
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) =>
-                const MandatoryProfileSetupScreen(),
-          ),
-          (route) => false,
-        );
+        _openMandatoryProfile();
 
         return;
       }
@@ -289,13 +255,7 @@ class _OtpVerificationScreenState
           'OTP → APPROVED + ACTIVE → MAIN NAVIGATION',
         );
 
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) =>
-                const MainNavigationScreen(),
-          ),
-          (route) => false,
-        );
+        _openMainNavigation();
 
         return;
       }
@@ -309,13 +269,7 @@ class _OtpVerificationScreenState
           'OTP → PENDING → VERIFICATION SCREEN',
         );
 
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) =>
-                const PendingVerificationScreen(),
-          ),
-          (route) => false,
-        );
+        _openPendingVerification();
 
         return;
       }
@@ -329,13 +283,7 @@ class _OtpVerificationScreenState
           'OTP → REJECTED → VERIFICATION SCREEN',
         );
 
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) =>
-                const PendingVerificationScreen(),
-          ),
-          (route) => false,
-        );
+        _openPendingVerification();
 
         return;
       }
@@ -348,13 +296,7 @@ class _OtpVerificationScreenState
         'OTP → UNKNOWN STATUS → VERIFICATION SCREEN',
       );
 
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) =>
-              const PendingVerificationScreen(),
-        ),
-        (route) => false,
-      );
+      _openPendingVerification();
 
       return;
     } on FirebaseAuthException catch (e) {
@@ -367,8 +309,7 @@ class _OtpVerificationScreenState
       }
 
       setState(() {
-        _errorMessage =
-            _friendlyOtpError(e);
+        _errorMessage = _friendlyOtpError(e);
       });
     } on FirebaseException catch (e) {
       debugPrint(
@@ -405,6 +346,52 @@ class _OtpVerificationScreenState
         });
       }
     }
+  }
+
+  // ============================================================
+  // NAVIGATION HELPERS
+  // ============================================================
+
+  void _openMandatoryProfile() {
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) =>
+            const MandatoryProfileSetupScreen(),
+      ),
+      (route) => false,
+    );
+  }
+
+  void _openMainNavigation() {
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) =>
+            const MainNavigationScreen(),
+      ),
+      (route) => false,
+    );
+  }
+
+  void _openPendingVerification() {
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) =>
+            const PendingVerificationScreen(),
+      ),
+      (route) => false,
+    );
   }
 
   // ============================================================
