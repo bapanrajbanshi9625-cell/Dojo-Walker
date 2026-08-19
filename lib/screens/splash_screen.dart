@@ -263,7 +263,57 @@ debugPrint(
 );
       
 // ========================================================
-// 1. PROFILE NOT COMPLETED
+// PROFILE + VERIFICATION STATUS
+// ========================================================
+
+final bool profileCompleted =
+    data['profileCompleted'] == true;
+
+final String verificationStatus =
+    data['verificationStatus']
+            ?.toString()
+            .trim()
+            .toLowerCase() ??
+        'pending';
+
+final bool walkerIdActive =
+    data['walkerIdActive'] == true;
+
+debugPrint(
+  'Splash: profileCompleted=$profileCompleted',
+);
+
+debugPrint(
+  'Splash: verificationStatus=$verificationStatus',
+);
+
+debugPrint(
+  'Splash: walkerIdActive=$walkerIdActive',
+);
+
+// ========================================================
+// 1. APPROVED + ACTIVE → MAIN NAVIGATION
+// ========================================================
+
+if (verificationStatus == 'approved' &&
+    walkerIdActive) {
+  debugPrint(
+    'Splash → MAIN NAVIGATION',
+  );
+
+  if (!mounted) {
+    return;
+  }
+
+  _goTo(
+    const MainNavigationScreen(),
+  );
+
+  return;
+}
+
+// ========================================================
+// 2. PROFILE NOT COMPLETED → MANDATORY PROFILE
 // ========================================================
 
 if (!profileCompleted) {
@@ -283,7 +333,7 @@ if (!profileCompleted) {
 }
 
 // ========================================================
-// 2. PROFILE COMPLETED + PENDING
+// 3. PROFILE COMPLETED + PENDING
 // ========================================================
 
 if (verificationStatus == 'pending') {
@@ -303,12 +353,12 @@ if (verificationStatus == 'pending') {
 }
 
 // ========================================================
-// 3. REJECTED
+// 4. REJECTED
 // ========================================================
 
 if (verificationStatus == 'rejected') {
   debugPrint(
-    'Splash → PENDING VERIFICATION / REJECTED',
+    'Splash → REJECTED / PENDING VERIFICATION',
   );
 
   if (!mounted) {
@@ -317,27 +367,6 @@ if (verificationStatus == 'rejected') {
 
   _goTo(
     const PendingVerificationScreen(),
-  );
-
-  return;
-}
-
-// ========================================================
-// 4. APPROVED + ACTIVE
-// ========================================================
-
-if (verificationStatus == 'approved' &&
-    walkerIdActive) {
-  debugPrint(
-    'Splash → MAIN NAVIGATION',
-  );
-
-  if (!mounted) {
-    return;
-  }
-
-  _goTo(
-    const MainNavigationScreen(),
   );
 
   return;
@@ -360,39 +389,6 @@ _goTo(
 );
 
 return;
-    } on FirebaseException catch (e) {
-      debugPrint(
-        'SPLASH FIREBASE ERROR: ${e.code}',
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isChecking = false;
-        _errorMessage =
-            'Unable to verify your account.\n\n'
-            'Please check your internet connection '
-            'and try again.';
-      });
-    } catch (e) {
-      debugPrint(
-        'SPLASH ERROR: $e',
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isChecking = false;
-        _errorMessage =
-            'Unable to verify your account.\n\n'
-            'Please try again.';
-      });
-    }
-  }
   
   // ============================================================
   // FORCE LOGOUT
