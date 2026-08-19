@@ -1,5 +1,6 @@
 // File location: lib/screens/splash_screen.dart
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -9,7 +10,9 @@ import 'mobile_login_screen.dart';
 import 'profile_setup_screen.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({
+    super.key,
+  });
 
   @override
   State<SplashScreen> createState() =>
@@ -22,16 +25,29 @@ class _SplashScreenState
 
   bool _isChecking = true;
 
+  // ============================================================
+  // FIREBASE
+  // ============================================================
+
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
+
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  // ============================================================
+  // INIT
+  // ============================================================
+
   @override
   void initState() {
     super.initState();
 
-    // Firebase/Auth check start
     _checkLoginAndNavigate();
   }
 
   // ============================================================
-  // CHECK LOGIN + FIRESTORE PROFILE
+  // CHECK LOGIN + WALKER ACCOUNT + PROFILE
   // ============================================================
 
   Future<void> _checkLoginAndNavigate() async {
@@ -46,19 +62,19 @@ class _SplashScreenState
 
     try {
       // ========================================================
-      // CURRENT FIREBASE USER
+      // 1. CURRENT FIREBASE USER
       // ========================================================
 
       final User? user =
-          FirebaseAuth.instance.currentUser;
+          _auth.currentUser;
 
       // ========================================================
-      // USER NOT LOGGED IN
+      // NO FIREBASE SESSION
       // ========================================================
 
       if (user == null) {
         debugPrint(
-          'Splash: No Firebase user found.',
+          'Splash: No Firebase user.',
         );
 
         if (!mounted) {
@@ -72,54 +88,208 @@ class _SplashScreenState
         return;
       }
 
+      final String uid =
+          user.uid.trim();
+
+      if (uid.isEmpty) {
+        await _forceLogout();
+
+        return;
+      }
+
       // ========================================================
-      // FIREBASE UID
+      // LOG
       // ========================================================
 
       debugPrint(
         '========================================',
       );
+
       debugPrint(
-        'SPLASH PROFILE CHECK',
+        'SPLASH AUTH CHECK',
       );
+
       debugPrint(
-        'Firebase UID: ${user.uid}',
+        'Firebase UID: $uid',
       );
+
+      debugPrint(
+        'Phone: ${user.phoneNumber ?? 'unknown'}',
+      );
+
       debugPrint(
         '========================================',
       );
 
       // ========================================================
-      // FIRESTORE PROFILE CHECK
+      // 2. READ WALKER DOCUMENT
       //
       // IMPORTANT:
-      // Splash screen remains visible while this request
-      // is running.
+      // Document ID MUST be Firebase UID.
+      //
+      // walkers/{Firebase UID}
+      // ========================================================
+
+      final DocumentReference<
+          Map<String, dynamic>> walkerRef =
+          _firestore
+              .collection('walkers')
+              .doc(uid);
+
+      final DocumentSnapshot<
+          Map<String, dynamic>> walkerSnapshot =
+          await walkerRef.get();
+
+      // ========================================================
+      // WALKER DOCUMENT DOES NOT EXIST
+      // ========================================================
+
+      if (!walkerSnapshot.exists) {
+        debugPrint(
+          'Splash: walkers/$uid does not exist.',
+        );
+
+        await _forceLogout();
+
+        return;
+      }
+
+      final Map<String, dynamic> data =
+          walkerSnapshot.data() ??
+              <String, dynamic>{};
+
+      // ========================================================
+      // 3. CHECK ROLE
+      // ========================================================
+
+      final String role =
+          data['role']
+                  ?.toString()
+                  .trim()
+                  .toLowerCase() ??
+              '';
+
+      if (role != 'walker') {
+        debugPrint(
+          'Splash: Invalid walker role: $role',
+        );
+
+        await _forceLogout();
+
+        return;
+      }
+
+      // ========================================================
+      // 4. CHECK AUTH UID INSIDE DOCUMENT
+      // ========================================================
+
+      final String documentAuthUid =
+          data['authUid']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      // --------------------------------------------------------
+      // If authUid exists, it MUST match Firebase UID.
+      // --------------------------------------------------------
+
+      if (documentAuthUid.isNotEmpty &&
+          documentAuthUid != uid) {
+        debugPrint(
+          'Splash: authUid mismatch.',
+        );
+
+        await _forceLogout();
+
+        return;
+      }
+
+      // ========================================================
+      // 5. CHECK WALKER ID
+      // ========================================================
+
+      final String walkerId =
+          data['walkerId']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      if (walkerId.isEmpty) {
+        debugPrint(
+          'Splash: Walker ID missing.',
+        );
+
+        await _forceLogout();
+
+        return;
+      }
+
+      debugPrint(
+        'Walker ID: $walkerId',
+      );
+
+      // ========================================================
+      // 6. CHECK PROFILE COMPLETED
       // ========================================================
 
       final bool profileCompleted =
-          await ProfileSetupService
-              .isWalkerProfileCompleted(
-        authUid: user.uid,
-      );
+          data['profileCompleted'] == true;
 
       debugPrint(
         'Profile Completed: $profileCompleted',
       );
 
-      if (!mounted) {
-        return;
-      }
-
       // ========================================================
-      // PROFILE INCOMPLETE
+      // 7. EXTRA SERVICE CHECK
+      //
+      // Keep this synchronized with ProfileSetupService.
       // ========================================================
 
-      if (!profileCompleted) {
+      final bool serviceProfileCompleted =
+          await ProfileSetupService
+              .isWalkerProfileCompleted(
+        authUid: uid,
+      );
+
+      debugPrint(
+        'Service Profile Completed: '
+        '$serviceProfileCompleted',
+      );
+
+      // ========================================================
+      // 8. FINAL PROFILE STATUS
+      //
+      // Both checks must agree.
+      // ========================================================
+
+      final bool isCompleted =
+          profileCompleted &&
+          serviceProfileCompleted;
+
+      // ========================================================
+      // 9. PROFILE INCOMPLETE
+      // ========================================================
+
+      if (!isCompleted) {
         debugPrint(
-          'Profile incomplete '
+          '========================================',
+        );
+
+        debugPrint(
+          'PROFILE INCOMPLETE',
+        );
+
+        debugPrint(
           '→ Mandatory Profile Setup',
         );
+
+        debugPrint(
+          '========================================',
+        );
+
+        if (!mounted) {
+          return;
+        }
 
         _goTo(
           const MandatoryProfileSetupScreen(),
@@ -129,31 +299,49 @@ class _SplashScreenState
       }
 
       // ========================================================
-      // PROFILE COMPLETE
-      // ========================================================
-
-      debugPrint(
-        'Profile complete '
-        '→ Main Navigation',
-      );
-
-      _goTo(
-        const MainNavigationScreen(),
-      );
-    } catch (e) {
-      // ========================================================
-      // FIREBASE / FIRESTORE ERROR
+      // 10. PROFILE COMPLETE
       // ========================================================
 
       debugPrint(
         '========================================',
       );
+
       debugPrint(
-        'SPLASH PROFILE CHECK ERROR',
+        'PROFILE COMPLETE',
       );
+
       debugPrint(
-        '$e',
+        '→ Main Navigation',
       );
+
+      debugPrint(
+        '========================================',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _goTo(
+        const MainNavigationScreen(),
+      );
+    } on FirebaseException catch (e) {
+      debugPrint(
+        '========================================',
+      );
+
+      debugPrint(
+        'SPLASH FIREBASE ERROR',
+      );
+
+      debugPrint(
+        'CODE: ${e.code}',
+      );
+
+      debugPrint(
+        'MESSAGE: ${e.message}',
+      );
+
       debugPrint(
         '========================================',
       );
@@ -166,27 +354,79 @@ class _SplashScreenState
         _isChecking = false;
 
         _errorMessage =
-            'Unable to verify your profile.\n\n'
+            'Unable to verify your account.\n\n'
             'Please check your internet connection '
             'and try again.';
       });
+    } catch (e) {
+      debugPrint(
+        '========================================',
+      );
+
+      debugPrint(
+        'SPLASH ERROR',
+      );
+
+      debugPrint(
+        '$e',
+      );
+
+      debugPrint(
+        '========================================',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isChecking = false;
+
+        _errorMessage =
+            'Unable to verify your account.\n\n'
+            'Please try again.';
+      });
     }
+  }
+
+  // ============================================================
+  // FORCE LOGOUT
+  // ============================================================
+
+  Future<void> _forceLogout() async {
+    try {
+      await _auth.signOut();
+    } catch (e) {
+      debugPrint(
+        'Splash logout error: $e',
+      );
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    _goTo(
+      const MobileLoginScreen(),
+    );
   }
 
   // ============================================================
   // NAVIGATION
   // ============================================================
 
-  void _goTo(Widget screen) {
+  void _goTo(
+    Widget screen,
+  ) {
     if (!mounted) {
       return;
     }
 
-    Navigator.pushReplacement(
-      context,
+    Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
         builder: (_) => screen,
       ),
+      (route) => false,
     );
   }
 
@@ -195,7 +435,9 @@ class _SplashScreenState
   // ============================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
@@ -218,35 +460,35 @@ class _SplashScreenState
             right: 0,
             bottom: 65,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize:
+                  MainAxisSize.min,
               children: [
                 // ==================================================
-                // NORMAL FIREBASE CHECKING
+                // NORMAL CHECKING
                 // ==================================================
 
                 if (_errorMessage == null) ...[
                   const Text(
                     'Getting things ready...',
-                    textAlign: TextAlign.center,
+                    textAlign:
+                        TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 17,
-                      fontWeight: FontWeight.w500,
+                      fontWeight:
+                          FontWeight.w500,
                     ),
                   ),
 
-                  const SizedBox(height: 18),
-
-                  // =================================================
-                  // ONLY CIRCULAR LOADING
-                  // NO PERCENTAGE
-                  // NO LINE PROGRESS BAR
-                  // =================================================
+                  const SizedBox(
+                    height: 18,
+                  ),
 
                   const SizedBox(
                     width: 30,
                     height: 30,
-                    child: CircularProgressIndicator(
+                    child:
+                        CircularProgressIndicator(
                       strokeWidth: 3,
                       value: null,
                       color: Colors.white,
@@ -255,32 +497,39 @@ class _SplashScreenState
                 ],
 
                 // ==================================================
-                // FIREBASE ERROR
+                // ERROR
                 // ==================================================
 
                 if (_errorMessage != null) ...[
                   Padding(
-                    padding: const EdgeInsets.symmetric(
+                    padding:
+                        const EdgeInsets.symmetric(
                       horizontal: 25,
                     ),
                     child: Text(
                       _errorMessage!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      textAlign:
+                          TextAlign.center,
+                      style:
+                          const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
-                        fontWeight: FontWeight.w500,
+                        fontWeight:
+                            FontWeight.w500,
                         height: 1.4,
                       ),
                     ),
                   ),
 
-                  const SizedBox(height: 18),
+                  const SizedBox(
+                    height: 18,
+                  ),
 
                   ElevatedButton(
-                    onPressed: _isChecking
-                        ? null
-                        : _checkLoginAndNavigate,
+                    onPressed:
+                        _isChecking
+                            ? null
+                            : _checkLoginAndNavigate,
                     child: const Text(
                       'Try Again',
                     ),
