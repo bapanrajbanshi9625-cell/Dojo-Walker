@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,7 +8,9 @@ import '../services/walker_id_service.dart';
 import '../features/profile_setup/services/profile_setup_service.dart';
 
 import 'main_navigation_screen.dart';
+import 'mobile_login_screen.dart';
 import 'profile_setup_screen.dart';
+import '../features/profile_setup/screens/pending_verification_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String verificationId;
@@ -48,9 +51,10 @@ class _OtpVerificationScreenState
     final String otp =
         _otpController.text.trim();
 
-    if (!RegExp(r'^[0-9]{6}$')
-        .hasMatch(otp)) {
-      if (!mounted) return;
+    if (!RegExp(r'^[0-9]{6}$').hasMatch(otp)) {
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _errorMessage =
@@ -69,7 +73,7 @@ class _OtpVerificationScreenState
 
     try {
       // ========================================================
-      // STEP 1 - OTP
+      // STEP 1 - VERIFY OTP
       // ========================================================
 
       debugPrint(
@@ -118,7 +122,7 @@ class _OtpVerificationScreenState
       );
 
       // ========================================================
-      // STEP 3 - WALKER ID
+      // STEP 3 - GET / CREATE WALKER ID
       // ========================================================
 
       debugPrint(
@@ -184,28 +188,31 @@ class _OtpVerificationScreenState
       );
 
       // ========================================================
-      // STEP 6 - NAVIGATION
+      // STEP 6 - CHECK VERIFICATION + NAVIGATION
       // ========================================================
 
       if (!mounted) {
         return;
       }
 
-      if (profileCompleted) {
-        debugPrint(
-          'OTP → PROFILE COMPLETE → HOME',
-        );
+      // ========================================================
+      // READ WALKER DOCUMENT
+      // ========================================================
 
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) =>
-                const MainNavigationScreen(),
-          ),
-          (route) => false,
-        );
-      } else {
+      final DocumentSnapshot<Map<String, dynamic>>
+          walkerSnapshot =
+          await FirebaseFirestore.instance
+              .collection('walkers')
+              .doc(uid)
+              .get();
+
+      // ========================================================
+      // WALKER DOCUMENT NOT FOUND
+      // ========================================================
+
+      if (!walkerSnapshot.exists) {
         debugPrint(
-          'OTP → PROFILE INCOMPLETE → MANDATORY PROFILE',
+          'OTP: Walker document not found → MANDATORY PROFILE',
         );
 
         Navigator.of(context).pushAndRemoveUntil(
@@ -215,13 +222,150 @@ class _OtpVerificationScreenState
           ),
           (route) => false,
         );
+
+        return;
       }
+
+      final Map<String, dynamic> walkerData =
+          walkerSnapshot.data() ??
+              <String, dynamic>{};
+
+      // ========================================================
+      // VERIFICATION STATUS
+      // ========================================================
+
+      final String verificationStatus =
+          walkerData['verificationStatus']
+                  ?.toString()
+                  .trim()
+                  .toLowerCase() ??
+              'pending';
+
+      // ========================================================
+      // WALKER ID ACTIVE
+      // ========================================================
+
+      final bool walkerIdActive =
+          walkerData['walkerIdActive'] == true;
+
+      debugPrint(
+        'OTP: profileCompleted=$profileCompleted',
+      );
+
+      debugPrint(
+        'OTP: verificationStatus=$verificationStatus',
+      );
+
+      debugPrint(
+        'OTP: walkerIdActive=$walkerIdActive',
+      );
+
+      // ========================================================
+      // 1. PROFILE INCOMPLETE
+      // ========================================================
+
+      if (!profileCompleted) {
+        debugPrint(
+          'OTP → MANDATORY PROFILE SETUP',
+        );
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) =>
+                const MandatoryProfileSetupScreen(),
+          ),
+          (route) => false,
+        );
+
+        return;
+      }
+
+      // ========================================================
+      // 2. APPROVED + ACTIVE
+      // ========================================================
+
+      if (verificationStatus == 'approved' &&
+          walkerIdActive) {
+        debugPrint(
+          'OTP → APPROVED + ACTIVE → MAIN NAVIGATION',
+        );
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) =>
+                const MainNavigationScreen(),
+          ),
+          (route) => false,
+        );
+
+        return;
+      }
+
+      // ========================================================
+      // 3. PENDING
+      // ========================================================
+
+      if (verificationStatus == 'pending') {
+        debugPrint(
+          'OTP → PENDING → VERIFICATION SCREEN',
+        );
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) =>
+                const PendingVerificationScreen(),
+          ),
+          (route) => false,
+        );
+
+        return;
+      }
+
+      // ========================================================
+      // 4. REJECTED
+      // ========================================================
+
+      if (verificationStatus == 'rejected') {
+        debugPrint(
+          'OTP → REJECTED → VERIFICATION SCREEN',
+        );
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) =>
+                const PendingVerificationScreen(),
+          ),
+          (route) => false,
+        );
+
+        return;
+      }
+
+      // ========================================================
+      // 5. SAFE FALLBACK
+      // ========================================================
+
+      debugPrint(
+        'OTP → UNKNOWN STATUS → VERIFICATION SCREEN',
+      );
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) =>
+              const PendingVerificationScreen(),
+        ),
+        (route) => false,
+      );
+
+      return;
     } on FirebaseAuthException catch (e) {
       debugPrint(
         'AUTH ERROR: ${e.code}',
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _errorMessage =
@@ -232,7 +376,7 @@ class _OtpVerificationScreenState
         'FIREBASE ERROR: ${e.code}',
       );
 
-            if (!mounted) {
+      if (!mounted) {
         return;
       }
 
@@ -240,6 +384,20 @@ class _OtpVerificationScreenState
         _errorMessage =
             'Account setup failed.\n\n'
             'Error: ${e.toString()}';
+      });
+    } catch (e) {
+      debugPrint(
+        'OTP ERROR: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage =
+            'Account setup failed.\n\n'
+            'Please try again.';
       });
     } finally {
       if (mounted) {
@@ -368,11 +526,13 @@ class _OtpVerificationScreenState
                   padding:
                       const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.08),
+                    color:
+                        Colors.red.withOpacity(0.08),
                     borderRadius:
                         BorderRadius.circular(10),
                     border: Border.all(
-                      color: Colors.red.withOpacity(0.25),
+                      color:
+                          Colors.red.withOpacity(0.25),
                     ),
                   ),
                   child: Text(
@@ -434,6 +594,10 @@ class _OtpVerificationScreenState
       ),
     );
   }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
 
   @override
   void dispose() {
