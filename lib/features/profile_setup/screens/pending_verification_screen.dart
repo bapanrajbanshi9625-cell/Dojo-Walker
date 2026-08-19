@@ -152,10 +152,19 @@ class _PendingVerificationScreenState
 // ========================================================
 
 if (status == 'rejected') {
-  _handleRejected();
-  return;
-}
-
+          _handleRejected();
+          return;
+        }
+      },
+      onError: (Object error) {
+        debugPrint(
+          'PendingVerification listener error: $error',
+        );
+      },
+      cancelOnError: false,
+    );
+  }
+  
   // ============================================================
   // OPEN MAIN NAVIGATION
   // ============================================================
