@@ -30,8 +30,7 @@ class _OtpVerificationScreenState
   // SERVICES
   // ============================================================
 
-  final AuthService _authService =
-      AuthService.instance;
+  final AuthService _authService = AuthService.instance;
 
   final TextEditingController _otpController =
       TextEditingController();
@@ -53,8 +52,7 @@ class _OtpVerificationScreenState
       return;
     }
 
-    final String otp =
-        _otpController.text.trim();
+    final String otp = _otpController.text.trim();
 
     // ==========================================================
     // OTP VALIDATION
@@ -91,8 +89,7 @@ class _OtpVerificationScreenState
       debugPrint('========================================');
 
       await _authService.verifyOTP(
-        verificationId:
-            widget.verificationId.trim(),
+        verificationId: widget.verificationId.trim(),
         smsCode: otp,
       );
 
@@ -116,21 +113,17 @@ class _OtpVerificationScreenState
         );
       }
 
-      final String uid =
-          user.uid.trim();
+      final String uid = user.uid.trim();
 
       if (uid.isEmpty) {
         throw FirebaseAuthException(
           code: 'empty-uid',
-          message:
-              'Firebase UID is empty.',
+          message: 'Firebase UID is empty.',
         );
       }
 
       final String phone =
-          (user.phoneNumber ??
-                  widget.phoneNumber)
-              .trim();
+          (user.phoneNumber ?? widget.phoneNumber).trim();
 
       debugPrint('========================================');
       debugPrint('STEP 2 SUCCESS: FIREBASE USER FOUND');
@@ -142,8 +135,7 @@ class _OtpVerificationScreenState
       // STEP 3
       // CREATE / GET WALKER ID
       //
-      // IMPORTANT:
-      // This runs ONLY after successful Firebase OTP.
+      // ONLY after successful OTP.
       // ========================================================
 
       debugPrint('========================================');
@@ -151,8 +143,7 @@ class _OtpVerificationScreenState
       debugPrint('========================================');
 
       final String walkerId =
-          await WalkerIdService.instance
-              .getOrCreateWalkerId(
+          await WalkerIdService.instance.getOrCreateWalkerId(
         uid: uid,
         phoneNumber: phone,
       );
@@ -161,8 +152,7 @@ class _OtpVerificationScreenState
         throw FirebaseException(
           plugin: 'cloud_firestore',
           code: 'empty-walker-id',
-          message:
-              'Walker ID could not be created.',
+          message: 'Walker ID could not be created.',
         );
       }
 
@@ -183,8 +173,7 @@ class _OtpVerificationScreenState
       debugPrint('========================================');
 
       final bool profileCompleted =
-          await ProfileSetupService
-              .isWalkerProfileCompleted(
+          await ProfileSetupService.isWalkerProfileCompleted(
         authUid: uid,
       );
 
@@ -198,11 +187,6 @@ class _OtpVerificationScreenState
       // ========================================================
       // STEP 5
       // SAVE LOCAL SESSION
-      //
-      // At this point:
-      // Firebase Auth = SUCCESS
-      // Walker ID = SUCCESS
-      // Profile Check = SUCCESS
       // ========================================================
 
       debugPrint('========================================');
@@ -239,9 +223,7 @@ class _OtpVerificationScreenState
       }
 
       debugPrint('========================================');
-      debugPrint(
-        'STEP 5 SUCCESS: LOCAL SESSION SAVED',
-      );
+      debugPrint('STEP 5 SUCCESS: LOCAL SESSION SAVED');
       debugPrint('========================================');
 
       // ========================================================
@@ -262,7 +244,7 @@ class _OtpVerificationScreenState
 
       if (profileCompleted) {
         // ------------------------------------------------------
-        // PROFILE COMPLETE
+        // PROFILE COMPLETE → HOME
         // ------------------------------------------------------
 
         debugPrint(
@@ -275,7 +257,7 @@ class _OtpVerificationScreenState
         );
       } else {
         // ------------------------------------------------------
-        // PROFILE INCOMPLETE
+        // PROFILE INCOMPLETE → PROFILE SETUP
         // ------------------------------------------------------
 
         debugPrint(
@@ -305,8 +287,7 @@ class _OtpVerificationScreenState
       }
 
       setState(() {
-        _errorMessage =
-            _friendlyOtpError(e);
+        _errorMessage = _friendlyOtpError(e);
       });
     }
 
@@ -469,8 +450,7 @@ class _OtpVerificationScreenState
 
               TextField(
                 controller: _otpController,
-                keyboardType:
-                    TextInputType.number,
+                keyboardType: TextInputType.number,
                 maxLength: 6,
                 textAlign: TextAlign.center,
                 autofocus: true,
@@ -504,16 +484,13 @@ class _OtpVerificationScreenState
               if (_errorMessage.isNotEmpty) ...[
                 const SizedBox(height: 15),
                 Container(
-                  padding:
-                      const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.red
-                        .withValues(alpha: 0.08),
+                    color: Colors.red.withOpacity(0.08),
                     borderRadius:
                         BorderRadius.circular(10),
                     border: Border.all(
-                      color: Colors.red
-                          .withValues(alpha: 0.25),
+                      color: Colors.red.withOpacity(0.25),
                     ),
                   ),
                   child: Text(
@@ -548,6 +525,7 @@ class _OtpVerificationScreenState
                           child:
                               CircularProgressIndicator(
                             strokeWidth: 2,
+                            color: Colors.white,
                           ),
                         )
                       : const Text(
