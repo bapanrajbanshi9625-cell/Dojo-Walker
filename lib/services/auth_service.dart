@@ -4,9 +4,11 @@ import 'package:flutter/foundation.dart';
 class AuthService {
   AuthService._();
 
-  static final AuthService instance = AuthService._();
+  static final AuthService instance =
+      AuthService._();
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
 
   // ============================================================
   // SEND OTP
@@ -18,144 +20,81 @@ class AuthService {
     required Function(String error) onError,
   }) async {
     try {
-      final String cleanPhone = phoneNumber.trim();
+      final String cleanPhone =
+          phoneNumber.trim();
 
-      if (!RegExp(r'^[0-9]{10}$').hasMatch(cleanPhone)) {
+      if (!RegExp(r'^[0-9]{10}$')
+          .hasMatch(cleanPhone)) {
         onError(
           'Please enter a valid 10-digit mobile number.',
         );
         return;
       }
 
-      final String formattedPhone = '+91$cleanPhone';
+      final String formattedPhone =
+          '+91$cleanPhone';
 
-      debugPrint('========================================');
-      debugPrint('FIREBASE PHONE VERIFICATION START');
-      debugPrint('PHONE: $formattedPhone');
-      debugPrint('========================================');
+      debugPrint(
+        'FIREBASE OTP REQUEST: $formattedPhone',
+      );
 
       await _auth.verifyPhoneNumber(
         phoneNumber: formattedPhone,
 
-        // ======================================================
-        // AUTOMATIC VERIFICATION
-        //
-        // IMPORTANT:
-        // DO NOT sign in automatically here.
-        //
-        // Otherwise Firebase can create an authenticated
-        // session before the OTP screen has completed the
-        // normal verification flow.
-        //
-        // SplashScreen could then see currentUser and send
-        // the user to Profile Setup even when the user did
-        // not manually verify the OTP.
-        // ======================================================
-
         verificationCompleted:
             (PhoneAuthCredential credential) {
-          debugPrint('========================================');
-          debugPrint('FIREBASE AUTO VERIFICATION AVAILABLE');
           debugPrint(
-            'Automatic credential received.',
+            'Automatic verification available.',
           );
-          debugPrint(
-            'Waiting for manual OTP verification flow.',
-          );
-          debugPrint('========================================');
-
-          // Intentionally NOT calling:
-          //
-          // _auth.signInWithCredential(credential)
-          //
-          // Manual OTP verification is the only place where
-          // Firebase authentication is completed.
         },
 
-        // ======================================================
-        // VERIFICATION FAILED
-        // ======================================================
-
-        verificationFailed: (
-          FirebaseAuthException e,
-        ) {
-          debugPrint('========================================');
-          debugPrint('PHONE VERIFICATION FAILED');
-          debugPrint('CODE: ${e.code}');
-          debugPrint('MESSAGE: ${e.message}');
-          debugPrint('========================================');
+        verificationFailed:
+            (FirebaseAuthException e) {
+          debugPrint(
+            'Phone verification failed: '
+            '${e.code} - ${e.message}',
+          );
 
           onError(
-            '${e.code}: '
-            '${e.message ?? 'Firebase phone verification failed.'}',
+            e.message ??
+                'Firebase phone verification failed.',
           );
         },
-
-        // ======================================================
-        // OTP SENT
-        // ======================================================
 
         codeSent: (
           String verificationId,
           int? resendToken,
         ) {
-          debugPrint('========================================');
-          debugPrint('FIREBASE OTP SENT');
           debugPrint(
-            'VERIFICATION ID LENGTH: '
-            '${verificationId.length}',
+            'OTP sent successfully.',
           );
-          debugPrint('========================================');
 
-          onCodeSent(verificationId);
+          onCodeSent(
+            verificationId,
+          );
         },
 
-        // ======================================================
-        // AUTO RETRIEVAL TIMEOUT
-        // ======================================================
-
-        codeAutoRetrievalTimeout: (
-          String verificationId,
-        ) {
+        codeAutoRetrievalTimeout:
+            (String verificationId) {
           debugPrint(
-            'FIREBASE OTP AUTO RETRIEVAL TIMEOUT',
+            'OTP auto retrieval timeout.',
           );
         },
       );
     } on FirebaseAuthException catch (e) {
-      debugPrint(
-        'PHONE AUTH ERROR: '
-        '${e.code} - ${e.message}',
-      );
-
       onError(
-        '${e.code}: '
-        '${e.message ?? 'Phone verification failed.'}',
+        e.message ??
+            'Phone verification failed.',
       );
     } catch (e) {
-      debugPrint(
-        'PHONE AUTH GENERAL ERROR: $e',
+      onError(
+        e.toString(),
       );
-
-      onError(e.toString());
     }
   }
 
   // ============================================================
   // VERIFY OTP
-  //
-  // ONLY THIS METHOD CREATES THE FIREBASE LOGIN SESSION.
-  //
-  // Wrong OTP:
-  //   -> exception
-  //   -> no Walker ID
-  //   -> no Firestore profile
-  //   -> no SharedPreferences login
-  //   -> no navigation
-  //
-  // Correct OTP:
-  //   -> Firebase Auth success
-  //   -> returns true
   // ============================================================
 
   Future<bool> verifyOTP({
@@ -165,11 +104,8 @@ class AuthService {
     final String cleanVerificationId =
         verificationId.trim();
 
-    final String cleanOtp = smsCode.trim();
-
-    // ==========================================================
-    // VERIFICATION ID VALIDATION
-    // ==========================================================
+    final String cleanOtp =
+        smsCode.trim();
 
     if (cleanVerificationId.isEmpty) {
       throw FirebaseAuthException(
@@ -179,11 +115,8 @@ class AuthService {
       );
     }
 
-    // ==========================================================
-    // OTP VALIDATION
-    // ==========================================================
-
-    if (!RegExp(r'^[0-9]{6}$').hasMatch(cleanOtp)) {
+    if (!RegExp(r'^[0-9]{6}$')
+        .hasMatch(cleanOtp)) {
       throw FirebaseAuthException(
         code: 'invalid-otp-format',
         message:
@@ -192,26 +125,19 @@ class AuthService {
     }
 
     try {
-      // ========================================================
-      // CREATE PHONE CREDENTIAL
-      // ========================================================
-
       final PhoneAuthCredential credential =
           PhoneAuthProvider.credential(
-        verificationId: cleanVerificationId,
+        verificationId:
+            cleanVerificationId,
         smsCode: cleanOtp,
       );
 
-      // ========================================================
-      // FIREBASE AUTH
-      // ========================================================
-
-      final UserCredential userCredential =
+      final UserCredential result =
           await _auth.signInWithCredential(
         credential,
       );
 
-      final User? user = userCredential.user;
+      final User? user = result.user;
 
       if (user == null) {
         throw FirebaseAuthException(
@@ -220,22 +146,6 @@ class AuthService {
               'Firebase authentication returned no user.',
         );
       }
-
-      // ========================================================
-      // SUCCESS
-      // ========================================================
-
-      debugPrint('========================================');
-      debugPrint('FIREBASE OTP AUTH SUCCESS');
-      debugPrint('UID: ${user.uid}');
-      debugPrint(
-        'PHONE: ${user.phoneNumber ?? 'unknown'}',
-      );
-      debugPrint('========================================');
-
-      // ========================================================
-      // FINAL SESSION CHECK
-      // ========================================================
 
       final User? currentUser =
           _auth.currentUser;
@@ -249,19 +159,13 @@ class AuthService {
       }
 
       debugPrint(
-        'FIREBASE OTP LOGIN COMPLETE',
+        'OTP AUTH SUCCESS: ${currentUser.uid}',
       );
 
       return true;
     } on FirebaseAuthException {
-      // IMPORTANT:
-      // Wrong OTP comes directly back to OTP screen.
       rethrow;
     } catch (e) {
-      debugPrint(
-        'OTP AUTH ERROR: $e',
-      );
-
       throw FirebaseAuthException(
         code: 'otp-verification-error',
         message: e.toString(),
@@ -273,49 +177,23 @@ class AuthService {
   // CURRENT USER
   // ============================================================
 
-  User? get currentUser {
-    return _auth.currentUser;
-  }
+  User? get currentUser =>
+      _auth.currentUser;
 
-  // ============================================================
-  // LOGIN STATE
-  // ============================================================
+  bool get isFirebaseLoggedIn =>
+      _auth.currentUser != null;
 
-  bool get isFirebaseLoggedIn {
-    return _auth.currentUser != null;
-  }
+  String? get currentUid =>
+      _auth.currentUser?.uid;
 
-  // ============================================================
-  // UID
-  // ============================================================
-
-  String? get currentUid {
-    return _auth.currentUser?.uid;
-  }
-
-  // ============================================================
-  // PHONE
-  // ============================================================
-
-  String? get currentPhoneNumber {
-    return _auth.currentUser?.phoneNumber;
-  }
+  String? get currentPhoneNumber =>
+      _auth.currentUser?.phoneNumber;
 
   // ============================================================
   // LOGOUT
   // ============================================================
 
   Future<void> logout() async {
-    try {
-      await _auth.signOut();
-
-      debugPrint(
-        'Firebase logout successful.',
-      );
-    } catch (e) {
-      debugPrint(
-        'Logout error: $e',
-      );
-    }
+    await _auth.signOut();
   }
 }
