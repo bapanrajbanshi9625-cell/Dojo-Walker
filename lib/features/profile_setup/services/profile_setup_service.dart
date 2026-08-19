@@ -14,10 +14,14 @@ class ProfileSetupService {
       FirebaseStorage.instance;
 
   // ============================================================
-  // COLLECTION
+  // COLLECTIONS
   // ============================================================
 
-  static const String collection = 'walkers';
+  // Admin / verification collection
+  static const String walkersCollection = 'walkers';
+
+  // Walker app profile collection
+  static const String walkerProfilesCollection = 'walkerProfiles';
 
   // ============================================================
   // FIRESTORE FIELDS
@@ -90,6 +94,8 @@ class ProfileSetupService {
 
   // ============================================================
   // GET WALKER PROFILE
+  //
+  // Admin / verification profile
   // ============================================================
 
   static Future<DocumentSnapshot<Map<String, dynamic>>>
@@ -105,13 +111,40 @@ class ProfileSetupService {
     }
 
     return _firestore
-        .collection(collection)
+        .collection(walkersCollection)
+        .doc(uid)
+        .get();
+  }
+
+  // ============================================================
+  // GET WALKER APP PROFILE
+  //
+  // walkerProfiles/{UID}
+  // ============================================================
+
+  static Future<DocumentSnapshot<Map<String, dynamic>>>
+      getWalkerAppProfile({
+    required String authUid,
+  }) async {
+    final uid = authUid.trim();
+
+    if (uid.isEmpty) {
+      throw Exception(
+        'Authentication UID is missing.',
+      );
+    }
+
+    return _firestore
+        .collection(walkerProfilesCollection)
         .doc(uid)
         .get();
   }
 
   // ============================================================
   // CHECK PROFILE COMPLETED
+  //
+  // First check walkers.
+  // Then fallback to walkerProfiles.
   // ============================================================
 
   static Future<bool> isWalkerProfileCompleted({
@@ -123,22 +156,35 @@ class ProfileSetupService {
       return false;
     }
 
-    final doc = await _firestore
-        .collection(collection)
+    final walkerDoc = await _firestore
+        .collection(walkersCollection)
         .doc(uid)
         .get();
 
-    if (!doc.exists) {
+    if (walkerDoc.exists) {
+      final walkerData = walkerDoc.data();
+
+      if (walkerData?[profileCompletedField] == true) {
+        return true;
+      }
+    }
+
+    final profileDoc = await _firestore
+        .collection(walkerProfilesCollection)
+        .doc(uid)
+        .get();
+
+    if (!profileDoc.exists) {
       return false;
     }
 
-    final data = doc.data();
-
-    return data?[profileCompletedField] == true;
+    return profileDoc.data()?[profileCompletedField] == true;
   }
 
   // ============================================================
   // GET VERIFICATION STATUS
+  //
+  // Admin status always comes from walkers.
   // ============================================================
 
   static Future<String> getVerificationStatus({
@@ -151,7 +197,7 @@ class ProfileSetupService {
     }
 
     final doc = await _firestore
-        .collection(collection)
+        .collection(walkersCollection)
         .doc(uid)
         .get();
 
@@ -241,9 +287,6 @@ class ProfileSetupService {
 
   // ============================================================
   // RESOLVE IMAGE
-  //
-  // Existing URL -> use URL
-  // Local File -> upload and use download URL
   // ============================================================
 
   static Future<String> resolveImage({
@@ -255,18 +298,12 @@ class ProfileSetupService {
   }) async {
     final cleanUrl = url?.trim() ?? '';
 
-    // ----------------------------------------------------------
-    // EXISTING URL
-    // ----------------------------------------------------------
-
+    // Existing URL
     if (cleanUrl.isNotEmpty) {
       return cleanUrl;
     }
 
-    // ----------------------------------------------------------
-    // LOCAL FILE
-    // ----------------------------------------------------------
-
+    // Local file
     if (file != null) {
       return uploadFile(
         authUid: authUid,
@@ -284,33 +321,20 @@ class ProfileSetupService {
   // ============================================================
   // SAVE WALKER PROFILE
   //
-  // SCREEN 1
-  // ------------------------------------------------------------
-  // fullName
-  // dateOfBirth
-  // gender
-  // selfie
+  // SAVES TO:
   //
-  // SCREEN 2
-  // ------------------------------------------------------------
-  // aadhaar
-  // aadhaar front
-  // aadhaar back
-  // village
-  // city
-  // district
-  // state
-  // pincode
+  // 1. walkers/{UID}
+  //    Admin / verification data
+  //
+  // 2. walkerProfiles/{UID}
+  //    Walker app profile data
   // ============================================================
 
   static Future<void> saveWalkerProfile({
     required String authUid,
     required String phoneNumber,
 
-    // ----------------------------------------------------------
     // SCREEN 1
-    // ----------------------------------------------------------
-
     required String name,
     required DateTime dateOfBirth,
     required String gender,
@@ -318,10 +342,7 @@ class ProfileSetupService {
     File? selfieFile,
     String? selfieUrl,
 
-    // ----------------------------------------------------------
     // SCREEN 2
-    // ----------------------------------------------------------
-
     required String aadhaar,
 
     required String village,
@@ -336,17 +357,11 @@ class ProfileSetupService {
     File? aadhaarBackFile,
     String? aadhaarBackUrl,
 
-    // ----------------------------------------------------------
     // OPTIONAL
-    // ----------------------------------------------------------
-
     String emergencyName = '',
     String emergencyMobile = '',
 
-    // ----------------------------------------------------------
     // VERIFICATION FLAGS
-    // ----------------------------------------------------------
-
     bool aadhaarVerified = false,
     bool nameMatched = false,
     bool dobMatched = false,
@@ -397,9 +412,9 @@ class ProfileSetupService {
       );
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // GENDER
-    // ----------------------------------------------------------
+    // ==========================================================
 
     if (cleanGender != 'Male' &&
         cleanGender != 'Female') {
@@ -408,9 +423,9 @@ class ProfileSetupService {
       );
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // AADHAAR
-    // ----------------------------------------------------------
+    // ==========================================================
 
     if (!RegExp(r'^\d{12}$').hasMatch(
       cleanAadhaar,
@@ -420,9 +435,9 @@ class ProfileSetupService {
       );
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // ADDRESS
-    // ----------------------------------------------------------
+    // ==========================================================
 
     if (cleanVillage.isEmpty) {
       throw Exception(
@@ -457,17 +472,18 @@ class ProfileSetupService {
     }
 
     // ==========================================================
-    // WALKER DOCUMENT
+    // WALKERS DOCUMENT
     // ==========================================================
 
-    final ref = _firestore
-        .collection(collection)
+    final walkerRef = _firestore
+        .collection(walkersCollection)
         .doc(uid);
 
-    final existing = await ref.get();
+    final existingWalker =
+        await walkerRef.get();
 
-    final existingData =
-        existing.data() ??
+    final existingWalkerData =
+        existingWalker.data() ??
             <String, dynamic>{};
 
     // ==========================================================
@@ -475,7 +491,7 @@ class ProfileSetupService {
     // ==========================================================
 
     String walkerId =
-        existingData[walkerIdField]
+        existingWalkerData[walkerIdField]
                 ?.toString()
                 .trim() ??
             '';
@@ -544,21 +560,17 @@ class ProfileSetupService {
         '$cleanPinCode';
 
     // ==========================================================
-    // IMPORTANT STATUS LOGIC
-    //
-    // New profile:
-    // profileCompleted = false
-    // verificationStatus = pending
-    //
-    // Existing approved profile:
-    // don't accidentally reset it to pending.
+    // EXISTING STATUS
     // ==========================================================
 
     final bool existingProfileCompleted =
-        existingData[profileCompletedField] == true;
+        existingWalkerData[
+                profileCompletedField] ==
+            true;
 
     final String existingVerificationStatus =
-        existingData[verificationStatusField]
+        existingWalkerData[
+                    verificationStatusField]
                 ?.toString()
                 .trim()
                 .toLowerCase() ??
@@ -581,74 +593,41 @@ class ProfileSetupService {
             : 'pending';
 
     // ==========================================================
-    // FIRESTORE DATA
+    // WALKERS DATA
+    //
+    // ADMIN / VERIFICATION
     // ==========================================================
 
-    final Map<String, dynamic> data = {
-      // --------------------------------------------------------
-      // WALKER INFORMATION - SCREEN 1
-      // --------------------------------------------------------
-
+    final Map<String, dynamic> walkerData = {
+      // Walker information
       fullNameField: cleanName,
-
       dateOfBirthField: dob,
-
       genderField: cleanGender,
-
       selfieField: finalSelfieUrl,
 
-      // --------------------------------------------------------
-      // AADHAAR - SCREEN 2
-      // --------------------------------------------------------
-
+      // Aadhaar / documents
       aadhaarNumberField: cleanAadhaar,
+      aadhaarFrontField: finalAadhaarFrontUrl,
+      aadhaarBackField: finalAadhaarBackUrl,
 
-      aadhaarFrontField:
-          finalAadhaarFrontUrl,
-
-      aadhaarBackField:
-          finalAadhaarBackUrl,
-
-      // --------------------------------------------------------
-      // ADDRESS - SCREEN 2
-      // --------------------------------------------------------
-
+      // Address
       addressField: fullAddress,
-
       villageField: cleanVillage,
-
       cityField: cleanCity,
-
       districtField: cleanDistrict,
-
       stateField: cleanState,
-
       pinCodeField: cleanPinCode,
 
-      // --------------------------------------------------------
-      // AUTH
-      // --------------------------------------------------------
-
+      // Auth
       authUidField: uid,
-
       phoneNumberField: phone,
-
       roleField: 'walker',
-
       walkerIdField: walkerId,
 
-      // --------------------------------------------------------
-      // VERIFICATION
-      // --------------------------------------------------------
-
-      aadhaarVerifiedField:
-          aadhaarVerified,
-
-      nameMatchedField:
-          nameMatched,
-
-      dobMatchedField:
-          dobMatched,
+      // Verification
+      aadhaarVerifiedField: aadhaarVerified,
+      nameMatchedField: nameMatched,
+      dobMatchedField: dobMatched,
 
       profileCompletedField:
           finalProfileCompleted,
@@ -661,41 +640,112 @@ class ProfileSetupService {
               ? 'Profile approved.'
               : 'Documents submitted. Waiting for verification.',
 
-      // --------------------------------------------------------
-      // EMERGENCY
-      // --------------------------------------------------------
-
+      // Emergency
       emergencyNameField:
           cleanEmergencyName,
 
       emergencyMobileField:
           cleanEmergencyMobile,
 
-      // --------------------------------------------------------
-      // TIMESTAMP
-      // --------------------------------------------------------
+      // Timestamp
+      updatedAtField:
+          FieldValue.serverTimestamp(),
+    };
 
+    if (!existingWalker.exists) {
+      walkerData[createdAtField] =
+          FieldValue.serverTimestamp();
+    }
+
+    // ==========================================================
+    // WALKER PROFILES DATA
+    //
+    // WALKER APP PROFILE
+    //
+    // Aadhaar number and Aadhaar document URLs are NOT copied
+    // here because this collection is for the app-facing profile.
+    // ==========================================================
+
+    final Map<String, dynamic> walkerProfileData = {
+      // Identity
+      authUidField: uid,
+      walkerIdField: walkerId,
+      roleField: 'walker',
+      phoneNumberField: phone,
+
+      // Profile
+      fullNameField: cleanName,
+      dateOfBirthField: dob,
+      genderField: cleanGender,
+      selfieField: finalSelfieUrl,
+
+      // Address
+      addressField: fullAddress,
+      villageField: cleanVillage,
+      cityField: cleanCity,
+      districtField: cleanDistrict,
+      stateField: cleanState,
+      pinCodeField: cleanPinCode,
+
+      // Profile state
+      profileCompletedField:
+          finalProfileCompleted,
+
+      // Public/app-facing verification state
+      verificationStatusField:
+          finalVerificationStatus,
+
+      // Emergency contact
+      emergencyNameField:
+          cleanEmergencyName,
+
+      emergencyMobileField:
+          cleanEmergencyMobile,
+
+      // Timestamp
       updatedAtField:
           FieldValue.serverTimestamp(),
     };
 
     // ==========================================================
-    // CREATED AT
+    // CREATED AT FOR WALKER PROFILE
     // ==========================================================
 
-    if (!existing.exists) {
-      data[createdAtField] =
+    final walkerProfileRef = _firestore
+        .collection(walkerProfilesCollection)
+        .doc(uid);
+
+    final existingWalkerProfile =
+        await walkerProfileRef.get();
+
+    if (!existingWalkerProfile.exists) {
+      walkerProfileData[createdAtField] =
           FieldValue.serverTimestamp();
     }
 
     // ==========================================================
-    // SAVE
+    // ATOMIC WRITE
+    //
+    // BOTH DOCUMENTS ARE WRITTEN TOGETHER.
+    //
+    // If one write fails, the batch does not partially commit.
     // ==========================================================
 
-    await ref.set(
-      data,
+    final batch = _firestore.batch();
+
+    batch.set(
+      walkerRef,
+      walkerData,
       SetOptions(merge: true),
     );
+
+    batch.set(
+      walkerProfileRef,
+      walkerProfileData,
+      SetOptions(merge: true),
+    );
+
+    await batch.commit();
 
     // ==========================================================
     // LOG
@@ -703,7 +753,8 @@ class ProfileSetupService {
 
     developer.log(
       'Walker profile saved successfully | '
-      'uid=$uid | '
+      'walkers/$uid | '
+      'walkerProfiles/$uid | '
       'walkerId=$walkerId | '
       'status=$finalVerificationStatus | '
       'completed=$finalProfileCompleted',
