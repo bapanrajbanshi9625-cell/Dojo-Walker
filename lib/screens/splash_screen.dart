@@ -260,137 +260,130 @@ class _SplashScreenState
       );
 
       // ========================================================
-      // 8. FINAL PROFILE STATUS
-      //
-      // Both checks must agree.
-      // ========================================================
+// PROFILE + VERIFICATION STATUS
+// ========================================================
 
-      final bool isCompleted =
-          profileCompleted &&
-          serviceProfileCompleted;
+final bool profileCompleted =
+    data['profileCompleted'] == true;
 
-      // ========================================================
-      // 9. PROFILE INCOMPLETE
-      // ========================================================
+final String verificationStatus =
+    data['verificationStatus']
+            ?.toString()
+            .trim()
+            .toLowerCase() ??
+        'pending';
 
-      if (!isCompleted) {
-        debugPrint(
-          '========================================',
-        );
+final bool walkerIdActive =
+    data['walkerIdActive'] == true;
 
-        debugPrint(
-          'PROFILE INCOMPLETE',
-        );
+debugPrint(
+  'Splash: profileCompleted=$profileCompleted',
+);
 
-        debugPrint(
-          '→ Mandatory Profile Setup',
-        );
+debugPrint(
+  'Splash: verificationStatus=$verificationStatus',
+);
 
-        debugPrint(
-          '========================================',
-        );
+debugPrint(
+  'Splash: walkerIdActive=$walkerIdActive',
+);
 
-        if (!mounted) {
-          return;
-        }
+// ========================================================
+// 1. PROFILE NOT COMPLETED
+// ========================================================
 
-        _goTo(
-          const MandatoryProfileSetupScreen(),
-        );
+if (!profileCompleted) {
+  debugPrint(
+    'Splash → MANDATORY PROFILE SETUP',
+  );
 
-        return;
-      }
-
-      // ========================================================
-      // 10. PROFILE COMPLETE
-      // ========================================================
-
-      debugPrint(
-        '========================================',
-      );
-
-      debugPrint(
-        'PROFILE COMPLETE',
-      );
-
-      debugPrint(
-        '→ Main Navigation',
-      );
-
-      debugPrint(
-        '========================================',
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      _goTo(
-        const MainNavigationScreen(),
-      );
-    } on FirebaseException catch (e) {
-      debugPrint(
-        '========================================',
-      );
-
-      debugPrint(
-        'SPLASH FIREBASE ERROR',
-      );
-
-      debugPrint(
-        'CODE: ${e.code}',
-      );
-
-      debugPrint(
-        'MESSAGE: ${e.message}',
-      );
-
-      debugPrint(
-        '========================================',
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isChecking = false;
-
-        _errorMessage =
-            'Unable to verify your account.\n\n'
-            'Please check your internet connection '
-            'and try again.';
-      });
-    } catch (e) {
-      debugPrint(
-        '========================================',
-      );
-
-      debugPrint(
-        'SPLASH ERROR',
-      );
-
-      debugPrint(
-        '$e',
-      );
-
-      debugPrint(
-        '========================================',
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isChecking = false;
-
-        _errorMessage =
-            'Unable to verify your account.\n\n'
-            'Please try again.';
-      });
-    }
+  if (!mounted) {
+    return;
   }
+
+  _goTo(
+    const MandatoryProfileSetupScreen(),
+  );
+
+  return;
+}
+
+// ========================================================
+// 2. PROFILE COMPLETED + PENDING
+// ========================================================
+
+if (verificationStatus == 'pending') {
+  debugPrint(
+    'Splash → PENDING VERIFICATION',
+  );
+
+  if (!mounted) {
+    return;
+  }
+
+  _goTo(
+    const PendingVerificationScreen(),
+  );
+
+  return;
+}
+
+// ========================================================
+// 3. REJECTED
+// ========================================================
+
+if (verificationStatus == 'rejected') {
+  debugPrint(
+    'Splash → PENDING VERIFICATION / REJECTED',
+  );
+
+  if (!mounted) {
+    return;
+  }
+
+  _goTo(
+    const PendingVerificationScreen(),
+  );
+
+  return;
+}
+
+// ========================================================
+// 4. APPROVED + ACTIVE
+// ========================================================
+
+if (verificationStatus == 'approved' &&
+    walkerIdActive) {
+  debugPrint(
+    'Splash → MAIN NAVIGATION',
+  );
+
+  if (!mounted) {
+    return;
+  }
+
+  _goTo(
+    const MainNavigationScreen(),
+  );
+
+  return;
+}
+
+// ========================================================
+// 5. SAFE FALLBACK
+// ========================================================
+
+debugPrint(
+  'Splash → PENDING VERIFICATION FALLBACK',
+);
+
+if (!mounted) {
+  return;
+}
+
+_goTo(
+  const PendingVerificationScreen(),
+);
 
   // ============================================================
   // FORCE LOGOUT
