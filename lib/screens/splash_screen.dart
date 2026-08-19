@@ -147,18 +147,24 @@ class _SplashScreenState
       // ========================================================
 
       if (!walkerSnapshot.exists) {
-        debugPrint(
-          'Splash: walkers/$uid does not exist.',
-        );
+  debugPrint(
+    'Splash: Walker document not found → Mandatory Profile Setup',
+  );
 
-        await _forceLogout();
+  if (!mounted) {
+    return;
+  }
 
-        return;
-      }
+  _goTo(
+    const MandatoryProfileSetupScreen(),
+  );
 
-      final Map<String, dynamic> data =
-          walkerSnapshot.data() ??
-              <String, dynamic>{};
+  return;
+}
+
+final Map<String, dynamic> data =
+    walkerSnapshot.data() ??
+        <String, dynamic>{};
 
       // ========================================================
       // 3. CHECK ROLE
