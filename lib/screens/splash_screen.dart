@@ -232,32 +232,7 @@ class _SplashScreenState
       );
 
       // ========================================================
-      // 6. CHECK PROFILE COMPLETED
-      // ========================================================
-
-      final bool profileCompleted =
-          data['profileCompleted'] == true;
-
-      debugPrint(
-        'Profile Completed: $profileCompleted',
-      );
-
-      // ========================================================
-      // 7. EXTRA SERVICE CHECK
-      //
-      // Keep this synchronized with ProfileSetupService.
-      // ========================================================
-
-      final bool serviceProfileCompleted =
-          await ProfileSetupService
-              .isWalkerProfileCompleted(
-        authUid: uid,
-      );
-
-      debugPrint(
-        'Service Profile Completed: '
-        '$serviceProfileCompleted',
-      );
+      
 
       // ========================================================
 // PROFILE + VERIFICATION STATUS
@@ -287,7 +262,7 @@ debugPrint(
 debugPrint(
   'Splash: walkerIdActive=$walkerIdActive',
 );
-
+      
 // ========================================================
 // 1. PROFILE NOT COMPLETED
 // ========================================================
