@@ -90,15 +90,20 @@ class _PendingVerificationScreenState
           return;
         }
 
+        // ========================================================
+        // DOCUMENT NOT FOUND
+        // ========================================================
+
         if (!snapshot.exists) {
+          debugPrint(
+            'PendingVerification: '
+            'walkers/$uid does not exist.',
+          );
+
           setState(() {
             verificationStatus = 'pending';
             walkerIdActive = false;
           });
-
-          debugPrint(
-            'PendingVerification: Walker document does not exist.',
-          );
 
           return;
         }
@@ -107,44 +112,229 @@ class _PendingVerificationScreenState
             snapshot.data() ?? <String, dynamic>{};
 
         // ========================================================
-        // VERIFICATION STATUS
-        // ========================================================
-
-        final String status =
-            data['verificationStatus']
-                    ?.toString()
-                    .trim()
-                    .toLowerCase() ??
-                'pending';
-
-        // ========================================================
-        // WALKER ID ACTIVE
-        // ========================================================
-
-        final bool active =
-            data['walkerIdActive'] == true;
-
-        // ========================================================
-        // OPTIONAL ADMIN STATUS
+        // DEBUG FIRESTORE DATA
         // ========================================================
 
         debugPrint(
-          'PendingVerification: '
-          'status=$status, '
-          'walkerIdActive=$active',
+          '====================================================',
         );
 
+        debugPrint(
+          'PendingVerification: walkers/$uid updated',
+        );
+
+        debugPrint(
+          'verificationStatus = '
+          '${data['verificationStatus']}',
+        );
+
+        debugPrint(
+          'status = ${data['status']}',
+        );
+
+        debugPrint(
+          'approvalStatus = ${data['approvalStatus']}',
+        );
+
+        debugPrint(
+          'approved = ${data['approved']}',
+        );
+
+        debugPrint(
+          'isApproved = ${data['isApproved']}',
+        );
+
+        debugPrint(
+          'verified = ${data['verified']}',
+        );
+
+        debugPrint(
+          'walkerIdActive = ${data['walkerIdActive']}',
+        );
+
+        debugPrint(
+          'active = ${data['active']}',
+        );
+
+        debugPrint(
+          'isActive = ${data['isActive']}',
+        );
+
+        debugPrint(
+          'walkerId = ${data['walkerId']}',
+        );
+
+        debugPrint(
+          '====================================================',
+        );
+
+        // ========================================================
+        // READ STATUS
+        // ========================================================
+
+        String status = '';
+
+        // Primary field
+        final dynamic verificationValue =
+            data['verificationStatus'];
+
+        if (verificationValue != null) {
+          status = verificationValue
+              .toString()
+              .trim()
+              .toLowerCase();
+        }
+
+        // Fallback: status
+        if (status.isEmpty) {
+          final dynamic statusValue = data['status'];
+
+          if (statusValue != null) {
+            status = statusValue
+                .toString()
+                .trim()
+                .toLowerCase();
+          }
+        }
+
+        // Fallback: approvalStatus
+        if (status.isEmpty) {
+          final dynamic approvalValue =
+              data['approvalStatus'];
+
+          if (approvalValue != null) {
+            status = approvalValue
+                .toString()
+                .trim()
+                .toLowerCase();
+          }
+        }
+
+        // ========================================================
+        // NORMALIZE STATUS
+        // ========================================================
+
+        final String normalizedStatus = status
+            .replaceAll(' ', '')
+            .replaceAll('_', '')
+            .replaceAll('-', '');
+
+        // ========================================================
+        // APPROVED BOOLEAN
+        // ========================================================
+
+        final bool approvedBoolean =
+            data['approved'] == true ||
+            data['isApproved'] == true ||
+            data['verified'] == true;
+
+        // ========================================================
+        // APPROVED STATUS
+        // ========================================================
+
+        final bool approved =
+            approvedBoolean ||
+            normalizedStatus == 'approved' ||
+            normalizedStatus == 'approve' ||
+            normalizedStatus == 'verified' ||
+            normalizedStatus == 'accepted';
+
+        // ========================================================
+        // REJECTED STATUS
+        // ========================================================
+
+        final bool rejected =
+            normalizedStatus == 'rejected' ||
+            normalizedStatus == 'reject' ||
+            normalizedStatus == 'blocked' ||
+            normalizedStatus == 'suspended';
+
+        // ========================================================
+        // ACTIVE STATUS
+        // ========================================================
+
+        final bool explicitWalkerActive =
+            data['walkerIdActive'] == true ||
+            data['active'] == true ||
+            data['isActive'] == true;
+
+        // ========================================================
+        // IMPORTANT
+        //
+        // If Admin has approved the walker but has not created
+        // walkerIdActive yet, approval itself is enough to continue.
+        //
+        // This prevents the Walker app from getting stuck forever
+        // on Pending Verification.
+        // ========================================================
+
+        final bool finalWalkerActive =
+            approved
+                ? true
+                : explicitWalkerActive;
+
+        // ========================================================
+        // FINAL STATUS
+        // ========================================================
+
+        final String finalStatus =
+            rejected
+                ? 'rejected'
+                : approved
+                    ? 'approved'
+                    : 'pending';
+
+        // ========================================================
+        // DEBUG FINAL RESULT
+        // ========================================================
+
+        debugPrint(
+          'PendingVerification FINAL:',
+        );
+
+        debugPrint(
+          'status = $finalStatus',
+        );
+
+        debugPrint(
+          'approved = $approved',
+        );
+
+        debugPrint(
+          'explicitWalkerActive = '
+          '$explicitWalkerActive',
+        );
+
+        debugPrint(
+          'finalWalkerActive = '
+          '$finalWalkerActive',
+        );
+
+        // ========================================================
+        // UPDATE UI
+        // ========================================================
+
+        if (!mounted) {
+          return;
+        }
+
         setState(() {
-          verificationStatus = status;
-          walkerIdActive = active;
+          verificationStatus = finalStatus;
+          walkerIdActive = finalWalkerActive;
         });
 
         // ========================================================
-        // APPROVED + ACTIVE
+        // APPROVED
         // ========================================================
 
-        if (status == 'approved' && active) {
+        if (approved && finalWalkerActive) {
+          debugPrint(
+            'PendingVerification: '
+            'APPROVED → Opening MainNavigationScreen',
+          );
+
           _openMainNavigation();
+
           return;
         }
 
@@ -152,10 +342,25 @@ class _PendingVerificationScreenState
         // REJECTED
         // ========================================================
 
-        if (status == 'rejected') {
+        if (rejected) {
+          debugPrint(
+            'PendingVerification: '
+            'REJECTED',
+          );
+
           _handleRejected();
+
           return;
         }
+
+        // ========================================================
+        // PENDING
+        // ========================================================
+
+        debugPrint(
+          'PendingVerification: '
+          'Still waiting for approval.',
+        );
       },
       onError: (Object error) {
         debugPrint(
@@ -178,10 +383,10 @@ class _PendingVerificationScreenState
     _openingMain = true;
 
     debugPrint(
-      'PendingVerification: Opening MainNavigationScreen',
+      'PendingVerification: '
+      'Opening MainNavigationScreen',
     );
 
-    // Cancel listener before changing navigation.
     _verificationSubscription?.cancel();
     _verificationSubscription = null;
 
@@ -216,7 +421,8 @@ class _PendingVerificationScreenState
     _handlingRejected = true;
 
     debugPrint(
-      'PendingVerification: Walker verification REJECTED',
+      'PendingVerification: '
+      'Walker verification REJECTED',
     );
 
     _verificationSubscription?.cancel();
@@ -259,7 +465,6 @@ class _PendingVerificationScreenState
   @override
   void dispose() {
     _verificationSubscription?.cancel();
-
     _verificationSubscription = null;
 
     super.dispose();
@@ -488,7 +693,7 @@ class _PendingVerificationScreenState
         shape: BoxShape.circle,
         color: outerColor,
         border: Border.all(
-          color: iconColor.withOpacity(.15),
+          color: iconColor.withValues(alpha: 0.15),
           width: 7,
         ),
       ),
@@ -517,7 +722,6 @@ class _PendingVerificationScreenState
 
   Widget _mainStatusCard() {
     final bool approved = isApproved;
-
     final bool rejected = isRejected;
 
     final Color cardColor =
@@ -541,11 +745,11 @@ class _PendingVerificationScreenState
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: cardColor.withOpacity(.12),
+          color: cardColor.withValues(alpha: 0.12),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -755,7 +959,7 @@ class _PendingVerificationScreenState
           width: 43,
           height: 43,
           decoration: BoxDecoration(
-            color: color.withOpacity(.10),
+            color: color.withValues(alpha: 0.10),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -980,7 +1184,7 @@ class _PendingVerificationScreenState
         ),
         foregroundColor: blue,
         side: BorderSide(
-          color: blue.withOpacity(.25),
+          color: blue.withValues(alpha: 0.25),
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
