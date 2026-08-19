@@ -571,7 +571,7 @@ class ProfileSetupService {
     final bool finalProfileCompleted =
         shouldPreserveApprovedState
             ? existingProfileCompleted
-            : false;
+            : true;
 
     final String finalVerificationStatus =
         shouldPreserveApprovedState
