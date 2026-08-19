@@ -192,6 +192,53 @@ if (status == 'rejected') {
   }
 
   // ============================================================
+  // HANDLE REJECTED
+  // ============================================================
+
+  void _handleRejected() {
+    if (!mounted || _openingMain) {
+      return;
+    }
+
+    _openingMain = true;
+
+    debugPrint(
+      'PendingVerification: Walker verification REJECTED',
+    );
+
+    _verificationSubscription?.cancel();
+    _verificationSubscription = null;
+
+    Future.delayed(
+      const Duration(seconds: 3),
+      () async {
+        if (!mounted) {
+          return;
+        }
+
+        try {
+          await FirebaseAuth.instance.signOut();
+        } catch (e) {
+          debugPrint(
+            'Rejected logout error: $e',
+          );
+        }
+
+        if (!mounted) {
+          return;
+        }
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) =>
+                const MobileLoginScreen(),
+          ),
+          (route) => false,
+        );
+      },
+    );
+  }
+  // ============================================================
   // DISPOSE
   // ============================================================
 
