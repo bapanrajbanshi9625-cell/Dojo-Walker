@@ -1,6 +1,3 @@
-// File location:
-// lib/screens/mobile_login_screen.dart
-
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
@@ -20,7 +17,8 @@ class _MobileLoginScreenState
   final TextEditingController _phoneController =
       TextEditingController();
 
-  final AuthService _authService = AuthService();
+  final AuthService _authService =
+      AuthService.instance;
 
   bool _isLoading = false;
 
@@ -38,10 +36,6 @@ class _MobileLoginScreenState
     final String phone =
         _phoneController.text.trim();
 
-    // ==========================================================
-    // VALIDATE PHONE
-    // ==========================================================
-
     if (!RegExp(r'^[0-9]{10}$').hasMatch(phone)) {
       setState(() {
         _errorMessage =
@@ -57,78 +51,49 @@ class _MobileLoginScreenState
       _errorMessage = '';
     });
 
-    // ==========================================================
-    // FIREBASE SEND OTP
-    // ==========================================================
+    await _authService.verifyPhoneNumber(
+      phoneNumber: phone,
 
-    try {
-      await _authService.verifyPhoneNumber(
-        phoneNumber: phone,
+      // ========================================================
+      // OTP SENT
+      // ========================================================
 
-        // ========================================================
-        // OTP SENT
-        // ========================================================
+      onCodeSent: (String verificationId) {
+        if (!mounted) {
+          return;
+        }
 
-        onCodeSent: (
-          String verificationId,
-        ) {
-          if (!mounted) {
-            return;
-          }
+        setState(() {
+          _isLoading = false;
+        });
 
-          setState(() {
-            _isLoading = false;
-            _errorMessage = '';
-          });
-
-          // ======================================================
-          // OPEN OTP SCREEN
-          //
-          // IMPORTANT:
-          // OTP screen is opened ONLY after Firebase confirms
-          // that the verification code was sent.
-          // ======================================================
-
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) =>
-                  OtpVerificationScreen(
-                verificationId:
-                    verificationId,
-                phoneNumber: phone,
-              ),
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) =>
+                OtpVerificationScreen(
+              verificationId: verificationId,
+              phoneNumber: phone,
             ),
-          );
-        },
+          ),
+        );
+      },
 
-        // ========================================================
-        // OTP SEND FAILED
-        // ========================================================
+      // ========================================================
+      // ERROR
+      // ========================================================
 
-        onError: (
-          String error,
-        ) {
-          if (!mounted) {
-            return;
-          }
+      onError: (String error) {
+        if (!mounted) {
+          return;
+        }
 
-          setState(() {
-            _isLoading = false;
-            _errorMessage = error;
-          });
-        },
-      );
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isLoading = false;
-        _errorMessage =
-            e.toString();
-      });
-    }
+        setState(() {
+          _isLoading = false;
+          _errorMessage =
+              'Verification failed.\n$error';
+        });
+      },
+    );
   }
 
   // ============================================================
@@ -140,21 +105,14 @@ class _MobileLoginScreenState
     return Scaffold(
       backgroundColor:
           AppColors.scaffoldBackground,
-
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight:
-                  MediaQuery.of(context).size.height -
-                      MediaQuery.of(context).padding.top -
-                      MediaQuery.of(context).padding.bottom -
-                      48,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 30,
             ),
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
               crossAxisAlignment:
                   CrossAxisAlignment.stretch,
               children: [
@@ -162,26 +120,14 @@ class _MobileLoginScreenState
                 // LOGO
                 // ==================================================
 
-                Center(
-                  child: Container(
-                    width: 82,
-                    height: 82,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary
-                              .withValues(alpha: 0.20),
-                          blurRadius: 18,
-                          offset:
-                              const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
+                const Center(
+                  child: CircleAvatar(
+                    radius: 42,
+                    backgroundColor:
+                        AppColors.primary,
+                    child: Icon(
                       Icons.pets_rounded,
-                      size: 44,
+                      size: 42,
                       color: Colors.white,
                     ),
                   ),
@@ -194,50 +140,44 @@ class _MobileLoginScreenState
                 // ==================================================
 
                 const Text(
-                  'Dojo Walker - Buddy Login',
+                  'Welcome to Dojo Walker',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 24,
-                    fontWeight:
-                        FontWeight.w700,
-                    color:
-                        AppColors.textDark,
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
                   ),
                 ),
 
                 const SizedBox(height: 8),
 
                 const Text(
-                  'Enter your mobile number to continue',
+                  'Verify your mobile number to continue',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 14,
-                    color:
-                        AppColors.textGrey,
-                    height: 1.4,
+                    fontSize: 15,
+                    color: AppColors.textGrey,
                   ),
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
 
                 // ==================================================
-                // LOGIN CARD
+                // CARD
                 // ==================================================
 
                 Container(
-                  padding:
-                      const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius:
                         BorderRadius.circular(18),
-                    boxShadow: [
+                    boxShadow: const [
                       BoxShadow(
-                        color: Colors.black
-                            .withValues(alpha: 0.06),
                         blurRadius: 18,
-                        offset:
-                            const Offset(0, 8),
+                        spreadRadius: 1,
+                        offset: Offset(0, 6),
+                        color: Color(0x14000000),
                       ),
                     ],
                   ),
@@ -245,285 +185,154 @@ class _MobileLoginScreenState
                     crossAxisAlignment:
                         CrossAxisAlignment.stretch,
                     children: [
-                      // ============================================
-                      // LABEL
-                      // ============================================
-
                       const Text(
                         'Mobile Number',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight:
-                              FontWeight.w700,
+                              FontWeight.w600,
                           color:
-                              AppColors.textDark,
+                              AppColors.textGrey,
                         ),
                       ),
 
                       const SizedBox(height: 8),
 
-                      // ============================================
-                      // PHONE FIELD
-                      // ============================================
+                      // ==================================================
+                      // PHONE
+                      // ==================================================
 
                       TextField(
                         controller:
                             _phoneController,
-                        enabled: !_isLoading,
                         keyboardType:
                             TextInputType.phone,
-                        textInputAction:
-                            TextInputAction.done,
                         maxLength: 10,
-
+                        enabled: !_isLoading,
                         onChanged: (_) {
                           if (_errorMessage
                               .isNotEmpty) {
                             setState(() {
-                              _errorMessage =
-                                  '';
+                              _errorMessage = '';
                             });
                           }
                         },
-
-                        onSubmitted: (_) {
-                          if (!_isLoading) {
-                            _sendOtp();
-                          }
-                        },
-
                         decoration:
                             InputDecoration(
                           counterText: '',
                           hintText:
-                              'Enter mobile number',
-                          hintStyle:
-                              const TextStyle(
-                            color:
-                                AppColors.textGrey,
-                            fontSize: 14,
-                          ),
-
-                          prefixIcon:
-                              Container(
-                            width: 70,
-                            alignment:
-                                Alignment.center,
-                            child:
-                                const Text(
-                              '+91',
-                              style:
-                                  TextStyle(
-                                fontSize: 15,
-                                fontWeight:
-                                    FontWeight.w700,
-                                color:
-                                    AppColors.textDark,
-                              ),
-                            ),
-                          ),
-
+                              'Enter 10-digit number',
+                          prefixText: '+91  ',
                           filled: true,
                           fillColor:
                               const Color(
-                            0xFFF8FAFC,
+                            0xFFF8F9FA,
                           ),
-
-                          contentPadding:
-                              const EdgeInsets
-                                  .symmetric(
-                            horizontal: 16,
-                            vertical: 16,
-                          ),
-
                           border:
                               OutlineInputBorder(
                             borderRadius:
-                                BorderRadius
-                                    .circular(
+                                BorderRadius.circular(
                               12,
                             ),
-                            borderSide:
-                                const BorderSide(
-                              color: Color(
-                                0xFFD5D9DE,
-                              ),
-                            ),
                           ),
-
                           enabledBorder:
                               OutlineInputBorder(
                             borderRadius:
-                                BorderRadius
-                                    .circular(
-                              12,
-                            ),
-                            borderSide:
-                                const BorderSide(
-                              color: Color(
-                                0xFFD5D9DE,
-                              ),
-                            ),
-                          ),
-
-                          focusedBorder:
-                              OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius
-                                    .circular(
+                                BorderRadius.circular(
                               12,
                             ),
                             borderSide:
                                 const BorderSide(
                               color:
-                                  AppColors
-                                      .primary,
-                              width: 1.5,
+                                  Color(0xFFD9DDE2),
                             ),
                           ),
-
-                          disabledBorder:
+                          focusedBorder:
                               OutlineInputBorder(
                             borderRadius:
-                                BorderRadius
-                                    .circular(
+                                BorderRadius.circular(
                               12,
                             ),
                             borderSide:
                                 const BorderSide(
-                              color: Color(
-                                0xFFE2E5E9,
-                              ),
+                              color:
+                                  AppColors.primary,
+                              width: 1.5,
                             ),
                           ),
                         ),
                       ),
 
-                      // ============================================
+                      // ==================================================
                       // ERROR
-                      // ============================================
+                      // ==================================================
 
                       if (_errorMessage
                           .isNotEmpty) ...[
-                        const SizedBox(
-                          height: 12,
-                        ),
-
-                        Container(
-                          padding:
-                              const EdgeInsets
-                                  .symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          decoration:
-                              BoxDecoration(
-                            color:
-                                Colors.red
-                                    .withValues(
-                              alpha: 0.07,
-                            ),
-                            borderRadius:
-                                BorderRadius
-                                    .circular(
-                              10,
-                            ),
-                          ),
-                          child: Row(
-                            crossAxisAlignment:
-                                CrossAxisAlignment
-                                    .start,
-                            children: [
-                              const Icon(
-                                Icons
-                                    .error_outline_rounded,
-                                color:
-                                    Colors.red,
-                                size: 19,
-                              ),
-                              const SizedBox(
-                                width: 8,
-                              ),
-                              Expanded(
-                                child: Text(
-                                  _errorMessage,
-                                  style:
-                                      const TextStyle(
-                                    color:
-                                        Colors.red,
-                                    fontSize:
-                                        13,
-                                    height:
-                                        1.35,
-                                  ),
-                                ),
-                              ),
-                            ],
+                        const SizedBox(height: 12),
+                        Text(
+                          _errorMessage,
+                          textAlign:
+                              TextAlign.center,
+                          style:
+                              const TextStyle(
+                            color: Colors.red,
+                            fontSize: 13,
+                            height: 1.35,
                           ),
                         ),
                       ],
 
                       const SizedBox(height: 20),
 
-                      // ============================================
-                      // GET OTP BUTTON
-                      // ============================================
+                      // ==================================================
+                      // GET OTP
+                      // ==================================================
 
                       SizedBox(
                         height: 52,
-                        child:
-                            ElevatedButton(
+                        child: ElevatedButton(
                           onPressed:
                               _isLoading
                                   ? null
                                   : _sendOtp,
-
                           style:
-                              ElevatedButton
-                                  .styleFrom(
+                              ElevatedButton.styleFrom(
                             backgroundColor:
-                                AppColors
-                                    .primary,
+                                AppColors.primary,
                             disabledBackgroundColor:
-                                Colors.grey
-                                    .shade400,
-                            elevation: 0,
+                                Colors.grey,
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
-                                  BorderRadius
-                                      .circular(
+                                  BorderRadius.circular(
                                 12,
                               ),
                             ),
                           ),
-
-                          child:
-                              _isLoading
-                                  ? const SizedBox(
-                                      width: 23,
-                                      height: 23,
-                                      child:
-                                          CircularProgressIndicator(
-                                        color:
-                                            Colors.white,
-                                        strokeWidth:
-                                            2.5,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Get Mobile OTP',
-                                      style:
-                                          TextStyle(
-                                        color:
-                                            Colors.white,
-                                        fontSize:
-                                            16,
-                                        fontWeight:
-                                            FontWeight
-                                                .w700,
-                                      ),
-                                    ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child:
+                                      CircularProgressIndicator(
+                                    color:
+                                        Colors.white,
+                                    strokeWidth:
+                                        2.5,
+                                  ),
+                                )
+                              : const Text(
+                                  'Get Mobile OTP',
+                                  style:
+                                      TextStyle(
+                                    color:
+                                        Colors.white,
+                                    fontSize: 16,
+                                    fontWeight:
+                                        FontWeight.bold,
+                                  ),
+                                ),
                         ),
                       ),
                     ],
@@ -532,19 +341,12 @@ class _MobileLoginScreenState
 
                 const SizedBox(height: 20),
 
-                // ==================================================
-                // INFORMATION
-                // ==================================================
-
                 const Text(
-                  'A 6-digit verification code will be sent '
-                  'to your mobile number.',
+                  'A verification code will be sent to your mobile number.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 12.5,
-                    color:
-                        AppColors.textGrey,
-                    height: 1.4,
+                    fontSize: 12,
+                    color: AppColors.textGrey,
                   ),
                 ),
               ],
@@ -554,10 +356,6 @@ class _MobileLoginScreenState
       ),
     );
   }
-
-  // ============================================================
-  // DISPOSE
-  // ============================================================
 
   @override
   void dispose() {
