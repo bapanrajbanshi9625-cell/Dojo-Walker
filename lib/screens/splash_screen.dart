@@ -5,9 +5,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../features/profile_setup/services/profile_setup_service.dart';
+import '../features/profile_setup/screens/pending_verification_screen.dart';
+
 import 'main_navigation_screen.dart';
 import 'mobile_login_screen.dart';
 import 'profile_setup_screen.dart';
+
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({
