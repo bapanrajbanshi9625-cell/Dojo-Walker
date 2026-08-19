@@ -227,27 +227,28 @@ class _OtpVerificationScreenState
 
       if (!mounted) return;
 
-      setState(() {
+            setState(() {
         _errorMessage =
             e.message ??
-                'Unable to complete account setup.';
+            'Unable to complete account setup.';
       });
     } catch (e, stackTrace) {
-      debugPrint(
-        'OTP FLOW ERROR: $e',
-      );
+      debugPrint('========================================');
+      debugPrint('OTP FLOW ERROR');
+      debugPrint('ERROR TYPE: ${e.runtimeType}');
+      debugPrint('ERROR: $e');
+      debugPrint('STACK TRACE:');
+      debugPrintStack(stackTrace: stackTrace);
+      debugPrint('========================================');
 
-      debugPrintStack(
-        stackTrace: stackTrace,
-      );
-
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _errorMessage =
-            'Verification succeeded, but account setup '
-            'could not be completed.\n\n'
-            '$e';
+            'Account setup failed.\n\n'
+            'Error: ${e.toString()}';
       });
     } finally {
       if (mounted) {
@@ -256,7 +257,6 @@ class _OtpVerificationScreenState
         });
       }
     }
-  }
 
   // ============================================================
   // ERROR
