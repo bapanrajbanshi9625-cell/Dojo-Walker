@@ -27,7 +27,7 @@ class OtpVerificationScreen extends StatefulWidget {
 class _OtpVerificationScreenState
     extends State<OtpVerificationScreen> {
   // ============================================================
-  // AUTH SERVICE
+  // SERVICES
   // ============================================================
 
   final AuthService _authService =
@@ -35,6 +35,10 @@ class _OtpVerificationScreenState
 
   final TextEditingController _otpController =
       TextEditingController();
+
+  // ============================================================
+  // STATE
+  // ============================================================
 
   bool _isLoading = false;
 
@@ -78,22 +82,27 @@ class _OtpVerificationScreenState
 
     try {
       // ========================================================
-      // 1. FIREBASE OTP VERIFICATION
-      //
-      // IMPORTANT:
-      // Wrong OTP throws FirebaseAuthException.
-      //
-      // Nothing below this point executes when OTP fails.
+      // STEP 1
+      // FIREBASE OTP VERIFICATION
       // ========================================================
+
+      debugPrint('========================================');
+      debugPrint('STEP 1: VERIFYING FIREBASE OTP');
+      debugPrint('========================================');
 
       await _authService.verifyOTP(
         verificationId:
-            widget.verificationId,
+            widget.verificationId.trim(),
         smsCode: otp,
       );
 
+      debugPrint('========================================');
+      debugPrint('STEP 1 SUCCESS: FIREBASE OTP VERIFIED');
+      debugPrint('========================================');
+
       // ========================================================
-      // 2. GET FIREBASE USER
+      // STEP 2
+      // GET CURRENT FIREBASE USER
       // ========================================================
 
       final User? user =
@@ -118,46 +127,60 @@ class _OtpVerificationScreenState
         );
       }
 
-      debugPrint(
-        '========================================',
-      );
-      debugPrint(
-        'OTP VERIFICATION SUCCESS',
-      );
-      debugPrint(
-        'Firebase UID: $uid',
-      );
-      debugPrint(
-        'Phone: ${user.phoneNumber ?? widget.phoneNumber}',
-      );
-      debugPrint(
-        '========================================',
-      );
+      final String phone =
+          (user.phoneNumber ??
+                  widget.phoneNumber)
+              .trim();
+
+      debugPrint('========================================');
+      debugPrint('STEP 2 SUCCESS: FIREBASE USER FOUND');
+      debugPrint('FIREBASE UID: $uid');
+      debugPrint('PHONE: $phone');
+      debugPrint('========================================');
 
       // ========================================================
-      // 3. CREATE / GET WALKER ID
+      // STEP 3
+      // CREATE / GET WALKER ID
       //
-      // ONLY after successful OTP.
+      // IMPORTANT:
+      // This runs ONLY after successful Firebase OTP.
       // ========================================================
+
+      debugPrint('========================================');
+      debugPrint('STEP 3: GET / CREATE WALKER ID');
+      debugPrint('========================================');
 
       final String walkerId =
           await WalkerIdService.instance
               .getOrCreateWalkerId(
         uid: uid,
-        phoneNumber:
-            user.phoneNumber ??
-                widget.phoneNumber,
+        phoneNumber: phone,
       );
 
+      if (walkerId.trim().isEmpty) {
+        throw FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'empty-walker-id',
+          message:
+              'Walker ID could not be created.',
+        );
+      }
+
+      debugPrint('========================================');
       debugPrint(
-        'Walker ID: $walkerId',
+        'STEP 3 SUCCESS: WALKER ID = $walkerId',
       );
+      debugPrint('========================================');
 
       // ========================================================
-      // 4. CHECK PROFILE
-      //
-      // BEFORE saving local login state.
+      // STEP 4
+      // CHECK WALKER PROFILE
       // ========================================================
+
+      debugPrint('========================================');
+      debugPrint('STEP 4: CHECK WALKER PROFILE');
+      debugPrint('UID: $uid');
+      debugPrint('========================================');
 
       final bool profileCompleted =
           await ProfileSetupService
@@ -165,41 +188,77 @@ class _OtpVerificationScreenState
         authUid: uid,
       );
 
+      debugPrint('========================================');
+      debugPrint(
+        'STEP 4 SUCCESS: PROFILE COMPLETED = '
+        '$profileCompleted',
+      );
+      debugPrint('========================================');
+
       // ========================================================
-      // 5. SAVE LOCAL SESSION
+      // STEP 5
+      // SAVE LOCAL SESSION
       //
-      // Only after successful OTP + account setup.
+      // At this point:
+      // Firebase Auth = SUCCESS
+      // Walker ID = SUCCESS
+      // Profile Check = SUCCESS
       // ========================================================
+
+      debugPrint('========================================');
+      debugPrint('STEP 5: SAVING LOCAL SESSION');
+      debugPrint('========================================');
 
       final SharedPreferences prefs =
           await SharedPreferences.getInstance();
 
-      await prefs.setBool(
+      final bool loginSaved =
+          await prefs.setBool(
         'isLoggedIn',
         true,
       );
 
-      await prefs.setString(
+      final bool walkerIdSaved =
+          await prefs.setString(
         'walkerId',
         walkerId,
       );
 
-      await prefs.setString(
+      final bool uidSaved =
+          await prefs.setString(
         'authUid',
         uid,
       );
 
+      if (!loginSaved ||
+          !walkerIdSaved ||
+          !uidSaved) {
+        throw Exception(
+          'Unable to save local walker session.',
+        );
+      }
+
+      debugPrint('========================================');
       debugPrint(
-        'Local walker session saved.',
+        'STEP 5 SUCCESS: LOCAL SESSION SAVED',
       );
+      debugPrint('========================================');
 
       // ========================================================
-      // 6. NAVIGATION
+      // STEP 6
+      // NAVIGATION
       // ========================================================
 
       if (!mounted) {
         return;
       }
+
+      debugPrint('========================================');
+      debugPrint('STEP 6: NAVIGATION');
+      debugPrint(
+        'PROFILE COMPLETED: $profileCompleted',
+      );
+      debugPrint('========================================');
 
       if (profileCompleted) {
         // ------------------------------------------------------
@@ -207,7 +266,7 @@ class _OtpVerificationScreenState
         // ------------------------------------------------------
 
         debugPrint(
-          'Profile complete → Main Navigation',
+          'PROFILE COMPLETE → HOME',
         );
 
         Navigator.of(context).pushNamedAndRemoveUntil(
@@ -216,11 +275,11 @@ class _OtpVerificationScreenState
         );
       } else {
         // ------------------------------------------------------
-        // PROFILE NOT COMPLETE
+        // PROFILE INCOMPLETE
         // ------------------------------------------------------
 
         debugPrint(
-          'Profile incomplete → Profile Setup',
+          'PROFILE INCOMPLETE → PROFILE SETUP',
         );
 
         Navigator.of(context).pushNamedAndRemoveUntil(
@@ -231,45 +290,24 @@ class _OtpVerificationScreenState
     }
 
     // ==========================================================
-    // OTP / FIREBASE AUTH ERROR
+    // FIREBASE AUTH ERROR
     // ==========================================================
 
     on FirebaseAuthException catch (e) {
-      debugPrint(
-        '========================================',
-      );
-      debugPrint(
-        'OTP VERIFICATION FAILED',
-      );
-      debugPrint(
-        'CODE: ${e.code}',
-      );
-      debugPrint(
-        'MESSAGE: ${e.message}',
-      );
-      debugPrint(
-        '========================================',
-      );
+      debugPrint('========================================');
+      debugPrint('FIREBASE AUTH ERROR');
+      debugPrint('CODE: ${e.code}');
+      debugPrint('MESSAGE: ${e.message}');
+      debugPrint('========================================');
 
-      // --------------------------------------------------------
-      // IMPORTANT:
-      //
-      // Wrong OTP:
-      // - Walker ID नहीं बनेगा
-      // - Firestore operation नहीं होगा
-      // - SharedPreferences login नहीं होगा
-      // - Profile Setup नहीं खुलेगा
-      // - Home नहीं खुलेगा
-      //
-      // User इसी OTP screen पर रहेगा.
-      // --------------------------------------------------------
-
-      if (mounted) {
-        setState(() {
-          _errorMessage =
-              _friendlyOtpError(e);
-        });
+      if (!mounted) {
+        return;
       }
+
+      setState(() {
+        _errorMessage =
+            _friendlyOtpError(e);
+      });
     }
 
     // ==========================================================
@@ -277,56 +315,47 @@ class _OtpVerificationScreenState
     // ==========================================================
 
     on FirebaseException catch (e) {
-      debugPrint(
-        '========================================',
-      );
-      debugPrint(
-        'FIRESTORE / FIREBASE ERROR',
-      );
-      debugPrint(
-        'CODE: ${e.code}',
-      );
-      debugPrint(
-        'MESSAGE: ${e.message}',
-      );
-      debugPrint(
-        '========================================',
-      );
+      debugPrint('========================================');
+      debugPrint('FIREBASE / FIRESTORE ERROR');
+      debugPrint('PLUGIN: ${e.plugin}');
+      debugPrint('CODE: ${e.code}');
+      debugPrint('MESSAGE: ${e.message}');
+      debugPrint('========================================');
 
-      if (mounted) {
-        setState(() {
-          _errorMessage =
-              e.message ??
-              'Unable to complete account setup.';
-        });
+      if (!mounted) {
+        return;
       }
+
+      setState(() {
+        _errorMessage =
+            e.message ??
+            'Unable to complete account setup.';
+      });
     }
 
     // ==========================================================
     // GENERAL ERROR
     // ==========================================================
 
-    catch (e) {
-      debugPrint(
-        '========================================',
-      );
-      debugPrint(
-        'OTP FLOW ERROR',
-      );
-      debugPrint(
-        '$e',
-      );
-      debugPrint(
-        '========================================',
-      );
+    catch (e, stackTrace) {
+      debugPrint('========================================');
+      debugPrint('OTP FLOW ERROR');
+      debugPrint('ERROR TYPE: ${e.runtimeType}');
+      debugPrint('ERROR: $e');
+      debugPrint('STACK TRACE:');
+      debugPrint('$stackTrace');
+      debugPrint('========================================');
 
-      if (mounted) {
-        setState(() {
-          _errorMessage =
-              'Unable to complete verification.\n'
-              'Please try again.';
-        });
+      if (!mounted) {
+        return;
       }
+
+      setState(() {
+        _errorMessage =
+            'Verification succeeded, but account setup '
+            'could not be completed.\n\n'
+            '$e';
+      });
     }
 
     // ==========================================================
@@ -373,6 +402,9 @@ class _OtpVerificationScreenState
 
       case 'invalid-otp-format':
         return 'Please enter a valid 6-digit OTP.';
+
+      case 'user-not-found':
+        return 'Firebase login succeeded, but the user session was not found.';
 
       default:
         return e.message ??
@@ -471,12 +503,27 @@ class _OtpVerificationScreenState
 
               if (_errorMessage.isNotEmpty) ...[
                 const SizedBox(height: 15),
-                Text(
-                  _errorMessage,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.red,
-                    fontSize: 14,
+                Container(
+                  padding:
+                      const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red
+                        .withValues(alpha: 0.08),
+                    borderRadius:
+                        BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.red
+                          .withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Text(
+                    _errorMessage,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.red,
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
                   ),
                 ),
               ],
