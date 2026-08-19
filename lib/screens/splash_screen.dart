@@ -361,6 +361,40 @@ _goTo(
 );
 
 return;
+
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'SPLASH FIREBASE ERROR: ${e.code}',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isChecking = false;
+        _errorMessage =
+            'Unable to verify your account.\n\n'
+            'Please check your internet connection '
+            'and try again.';
+      });
+    } catch (e) {
+      debugPrint(
+        'SPLASH ERROR: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isChecking = false;
+        _errorMessage =
+            'Unable to verify your account.\n\n'
+            'Please try again.';
+      });
+    }
+  }
   
   // ============================================================
   // FORCE LOGOUT
