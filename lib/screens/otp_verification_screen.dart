@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/auth_service.dart';
 import '../services/walker_id_service.dart';
-import '../services/profile_setup_service.dart';
+import '../features/profile_setup/services/profile_setup_service.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String verificationId;
@@ -40,20 +40,27 @@ class _OtpVerificationScreenState
   // ============================================================
 
   Future<void> _verifyOtp() async {
-    if (_isLoading) return;
+    if (_isLoading) {
+      return;
+    }
 
     final String otp =
         _otpController.text.trim();
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // OTP VALIDATION
-    // ----------------------------------------------------------
+    // ==========================================================
 
     if (!RegExp(r'^[0-9]{6}$').hasMatch(otp)) {
+      if (!mounted) {
+        return;
+      }
+
       setState(() {
         _errorMessage =
             'Please enter a valid 6-digit OTP.';
       });
+
       return;
     }
 
@@ -67,6 +74,11 @@ class _OtpVerificationScreenState
     try {
       // ========================================================
       // 1. FIREBASE OTP VERIFICATION
+      //
+      // IMPORTANT:
+      // If OTP is wrong, this throws an exception.
+      //
+      // Nothing below this point will execute.
       // ========================================================
 
       final bool success =
@@ -85,7 +97,7 @@ class _OtpVerificationScreenState
       }
 
       // ========================================================
-      // 2. GET CURRENT FIREBASE USER
+      // 2. GET FIREBASE USER
       // ========================================================
 
       final User? user =
@@ -110,8 +122,18 @@ class _OtpVerificationScreenState
         );
       }
 
+      debugPrint('========================================');
+      debugPrint('OTP VERIFICATION SUCCESS');
+      debugPrint('Firebase UID: $uid');
+      debugPrint(
+        'Phone: ${user.phoneNumber ?? widget.phoneNumber}',
+      );
+      debugPrint('========================================');
+
       // ========================================================
-      // 3. GET / CREATE WALKER ID
+      // 3. CREATE / GET WALKER ID
+      //
+      // This happens ONLY after successful OTP.
       // ========================================================
 
       final String walkerId =
@@ -123,8 +145,26 @@ class _OtpVerificationScreenState
                 widget.phoneNumber,
       );
 
+      debugPrint(
+        'Walker ID: $walkerId',
+      );
+
       // ========================================================
-      // 4. SAVE LOCAL SESSION
+      // 4. CHECK PROFILE
+      //
+      // Do this BEFORE saving local login state.
+      // ========================================================
+
+      final bool profileCompleted =
+          await ProfileSetupService
+              .isWalkerProfileCompleted(
+        authUid: uid,
+      );
+
+      // ========================================================
+      // 5. SAVE LOCAL SESSION
+      //
+      // Only successful OTP + successful account setup.
       // ========================================================
 
       final SharedPreferences prefs =
@@ -145,26 +185,26 @@ class _OtpVerificationScreenState
         uid,
       );
 
-      // ========================================================
-      // 5. CHECK WALKER PROFILE
-      // ========================================================
-
-      final bool profileCompleted =
-          await ProfileSetupService
-              .isWalkerProfileCompleted(
-        authUid: uid,
+      debugPrint(
+        'Local walker session saved.',
       );
-
-      if (!mounted) return;
 
       // ========================================================
       // 6. NAVIGATION
       // ========================================================
 
+      if (!mounted) {
+        return;
+      }
+
       if (profileCompleted) {
         // ------------------------------------------------------
-        // PROFILE ALREADY COMPLETED
+        // PROFILE COMPLETE
         // ------------------------------------------------------
+
+        debugPrint(
+          'Profile complete → Main Navigation',
+        );
 
         Navigator.of(context).pushNamedAndRemoveUntil(
           '/home',
@@ -172,43 +212,139 @@ class _OtpVerificationScreenState
         );
       } else {
         // ------------------------------------------------------
-        // PROFILE NOT COMPLETED
+        // PROFILE NOT COMPLETE
         // ------------------------------------------------------
+
+        debugPrint(
+          'Profile incomplete → Profile Setup',
+        );
 
         Navigator.of(context).pushNamedAndRemoveUntil(
           '/profile-setup',
           (route) => false,
         );
       }
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
+    }
+
+    // ==========================================================
+    // OTP / FIREBASE AUTH ERROR
+    // ==========================================================
+
+    on FirebaseAuthException catch (e) {
+      debugPrint('========================================');
+      debugPrint('OTP VERIFICATION FAILED');
+      debugPrint('CODE: ${e.code}');
+      debugPrint('MESSAGE: ${e.message}');
+      debugPrint('========================================');
+
+      // --------------------------------------------------------
+      // IMPORTANT:
+      // DO NOT:
+      // - create Walker ID
+      // - write Firestore
+      // - save SharedPreferences
+      // - navigate to Profile Setup
+      //
+      // User stays on OTP screen.
+      // --------------------------------------------------------
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage =
+            _friendlyOtpError(e);
+      });
+    }
+
+    // ==========================================================
+    // FIRESTORE ERROR
+    // ==========================================================
+
+    on FirebaseException catch (e) {
+      debugPrint('========================================');
+      debugPrint('FIRESTORE / FIREBASE ERROR');
+      debugPrint('CODE: ${e.code}');
+      debugPrint('MESSAGE: ${e.message}');
+      debugPrint('========================================');
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _errorMessage =
             e.message ??
-            'OTP verification failed.';
+            'Unable to complete account setup.';
       });
-    } on FirebaseException catch (e) {
-      if (!mounted) return;
+    }
+
+    // ==========================================================
+    // GENERAL ERROR
+    // ==========================================================
+
+    catch (e) {
+      debugPrint('========================================');
+      debugPrint('OTP FLOW ERROR');
+      debugPrint('$e');
+      debugPrint('========================================');
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _errorMessage =
-            e.message ??
-            'Firebase error occurred.';
+            'Unable to complete verification.\n'
+            'Please try again.';
       });
-    } catch (e) {
-      if (!mounted) return;
+    }
 
-      setState(() {
-        _errorMessage =
-            e.toString();
-      });
-    } finally {
-      if (!mounted) return;
+    // ==========================================================
+    // STOP LOADING
+    // ==========================================================
+
+    finally {
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  // ============================================================
+  // FRIENDLY OTP ERROR
+  // ============================================================
+
+  String _friendlyOtpError(
+    FirebaseAuthException e,
+  ) {
+    switch (e.code) {
+      case 'invalid-verification-code':
+        return 'Incorrect OTP. Please enter the correct 6-digit OTP.';
+
+      case 'invalid-verification-id':
+        return 'This OTP session has expired. Please request a new OTP.';
+
+      case 'session-expired':
+        return 'OTP session expired. Please request a new OTP.';
+
+      case 'too-many-requests':
+        return 'Too many attempts. Please wait and try again later.';
+
+      case 'network-request-failed':
+        return 'Network error. Please check your internet connection.';
+
+      case 'invalid-phone-number':
+        return 'Invalid phone number. Please try again.';
+
+      default:
+        return e.message ??
+            'OTP verification failed. Please try again.';
     }
   }
 
@@ -226,8 +362,7 @@ class _OtpVerificationScreenState
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding:
-              const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment:
                 CrossAxisAlignment.stretch,
@@ -243,8 +378,7 @@ class _OtpVerificationScreenState
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 28,
-                  fontWeight:
-                      FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
 
@@ -270,48 +404,45 @@ class _OtpVerificationScreenState
               // ==================================================
 
               TextField(
-                controller:
-                    _otpController,
+                controller: _otpController,
                 keyboardType:
                     TextInputType.number,
                 maxLength: 6,
-                textAlign:
-                    TextAlign.center,
+                textAlign: TextAlign.center,
                 autofocus: true,
                 obscureText: false,
                 style: const TextStyle(
                   fontSize: 24,
-                  fontWeight:
-                      FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                   letterSpacing: 8,
                 ),
-                decoration:
-                    InputDecoration(
+                decoration: InputDecoration(
                   counterText: '',
                   hintText: '000000',
-                  border:
-                      OutlineInputBorder(
+                  border: OutlineInputBorder(
                     borderRadius:
-                        BorderRadius.circular(
-                      12,
-                    ),
+                        BorderRadius.circular(12),
                   ),
                 ),
+                onChanged: (_) {
+                  if (_errorMessage.isNotEmpty) {
+                    setState(() {
+                      _errorMessage = '';
+                    });
+                  }
+                },
               ),
 
               // ==================================================
               // ERROR
               // ==================================================
 
-              if (_errorMessage
-                  .isNotEmpty) ...[
+              if (_errorMessage.isNotEmpty) ...[
                 const SizedBox(height: 15),
                 Text(
                   _errorMessage,
-                  textAlign:
-                      TextAlign.center,
-                  style:
-                      const TextStyle(
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
                     color: Colors.red,
                     fontSize: 14,
                   ),
@@ -342,8 +473,7 @@ class _OtpVerificationScreenState
                         )
                       : const Text(
                           'Verify OTP',
-                          style:
-                              TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight:
                                 FontWeight.bold,
@@ -359,11 +489,10 @@ class _OtpVerificationScreenState
               // ==================================================
 
               const Text(
-                'After verification, your Walker ID will be '
-                'created automatically if you do not already '
-                'have one.',
-                textAlign:
-                    TextAlign.center,
+                'After successful verification, your Walker ID '
+                'will be created automatically if you do not '
+                'already have one.',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.grey,
