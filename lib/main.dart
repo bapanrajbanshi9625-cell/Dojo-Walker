@@ -11,22 +11,30 @@ Future<void> main() async {
 
   String? startupError;
 
-  // --------------------------------------------------
-  // Firebase initialization
-  // --------------------------------------------------
+  // ============================================================
+  // FIREBASE INITIALIZATION
+  // ============================================================
+
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
+        options:
+            DefaultFirebaseOptions.currentPlatform,
       );
     }
   } catch (e, stackTrace) {
-    debugPrint('Firebase initialization error: $e');
-    debugPrintStack(stackTrace: stackTrace);
+    debugPrint(
+      'Firebase initialization error: $e',
+    );
 
-    final error = e.toString().toLowerCase();
+    debugPrintStack(
+      stackTrace: stackTrace,
+    );
 
-    final isNetworkError =
+    final String error =
+        e.toString().toLowerCase();
+
+    final bool isNetworkError =
         error.contains('network') ||
         error.contains('timeout') ||
         error.contains('socket') ||
@@ -37,13 +45,15 @@ Future<void> main() async {
     if (isNetworkError) {
       startupError = 'NO_NETWORK';
     } else {
-      startupError = 'Firebase initialization failed:\n$e';
+      startupError =
+          'Firebase initialization failed:\n$e';
     }
   }
 
-  // --------------------------------------------------
-  // Start application
-  // --------------------------------------------------
+  // ============================================================
+  // START APP
+  // ============================================================
+
   runApp(
     DojoWalkerApp(
       startupError: startupError,
