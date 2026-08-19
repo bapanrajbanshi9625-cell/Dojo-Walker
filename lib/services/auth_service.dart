@@ -1,9 +1,11 @@
-// File location: lib/services/auth_service.dart
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 class AuthService {
+  AuthService._();
+
+  static final AuthService instance = AuthService._();
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // =====================================================
@@ -25,13 +27,15 @@ class AuthService {
         return;
       }
 
+      final String formattedPhone = '+91$cleanPhone';
+
       debugPrint('========================================');
       debugPrint('FIREBASE PHONE VERIFICATION START');
-      debugPrint('PHONE: +91$cleanPhone');
+      debugPrint('PHONE: $formattedPhone');
       debugPrint('========================================');
 
       await _auth.verifyPhoneNumber(
-        phoneNumber: '+91$cleanPhone',
+        phoneNumber: formattedPhone,
 
         // =================================================
         // AUTOMATIC VERIFICATION
@@ -58,17 +62,17 @@ class AuthService {
             debugPrint('AUTO FIREBASE AUTH SUCCESS');
             debugPrint('FIREBASE UID: ${user.uid}');
             debugPrint(
-              'PHONE: ${user.phoneNumber ?? '+91$cleanPhone'}',
+              'PHONE: ${user.phoneNumber ?? formattedPhone}',
             );
             debugPrint('========================================');
 
             // IMPORTANT:
-            // Do NOT create Walker ID here.
+            // Walker ID creation is NOT done here.
             //
-            // Walker ID creation is handled by:
-            // WalkerIdService
+            // It is done only after the OTP screen
+            // completes the normal verification flow.
             //
-            // This prevents duplicate account creation.
+            // This prevents duplicate Walker IDs.
           } on FirebaseAuthException catch (e) {
             debugPrint(
               'AUTO FIREBASE AUTH ERROR: '
@@ -116,9 +120,7 @@ class AuthService {
           );
           debugPrint('========================================');
 
-          onCodeSent(
-            verificationId,
-          );
+          onCodeSent(verificationId);
         },
 
         // =================================================
@@ -148,26 +150,22 @@ class AuthService {
         'PHONE AUTH GENERAL ERROR: $e',
       );
 
-      onError(
-        e.toString(),
-      );
+      onError(e.toString());
     }
   }
 
   // =====================================================
   // VERIFY OTP
   //
-  // IMPORTANT:
-  // This method ONLY verifies Firebase OTP.
+  // THIS METHOD ONLY DOES:
   //
-  // It does NOT:
-  // - create Walker ID
-  // - write Firestore
-  // - create walker profile
-  // - update counters
+  // Phone OTP
+  //      ↓
+  // Firebase Authentication
+  //      ↓
+  // Firebase UID
   //
-  // Those operations are handled after successful
-  // Firebase authentication.
+  // Walker ID / Firestore is handled separately.
   // =====================================================
 
   Future<bool> verifyOTP({
@@ -206,7 +204,7 @@ class AuthService {
 
     try {
       // =================================================
-      // CREATE PHONE CREDENTIAL
+      // CREATE CREDENTIAL
       // =================================================
 
       final PhoneAuthCredential credential =
@@ -216,7 +214,7 @@ class AuthService {
       );
 
       // =================================================
-      // FIREBASE AUTH LOGIN
+      // FIREBASE LOGIN
       // =================================================
 
       final UserCredential userCredential =
@@ -224,7 +222,8 @@ class AuthService {
         credential,
       );
 
-      final User? user = userCredential.user;
+      final User? user =
+          userCredential.user;
 
       if (user == null) {
         throw FirebaseAuthException(
@@ -271,8 +270,6 @@ class AuthService {
 
       return true;
     } on FirebaseAuthException {
-      // Firebase authentication errors are passed directly
-      // to the OTP screen.
       rethrow;
     } catch (e) {
       debugPrint(
