@@ -225,23 +225,7 @@ class _OtpVerificationScreenState
         'FIREBASE ERROR: ${e.code}',
       );
 
-      if (!mounted) return;
-
-            setState(() {
-        _errorMessage =
-            e.message ??
-            'Unable to complete account setup.';
-      });
-    } catch (e, stackTrace) {
-      debugPrint('========================================');
-      debugPrint('OTP FLOW ERROR');
-      debugPrint('ERROR TYPE: ${e.runtimeType}');
-      debugPrint('ERROR: $e');
-      debugPrint('STACK TRACE:');
-      debugPrintStack(stackTrace: stackTrace);
-      debugPrint('========================================');
-
-      if (!mounted) {
+            if (!mounted) {
         return;
       }
 
@@ -257,6 +241,7 @@ class _OtpVerificationScreenState
         });
       }
     }
+  }
 
   // ============================================================
   // ERROR
