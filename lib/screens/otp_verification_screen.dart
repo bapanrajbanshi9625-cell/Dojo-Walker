@@ -1,6 +1,3 @@
-// File location:
-// lib/screens/otp_verification.dart
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,18 +23,11 @@ class OtpVerificationScreen extends StatefulWidget {
 
 class _OtpVerificationScreenState
     extends State<OtpVerificationScreen> {
-  // ============================================================
-  // SERVICES
-  // ============================================================
-
-  final AuthService _authService = AuthService.instance;
+  final AuthService _authService =
+      AuthService.instance;
 
   final TextEditingController _otpController =
       TextEditingController();
-
-  // ============================================================
-  // STATE
-  // ============================================================
 
   bool _isLoading = false;
 
@@ -52,16 +42,12 @@ class _OtpVerificationScreenState
       return;
     }
 
-    final String otp = _otpController.text.trim();
+    final String otp =
+        _otpController.text.trim();
 
-    // ==========================================================
-    // OTP VALIDATION
-    // ==========================================================
-
-    if (!RegExp(r'^[0-9]{6}$').hasMatch(otp)) {
-      if (!mounted) {
-        return;
-      }
+    if (!RegExp(r'^[0-9]{6}$')
+        .hasMatch(otp)) {
+      if (!mounted) return;
 
       setState(() {
         _errorMessage =
@@ -80,26 +66,21 @@ class _OtpVerificationScreenState
 
     try {
       // ========================================================
-      // STEP 1
-      // FIREBASE OTP VERIFICATION
+      // STEP 1 - OTP
       // ========================================================
 
-      debugPrint('========================================');
-      debugPrint('STEP 1: VERIFYING FIREBASE OTP');
-      debugPrint('========================================');
+      debugPrint(
+        'STEP 1: VERIFY OTP',
+      );
 
       await _authService.verifyOTP(
-        verificationId: widget.verificationId.trim(),
+        verificationId:
+            widget.verificationId,
         smsCode: otp,
       );
 
-      debugPrint('========================================');
-      debugPrint('STEP 1 SUCCESS: FIREBASE OTP VERIFIED');
-      debugPrint('========================================');
-
       // ========================================================
-      // STEP 2
-      // GET CURRENT FIREBASE USER
+      // STEP 2 - USER
       // ========================================================
 
       final User? user =
@@ -113,223 +94,154 @@ class _OtpVerificationScreenState
         );
       }
 
-      final String uid = user.uid.trim();
+      final String uid =
+          user.uid.trim();
 
       if (uid.isEmpty) {
         throw FirebaseAuthException(
           code: 'empty-uid',
-          message: 'Firebase UID is empty.',
+          message:
+              'Firebase UID is empty.',
         );
       }
 
       final String phone =
-          (user.phoneNumber ?? widget.phoneNumber).trim();
+          (user.phoneNumber ??
+                  widget.phoneNumber)
+              .trim();
 
-      debugPrint('========================================');
-      debugPrint('STEP 2 SUCCESS: FIREBASE USER FOUND');
-      debugPrint('FIREBASE UID: $uid');
-      debugPrint('PHONE: $phone');
-      debugPrint('========================================');
+      debugPrint(
+        'STEP 2 SUCCESS: UID=$uid',
+      );
 
       // ========================================================
-      // STEP 3
-      // CREATE / GET WALKER ID
-      //
-      // ONLY after successful OTP.
+      // STEP 3 - WALKER ID
       // ========================================================
 
-      debugPrint('========================================');
-      debugPrint('STEP 3: GET / CREATE WALKER ID');
-      debugPrint('========================================');
+      debugPrint(
+        'STEP 3: GET / CREATE WALKER ID',
+      );
 
       final String walkerId =
-          await WalkerIdService.instance.getOrCreateWalkerId(
+          await WalkerIdService.instance
+              .getOrCreateWalkerId(
         uid: uid,
         phoneNumber: phone,
       );
 
       if (walkerId.trim().isEmpty) {
-        throw FirebaseException(
-          plugin: 'cloud_firestore',
-          code: 'empty-walker-id',
-          message: 'Walker ID could not be created.',
+        throw Exception(
+          'Walker ID is empty.',
         );
       }
 
-      debugPrint('========================================');
       debugPrint(
-        'STEP 3 SUCCESS: WALKER ID = $walkerId',
+        'STEP 3 SUCCESS: $walkerId',
       );
-      debugPrint('========================================');
 
       // ========================================================
-      // STEP 4
-      // CHECK WALKER PROFILE
+      // STEP 4 - PROFILE
       // ========================================================
-
-      debugPrint('========================================');
-      debugPrint('STEP 4: CHECK WALKER PROFILE');
-      debugPrint('UID: $uid');
-      debugPrint('========================================');
 
       final bool profileCompleted =
-          await ProfileSetupService.isWalkerProfileCompleted(
+          await ProfileSetupService
+              .isWalkerProfileCompleted(
         authUid: uid,
       );
 
-      debugPrint('========================================');
       debugPrint(
-        'STEP 4 SUCCESS: PROFILE COMPLETED = '
-        '$profileCompleted',
+        'STEP 4: profileCompleted=$profileCompleted',
       );
-      debugPrint('========================================');
 
       // ========================================================
-      // STEP 5
-      // SAVE LOCAL SESSION
+      // STEP 5 - LOCAL SESSION
       // ========================================================
-
-      debugPrint('========================================');
-      debugPrint('STEP 5: SAVING LOCAL SESSION');
-      debugPrint('========================================');
 
       final SharedPreferences prefs =
-          await SharedPreferences.getInstance();
+          await SharedPreferences
+              .getInstance();
 
-      final bool loginSaved =
-          await prefs.setBool(
+      await prefs.setBool(
         'isLoggedIn',
         true,
       );
 
-      final bool walkerIdSaved =
-          await prefs.setString(
+      await prefs.setString(
         'walkerId',
         walkerId,
       );
 
-      final bool uidSaved =
-          await prefs.setString(
+      await prefs.setString(
         'authUid',
         uid,
       );
 
-      if (!loginSaved ||
-          !walkerIdSaved ||
-          !uidSaved) {
-        throw Exception(
-          'Unable to save local walker session.',
-        );
-      }
-
-      debugPrint('========================================');
-      debugPrint('STEP 5 SUCCESS: LOCAL SESSION SAVED');
-      debugPrint('========================================');
+      debugPrint(
+        'STEP 5 SUCCESS: SESSION SAVED',
+      );
 
       // ========================================================
-      // STEP 6
-      // NAVIGATION
+      // STEP 6 - NAVIGATION
       // ========================================================
 
       if (!mounted) {
         return;
       }
 
-      debugPrint('========================================');
-      debugPrint('STEP 6: NAVIGATION');
-      debugPrint(
-        'PROFILE COMPLETED: $profileCompleted',
-      );
-      debugPrint('========================================');
-
       if (profileCompleted) {
-        // ------------------------------------------------------
-        // PROFILE COMPLETE → HOME
-        // ------------------------------------------------------
-
         debugPrint(
           'PROFILE COMPLETE → HOME',
         );
 
-        Navigator.of(context).pushNamedAndRemoveUntil(
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil(
           '/home',
           (route) => false,
         );
       } else {
-        // ------------------------------------------------------
-        // PROFILE INCOMPLETE → PROFILE SETUP
-        // ------------------------------------------------------
-
         debugPrint(
           'PROFILE INCOMPLETE → PROFILE SETUP',
         );
 
-        Navigator.of(context).pushNamedAndRemoveUntil(
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil(
           '/profile-setup',
           (route) => false,
         );
       }
-    }
+    } on FirebaseAuthException catch (e) {
+      debugPrint(
+        'AUTH ERROR: ${e.code}',
+      );
 
-    // ==========================================================
-    // FIREBASE AUTH ERROR
-    // ==========================================================
-
-    on FirebaseAuthException catch (e) {
-      debugPrint('========================================');
-      debugPrint('FIREBASE AUTH ERROR');
-      debugPrint('CODE: ${e.code}');
-      debugPrint('MESSAGE: ${e.message}');
-      debugPrint('========================================');
-
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
-        _errorMessage = _friendlyOtpError(e);
+        _errorMessage =
+            _friendlyOtpError(e);
       });
-    }
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'FIREBASE ERROR: ${e.code}',
+      );
 
-    // ==========================================================
-    // FIREBASE / FIRESTORE ERROR
-    // ==========================================================
-
-    on FirebaseException catch (e) {
-      debugPrint('========================================');
-      debugPrint('FIREBASE / FIRESTORE ERROR');
-      debugPrint('PLUGIN: ${e.plugin}');
-      debugPrint('CODE: ${e.code}');
-      debugPrint('MESSAGE: ${e.message}');
-      debugPrint('========================================');
-
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
         _errorMessage =
             e.message ??
-            'Unable to complete account setup.';
+                'Unable to complete account setup.';
       });
-    }
+    } catch (e, stackTrace) {
+      debugPrint(
+        'OTP FLOW ERROR: $e',
+      );
 
-    // ==========================================================
-    // GENERAL ERROR
-    // ==========================================================
+      debugPrintStack(
+        stackTrace: stackTrace,
+      );
 
-    catch (e, stackTrace) {
-      debugPrint('========================================');
-      debugPrint('OTP FLOW ERROR');
-      debugPrint('ERROR TYPE: ${e.runtimeType}');
-      debugPrint('ERROR: $e');
-      debugPrint('STACK TRACE:');
-      debugPrint('$stackTrace');
-      debugPrint('========================================');
-
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       setState(() {
         _errorMessage =
@@ -337,13 +249,7 @@ class _OtpVerificationScreenState
             'could not be completed.\n\n'
             '$e';
       });
-    }
-
-    // ==========================================================
-    // STOP LOADING
-    // ==========================================================
-
-    finally {
+    } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -353,7 +259,7 @@ class _OtpVerificationScreenState
   }
 
   // ============================================================
-  // FRIENDLY OTP ERROR
+  // ERROR
   // ============================================================
 
   String _friendlyOtpError(
@@ -364,8 +270,6 @@ class _OtpVerificationScreenState
         return 'Incorrect OTP. Please enter the correct 6-digit OTP.';
 
       case 'invalid-verification-id':
-        return 'This OTP session has expired. Please request a new OTP.';
-
       case 'session-expired':
         return 'OTP session expired. Please request a new OTP.';
 
@@ -414,10 +318,6 @@ class _OtpVerificationScreenState
             children: [
               const SizedBox(height: 30),
 
-              // ==================================================
-              // TITLE
-              // ==================================================
-
               const Text(
                 'Enter OTP',
                 textAlign: TextAlign.center,
@@ -428,10 +328,6 @@ class _OtpVerificationScreenState
               ),
 
               const SizedBox(height: 12),
-
-              // ==================================================
-              // PHONE
-              // ==================================================
 
               Text(
                 'OTP sent to +91 ${widget.phoneNumber}',
@@ -444,17 +340,13 @@ class _OtpVerificationScreenState
 
               const SizedBox(height: 40),
 
-              // ==================================================
-              // OTP FIELD
-              // ==================================================
-
               TextField(
                 controller: _otpController,
-                keyboardType: TextInputType.number,
+                keyboardType:
+                    TextInputType.number,
                 maxLength: 6,
                 textAlign: TextAlign.center,
                 autofocus: true,
-                obscureText: false,
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -477,14 +369,12 @@ class _OtpVerificationScreenState
                 },
               ),
 
-              // ==================================================
-              // ERROR
-              // ==================================================
-
               if (_errorMessage.isNotEmpty) ...[
                 const SizedBox(height: 15),
+
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding:
+                      const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.red.withOpacity(0.08),
                     borderRadius:
@@ -507,10 +397,6 @@ class _OtpVerificationScreenState
 
               const SizedBox(height: 30),
 
-              // ==================================================
-              // VERIFY BUTTON
-              // ==================================================
-
               SizedBox(
                 height: 52,
                 child: ElevatedButton(
@@ -525,7 +411,6 @@ class _OtpVerificationScreenState
                           child:
                               CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
                           ),
                         )
                       : const Text(
@@ -540,10 +425,6 @@ class _OtpVerificationScreenState
               ),
 
               const SizedBox(height: 20),
-
-              // ==================================================
-              // INFO
-              // ==================================================
 
               const Text(
                 'After successful verification, your Walker ID '
@@ -561,10 +442,6 @@ class _OtpVerificationScreenState
       ),
     );
   }
-
-  // ============================================================
-  // DISPOSE
-  // ============================================================
 
   @override
   void dispose() {
