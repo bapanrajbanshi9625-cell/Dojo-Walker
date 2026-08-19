@@ -3,30 +3,18 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class WalkerIdService {
   WalkerIdService._();
 
-  static final WalkerIdService instance =
-      WalkerIdService._();
+  static final WalkerIdService instance = WalkerIdService._();
 
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
-  // ============================================================
-  // COLLECTIONS
-  // ============================================================
-
-  static const String _phoneAccounts =
-      'phoneAccounts';
-
-  static const String _walkers =
-      'walkers';
-
-  static const String _counters =
-      'counters';
-
-  static const String _walkerCounter =
-      'walker';
+  static const String _phoneAccounts = 'phoneAccounts';
+  static const String _walkers = 'walkers';
+  static const String _counters = 'counters';
+  static const String _walkerCounter = 'walker';
 
   // ============================================================
-  // GET OR CREATE WALKER ID
+  // GET / CREATE WALKER ID
   // ============================================================
 
   Future<String> getOrCreateWalkerId({
@@ -37,80 +25,64 @@ class WalkerIdService {
     final String cleanPhone = phoneNumber.trim();
 
     if (cleanUid.isEmpty) {
-      throw Exception(
-        'Firebase UID is empty.',
-      );
+      throw Exception('Firebase UID is empty.');
     }
 
     if (cleanPhone.isEmpty) {
-      throw Exception(
-        'Phone number is empty.',
-      );
+      throw Exception('Phone number is empty.');
     }
 
-    // ==========================================================
-    // REFERENCES
-    // ==========================================================
+    final DocumentReference<Map<String, dynamic>> walkerRef =
+        _firestore.collection(_walkers).doc(cleanUid);
 
-    final DocumentReference<Map<String, dynamic>>
-        accountRef =
-        _firestore
-            .collection(_phoneAccounts)
-            .doc(cleanUid);
+    final DocumentReference<Map<String, dynamic>> accountRef =
+        _firestore.collection(_phoneAccounts).doc(cleanUid);
 
-    final DocumentReference<Map<String, dynamic>>
-        walkerRef =
-        _firestore
-            .collection(_walkers)
-            .doc(cleanUid);
-
-    final DocumentReference<Map<String, dynamic>>
-        counterRef =
-        _firestore
-            .collection(_counters)
-            .doc(_walkerCounter);
-
-    // ==========================================================
-    // TRANSACTION
-    // ==========================================================
+    final DocumentReference<Map<String, dynamic>> counterRef =
+        _firestore.collection(_counters).doc(_walkerCounter);
 
     return _firestore.runTransaction<String>(
       (transaction) async {
-        // ======================================================
-        // READ ACCOUNT
-        // ======================================================
-
-        final DocumentSnapshot<Map<String, dynamic>>
-            accountSnapshot =
-            await transaction.get(accountRef);
-
-        final Map<String, dynamic> accountData =
-            accountSnapshot.data() ??
-                <String, dynamic>{};
-
-        // ======================================================
+        // --------------------------------------------------------
         // READ WALKER
-        // ======================================================
+        // --------------------------------------------------------
 
-        final DocumentSnapshot<Map<String, dynamic>>
-            walkerSnapshot =
+        final walkerSnapshot =
             await transaction.get(walkerRef);
 
         final Map<String, dynamic> walkerData =
-            walkerSnapshot.data() ??
-                <String, dynamic>{};
+            walkerSnapshot.data() ?? <String, dynamic>{};
 
-        // ======================================================
-        // EXISTING ROLE CHECK
-        // ======================================================
+        // --------------------------------------------------------
+        // READ PHONE ACCOUNT
+        // --------------------------------------------------------
 
-        final String existingRole =
-            (accountData['role'] ??
-                    walkerData['role'] ??
-                    '')
+        final accountSnapshot =
+            await transaction.get(accountRef);
+
+        final Map<String, dynamic> accountData =
+            accountSnapshot.data() ?? <String, dynamic>{};
+
+        // --------------------------------------------------------
+        // ROLE CHECK
+        // --------------------------------------------------------
+
+        final String walkerRole =
+            (walkerData['role'] ?? '')
                 .toString()
                 .trim()
                 .toLowerCase();
+
+        final String accountRole =
+            (accountData['role'] ?? '')
+                .toString()
+                .trim()
+                .toLowerCase();
+
+        final String existingRole =
+            walkerRole.isNotEmpty
+                ? walkerRole
+                : accountRole;
 
         if (existingRole.isNotEmpty &&
             existingRole != 'walker') {
@@ -119,23 +91,35 @@ class WalkerIdService {
           );
         }
 
-        // ======================================================
+        // --------------------------------------------------------
         // EXISTING WALKER ID
-        // ======================================================
+        // --------------------------------------------------------
 
         String existingWalkerId =
-            (accountData['walkerId'] ??
-                    walkerData['walkerId'] ??
+            (walkerData['walkerId'] ??
+                    accountData['walkerId'] ??
                     '')
                 .toString()
                 .trim();
 
-        // ======================================================
-        // IF WALKER ID ALREADY EXISTS
-        // ======================================================
+        // --------------------------------------------------------
+        // IF EXISTING ID FOUND
+        // --------------------------------------------------------
 
         if (existingWalkerId.isNotEmpty) {
-          // Keep phone account synchronized.
+          transaction.set(
+            walkerRef,
+            {
+              'authUid': cleanUid,
+              'phoneNumber': cleanPhone,
+              'role': 'walker',
+              'walkerId': existingWalkerId,
+              'updatedAt':
+                  FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true),
+          );
+
           transaction.set(
             accountRef,
             {
@@ -151,46 +135,28 @@ class WalkerIdService {
             SetOptions(merge: true),
           );
 
-          // Keep walker document synchronized.
-          transaction.set(
-            walkerRef,
-            {
-              'authUid': cleanUid,
-              'phoneNumber': cleanPhone,
-              'role': 'walker',
-              'walkerId': existingWalkerId,
-              'updatedAt':
-                  FieldValue.serverTimestamp(),
-            },
-            SetOptions(merge: true),
-          );
-
           return existingWalkerId;
         }
 
-        // ======================================================
+        // --------------------------------------------------------
         // READ COUNTER
-        // ======================================================
+        // --------------------------------------------------------
 
-        final DocumentSnapshot<Map<String, dynamic>>
-            counterSnapshot =
+        final counterSnapshot =
             await transaction.get(counterRef);
 
         final Map<String, dynamic> counterData =
-            counterSnapshot.data() ??
-                <String, dynamic>{};
+            counterSnapshot.data() ?? <String, dynamic>{};
+
+        final dynamic rawLastSerial =
+            counterData['lastSerial'];
 
         final int lastSerial =
-            (counterData['lastSerial'] as num?)
-                    ?.toInt() ??
-                0;
+            rawLastSerial is num
+                ? rawLastSerial.toInt()
+                : 0;
 
-        final int nextSerial =
-            lastSerial + 1;
-
-        // ======================================================
-        // LIMIT
-        // ======================================================
+        final int nextSerial = lastSerial + 1;
 
         if (nextSerial > 9999) {
           throw Exception(
@@ -198,21 +164,20 @@ class WalkerIdService {
           );
         }
 
-        // ======================================================
+        // --------------------------------------------------------
         // DATE
-        // ======================================================
+        // --------------------------------------------------------
 
-        final DateTime now =
-            DateTime.now();
+        final DateTime now = DateTime.now();
 
         final String year =
             (now.year % 100)
                 .toString()
                 .padLeft(2, '0');
 
-        // ======================================================
-        // MONTH CODE
-        // ======================================================
+        // --------------------------------------------------------
+        // MONTH
+        // --------------------------------------------------------
 
         const List<String> monthCodes = [
           'J',
@@ -232,9 +197,9 @@ class WalkerIdService {
         final String monthCode =
             monthCodes[now.month - 1];
 
-        // ======================================================
-        // DAY CODE
-        // ======================================================
+        // --------------------------------------------------------
+        // DAY
+        // --------------------------------------------------------
 
         const List<String> dayCodes = [
           'M',
@@ -249,29 +214,25 @@ class WalkerIdService {
         final String dayCode =
             dayCodes[now.weekday - 1];
 
-        // ======================================================
+        // --------------------------------------------------------
         // SERIAL
-        // ======================================================
+        // --------------------------------------------------------
 
         final String serial =
             nextSerial
                 .toString()
                 .padLeft(4, '0');
 
-        // ======================================================
+        // --------------------------------------------------------
         // FINAL WALKER ID
-        //
-        // Example:
-        //
-        // WAL26GR0001
-        // ======================================================
+        // --------------------------------------------------------
 
         final String newWalkerId =
             'WAL$year$monthCode$dayCode$serial';
 
-        // ======================================================
-        // COUNTER UPDATE
-        // ======================================================
+        // --------------------------------------------------------
+        // COUNTER
+        // --------------------------------------------------------
 
         transaction.set(
           counterRef,
@@ -283,50 +244,55 @@ class WalkerIdService {
           SetOptions(merge: true),
         );
 
-        // ======================================================
+        // --------------------------------------------------------
         // WALKER DOCUMENT
-        //
-        // walkers/{Firebase UID}
-        // ======================================================
+        // --------------------------------------------------------
+
+        final Map<String, dynamic> walkerWrite = {
+          'authUid': cleanUid,
+          'phoneNumber': cleanPhone,
+          'role': 'walker',
+          'walkerId': newWalkerId,
+          'profileCompleted': false,
+          'verificationStatus': 'pending',
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+        };
+
+        if (!walkerSnapshot.exists) {
+          walkerWrite['createdAt'] =
+              FieldValue.serverTimestamp();
+        }
 
         transaction.set(
           walkerRef,
-          {
-            'authUid': cleanUid,
-            'phoneNumber': cleanPhone,
-            'role': 'walker',
-            'walkerId': newWalkerId,
-            'profileCompleted': false,
-            'createdAt':
-                FieldValue.serverTimestamp(),
-            'updatedAt':
-                FieldValue.serverTimestamp(),
-          },
+          walkerWrite,
           SetOptions(merge: true),
         );
 
-        // ======================================================
+        // --------------------------------------------------------
         // PHONE ACCOUNT
-        //
-        // phoneAccounts/{Firebase UID}
-        // ======================================================
+        // --------------------------------------------------------
+
+        final Map<String, dynamic> accountWrite = {
+          'authUid': cleanUid,
+          'phone': cleanPhone,
+          'phoneNumber': cleanPhone,
+          'role': 'walker',
+          'walkerId': newWalkerId,
+          'active': true,
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+        };
+
+        if (!accountSnapshot.exists) {
+          accountWrite['createdAt'] =
+              FieldValue.serverTimestamp();
+        }
 
         transaction.set(
           accountRef,
-          {
-            'authUid': cleanUid,
-            'phone': cleanPhone,
-            'phoneNumber': cleanPhone,
-            'role': 'walker',
-            'walkerId': newWalkerId,
-            'active': true,
-            'createdAt':
-                accountSnapshot.exists
-                    ? accountData['createdAt']
-                    : FieldValue.serverTimestamp(),
-            'updatedAt':
-                FieldValue.serverTimestamp(),
-          },
+          accountWrite,
           SetOptions(merge: true),
         );
 
@@ -348,25 +314,28 @@ class WalkerIdService {
       return null;
     }
 
-    final DocumentSnapshot<Map<String, dynamic>>
-        snapshot =
-        await _firestore
-            .collection(_phoneAccounts)
-            .doc(cleanUid)
-            .get();
+    final snapshot = await _firestore
+        .collection(_walkers)
+        .doc(cleanUid)
+        .get();
 
-    if (!snapshot.exists) {
+    final data = snapshot.data();
+
+    if (data == null) {
       return null;
     }
 
-    final dynamic walkerId =
-        snapshot.data()?['walkerId'];
+    final dynamic value = data['walkerId'];
 
-    if (walkerId is String &&
-        walkerId.trim().isNotEmpty) {
-      return walkerId.trim();
+    if (value == null) {
+      return null;
     }
 
-    return null;
+    final String walkerId =
+        value.toString().trim();
+
+    return walkerId.isEmpty
+        ? null
+        : walkerId;
   }
 }
