@@ -142,17 +142,18 @@ class _PendingVerificationScreenState
         // ========================================================
 
         if (status == 'approved' && active) {
-          _openMainNavigation();
-        }
-      },
-      onError: (Object error) {
-        debugPrint(
-          'PendingVerification listener error: $error',
-        );
-      },
-      cancelOnError: false,
-    );
-  }
+  _openMainNavigation();
+  return;
+}
+
+// ========================================================
+// REJECTED
+// ========================================================
+
+if (status == 'rejected') {
+  _handleRejected();
+  return;
+}
 
   // ============================================================
   // OPEN MAIN NAVIGATION
