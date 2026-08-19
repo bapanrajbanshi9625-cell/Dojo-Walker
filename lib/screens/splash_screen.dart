@@ -233,35 +233,7 @@ class _SplashScreenState
       // ========================================================
       
 
-      // ========================================================
-// PROFILE + VERIFICATION STATUS
-// ========================================================
-
-final bool profileCompleted =
-    data['profileCompleted'] == true;
-
-final String verificationStatus =
-    data['verificationStatus']
-            ?.toString()
-            .trim()
-            .toLowerCase() ??
-        'pending';
-
-final bool walkerIdActive =
-    data['walkerIdActive'] == true;
-
-debugPrint(
-  'Splash: profileCompleted=$profileCompleted',
-);
-
-debugPrint(
-  'Splash: verificationStatus=$verificationStatus',
-);
-
-debugPrint(
-  'Splash: walkerIdActive=$walkerIdActive',
-);
-      
+      // 
 // ========================================================
 // PROFILE + VERIFICATION STATUS
 // ========================================================
