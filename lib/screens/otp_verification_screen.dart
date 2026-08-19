@@ -190,22 +190,26 @@ class _OtpVerificationScreenState
 
       if (profileCompleted) {
         debugPrint(
-          'PROFILE COMPLETE → HOME',
+          'OTP → PROFILE COMPLETE → HOME',
         );
 
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil(
-          '/home',
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) =>
+                const MainNavigationScreen(),
+          ),
           (route) => false,
         );
       } else {
         debugPrint(
-          'PROFILE INCOMPLETE → PROFILE SETUP',
+          'OTP → PROFILE INCOMPLETE → MANDATORY PROFILE',
         );
 
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil(
-          '/profile-setup',
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) =>
+                const MandatoryProfileSetupScreen(),
+          ),
           (route) => false,
         );
       }
