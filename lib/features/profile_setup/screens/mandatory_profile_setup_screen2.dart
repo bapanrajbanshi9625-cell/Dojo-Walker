@@ -69,6 +69,7 @@ class _MandatoryProfileSetupScreen2State
   final TextEditingController pinController =
       TextEditingController();
 
+  // Optional emergency contact
   final TextEditingController emergencyNameController =
       TextEditingController();
 
@@ -99,6 +100,7 @@ class _MandatoryProfileSetupScreen2State
     districtController.dispose();
     stateController.dispose();
     pinController.dispose();
+
     emergencyNameController.dispose();
     emergencyMobileController.dispose();
 
@@ -492,12 +494,12 @@ class _MandatoryProfileSetupScreen2State
     final String cleanUrl =
         url?.trim() ?? '';
 
-    // URL already available.
+    // Existing URL
     if (cleanUrl.isNotEmpty) {
       return cleanUrl;
     }
 
-    // Upload camera file.
+    // Upload camera file
     if (file != null) {
       final Reference ref =
           FirebaseStorage.instance
@@ -527,7 +529,10 @@ class _MandatoryProfileSetupScreen2State
   // ============================================================
 
   bool validate() {
-    // Aadhaar
+    // ----------------------------------------------------------
+    // AADHAAR NUMBER
+    // ----------------------------------------------------------
+
     if (!RegExp(r'^\d{12}$').hasMatch(
       aadhaarController.text.trim(),
     )) {
@@ -538,7 +543,10 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // Aadhaar front
+    // ----------------------------------------------------------
+    // AADHAAR FRONT
+    // ----------------------------------------------------------
+
     if (aadhaarFrontFile == null &&
         (aadhaarFrontUrl == null ||
             aadhaarFrontUrl!.trim().isEmpty)) {
@@ -549,7 +557,10 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // Aadhaar back
+    // ----------------------------------------------------------
+    // AADHAAR BACK
+    // ----------------------------------------------------------
+
     if (aadhaarBackFile == null &&
         (aadhaarBackUrl == null ||
             aadhaarBackUrl!.trim().isEmpty)) {
@@ -560,7 +571,10 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // Village
+    // ----------------------------------------------------------
+    // VILLAGE
+    // ----------------------------------------------------------
+
     if (villageController.text.trim().isEmpty) {
       showMessage(
         'Please enter Village / Locality.',
@@ -569,7 +583,10 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // City
+    // ----------------------------------------------------------
+    // CITY
+    // ----------------------------------------------------------
+
     if (cityController.text.trim().isEmpty) {
       showMessage(
         'Please enter City / Town.',
@@ -578,7 +595,10 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // District
+    // ----------------------------------------------------------
+    // DISTRICT
+    // ----------------------------------------------------------
+
     if (districtController.text.trim().isEmpty) {
       showMessage(
         'Please enter District.',
@@ -587,7 +607,10 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // State
+    // ----------------------------------------------------------
+    // STATE
+    // ----------------------------------------------------------
+
     if (stateController.text.trim().isEmpty) {
       showMessage(
         'Please enter State.',
@@ -596,7 +619,10 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
+    // ----------------------------------------------------------
     // PIN
+    // ----------------------------------------------------------
+
     if (!RegExp(r'^\d{6}$').hasMatch(
       pinController.text.trim(),
     )) {
@@ -607,24 +633,66 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // Emergency name
-    if (emergencyNameController.text.trim().isEmpty) {
-      showMessage(
-        'Please enter emergency contact name.',
-        false,
-      );
-      return false;
-    }
+    // ==========================================================
+    // EMERGENCY CONTACT
+    // ==========================================================
+    //
+    // IMPORTANT:
+    // Emergency contact is OPTIONAL.
+    //
+    // दोनों खाली हैं:
+    //     -> कोई validation नहीं
+    //     -> Submit allowed
+    //
+    // Name भरा है लेकिन mobile खाली:
+    //     -> error
+    //
+    // Mobile भरा है लेकिन name खाली:
+    //     -> error
+    //
+    // दोनों भरे हैं:
+    //     -> mobile 10 digit होना चाहिए
+    // ==========================================================
 
-    // Emergency mobile
-    if (!RegExp(r'^\d{10}$').hasMatch(
-      emergencyMobileController.text.trim(),
-    )) {
-      showMessage(
-        'Enter a valid 10-digit emergency mobile number.',
-        false,
-      );
-      return false;
+    final String emergencyName =
+        emergencyNameController.text.trim();
+
+    final String emergencyMobile =
+        emergencyMobileController.text.trim();
+
+    final bool emergencyNameEntered =
+        emergencyName.isNotEmpty;
+
+    final bool emergencyMobileEntered =
+        emergencyMobile.isNotEmpty;
+
+    if (emergencyNameEntered ||
+        emergencyMobileEntered) {
+      if (!emergencyNameEntered) {
+        showMessage(
+          'Please enter emergency contact name or leave the entire contact empty.',
+          false,
+        );
+        return false;
+      }
+
+      if (!emergencyMobileEntered) {
+        showMessage(
+          'Please enter emergency contact mobile or leave the entire contact empty.',
+          false,
+        );
+        return false;
+      }
+
+      if (!RegExp(r'^\d{10}$').hasMatch(
+        emergencyMobile,
+      )) {
+        showMessage(
+          'Enter a valid 10-digit emergency mobile number.',
+          false,
+        );
+        return false;
+      }
     }
 
     return true;
@@ -721,6 +789,16 @@ class _MandatoryProfileSetupScreen2State
       final String address = fullAddress;
 
       // ========================================================
+      // OPTIONAL EMERGENCY CONTACT
+      // ========================================================
+
+      final String emergencyName =
+          emergencyNameController.text.trim();
+
+      final String emergencyMobile =
+          emergencyMobileController.text.trim();
+
+      // ========================================================
       // FIRESTORE DATA
       // ========================================================
 
@@ -783,14 +861,17 @@ class _MandatoryProfileSetupScreen2State
         'address': address,
 
         // ------------------------------------------------------
-        // EMERGENCY CONTACT
+        // OPTIONAL EMERGENCY CONTACT
+        // ------------------------------------------------------
+        //
+        // Empty रहने पर भी profile submit होगा.
         // ------------------------------------------------------
 
         'emergencyContactName':
-            emergencyNameController.text.trim(),
+            emergencyName,
 
         'emergencyContactMobile':
-            emergencyMobileController.text.trim(),
+            emergencyMobile,
 
         // ------------------------------------------------------
         // ROLE
@@ -799,11 +880,22 @@ class _MandatoryProfileSetupScreen2State
         'role': 'walker',
 
         // ------------------------------------------------------
-        // IMPORTANT VERIFICATION STATE
+        // PROFILE SETUP STATE
+        // ------------------------------------------------------
+        //
+        // IMPORTANT:
+        //
+        // profileCompleted = true
+        // इसका मतलब mandatory profile setup पूरा हो गया.
+        //
+        // verificationStatus = pending
+        // इसका मतलब Admin approval अभी बाकी है.
+        //
+        // इससे app दोबारा Mandatory Profile Setup
+        // screen पर नहीं भेजेगा.
         // ------------------------------------------------------
 
-        // Profile submitted, but NOT approved yet.
-        'profileCompleted': false,
+        'profileCompleted': true,
 
         'verificationStatus': 'pending',
 
@@ -829,7 +921,7 @@ class _MandatoryProfileSetupScreen2State
       };
 
       // ========================================================
-      // SAVE
+      // SAVE TO FIRESTORE
       // ========================================================
 
       await FirebaseFirestore.instance
@@ -839,6 +931,10 @@ class _MandatoryProfileSetupScreen2State
             data,
             SetOptions(merge: true),
           );
+
+      // ========================================================
+      // SAVE SUCCESS
+      // ========================================================
 
       if (!mounted) return;
 
@@ -852,7 +948,7 @@ class _MandatoryProfileSetupScreen2State
       );
 
       // ========================================================
-      // PENDING VERIFICATION
+      // GO TO PENDING VERIFICATION
       // ========================================================
 
       await Future<void>.delayed(
@@ -1629,7 +1725,7 @@ class _MandatoryProfileSetupScreen2State
                       const SizedBox(height: 18),
 
                       // ==================================================
-                      // EMERGENCY
+                      // OPTIONAL EMERGENCY CONTACT
                       // ==================================================
 
                       Container(
@@ -1664,15 +1760,27 @@ class _MandatoryProfileSetupScreen2State
                                   color: orange,
                                 ),
                                 SizedBox(width: 9),
+                                Expanded(
+                                  child: Text(
+                                    'Emergency Contact',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight:
+                                          FontWeight
+                                              .w900,
+                                      color:
+                                          textDark,
+                                    ),
+                                  ),
+                                ),
                                 Text(
-                                  'Emergency Contact',
+                                  'OPTIONAL',
                                   style: TextStyle(
-                                    fontSize: 16,
+                                    color: muted,
+                                    fontSize: 10,
                                     fontWeight:
                                         FontWeight
                                             .w900,
-                                    color:
-                                        textDark,
                                   ),
                                 ),
                               ],
@@ -1681,7 +1789,7 @@ class _MandatoryProfileSetupScreen2State
                             const SizedBox(height: 6),
 
                             const Text(
-                              'This person can be contacted if required.',
+                              'यह जानकारी देना आपकी इच्छा है। खाली छोड़कर भी आगे बढ़ सकते हैं।',
                               style: TextStyle(
                                 fontSize: 11.5,
                                 color: muted,
@@ -1696,7 +1804,7 @@ class _MandatoryProfileSetupScreen2State
                               controller:
                                   emergencyNameController,
                               label:
-                                  'Emergency Contact Name',
+                                  'Emergency Contact Name (Optional)',
                               icon: Icons
                                   .person_outline_rounded,
                             ),
@@ -1705,7 +1813,7 @@ class _MandatoryProfileSetupScreen2State
                               controller:
                                   emergencyMobileController,
                               label:
-                                  'Emergency Contact Mobile',
+                                  'Emergency Contact Mobile (Optional)',
                               icon: Icons.phone_rounded,
                               keyboardType:
                                   TextInputType.phone,
