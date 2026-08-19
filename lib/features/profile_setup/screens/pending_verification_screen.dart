@@ -47,6 +47,7 @@ class _PendingVerificationScreenState
 
   bool _openingMain = false;
 
+  bool _handlingRejected = false;
 
   // ============================================================
   // INIT
@@ -143,15 +144,15 @@ class _PendingVerificationScreenState
         // ========================================================
 
         if (status == 'approved' && active) {
-  _openMainNavigation();
-  return;
-}
+          _openMainNavigation();
+          return;
+        }
 
-// ========================================================
-// REJECTED
-// ========================================================
+        // ========================================================
+        // REJECTED
+        // ========================================================
 
-if (status == 'rejected') {
+        if (status == 'rejected') {
           _handleRejected();
           return;
         }
@@ -164,7 +165,7 @@ if (status == 'rejected') {
       cancelOnError: false,
     );
   }
-  
+
   // ============================================================
   // OPEN MAIN NAVIGATION
   // ============================================================
@@ -206,11 +207,13 @@ if (status == 'rejected') {
   // ============================================================
 
   void _handleRejected() {
-    if (!mounted || _openingMain) {
+    if (!mounted ||
+        _openingMain ||
+        _handlingRejected) {
       return;
     }
 
-    _openingMain = true;
+    _handlingRejected = true;
 
     debugPrint(
       'PendingVerification: Walker verification REJECTED',
@@ -219,7 +222,7 @@ if (status == 'rejected') {
     _verificationSubscription?.cancel();
     _verificationSubscription = null;
 
-    Future.delayed(
+    Future<void>.delayed(
       const Duration(seconds: 3),
       () async {
         if (!mounted) {
@@ -248,6 +251,7 @@ if (status == 'rejected') {
       },
     );
   }
+
   // ============================================================
   // DISPOSE
   // ============================================================
@@ -556,7 +560,8 @@ if (status == 'rejected') {
                 height: 48,
                 decoration: BoxDecoration(
                   color: lightColor,
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius:
+                      BorderRadius.circular(15),
                 ),
                 child: Icon(
                   approved
