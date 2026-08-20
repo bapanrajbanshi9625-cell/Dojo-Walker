@@ -11,47 +11,28 @@ class ActiveWalkContainer extends StatelessWidget {
     required this.request,
   });
 
-  static const Color blue =
-      Color(0xFF238EAE);
-
-  static const Color green =
-      Color(0xFF16A34A);
-
-  static const Color greenLight =
-      Color(0xFFEAF7EF);
-
-  static const Color dark =
-      Color(0xFF263746);
-
-  static const Color muted =
-      Color(0xFF7A8289);
+  static const Color dark = Color(0xFF263746);
+  static const Color muted = Color(0xFF7A8289);
+  static const Color blue = Color(0xFF238EAE);
+  static const Color green = Color(0xFF16A34A);
+  static const Color greenLight = Color(0xFFEAF7EF);
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Container(
-      margin:
-          const EdgeInsets.symmetric(
-        horizontal: 18,
-      ),
-      padding:
-          const EdgeInsets.all(17),
+      margin: const EdgeInsets.symmetric(horizontal: 18),
+      padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(23),
+        borderRadius: BorderRadius.circular(23),
         border: Border.all(
-          color:
-              const Color(0xFFDDE7E1),
+          color: const Color(0xFFDDE7E1),
         ),
         boxShadow: [
           BoxShadow(
-            color:
-                Colors.black.withOpacity(.07),
+            color: Colors.black.withOpacity(.07),
             blurRadius: 17,
-            offset:
-                const Offset(0, 6),
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -64,12 +45,12 @@ class ActiveWalkContainer extends StatelessWidget {
                 height: 48,
                 decoration: BoxDecoration(
                   color: greenLight,
-                  borderRadius:
-                      BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
                   Icons.pets_rounded,
                   color: green,
+                  size: 25,
                 ),
               ),
               const SizedBox(width: 11),
@@ -83,8 +64,7 @@ class ActiveWalkContainer extends StatelessWidget {
                       style: TextStyle(
                         color: dark,
                         fontSize: 13,
-                        fontWeight:
-                            FontWeight.w900,
+                        fontWeight: FontWeight.w900,
                         letterSpacing: .5,
                       ),
                     ),
@@ -92,36 +72,31 @@ class ActiveWalkContainer extends StatelessWidget {
                     Text(
                       '${request.ownerName} • ${request.dogName}',
                       maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: muted,
                         fontSize: 11,
-                        fontWeight:
-                            FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(
+                padding: const EdgeInsets.symmetric(
                   horizontal: 9,
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
                   color: greenLight,
-                  borderRadius:
-                      BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(9),
                 ),
                 child: const Text(
                   'ACCEPTED',
                   style: TextStyle(
                     color: green,
                     fontSize: 8,
-                    fontWeight:
-                        FontWeight.w900,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
@@ -132,13 +107,10 @@ class ActiveWalkContainer extends StatelessWidget {
 
           Container(
             width: double.infinity,
-            padding:
-                const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color:
-                  const Color(0xFFF7FAF8),
-              borderRadius:
-                  BorderRadius.circular(15),
+              color: const Color(0xFFF7FAF8),
+              borderRadius: BorderRadius.circular(15),
             ),
             child: Row(
               children: [
@@ -152,13 +124,11 @@ class ActiveWalkContainer extends StatelessWidget {
                   child: Text(
                     request.pickupAddress,
                     maxLines: 2,
-                    overflow:
-                        TextOverflow.ellipsis,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: dark,
                       fontSize: 12,
-                      fontWeight:
-                          FontWeight.w700,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -193,7 +163,7 @@ class ActiveWalkContainer extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             height: 48,
-            child: ElevatedButton.icon(
+            child: ElevatedButton(
               onPressed: () {
                 Navigator.push(
                   context,
@@ -201,36 +171,35 @@ class ActiveWalkContainer extends StatelessWidget {
                     builder: (_) =>
                         ActiveWalkDetailsScreen(
                       request: request,
-                      onStartWalk: () {
-                        // Existing Live Walk screen
-                        // यहां connect करना है.
-                      },
                     ),
                   ),
                 );
               },
-              icon: const Icon(
-                Icons.visibility_rounded,
-                size: 18,
-              ),
-              label: const Text(
-                'View Walk Details',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight:
-                      FontWeight.w800,
-                ),
-              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: blue,
-                foregroundColor:
-                    Colors.white,
+                foregroundColor: Colors.white,
                 elevation: 0,
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
+              ),
+              child: const Row(
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'View Walk Details',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(width: 7),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 19,
+                  ),
+                ],
               ),
             ),
           ),
@@ -245,13 +214,16 @@ class ActiveWalkContainer extends StatelessWidget {
     String label,
   ) {
     return Container(
-      padding:
-          const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 9,
+      ),
       decoration: BoxDecoration(
-        color:
-            const Color(0xFFF7F8F8),
-        borderRadius:
-            BorderRadius.circular(12),
+        color: const Color(0xFFF7F8F8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFE5E8E8),
+        ),
       ),
       child: Row(
         children: [
@@ -268,11 +240,12 @@ class ActiveWalkContainer extends StatelessWidget {
               children: [
                 Text(
                   value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: dark,
                     fontSize: 11,
-                    fontWeight:
-                        FontWeight.w800,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 Text(
