@@ -53,6 +53,12 @@ dependencies:
 
   url_launcher: ^6.3.0
 
+  # ==========================================================
+  # WALK REQUEST RINGTONE
+  # ==========================================================
+
+  audioplayers: ^6.5.0
+
 
 dev_dependencies:
   flutter_test:
@@ -84,3 +90,9 @@ flutter:
   assets:
     - assets/DOJO_WALKER.png
     - assets/dojo_walker_splash.png
+
+    # ========================================================
+    # WALK REQUEST RINGTONE
+    # ========================================================
+
+    - assets/audio/Dojo_Walker_Walk_Request.mp3
