@@ -590,143 +590,128 @@ class _LiveWalkScreenState
   // OWNER CARD
   // ============================================================
 
-  Widget _ownerCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(20),
-        border: Border.all(
-          color: cardBorder,
+Widget _ownerCard({
+  required String ownerId,
+}) {
+  final String displayOwnerId =
+      ownerId.isNotEmpty ? ownerId : 'Owner ID unavailable';
+
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(
+        color: cardBorder,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(.045),
+          blurRadius: 13,
+          offset: const Offset(0, 5),
         ),
-        boxShadow: [
-          BoxShadow(
-            color:
-                Colors.black.withOpacity(.045),
-            blurRadius: 13,
-            offset:
-                const Offset(0, 5),
+      ],
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            color: blue.withOpacity(.10),
+            shape: BoxShape.circle,
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration:
-                BoxDecoration(
-              color:
-                  blue.withOpacity(.10),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.person_rounded,
-              color: blue,
-              size: 28,
-            ),
+          child: const Icon(
+            Icons.person_rounded,
+            color: blue,
+            size: 28,
           ),
+        ),
 
-          const SizedBox(width: 13),
+        const SizedBox(width: 13),
 
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'DOG OWNER',
-                  style: TextStyle(
-                    color: muted,
-                    fontSize: 9,
-                    fontWeight:
-                        FontWeight.w900,
-                    letterSpacing: .5,
-                  ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'DOG OWNER',
+                style: TextStyle(
+                  color: muted,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .5,
                 ),
+              ),
 
-                const SizedBox(height: 3),
+              const SizedBox(height: 3),
 
+              Text(
+                widget.ownerName.isEmpty
+                    ? 'Owner'
+                    : widget.ownerName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: dark,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+
+              const SizedBox(height: 3),
+
+              Text(
+                'Owner ID: $displayOwnerId',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: muted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+
+              if (widget.ownerPhone != null &&
+                  widget.ownerPhone!.trim().isNotEmpty) ...[
+                const SizedBox(height: 2),
                 Text(
-                  widget.ownerName.isEmpty
-                      ? 'Owner'
-                      : widget.ownerName,
-                  maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(
-                    color: dark,
-                    fontSize: 17,
-                    fontWeight:
-                        FontWeight.w800,
-                  ),
-                ),
-
-                const SizedBox(height: 3),
-
-                Text(
-                  'UID: ${widget.ownerUid}',
-                  maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(
+                  widget.ownerPhone!,
+                  style: const TextStyle(
                     color: muted,
-                    fontSize: 10,
+                    fontSize: 11,
                   ),
                 ),
-
-                if (widget.ownerPhone != null &&
-                    widget.ownerPhone!
-                        .trim()
-                        .isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    widget.ownerPhone!,
-                    style:
-                        const TextStyle(
-                      color: muted,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
               ],
-            ),
+            ],
           ),
+        ),
 
-          Container(
-            padding:
-                const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 6,
-            ),
-            decoration:
-                BoxDecoration(
-              color:
-                  const Color(0xFFEAF7EF),
-              borderRadius:
-                  BorderRadius.circular(
-                20,
-              ),
-            ),
-            child: const Text(
-              'ACTIVE',
-              style: TextStyle(
-                color: green,
-                fontSize: 9,
-                fontWeight:
-                    FontWeight.w900,
-                letterSpacing: .4,
-              ),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 6,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEAF7EF),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Text(
+            'ACTIVE',
+            style: TextStyle(
+              color: green,
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .4,
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
+
 
   // ============================================================
   // LIVE MAP CARD
