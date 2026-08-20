@@ -17,7 +17,8 @@ class WalkRequest {
 
   final String status;
 
-  /// Walker ID — Firebase Auth UID नहीं।
+  /// IMPORTANT:
+  /// This is WALKER ID, not Firebase UID.
   final String walkerId;
 
   final String walkType;
@@ -37,23 +38,53 @@ class WalkRequest {
     required this.walkType,
   });
 
-  factory WalkRequest.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> snapshot,
-  ) {
-    final data = snapshot.data() ?? {};
+  // ============================================================
+  // FIRESTORE -> MODEL
+  //
+  // This version matches:
+  //
+  // WalkRequest.fromFirestore(
+  //   document.id,
+  //   document.data(),
+  // )
+  // ============================================================
 
+  factory WalkRequest.fromFirestore(
+    String documentId,
+    Map<String, dynamic> data,
+  ) {
     return WalkRequest(
-      id: snapshot.id,
+      id: documentId,
+
       ownerId: _string(data['ownerId']),
       ownerName: _string(data['ownerName']),
+
       dogName: _string(data['dogName']),
       dogBreed: _string(data['dogBreed']),
       dogAge: _string(data['dogAge']),
-      pickupAddress: _string(data['pickupAddress']),
-      distanceKm: _double(data['distanceKm']),
-      estimatedTime: _string(data['estimatedTime']),
-      status: _string(data['status']),
-      walkerId: _string(data['walkerId']),
+
+      pickupAddress: _string(
+        data['pickupAddress'],
+      ),
+
+      distanceKm: _double(
+        data['distanceKm'],
+      ),
+
+      estimatedTime: _string(
+        data['estimatedTime'],
+      ),
+
+      status: _string(
+        data['status'],
+      ),
+
+      // IMPORTANT:
+      // Walker ID, NOT Firebase UID.
+      walkerId: _string(
+        data['walkerId'],
+      ),
+
       walkType: _string(
         data['walkType'],
         fallback: 'Insta Walk',
@@ -61,21 +92,51 @@ class WalkRequest {
     );
   }
 
+  // ============================================================
+  // DOCUMENT SNAPSHOT VERSION
+  //
+  // Useful elsewhere in the project.
+  // ============================================================
+
+  factory WalkRequest.fromSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    return WalkRequest.fromFirestore(
+      snapshot.id,
+      snapshot.data() ?? <String, dynamic>{},
+    );
+  }
+
+  // ============================================================
+  // MODEL -> FIRESTORE
+  // ============================================================
+
   Map<String, dynamic> toMap() {
     return {
       'ownerId': ownerId,
       'ownerName': ownerName,
+
       'dogName': dogName,
       'dogBreed': dogBreed,
       'dogAge': dogAge,
+
       'pickupAddress': pickupAddress,
+
       'distanceKm': distanceKm,
       'estimatedTime': estimatedTime,
+
       'status': status,
+
+      // Walker ID, NOT UID.
       'walkerId': walkerId,
+
       'walkType': walkType,
     };
   }
+
+  // ============================================================
+  // SAFE STRING
+  // ============================================================
 
   static String _string(
     dynamic value, {
@@ -85,7 +146,8 @@ class WalkRequest {
       return fallback;
     }
 
-    final result = value.toString().trim();
+    final String result =
+        value.toString().trim();
 
     if (result.isEmpty) {
       return fallback;
@@ -94,7 +156,13 @@ class WalkRequest {
     return result;
   }
 
-  static double _double(dynamic value) {
+  // ============================================================
+  // SAFE DOUBLE
+  // ============================================================
+
+  static double _double(
+    dynamic value,
+  ) {
     if (value == null) {
       return 0;
     }
@@ -103,6 +171,9 @@ class WalkRequest {
       return value.toDouble();
     }
 
-    return double.tryParse(value.toString()) ?? 0;
+    return double.tryParse(
+          value.toString(),
+        ) ??
+        0;
   }
 }
