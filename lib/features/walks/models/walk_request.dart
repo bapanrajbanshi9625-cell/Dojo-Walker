@@ -22,7 +22,7 @@ class WalkRequest {
 
   final String walkType;
 
-  WalkRequest({
+  const WalkRequest({
     required this.id,
     required this.ownerId,
     required this.ownerName,
@@ -81,17 +81,23 @@ class WalkRequest {
     dynamic value, {
     String fallback = '',
   }) {
-    if (value == null) return fallback;
+    if (value == null) {
+      return fallback;
+    }
 
     final result = value.toString().trim();
 
-    if (result.isEmpty) return fallback;
+    if (result.isEmpty) {
+      return fallback;
+    }
 
     return result;
   }
 
   static double _double(dynamic value) {
-    if (value == null) return 0;
+    if (value == null) {
+      return 0;
+    }
 
     if (value is num) {
       return value.toDouble();
