@@ -41,69 +41,106 @@ class WalkRequest {
   // ============================================================
   // FIRESTORE -> MODEL
   //
-  // This version matches:
+  // IMPORTANT:
   //
-  // WalkRequest.fromFirestore(
-  //   document.id,
-  //   document.data(),
-  // )
+  // Now all existing code can simply use:
+  //
+  // WalkRequest.fromFirestore(doc)
+  //
+  // No need to pass:
+  // doc.id
+  // doc.data()
   // ============================================================
 
   factory WalkRequest.fromFirestore(
-    String documentId,
-    Map<String, dynamic> data,
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
   ) {
+    final Map<String, dynamic> data =
+        snapshot.data() ?? <String, dynamic>{};
+
     return WalkRequest(
-      id: documentId,
+      id: snapshot.id,
 
-      ownerId: _string(data['ownerId']),
-      ownerName: _string(data['ownerName']),
+      // ========================================================
+      // OWNER
+      // ========================================================
 
-      dogName: _string(data['dogName']),
-      dogBreed: _string(data['dogBreed']),
-      dogAge: _string(data['dogAge']),
+      ownerId: _string(
+        data['ownerId'],
+      ),
+
+      ownerName: _string(
+        data['ownerName'],
+      ),
+
+      // ========================================================
+      // DOG
+      // ========================================================
+
+      dogName: _string(
+        data['dogName'],
+      ),
+
+      dogBreed: _string(
+        data['dogBreed'],
+      ),
+
+      dogAge: _string(
+        data['dogAge'],
+      ),
+
+      // ========================================================
+      // PICKUP
+      // ========================================================
 
       pickupAddress: _string(
         data['pickupAddress'],
       ),
 
+      // ========================================================
+      // DISTANCE
+      // ========================================================
+
       distanceKm: _double(
         data['distanceKm'],
       ),
+
+      // ========================================================
+      // ESTIMATED TIME
+      // ========================================================
 
       estimatedTime: _string(
         data['estimatedTime'],
       ),
 
+      // ========================================================
+      // STATUS
+      // ========================================================
+
       status: _string(
         data['status'],
       ),
 
+      // ========================================================
+      // WALKER ID
+      //
       // IMPORTANT:
-      // Walker ID, NOT Firebase UID.
+      // This is Walker Business ID.
+      // NOT Firebase Auth UID.
+      // ========================================================
+
       walkerId: _string(
         data['walkerId'],
       ),
+
+      // ========================================================
+      // WALK TYPE
+      // ========================================================
 
       walkType: _string(
         data['walkType'],
         fallback: 'Insta Walk',
       ),
-    );
-  }
-
-  // ============================================================
-  // DOCUMENT SNAPSHOT VERSION
-  //
-  // Useful elsewhere in the project.
-  // ============================================================
-
-  factory WalkRequest.fromSnapshot(
-    DocumentSnapshot<Map<String, dynamic>> snapshot,
-  ) {
-    return WalkRequest.fromFirestore(
-      snapshot.id,
-      snapshot.data() ?? <String, dynamic>{},
     );
   }
 
@@ -127,7 +164,8 @@ class WalkRequest {
 
       'status': status,
 
-      // Walker ID, NOT UID.
+      // Walker Business ID
+      // NOT Firebase UID.
       'walkerId': walkerId,
 
       'walkType': walkType,
@@ -172,7 +210,7 @@ class WalkRequest {
     }
 
     return double.tryParse(
-          value.toString(),
+          value.toString().trim(),
         ) ??
         0;
   }
