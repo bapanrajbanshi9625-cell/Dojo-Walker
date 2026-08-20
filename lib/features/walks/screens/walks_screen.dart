@@ -4,6 +4,7 @@ import '../models/walk_request.dart';
 import '../services/walk_request_service.dart';
 import '../widgets/insta_walk_container.dart';
 import '../widgets/walk_request_card.dart';
+import '../services/walk_request_sound_service.dart';
 
 class WalksScreen extends StatelessWidget {
   const WalksScreen({
