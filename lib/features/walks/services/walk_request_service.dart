@@ -19,21 +19,17 @@ class WalkRequestService {
   // COLLECTIONS
   // ============================================================
 
-  CollectionReference<Map<String, dynamic>>
-      get _walkRequests =>
-          _firestore.collection('walk_requests');
+  CollectionReference<Map<String, dynamic>> get _walkRequests =>
+      _firestore.collection('walk_requests');
 
-  CollectionReference<Map<String, dynamic>>
-      get _activeWalks =>
-          _firestore.collection('active_walk');
+  CollectionReference<Map<String, dynamic>> get _activeWalks =>
+      _firestore.collection('active_walk');
 
-  CollectionReference<Map<String, dynamic>>
-      get _liveWalkSessions =>
-          _firestore.collection('liveWalkSessions');
+  CollectionReference<Map<String, dynamic>> get _liveWalkSessions =>
+      _firestore.collection('liveWalkSessions');
 
-  CollectionReference<Map<String, dynamic>>
-      get _phoneAccounts =>
-          _firestore.collection('phoneAccounts');
+  CollectionReference<Map<String, dynamic>> get _phoneAccounts =>
+      _firestore.collection('phoneAccounts');
 
   // ============================================================
   // CURRENT USER
@@ -90,20 +86,14 @@ class WalkRequestService {
     // phoneAccounts/{Firebase UID}
     // ----------------------------------------------------------
 
-    final DocumentSnapshot<Map<String, dynamic>>
-        accountSnapshot =
-        await _phoneAccounts
-            .doc(walkerUid)
-            .get();
+    final DocumentSnapshot<Map<String, dynamic>> accountSnapshot =
+        await _phoneAccounts.doc(walkerUid).get();
 
     final Map<String, dynamic>? accountData =
         accountSnapshot.data();
 
     final String walkerId =
-        accountData?['walkerId']
-                ?.toString()
-                .trim() ??
-            '';
+        accountData?['walkerId']?.toString().trim() ?? '';
 
     if (walkerId.isEmpty) {
       throw Exception(
@@ -115,8 +105,7 @@ class WalkRequestService {
     // WALK REQUEST
     // ----------------------------------------------------------
 
-    final DocumentReference<Map<String, dynamic>>
-        walkRef =
+    final DocumentReference<Map<String, dynamic>> walkRef =
         _walkRequests.doc(walkId);
 
     // ----------------------------------------------------------
@@ -125,8 +114,7 @@ class WalkRequestService {
 
     await _firestore.runTransaction(
       (transaction) async {
-        final DocumentSnapshot<Map<String, dynamic>>
-            walkSnapshot =
+        final DocumentSnapshot<Map<String, dynamic>> walkSnapshot =
             await transaction.get(walkRef);
 
         if (!walkSnapshot.exists) {
@@ -159,10 +147,8 @@ class WalkRequestService {
             'status': 'accepted',
             'walkerId': walkerId,
             'walkerUid': walkerUid,
-            'acceptedAt':
-                FieldValue.serverTimestamp(),
-            'updatedAt':
-                FieldValue.serverTimestamp(),
+            'acceptedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
           },
         );
       },
@@ -195,8 +181,7 @@ class WalkRequestService {
         .map((snapshot) {
       return snapshot.docs
           .map(
-            (doc) =>
-                WalkRequest.fromFirestore(doc),
+            (doc) => WalkRequest.fromFirestore(doc),
           )
           .toList();
     });
@@ -209,8 +194,7 @@ class WalkRequestService {
   Future<WalkRequest?> getWalkRequest(
     String walkId,
   ) async {
-    final DocumentSnapshot<Map<String, dynamic>>
-        snapshot =
+    final DocumentSnapshot<Map<String, dynamic>> snapshot =
         await _walkRequests.doc(walkId).get();
 
     if (!snapshot.exists) {
@@ -233,7 +217,6 @@ class WalkRequestService {
   //
   // walk_requests/{walkId}
   // status = active
-  //
   // ============================================================
 
   Future<String> startLiveWalk(
@@ -253,20 +236,14 @@ class WalkRequestService {
     // GET WALKER ID
     // ----------------------------------------------------------
 
-    final DocumentSnapshot<Map<String, dynamic>>
-        accountSnapshot =
-        await _phoneAccounts
-            .doc(walkerUid)
-            .get();
+    final DocumentSnapshot<Map<String, dynamic>> accountSnapshot =
+        await _phoneAccounts.doc(walkerUid).get();
 
     final Map<String, dynamic>? accountData =
         accountSnapshot.data();
 
     final String walkerId =
-        accountData?['walkerId']
-                ?.toString()
-                .trim() ??
-            '';
+        accountData?['walkerId']?.toString().trim() ?? '';
 
     if (walkerId.isEmpty) {
       throw Exception(
@@ -278,12 +255,10 @@ class WalkRequestService {
     // GET WALK REQUEST
     // ----------------------------------------------------------
 
-    final DocumentReference<Map<String, dynamic>>
-        walkRequestRef =
+    final DocumentReference<Map<String, dynamic>> walkRequestRef =
         _walkRequests.doc(walkId);
 
-    final DocumentSnapshot<Map<String, dynamic>>
-        walkSnapshot =
+    final DocumentSnapshot<Map<String, dynamic>> walkSnapshot =
         await walkRequestRef.get();
 
     if (!walkSnapshot.exists) {
@@ -306,10 +281,7 @@ class WalkRequestService {
     // ----------------------------------------------------------
 
     final String savedWalkerUid =
-        walkData['walkerUid']
-                ?.toString()
-                .trim() ??
-            '';
+        walkData['walkerUid']?.toString().trim() ?? '';
 
     if (savedWalkerUid.isNotEmpty &&
         savedWalkerUid != walkerUid) {
@@ -319,32 +291,34 @@ class WalkRequestService {
     }
 
     // ----------------------------------------------------------
-    // OWNER
+    // OWNER ID
+    //
+    // IMPORTANT:
+    // Owner ID is the actual ID we want to carry through
+    // the active walk and live session.
+    //
+    // Owner UID is kept separately for Firebase/backend use.
+    // It does NOT need to be shown in the UI.
     // ----------------------------------------------------------
 
     final String ownerId =
-        walkData['ownerId']
-                ?.toString()
-                .trim() ??
-            '';
+        walkData['ownerId']?.toString().trim() ?? '';
 
     final String ownerUid =
-        walkData['ownerUid']
-                ?.toString()
-                .trim() ??
-            '';
+        walkData['ownerUid']?.toString().trim() ?? '';
 
-    final String ownerName =
-        walkData['ownerName']
-                ?.toString()
-                .trim() ??
-            '';
+    if (ownerId.isEmpty) {
+      throw Exception(
+        'Owner ID not found for this walk.',
+      );
+    }
+
+    // ----------------------------------------------------------
+    // DOG
+    // ----------------------------------------------------------
 
     final String dogName =
-        walkData['dogName']
-                ?.toString()
-                .trim() ??
-            '';
+        walkData['dogName']?.toString().trim() ?? '';
 
     // ----------------------------------------------------------
     // SESSION ID
@@ -356,31 +330,17 @@ class WalkRequestService {
         'session-$walkId';
 
     // ----------------------------------------------------------
-    // ACTIVE WALK DATA
-    //
-    // Collection:
-    // active_walk
-    //
-    // Document:
-    // walkId
+    // ACTIVE WALK REFERENCE
     // ----------------------------------------------------------
 
-    final DocumentReference<Map<String, dynamic>>
-        activeWalkRef =
+    final DocumentReference<Map<String, dynamic>> activeWalkRef =
         _activeWalks.doc(walkId);
 
     // ----------------------------------------------------------
-    // LIVE SESSION DATA
-    //
-    // Collection:
-    // liveWalkSessions
-    //
-    // Document:
-    // sessionId
+    // LIVE SESSION REFERENCE
     // ----------------------------------------------------------
 
-    final DocumentReference<Map<String, dynamic>>
-        sessionRef =
+    final DocumentReference<Map<String, dynamic>> sessionRef =
         _liveWalkSessions.doc(sessionId);
 
     // ----------------------------------------------------------
@@ -390,9 +350,9 @@ class WalkRequestService {
     final WriteBatch batch =
         _firestore.batch();
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // active_walk/{walkId}
-    // ----------------------------------------------------------
+    // ==========================================================
 
     batch.set(
       activeWalkRef,
@@ -403,12 +363,14 @@ class WalkRequestService {
         'distance': '0.0 km',
         'duration': '00:00:00',
 
-        'ownerId':
-            ownerId.isNotEmpty
-                ? ownerId
-                : ownerUid,
+        // Owner ID is the main owner identifier.
+        'ownerId': ownerId,
+
+        // UID is backend reference only.
+        'ownerUid': ownerUid,
 
         'walkerId': walkerId,
+        'walkerUid': walkerUid,
 
         'peeCount': 0,
         'poopCount': 0,
@@ -416,8 +378,6 @@ class WalkRequestService {
         'status': 'active',
 
         'walkId': walkId,
-
-        'walkerUid': walkerUid,
 
         'startedAt':
             FieldValue.serverTimestamp(),
@@ -430,9 +390,9 @@ class WalkRequestService {
       ),
     );
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // liveWalkSessions/{sessionId}
-    // ----------------------------------------------------------
+    // ==========================================================
 
     batch.set(
       sessionRef,
@@ -441,15 +401,13 @@ class WalkRequestService {
 
         'walkId': walkId,
 
-        'ownerId':
-            ownerId.isNotEmpty
-                ? ownerId
-                : ownerUid,
+        // Owner ID
+        'ownerId': ownerId,
 
+        // Backend UID
         'ownerUid': ownerUid,
 
         'walkerId': walkerId,
-
         'walkerUid': walkerUid,
 
         'dogName': dogName,
@@ -485,14 +443,16 @@ class WalkRequestService {
       ),
     );
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // WALK REQUEST → ACTIVE
-    // ----------------------------------------------------------
+    // ==========================================================
 
     batch.update(
       walkRequestRef,
       {
         'status': 'active',
+
+        'ownerId': ownerId,
 
         'walkerId': walkerId,
 
@@ -540,12 +500,10 @@ class WalkRequestService {
       );
     }
 
-    final DocumentReference<Map<String, dynamic>>
-        walkRequestRef =
+    final DocumentReference<Map<String, dynamic>> walkRequestRef =
         _walkRequests.doc(walkId);
 
-    final DocumentSnapshot<Map<String, dynamic>>
-        walkSnapshot =
+    final DocumentSnapshot<Map<String, dynamic>> walkSnapshot =
         await walkRequestRef.get();
 
     if (!walkSnapshot.exists) {
@@ -567,9 +525,9 @@ class WalkRequestService {
     final WriteBatch batch =
         _firestore.batch();
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // active_walk
-    // ----------------------------------------------------------
+    // ==========================================================
 
     batch.set(
       _activeWalks.doc(walkId),
@@ -585,9 +543,9 @@ class WalkRequestService {
       ),
     );
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // liveWalkSessions
-    // ----------------------------------------------------------
+    // ==========================================================
 
     batch.set(
       _liveWalkSessions.doc(
@@ -605,9 +563,9 @@ class WalkRequestService {
       ),
     );
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // walk_requests
-    // ----------------------------------------------------------
+    // ==========================================================
 
     batch.update(
       walkRequestRef,
@@ -663,8 +621,7 @@ class WalkRequestService {
     double? distanceKm,
     int? elapsedSeconds,
   }) async {
-    final Map<String, dynamic>
-        activeData = {
+    final Map<String, dynamic> activeData = {
       'currentLat': latitude,
       'currentLng': longitude,
       'updatedAt':
@@ -683,8 +640,7 @@ class WalkRequestService {
       );
     }
 
-    final Map<String, dynamic>
-        sessionData = {
+    final Map<String, dynamic> sessionData = {
       'currentLocation': {
         'lat': latitude,
         'lng': longitude,
@@ -732,8 +688,7 @@ class WalkRequestService {
     required double latitude,
     required double longitude,
   }) async {
-    final DocumentReference<Map<String, dynamic>>
-        sessionRef =
+    final DocumentReference<Map<String, dynamic>> sessionRef =
         _liveWalkSessions.doc(sessionId);
 
     await sessionRef.update({
