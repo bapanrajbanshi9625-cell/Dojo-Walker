@@ -57,7 +57,7 @@ dependencies:
   # WALK REQUEST RINGTONE
   # ==========================================================
 
-  audioplayers: ^6.5.0
+  audioplayers: ^6.4.0
 
 
 dev_dependencies:
