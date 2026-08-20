@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import '../features/walker_home/containers/walker_home_header.dart';
 import '../features/walks/constants/walks_constants.dart';
 import '../features/walks/models/walk_request.dart';
+import '../features/walks/services/walk_request_sound_service.dart';
 import '../features/walks/widgets/insta_walk_header.dart';
 import '../features/walks/widgets/insta_walk_info.dart';
 import '../features/walks/widgets/insta_walk_radar.dart';
@@ -326,6 +327,11 @@ class _WalksScreenState extends State<WalksScreen>
         _requests.clear();
       });
 
+      // Make sure no old sound is playing
+      // when a fresh search starts.
+      await WalkRequestSoundService.instance
+          .stopAll();
+
       _startRequestListener();
       _moveRadarDot();
     } catch (e) {
@@ -349,6 +355,17 @@ class _WalksScreenState extends State<WalksScreen>
 
   // ============================================================
   // REQUEST LISTENER
+  //
+  // Firestore:
+  //
+  // walk_requests
+  // status == searching
+  //
+  // NEW REQUEST
+  //     ↓
+  // PLAY CUSTOM SOUND
+  //     ↓
+  // MAX 60 SECONDS
   // ============================================================
 
   void _startRequestListener() {
@@ -368,6 +385,10 @@ class _WalksScreenState extends State<WalksScreen>
         }
 
         final List<WalkRequest> incoming = [];
+
+        // ======================================================
+        // READ REQUESTS
+        // ======================================================
 
         for (final QueryDocumentSnapshot<
                 Map<String, dynamic>> document
@@ -393,16 +414,17 @@ class _WalksScreenState extends State<WalksScreen>
           // CONVERT FIRESTORE DOCUMENT
           // ====================================================
 
-          incoming.add(
-            WalkRequest.fromFirestore(
-              document,
-            ),
+          final WalkRequest request =
+              WalkRequest.fromFirestore(
+            document,
           );
+
+          incoming.add(request);
         }
 
-        // ========================================================
+        // ======================================================
         // SORT NEAREST REQUEST FIRST
-        // ========================================================
+        // ======================================================
 
         incoming.sort(
           (a, b) =>
@@ -410,6 +432,63 @@ class _WalksScreenState extends State<WalksScreen>
             b.distanceKm,
           ),
         );
+
+        // ======================================================
+        // SOUND MANAGEMENT
+        //
+        // Only NEW request gets sound.
+        //
+        // Existing request:
+        // No restart.
+        //
+        // Removed/accepted request:
+        // Sound stops.
+        // ======================================================
+
+        final Set<String> incomingIds =
+            incoming.map(
+          (request) => request.id,
+        ).toSet();
+
+        // ------------------------------------------------------
+        // PLAY SOUND FOR NEW REQUEST
+        // ------------------------------------------------------
+
+        for (final WalkRequest request
+            in incoming) {
+          final bool alreadyExists =
+              _requests.any(
+            (oldRequest) =>
+                oldRequest.id == request.id,
+          );
+
+          if (!alreadyExists) {
+            WalkRequestSoundService.instance
+                .playForRequest(
+              request.id,
+            );
+          }
+        }
+
+        // ------------------------------------------------------
+        // STOP SOUND FOR REMOVED REQUEST
+        // ------------------------------------------------------
+
+        for (final WalkRequest oldRequest
+            in List<WalkRequest>.from(_requests)) {
+          if (!incomingIds.contains(
+            oldRequest.id,
+          )) {
+            WalkRequestSoundService.instance
+                .stopRequest(
+              oldRequest.id,
+            );
+          }
+        }
+
+        // ======================================================
+        // UPDATE UI
+        // ======================================================
 
         setState(() {
           _requests
@@ -535,9 +614,20 @@ class _WalksScreenState extends State<WalksScreen>
               'acceptedBy': walkerId,
               'acceptedAt':
                   FieldValue.serverTimestamp(),
+              'updatedAt':
+                  FieldValue.serverTimestamp(),
             },
           );
         },
+      );
+
+      // ========================================================
+      // STOP SOUND IMMEDIATELY
+      // ========================================================
+
+      await WalkRequestSoundService.instance
+          .stopRequest(
+        request.id,
       );
 
       // ========================================================
@@ -562,7 +652,15 @@ class _WalksScreenState extends State<WalksScreen>
       // ========================================================
 
       await _requestSubscription?.cancel();
+
       _requestSubscription = null;
+
+      // ========================================================
+      // STOP ALL REMAINING REQUEST SOUNDS
+      // ========================================================
+
+      await WalkRequestSoundService.instance
+          .stopAll();
 
       // ========================================================
       // READ UPDATED ACCEPTED REQUEST
@@ -619,6 +717,15 @@ class _WalksScreenState extends State<WalksScreen>
         'Accept Walk Request Error: $e',
       );
 
+      // ========================================================
+      // SAFETY: STOP SOUND IF ACCEPT FAILS
+      // ========================================================
+
+      await WalkRequestSoundService.instance
+          .stopRequest(
+        request.id,
+      );
+
       if (!mounted) {
         return;
       }
@@ -640,7 +747,18 @@ class _WalksScreenState extends State<WalksScreen>
       return;
     }
 
+    // ==========================================================
+    // STOP SOUND IMMEDIATELY
+    // ==========================================================
+
+    await WalkRequestSoundService.instance
+        .stopAll();
+
     try {
+      // ========================================================
+      // SAVE SEARCH STATE
+      // ========================================================
+
       await _firestore
           .collection('users')
           .doc(uid)
@@ -653,9 +771,17 @@ class _WalksScreenState extends State<WalksScreen>
         SetOptions(merge: true),
       );
 
+      // ========================================================
+      // CANCEL LISTENER
+      // ========================================================
+
       await _requestSubscription?.cancel();
 
       _requestSubscription = null;
+
+      // ========================================================
+      // UI
+      // ========================================================
 
       if (!mounted) {
         return;
@@ -670,6 +796,10 @@ class _WalksScreenState extends State<WalksScreen>
       debugPrint(
         'Stop Insta Walk Error: $e',
       );
+
+      if (!mounted) {
+        return;
+      }
 
       _showMessage(
         'Unable to stop searching.',
@@ -829,8 +959,18 @@ class _WalksScreenState extends State<WalksScreen>
   @override
   void dispose() {
     _requestSubscription?.cancel();
+
     _dotTimer?.cancel();
+
     _dotGlowTimer?.cancel();
+
+    // ==========================================================
+    // STOP WALK REQUEST SOUND
+    // ==========================================================
+
+    WalkRequestSoundService.instance
+        .stopAll();
+
     _radarController.dispose();
 
     super.dispose();
@@ -909,11 +1049,14 @@ class _WalksScreenState extends State<WalksScreen>
           InstaWalkHeader(
             searching: _searching,
           ),
+
           const SizedBox(
             height: 18,
           ),
+
           if (!_searching)
             const InstaWalkInfo(),
+
           if (_searching) ...[
             InstaWalkRadar(
               animation:
@@ -923,14 +1066,18 @@ class _WalksScreenState extends State<WalksScreen>
               dotX: _dotX,
               dotY: _dotY,
             ),
+
             const SizedBox(
               height: 14,
             ),
+
             _buildRequests(),
           ],
+
           const SizedBox(
             height: 16,
           ),
+
           InstaWalkSearchButton(
             loading: _loading,
             searching: _searching,
@@ -977,9 +1124,11 @@ class _WalksScreenState extends State<WalksScreen>
                 ),
               ),
             ),
+
             SizedBox(
               width: 10,
             ),
+
             Expanded(
               child: Text(
                 'Waiting for nearby walk requests...',
@@ -1018,6 +1167,7 @@ class _WalksScreenState extends State<WalksScreen>
             ),
           ),
         ),
+
         ..._requests.map(
           (request) => WalkRequestCard(
             request: request,
