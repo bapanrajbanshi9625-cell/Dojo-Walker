@@ -20,19 +20,25 @@ class WalkRequestService {
   // ============================================================
 
   Stream<List<WalkRequest>> pendingRequestsStream() {
-    return _firestore
-        .collection('walk_requests')
-        .where('status', isEqualTo: 'pending')
-        .snapshots()
-        .map(
-          (snapshot) {
-            return snapshot.docs
-                .map(
-                  (doc) => WalkRequest.fromFirestore(doc),
-                )
-                .toList();
-          },
-        );
+  return _firestore
+      .collection('walk_requests')
+      .where(
+        'status',
+        isEqualTo: 'searching',
+      )
+      .snapshots()
+      .map(
+        (snapshot) {
+          return snapshot.docs
+              .map(
+                (doc) => WalkRequest.fromFirestore(
+                  doc.id,
+                  doc.data(),
+                ),
+              )
+              .toList();
+        },
+      );
   }
 
   // ============================================================
