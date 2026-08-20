@@ -17,9 +17,7 @@ class WalkRequest {
 
   final String status;
 
-  /// IMPORTANT:
-  /// Walker UID नहीं।
-  /// यहां Walker ID save होगी।
+  /// Walker ID — Firebase Auth UID नहीं।
   final String walkerId;
 
   final String walkType;
@@ -46,25 +44,16 @@ class WalkRequest {
 
     return WalkRequest(
       id: snapshot.id,
-
       ownerId: _string(data['ownerId']),
       ownerName: _string(data['ownerName']),
-
       dogName: _string(data['dogName']),
       dogBreed: _string(data['dogBreed']),
       dogAge: _string(data['dogAge']),
-
       pickupAddress: _string(data['pickupAddress']),
-
       distanceKm: _double(data['distanceKm']),
-
       estimatedTime: _string(data['estimatedTime']),
-
       status: _string(data['status']),
-
-      // Walker ID — UID नहीं
       walkerId: _string(data['walkerId']),
-
       walkType: _string(
         data['walkType'],
         fallback: 'Insta Walk',
