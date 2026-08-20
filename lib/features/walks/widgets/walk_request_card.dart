@@ -12,6 +12,12 @@ class WalkRequestCard extends StatelessWidget {
     required this.onAccept,
   });
 
+  static const Color orange =
+      Color(0xFFFF6600);
+
+  static const Color blue =
+      Color(0xFF238EAE);
+
   static const Color green =
       Color(0xFF16A34A);
 
@@ -29,34 +35,41 @@ class WalkRequestCard extends StatelessWidget {
     BuildContext context,
   ) {
     return Container(
-      margin:
-          const EdgeInsets.only(
-        left: 18,
-        right: 18,
-        bottom: 14,
+      margin: const EdgeInsets.fromLTRB(
+        18,
+        0,
+        18,
+        14,
       ),
-      padding:
-          const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius:
-            BorderRadius.circular(22),
+            BorderRadius.circular(20),
         border: Border.all(
-          color:
-              const Color(0xFFDDE7E1),
+          color: const Color(
+            0xFFE1E6E8,
+          ),
         ),
         boxShadow: [
           BoxShadow(
-            color:
-                Colors.black.withOpacity(.07),
-            blurRadius: 16,
-            offset:
-                const Offset(0, 6),
+            color: Colors.black
+                .withOpacity(.05),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
+
       child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+
         children: [
+          // ======================================================
+          // HEADER
+          // ======================================================
+
           Row(
             children: [
               Container(
@@ -65,32 +78,44 @@ class WalkRequestCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: greenLight,
                   borderRadius:
-                      BorderRadius.circular(14),
+                      BorderRadius.circular(13),
                 ),
                 child: const Icon(
                   Icons.pets_rounded,
                   color: green,
+                  size: 24,
                 ),
               ),
-              const SizedBox(width: 11),
+
+              const SizedBox(
+                width: 11,
+              ),
+
               Expanded(
                 child: Column(
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'NEW WALK REQUEST',
-                      style: TextStyle(
+                    Text(
+                      request.ownerName,
+                      maxLines: 1,
+                      overflow:
+                          TextOverflow.ellipsis,
+                      style: const TextStyle(
                         color: dark,
-                        fontSize: 13,
+                        fontSize: 15,
                         fontWeight:
-                            FontWeight.w900,
-                        letterSpacing: .45,
+                            FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 4),
+
+                    const SizedBox(
+                      height: 3,
+                    ),
+
                     Text(
-                      '${request.ownerName} • ${request.dogName}',
+                      '${request.dogName} • '
+                      '${request.dogBreed}',
                       maxLines: 1,
                       overflow:
                           TextOverflow.ellipsis,
@@ -104,6 +129,7 @@ class WalkRequestCard extends StatelessWidget {
                   ],
                 ),
               ),
+
               Container(
                 padding:
                     const EdgeInsets.symmetric(
@@ -119,7 +145,7 @@ class WalkRequestCard extends StatelessWidget {
                   'NEW',
                   style: TextStyle(
                     color: green,
-                    fontSize: 9,
+                    fontSize: 8,
                     fontWeight:
                         FontWeight.w900,
                   ),
@@ -128,17 +154,24 @@ class WalkRequestCard extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 15),
+          const SizedBox(
+            height: 14,
+          ),
+
+          // ======================================================
+          // PICKUP
+          // ======================================================
 
           Container(
             width: double.infinity,
             padding:
-                const EdgeInsets.all(13),
+                const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color:
-                  const Color(0xFFF7FAF8),
+              color: const Color(
+                0xFFF7FAF8,
+              ),
               borderRadius:
-                  BorderRadius.circular(16),
+                  BorderRadius.circular(14),
             ),
             child: Row(
               crossAxisAlignment:
@@ -147,18 +180,25 @@ class WalkRequestCard extends StatelessWidget {
                 const Icon(
                   Icons.location_on_rounded,
                   color: green,
-                  size: 21,
+                  size: 20,
                 ),
-                const SizedBox(width: 9),
+
+                const SizedBox(
+                  width: 8,
+                ),
+
                 Expanded(
                   child: Text(
                     request.pickupAddress,
+                    maxLines: 3,
+                    overflow:
+                        TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: dark,
-                      fontSize: 13,
-                      height: 1.4,
+                      fontSize: 12,
                       fontWeight:
                           FontWeight.w700,
+                      height: 1.35,
                     ),
                   ),
                 ),
@@ -166,56 +206,135 @@ class WalkRequestCard extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(
+            height: 12,
+          ),
+
+          // ======================================================
+          // DISTANCE + TIME
+          // ======================================================
 
           Row(
             children: [
               Expanded(
-                child: _info(
-                  Icons.route_rounded,
-                  '${request.distanceKm.toStringAsFixed(1)} km',
-                  'Distance',
+                child: _infoBox(
+                  icon: Icons.route_rounded,
+                  value:
+                      '${request.distanceKm.toStringAsFixed(1)} km',
+                  label: 'Distance',
                 ),
               ),
-              const SizedBox(width: 8),
+
+              const SizedBox(
+                width: 8,
+              ),
+
               Expanded(
-                child: _info(
-                  Icons.access_time_rounded,
-                  request.estimatedTime,
-                  'Estimated',
+                child: _infoBox(
+                  icon:
+                      Icons.access_time_rounded,
+                  value:
+                      request.estimatedTime,
+                  label: 'Estimated',
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 14),
+          const SizedBox(
+            height: 14,
+          ),
 
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton.icon(
-              onPressed: onAccept,
-              icon: const Icon(
-                Icons.check_circle_outline_rounded,
+          // ======================================================
+          // WALK TYPE
+          // ======================================================
+
+          Row(
+            children: [
+              const Icon(
+                Icons.flash_on_rounded,
+                color: orange,
+                size: 17,
               ),
-              label: const Text(
-                'Accept Walk',
-                style: TextStyle(
-                  fontSize: 14,
+
+              const SizedBox(
+                width: 6,
+              ),
+
+              Text(
+                request.walkType,
+                style: const TextStyle(
+                  color: orange,
+                  fontSize: 11,
                   fontWeight:
                       FontWeight.w800,
                 ),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: green,
+
+              const Spacer(),
+
+              Text(
+                request.status
+                    .toUpperCase(),
+                style: const TextStyle(
+                  color: green,
+                  fontSize: 9,
+                  fontWeight:
+                      FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(
+            height: 14,
+          ),
+
+          // ======================================================
+          // ACCEPT BUTTON
+          // ======================================================
+
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: onAccept,
+              style:
+                  ElevatedButton.styleFrom(
+                backgroundColor: blue,
                 foregroundColor:
                     Colors.white,
                 elevation: 0,
                 shape:
                     RoundedRectangleBorder(
                   borderRadius:
-                      BorderRadius.circular(14),
+                      BorderRadius.circular(
+                    14,
+                  ),
                 ),
+              ),
+              child: const Row(
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.check_circle_outline_rounded,
+                    size: 19,
+                  ),
+
+                  SizedBox(
+                    width: 7,
+                  ),
+
+                  Text(
+                    'Accept Walk',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight:
+                          FontWeight.w800,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -224,29 +343,45 @@ class WalkRequestCard extends StatelessWidget {
     );
   }
 
-  static Widget _info(
-    IconData icon,
-    String value,
-    String label,
-  ) {
+  // ============================================================
+  // INFO BOX
+  // ============================================================
+
+  static Widget _infoBox({
+    required IconData icon,
+    required String value,
+    required String label,
+  }) {
     return Container(
       padding:
-          const EdgeInsets.all(10),
+          const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 9,
+      ),
       decoration: BoxDecoration(
-        color:
-            const Color(0xFFF7F8F8),
+        color: const Color(
+          0xFFF7F8F8,
+        ),
         borderRadius:
             BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(
+            0xFFE5E8E8,
+          ),
+        ),
       ),
       child: Row(
         children: [
           Icon(
             icon,
-            color:
-                const Color(0xFF238EAE),
+            color: blue,
             size: 17,
           ),
-          const SizedBox(width: 7),
+
+          const SizedBox(
+            width: 7,
+          ),
+
           Expanded(
             child: Column(
               crossAxisAlignment:
@@ -264,6 +399,7 @@ class WalkRequestCard extends StatelessWidget {
                         FontWeight.w800,
                   ),
                 ),
+
                 Text(
                   label,
                   style: const TextStyle(
