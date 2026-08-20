@@ -1,3 +1,5 @@
+// File: lib/screens/walks_screen.dart
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -388,10 +390,7 @@ class _WalksScreenState extends State<WalksScreen>
           }
 
           // ====================================================
-          // IMPORTANT:
-          //
-          // WalkRequest.fromFirestore() now accepts
-          // DocumentSnapshot directly.
+          // CONVERT FIRESTORE DOCUMENT
           // ====================================================
 
           incoming.add(
@@ -525,22 +524,15 @@ class _WalksScreenState extends State<WalksScreen>
 
           // ====================================================
           // ACCEPT REQUEST
-          //
-          // walkerId = MAIN BUSINESS ID
-          // walkerUid = FIREBASE AUTH UID
           // ====================================================
 
           transaction.update(
             requestRef,
             {
               'status': 'accepted',
-
               'walkerId': walkerId,
-
               'walkerUid': user.uid,
-
               'acceptedBy': walkerId,
-
               'acceptedAt':
                   FieldValue.serverTimestamp(),
             },
@@ -566,11 +558,34 @@ class _WalksScreenState extends State<WalksScreen>
       );
 
       // ========================================================
-      // CANCEL LISTENER
+      // CANCEL REQUEST LISTENER
       // ========================================================
 
       await _requestSubscription?.cancel();
       _requestSubscription = null;
+
+      // ========================================================
+      // READ UPDATED ACCEPTED REQUEST
+      // ========================================================
+
+      final DocumentSnapshot<Map<String, dynamic>>
+          acceptedSnapshot =
+          await requestRef.get();
+
+      if (!acceptedSnapshot.exists) {
+        throw Exception(
+          'Accepted walk could not be loaded.',
+        );
+      }
+
+      final WalkRequest acceptedRequest =
+          WalkRequest.fromFirestore(
+        acceptedSnapshot,
+      );
+
+      // ========================================================
+      // UPDATE LOCAL STATE
+      // ========================================================
 
       if (!mounted) {
         return;
@@ -586,8 +601,18 @@ class _WalksScreenState extends State<WalksScreen>
         _dotVisible = false;
       });
 
-      _showMessage(
-        'Walk request accepted successfully.',
+      // ========================================================
+      // GO TO ACTIVE WALK
+      // ========================================================
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              ActiveWalkDetailsScreen(
+            request: acceptedRequest,
+          ),
+        ),
       );
     } catch (e) {
       debugPrint(
