@@ -1,21 +1,29 @@
 import 'package:flutter/material.dart';
 
 import '../models/walk_request.dart';
+import '../services/walk_request_service.dart';
+import '../screens/live_walk_screen.dart';
 import '../widgets/fake_map.dart';
 import '../widgets/floating_start_walk_button.dart';
 
-class ActiveWalkDetailsScreen
-    extends StatelessWidget {
+class ActiveWalkDetailsScreen extends StatefulWidget {
   final WalkRequest request;
-
-  /// Existing Live Walk screen को यहां connect करें.
-  final VoidCallback? onStartWalk;
 
   const ActiveWalkDetailsScreen({
     super.key,
     required this.request,
-    this.onStartWalk,
   });
+
+  @override
+  State<ActiveWalkDetailsScreen> createState() =>
+      _ActiveWalkDetailsScreenState();
+}
+
+class _ActiveWalkDetailsScreenState
+    extends State<ActiveWalkDetailsScreen> {
+  // ============================================================
+  // COLORS
+  // ============================================================
 
   static const Color orange =
       Color(0xFFFF6600);
@@ -38,25 +46,174 @@ class ActiveWalkDetailsScreen
   static const Color background =
       Color(0xFFF5F6F8);
 
+  // ============================================================
+  // START WALK STATE
+  // ============================================================
+
+  bool _isStartingWalk = false;
+
+  WalkRequest get request => widget.request;
+
+  // ============================================================
+  // START WALK
+  //
+  // ACCEPTED
+  //     ↓
+  // startWalk()
+  //     ↓
+  // active_walks/{walkId}
+  //     ↓
+  // LiveWalkScreen
+  // ============================================================
+
+  Future<void> _startWalk() async {
+    if (_isStartingWalk) {
+      return;
+    }
+
+    setState(() {
+      _isStartingWalk = true;
+    });
+
+    try {
+      // ========================================================
+      // CREATE ACTIVE WALK IN FIRESTORE
+      // ========================================================
+
+      await WalkRequestService.instance.startWalk(
+        request,
+      );
+
+      // ========================================================
+      // READ CREATED ACTIVE WALK
+      // ========================================================
+
+      final activeSnapshot =
+          await WalkRequestService.instance.getActiveWalk(
+        request.id,
+      );
+
+      if (!activeSnapshot.exists) {
+        throw Exception(
+          'Active walk could not be created.',
+        );
+      }
+
+      final Map<String, dynamic>? data =
+          activeSnapshot.data();
+
+      if (data == null) {
+        throw Exception(
+          'Active walk data is empty.',
+        );
+      }
+
+      // ========================================================
+      // OWNER UID
+      // ========================================================
+
+      final String ownerUid =
+          data['ownerUid']?.toString().trim() ?? '';
+
+      if (ownerUid.isEmpty) {
+        throw Exception(
+          'Owner UID not found for this walk.',
+        );
+      }
+
+      // ========================================================
+      // OWNER NAME
+      // ========================================================
+
+      final String ownerName =
+          data['ownerName']?.toString().trim() ??
+              request.ownerName;
+
+      // ========================================================
+      // OWNER PHONE
+      // ========================================================
+
+      final String ownerPhone =
+          data['ownerPhone']?.toString().trim() ?? '';
+
+      if (!mounted) {
+        return;
+      }
+
+      // ========================================================
+      // OPEN EXISTING LIVE WALK SCREEN
+      // ========================================================
+
+      await Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LiveWalkScreen(
+            ownerUid: ownerUid,
+            ownerName: ownerName.isEmpty
+                ? request.ownerName
+                : ownerName,
+            walkId: request.id,
+            ownerPhone: ownerPhone.isEmpty
+                ? null
+                : ownerPhone,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isStartingWalk = false;
+      });
+
+      final String message =
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              );
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              message,
+            ),
+          ),
+        );
+    }
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: background,
+
+      // ========================================================
+      // APP BAR
+      // ========================================================
 
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
+
         leading: IconButton(
-          onPressed:
-              () => Navigator.pop(context),
+          onPressed: _isStartingWalk
+              ? null
+              : () => Navigator.pop(context),
           icon: const Icon(
             Icons.arrow_back_rounded,
             color: dark,
           ),
         ),
+
         title: const Text(
           'Active Walk',
           style: TextStyle(
@@ -65,21 +222,20 @@ class ActiveWalkDetailsScreen
             fontWeight: FontWeight.w800,
           ),
         ),
+
         actions: [
           PopupMenuButton<String>(
+            enabled: !_isStartingWalk,
             icon: const Icon(
               Icons.more_vert_rounded,
               color: dark,
             ),
             onSelected: (value) {
               if (value == 'cancel') {
-                _showCancelDialog(
-                  context,
-                );
+                _showCancelDialog(context);
               }
             },
-            itemBuilder:
-                (context) => const [
+            itemBuilder: (context) => const [
               PopupMenuItem(
                 value: 'cancel',
                 child: Row(
@@ -117,11 +273,14 @@ class ActiveWalkDetailsScreen
         ],
       ),
 
+      // ========================================================
+      // BODY
+      // ========================================================
+
       body: Stack(
         children: [
           ListView(
-            padding:
-                const EdgeInsets.only(
+            padding: const EdgeInsets.only(
               bottom: 105,
             ),
             children: [
@@ -137,29 +296,23 @@ class ActiveWalkDetailsScreen
                   horizontal: 18,
                 ),
                 child: Align(
-                  alignment:
-                      Alignment.centerLeft,
+                  alignment: Alignment.centerLeft,
                   child: Container(
                     padding:
                         const EdgeInsets.symmetric(
                       horizontal: 11,
                       vertical: 7,
                     ),
-                    decoration:
-                        BoxDecoration(
+                    decoration: BoxDecoration(
                       color: greenLight,
                       borderRadius:
-                          BorderRadius.circular(
-                        10,
-                      ),
+                          BorderRadius.circular(10),
                     ),
                     child: const Row(
-                      mainAxisSize:
-                          MainAxisSize.min,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons
-                              .check_circle_rounded,
+                          Icons.check_circle_rounded,
                           color: green,
                           size: 16,
                         ),
@@ -169,8 +322,7 @@ class ActiveWalkDetailsScreen
                           style: TextStyle(
                             color: green,
                             fontSize: 10,
-                            fontWeight:
-                                FontWeight.w900,
+                            fontWeight: FontWeight.w900,
                             letterSpacing: .4,
                           ),
                         ),
@@ -192,12 +344,9 @@ class ActiveWalkDetailsScreen
                   horizontal: 18,
                 ),
                 height: 255,
-                decoration:
-                    BoxDecoration(
+                decoration: BoxDecoration(
                   borderRadius:
-                      BorderRadius.circular(
-                    22,
-                  ),
+                      BorderRadius.circular(22),
                   color:
                       const Color(0xFFE7EEF0),
                   border: Border.all(
@@ -216,9 +365,7 @@ class ActiveWalkDetailsScreen
                 ),
                 child: ClipRRect(
                   borderRadius:
-                      BorderRadius.circular(
-                    22,
-                  ),
+                      BorderRadius.circular(22),
                   child: Stack(
                     children: [
                       const FakeMap(),
@@ -259,21 +406,16 @@ class ActiveWalkDetailsScreen
                                 .withOpacity(.94),
                             borderRadius:
                                 BorderRadius
-                                    .circular(
-                              10,
-                            ),
+                                    .circular(10),
                           ),
                           child: const Row(
                             children: [
                               Icon(
-                                Icons
-                                    .map_outlined,
+                                Icons.map_outlined,
                                 size: 15,
                                 color: dark,
                               ),
-                              SizedBox(
-                                width: 5,
-                              ),
+                              SizedBox(width: 5),
                               Text(
                                 'PICKUP MAP',
                                 style:
@@ -281,8 +423,7 @@ class ActiveWalkDetailsScreen
                                   color: dark,
                                   fontSize: 9,
                                   fontWeight:
-                                      FontWeight
-                                          .w900,
+                                      FontWeight.w900,
                                 ),
                               ),
                             ],
@@ -306,18 +447,13 @@ class ActiveWalkDetailsScreen
                   horizontal: 18,
                 ),
                 height: 56,
-                decoration:
-                    BoxDecoration(
+                decoration: BoxDecoration(
                   color: blue,
                   borderRadius:
-                      BorderRadius.circular(
-                    16,
-                  ),
+                      BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: blue.withOpacity(
-                        .25,
-                      ),
+                      color: blue.withOpacity(.25),
                       blurRadius: 12,
                       offset:
                           const Offset(0, 5),
@@ -325,13 +461,10 @@ class ActiveWalkDetailsScreen
                   ],
                 ),
                 child: Material(
-                  color:
-                      Colors.transparent,
+                  color: Colors.transparent,
                   child: InkWell(
                     borderRadius:
-                        BorderRadius.circular(
-                      16,
-                    ),
+                        BorderRadius.circular(16),
                     onTap: () {
                       ScaffoldMessenger.of(
                         context,
@@ -345,34 +478,27 @@ class ActiveWalkDetailsScreen
                     },
                     child: const Row(
                       mainAxisAlignment:
-                          MainAxisAlignment
-                              .center,
+                          MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons
-                              .navigation_rounded,
-                          color:
-                              Colors.white,
+                          Icons.navigation_rounded,
+                          color: Colors.white,
                           size: 21,
                         ),
                         SizedBox(width: 9),
                         Text(
                           'Navigation',
                           style: TextStyle(
-                            color:
-                                Colors.white,
+                            color: Colors.white,
                             fontSize: 14,
                             fontWeight:
-                                FontWeight
-                                    .w800,
+                                FontWeight.w800,
                           ),
                         ),
                         SizedBox(width: 7),
                         Icon(
-                          Icons
-                              .arrow_forward_rounded,
-                          color:
-                              Colors.white,
+                          Icons.arrow_forward_rounded,
+                          color: Colors.white,
                           size: 18,
                         ),
                       ],
@@ -387,9 +513,7 @@ class ActiveWalkDetailsScreen
               // OWNER + DOG
               // =================================================
 
-              _sectionTitle(
-                'Owner & Dog',
-              ),
+              _sectionTitle('Owner & Dog'),
 
               _card(
                 child: Column(
@@ -405,8 +529,7 @@ class ActiveWalkDetailsScreen
 
                     const Divider(
                       height: 1,
-                      color:
-                          Color(0xFFE9ECEE),
+                      color: Color(0xFFE9ECEE),
                     ),
 
                     const SizedBox(height: 14),
@@ -420,15 +543,10 @@ class ActiveWalkDetailsScreen
 
                     const SizedBox(height: 15),
 
-                    // =========================================
-                    // PRIMARY CALL + CHAT
-                    // =========================================
-
                     Row(
                       children: [
                         Expanded(
-                          child:
-                              _primaryButton(
+                          child: _primaryButton(
                             icon:
                                 Icons.call_rounded,
                             label: 'Call',
@@ -436,12 +554,9 @@ class ActiveWalkDetailsScreen
                             onPressed: () {},
                           ),
                         ),
-                        const SizedBox(
-                          width: 10,
-                        ),
+                        const SizedBox(width: 10),
                         Expanded(
-                          child:
-                              _primaryButton(
+                          child: _primaryButton(
                             icon: Icons
                                 .chat_bubble_rounded,
                             label: 'Chat',
@@ -461,74 +576,52 @@ class ActiveWalkDetailsScreen
               // PICKUP LOCATION
               // =================================================
 
-              _sectionTitle(
-                'Pickup Location',
-              ),
+              _sectionTitle('Pickup Location'),
 
               _card(
                 child: Row(
                   crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
+                      CrossAxisAlignment.start,
                   children: [
                     Container(
                       width: 42,
                       height: 42,
-                      decoration:
-                          BoxDecoration(
+                      decoration: BoxDecoration(
                         color:
-                            const Color(
-                          0xFFFFF1EA,
-                        ),
+                            const Color(0xFFFFF1EA),
                         borderRadius:
-                            BorderRadius
-                                .circular(
-                          12,
-                        ),
+                            BorderRadius.circular(12),
                       ),
                       child: const Icon(
-                        Icons
-                            .location_on_rounded,
+                        Icons.location_on_rounded,
                         color: orange,
                       ),
                     ),
-                    const SizedBox(
-                      width: 11,
-                    ),
+                    const SizedBox(width: 11),
                     Expanded(
                       child: Column(
                         crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
+                            CrossAxisAlignment.start,
                         children: [
                           const Text(
                             'PICK-UP ADDRESS',
-                            style:
-                                TextStyle(
-                              color:
-                                  muted,
+                            style: TextStyle(
+                              color: muted,
                               fontSize: 9,
                               fontWeight:
-                                  FontWeight
-                                      .w900,
-                              letterSpacing:
-                                  .5,
+                                  FontWeight.w900,
+                              letterSpacing: .5,
                             ),
                           ),
-                          const SizedBox(
-                            height: 5,
-                          ),
+                          const SizedBox(height: 5),
                           Text(
-                            request
-                                .pickupAddress,
-                            style:
-                                const TextStyle(
+                            request.pickupAddress,
+                            style: const TextStyle(
                               color: dark,
                               fontSize: 13,
                               height: 1.4,
                               fontWeight:
-                                  FontWeight
-                                      .w700,
+                                  FontWeight.w700,
                             ),
                           ),
                         ],
@@ -544,9 +637,7 @@ class ActiveWalkDetailsScreen
               // WALK INFORMATION
               // =================================================
 
-              _sectionTitle(
-                'Walk Information',
-              ),
+              _sectionTitle('Walk Information'),
 
               _card(
                 child: Column(
@@ -570,8 +661,7 @@ class ActiveWalkDetailsScreen
                     ),
                     _divider(),
                     _detailRow(
-                      Icons
-                          .check_circle_outline_rounded,
+                      Icons.check_circle_outline_rounded,
                       'Status',
                       request.status,
                       valueColor: green,
@@ -580,24 +670,80 @@ class ActiveWalkDetailsScreen
                 ),
               ),
 
-              const SizedBox(
-                height: 30,
-              ),
+              const SizedBox(height: 30),
             ],
           ),
 
           // ====================================================
-          // FLOATING START WALK
+          // START WALK BUTTON
           // ====================================================
 
-          FloatingStartWalkButton(
-            onPressed:
-                onStartWalk ?? () {},
-          ),
+          if (!_isStartingWalk)
+            FloatingStartWalkButton(
+              onPressed: _startWalk,
+            )
+          else
+            _startingWalkButton(),
         ],
       ),
     );
   }
+
+  // ============================================================
+  // STARTING BUTTON
+  // ============================================================
+
+  Widget _startingWalkButton() {
+    return SafeArea(
+      top: false,
+      child: Center(
+        child: SizedBox(
+          width: 190,
+          height: 48,
+          child: ElevatedButton(
+            onPressed: null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: orange,
+              disabledBackgroundColor: orange,
+              disabledForegroundColor: Colors.white,
+              elevation: 9,
+              shape: RoundedRectangleBorder(
+                borderRadius:
+                    BorderRadius.circular(28),
+              ),
+            ),
+            child: const Row(
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 19,
+                  height: 19,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(width: 9),
+                Text(
+                  'Starting Walk...',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // SECTION TITLE
+  // ============================================================
 
   static Widget _sectionTitle(
     String title,
@@ -615,12 +761,15 @@ class ActiveWalkDetailsScreen
         style: const TextStyle(
           color: dark,
           fontSize: 14,
-          fontWeight:
-              FontWeight.w900,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );
   }
+
+  // ============================================================
+  // CARD
+  // ============================================================
 
   static Widget _card({
     required Widget child,
@@ -654,6 +803,10 @@ class ActiveWalkDetailsScreen
     );
   }
 
+  // ============================================================
+  // PERSON ROW
+  // ============================================================
+
   static Widget _personRow(
     IconData icon,
     Color color,
@@ -670,9 +823,7 @@ class ActiveWalkDetailsScreen
             color:
                 color.withOpacity(.10),
             borderRadius:
-                BorderRadius.circular(
-              13,
-            ),
+                BorderRadius.circular(13),
           ),
           child: Icon(
             icon,
@@ -712,6 +863,10 @@ class ActiveWalkDetailsScreen
     );
   }
 
+  // ============================================================
+  // PRIMARY BUTTON
+  // ============================================================
+
   static Widget _primaryButton({
     required IconData icon,
     required String label,
@@ -744,14 +899,16 @@ class ActiveWalkDetailsScreen
           shape:
               RoundedRectangleBorder(
             borderRadius:
-                BorderRadius.circular(
-              14,
-            ),
+                BorderRadius.circular(14),
           ),
         ),
       ),
     );
   }
+
+  // ============================================================
+  // DETAIL ROW
+  // ============================================================
 
   static Widget _detailRow(
     IconData icon,
@@ -769,9 +926,7 @@ class ActiveWalkDetailsScreen
             color:
                 const Color(0xFFF1F5F6),
             borderRadius:
-                BorderRadius.circular(
-              10,
-            ),
+                BorderRadius.circular(10),
           ),
           child: Icon(
             icon,
@@ -805,6 +960,10 @@ class ActiveWalkDetailsScreen
     );
   }
 
+  // ============================================================
+  // DIVIDER
+  // ============================================================
+
   static Widget _divider() {
     return const Padding(
       padding:
@@ -818,6 +977,10 @@ class ActiveWalkDetailsScreen
       ),
     );
   }
+
+  // ============================================================
+  // CANCEL DIALOG
+  // ============================================================
 
   static void _showCancelDialog(
     BuildContext context,
