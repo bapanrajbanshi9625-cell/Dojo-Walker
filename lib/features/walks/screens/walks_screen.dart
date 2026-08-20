@@ -10,6 +10,10 @@ class WalksScreen extends StatelessWidget {
     super.key,
   });
 
+  // ============================================================
+  // COLORS
+  // ============================================================
+
   static const Color orange =
       Color(0xFFFF6600);
 
@@ -18,6 +22,16 @@ class WalksScreen extends StatelessWidget {
 
   static const Color background =
       Color(0xFFF5F6F8);
+
+  static const Color softOrange =
+      Color(0xFFFFF1EA);
+
+  static const Color mutedText =
+      Color(0xFF7A8289);
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(
@@ -32,6 +46,7 @@ class WalksScreen extends StatelessWidget {
 
       appBar: AppBar(
         elevation: 0,
+        scrolledUnderElevation: 0,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         titleSpacing: 18,
@@ -53,15 +68,14 @@ class WalksScreen extends StatelessWidget {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: const Color(
-                0xFFFFF1EA,
-              ),
+              color: softOrange,
               borderRadius:
                   BorderRadius.circular(12),
             ),
             child: const Icon(
               Icons.notifications_none_rounded,
               color: orange,
+              size: 22,
             ),
           ),
         ],
@@ -72,15 +86,17 @@ class WalksScreen extends StatelessWidget {
       // ========================================================
 
       body: StreamBuilder<List<WalkRequest>>(
-        stream: WalkRequestService.instance
+        stream: WalkRequestService
+            .instance
             .pendingRequestsStream(),
 
         builder: (
-          context,
-          snapshot,
+          BuildContext context,
+          AsyncSnapshot<List<WalkRequest>> snapshot,
         ) {
-          final requests =
-              snapshot.data ?? <WalkRequest>[];
+          final List<WalkRequest> requests =
+              snapshot.data ??
+                  <WalkRequest>[];
 
           return ListView(
             padding: const EdgeInsets.only(
@@ -109,7 +125,9 @@ class WalksScreen extends StatelessWidget {
                   padding: EdgeInsets.all(25),
                   child: Center(
                     child:
-                        CircularProgressIndicator(),
+                        CircularProgressIndicator(
+                      color: orange,
+                    ),
                   ),
                 ),
 
@@ -118,18 +136,18 @@ class WalksScreen extends StatelessWidget {
               // ==================================================
 
               if (snapshot.hasError)
-                Padding(
-                  padding: const EdgeInsets.all(
-                    20,
-                  ),
-                  child: Text(
-                    'Unable to load walk requests.',
-                    textAlign:
-                        TextAlign.center,
-                    style: const TextStyle(
-                      color: dark,
-                      fontWeight:
-                          FontWeight.w600,
+                const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(
+                    child: Text(
+                      'Unable to load walk requests.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: dark,
+                        fontSize: 14,
+                        fontWeight:
+                            FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
@@ -152,10 +170,9 @@ class WalksScreen extends StatelessWidget {
                   child: Center(
                     child: Text(
                       'No new walk requests right now.',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Color(
-                          0xFF7A8289,
-                        ),
+                        color: mutedText,
                         fontSize: 13,
                         fontWeight:
                             FontWeight.w600,
@@ -170,7 +187,9 @@ class WalksScreen extends StatelessWidget {
 
               if (!snapshot.hasError)
                 ...requests.map(
-                  (request) {
+                  (
+                    WalkRequest request,
+                  ) {
                     return WalkRequestCard(
                       request: request,
 
@@ -199,7 +218,8 @@ class WalksScreen extends StatelessWidget {
     WalkRequest request,
   ) async {
     try {
-      await WalkRequestService.instance
+      await WalkRequestService
+          .instance
           .acceptWalk(
         request.id,
       );
@@ -209,29 +229,34 @@ class WalksScreen extends StatelessWidget {
       }
 
       ScaffoldMessenger.of(context)
-          .showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Walk accepted successfully.',
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Walk accepted successfully.',
+            ),
           ),
-        ),
-      );
+        );
     } catch (e) {
       if (!context.mounted) {
         return;
       }
 
+      final String message =
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              );
+
       ScaffoldMessenger.of(context)
-          .showSnackBar(
-        SnackBar(
-          content: Text(
-            e.toString().replaceFirst(
-              'Exception: ',
-              '',
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              message,
             ),
           ),
-        ),
-      );
+        );
     }
   }
 }
