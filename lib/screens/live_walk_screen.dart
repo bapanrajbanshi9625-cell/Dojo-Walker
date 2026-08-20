@@ -590,9 +590,9 @@ class _LiveWalkScreenState
   // OWNER CARD
   // ============================================================
 
-Widget _ownerCard({
-  required String ownerId,
-}) {
+_ownerCard(
+  ownerId: activeData['ownerId']?.toString().trim() ?? '',
+),
   final String displayOwnerId =
       ownerId.isNotEmpty ? ownerId : 'Owner ID unavailable';
 
