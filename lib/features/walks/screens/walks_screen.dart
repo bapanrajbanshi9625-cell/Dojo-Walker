@@ -5,6 +5,7 @@ import '../services/walk_request_service.dart';
 import '../widgets/insta_walk_container.dart';
 import '../widgets/walk_request_card.dart';
 import '../widgets/active_walk_container.dart';
+import 'package:dojo_walker/features/walks/screens/walks_screen.dart';
 
 class WalksScreen extends StatelessWidget {
   const WalksScreen({super.key});
