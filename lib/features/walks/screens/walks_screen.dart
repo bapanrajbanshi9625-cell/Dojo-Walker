@@ -4,27 +4,30 @@ import '../models/walk_request.dart';
 import '../services/walk_request_service.dart';
 import '../widgets/insta_walk_container.dart';
 import '../widgets/walk_request_card.dart';
-import '../widgets/active_walk_container.dart';
-import 'package:dojo_walker/features/walks/screens/walks_screen.dart';
 
 class WalksScreen extends StatelessWidget {
   const WalksScreen({super.key});
 
-  static const Color orange =
-      Color(0xFFFF6600);
+  static const Color orange = Color(0xFFFF6600);
+  static const Color dark = Color(0xFF263746);
+  static const Color background = Color(0xFFF5F6F8);
 
-  static const Color dark =
-      Color(0xFF263746);
+  // ============================================================
+  // SERVICE
+  // ============================================================
 
-  static const Color background =
-      Color(0xFFF5F6F8);
+  static final WalkRequestService _service =
+      WalkRequestService();
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: background,
+
+      // ========================================================
+      // APP BAR
+      // ========================================================
+
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
@@ -40,17 +43,12 @@ class WalksScreen extends StatelessWidget {
         ),
         actions: [
           Container(
-            margin:
-                const EdgeInsets.only(
-              right: 16,
-            ),
+            margin: const EdgeInsets.only(right: 16),
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color:
-                  const Color(0xFFFFF1EA),
-              borderRadius:
-                  BorderRadius.circular(12),
+              color: const Color(0xFFFFF1EA),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
               Icons.notifications_none_rounded,
@@ -59,64 +57,82 @@ class WalksScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: StreamBuilder<
-          List<WalkRequest>>(
-        stream: WalkRequestService
-            .instance
-            .pendingRequestsStream(),
-        builder: (
-          context,
-          snapshot,
-        ) {
-          final requests =
-              snapshot.data ?? [];
+
+      // ========================================================
+      // WALK REQUESTS
+      // ========================================================
+
+      body: StreamBuilder<List<WalkRequest>>(
+        stream: _service.pendingRequestsStream(),
+        builder: (context, snapshot) {
+          final requests = snapshot.data ?? [];
 
           return ListView(
-            padding:
-                const EdgeInsets.only(
+            padding: const EdgeInsets.only(
               top: 16,
               bottom: 30,
             ),
             children: [
+              // ==================================================
+              // INSTA WALK
+              // ==================================================
+
               const InstaWalkContainer(),
 
               const SizedBox(height: 18),
 
+              // ==================================================
+              // LOADING
+              // ==================================================
+
               if (snapshot.connectionState ==
                   ConnectionState.waiting)
                 const Padding(
-                  padding:
-                      EdgeInsets.all(25),
+                  padding: EdgeInsets.all(25),
                   child: Center(
-                    child:
-                        CircularProgressIndicator(),
-                  ),
-                ),
-
-              if (snapshot.hasError)
-                Padding(
-                  padding:
-                      const EdgeInsets.all(20),
-                  child: Text(
-                    'Unable to load walk requests.',
-                    textAlign:
-                        TextAlign.center,
-                    style:
-                        const TextStyle(
-                      color: dark,
-                      fontWeight:
-                          FontWeight.w600,
+                    child: CircularProgressIndicator(
+                      color: orange,
                     ),
                   ),
                 ),
+
+              // ==================================================
+              // ERROR
+              // ==================================================
+
+              if (snapshot.hasError)
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        color: orange,
+                        size: 32,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Unable to load walk requests.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: dark,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // ==================================================
+              // EMPTY
+              // ==================================================
 
               if (!snapshot.hasError &&
                   snapshot.connectionState !=
                       ConnectionState.waiting &&
                   requests.isEmpty)
                 const Padding(
-                  padding:
-                      EdgeInsets.fromLTRB(
+                  padding: EdgeInsets.fromLTRB(
                     20,
                     20,
                     20,
@@ -126,22 +142,22 @@ class WalksScreen extends StatelessWidget {
                     child: Text(
                       'No new walk requests right now.',
                       style: TextStyle(
-                        color:
-                            Color(0xFF7A8289),
+                        color: Color(0xFF7A8289),
                         fontSize: 13,
-                        fontWeight:
-                            FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ),
 
+              // ==================================================
+              // REQUEST CARDS
+              // ==================================================
+
               ...requests.map(
-                (request) =>
-                    WalkRequestCard(
+                (request) => WalkRequestCard(
                   request: request,
-                  onAccept: () =>
-                      _acceptWalk(
+                  onAccept: () => _acceptWalk(
                     context,
                     request,
                   ),
@@ -154,34 +170,35 @@ class WalksScreen extends StatelessWidget {
     );
   }
 
+  // ============================================================
+  // ACCEPT WALK
+  // ============================================================
+
   Future<void> _acceptWalk(
     BuildContext context,
     WalkRequest request,
   ) async {
     try {
-      await WalkRequestService
-          .instance
-          .acceptWalk(request.id);
+      await _service.acceptWalk(request.id);
 
       if (!context.mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
             'Walk accepted successfully.',
           ),
         ),
+        behavior: SnackBarBehavior.floating,
       );
     } catch (e) {
       if (!context.mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             e.toString().replaceFirst(
@@ -189,6 +206,7 @@ class WalksScreen extends StatelessWidget {
               '',
             ),
           ),
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
