@@ -2,108 +2,112 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class WalkRequest {
   final String id;
+
   final String ownerId;
   final String ownerName;
+
   final String dogName;
-  final String ownerPhone;
+  final String dogBreed;
+  final String dogAge;
+
   final String pickupAddress;
+
   final double distanceKm;
   final String estimatedTime;
-  final double pickupLatitude;
-  final double pickupLongitude;
-  final String status;
-  final String? acceptedBy;
-  final String? walkerId;
-  final DateTime? createdAt;
 
-  const WalkRequest({
+  final String status;
+
+  /// IMPORTANT:
+  /// Walker UID नहीं।
+  /// यहां Walker ID save होगी।
+  final String walkerId;
+
+  final String walkType;
+
+  WalkRequest({
     required this.id,
     required this.ownerId,
     required this.ownerName,
     required this.dogName,
-    required this.ownerPhone,
+    required this.dogBreed,
+    required this.dogAge,
     required this.pickupAddress,
     required this.distanceKm,
     required this.estimatedTime,
-    required this.pickupLatitude,
-    required this.pickupLongitude,
     required this.status,
-    this.acceptedBy,
-    this.walkerId,
-    this.createdAt,
+    required this.walkerId,
+    required this.walkType,
   });
 
   factory WalkRequest.fromFirestore(
-    String id,
-    Map<String, dynamic> data,
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
   ) {
+    final data = snapshot.data() ?? {};
+
     return WalkRequest(
-      id: id,
+      id: snapshot.id,
 
-      // Custom Owner ID — Firebase Auth UID नहीं।
-      ownerId:
-          data['ownerid']?.toString() ?? '',
+      ownerId: _string(data['ownerId']),
+      ownerName: _string(data['ownerName']),
 
-      ownerName:
-          data['ownername']?.toString() ?? 'Owner',
+      dogName: _string(data['dogName']),
+      dogBreed: _string(data['dogBreed']),
+      dogAge: _string(data['dogAge']),
 
-      dogName:
-          data['dogname']?.toString() ?? 'Dog',
+      pickupAddress: _string(data['pickupAddress']),
 
-      ownerPhone:
-          data['ownermobilenumber']?.toString() ?? '',
+      distanceKm: _double(data['distanceKm']),
 
-      pickupAddress:
-          data['address']?.toString() ??
-          'Pickup location unavailable',
+      estimatedTime: _string(data['estimatedTime']),
 
-      distanceKm:
-          _readDouble(data['distanceKm']),
+      status: _string(data['status']),
 
-      estimatedTime:
-          data['estimatedtime']?.toString() ?? '—',
+      // Walker ID — UID नहीं
+      walkerId: _string(data['walkerId']),
 
-      pickupLatitude:
-          _readDouble(data['pickuplatitude']),
-
-      pickupLongitude:
-          _readDouble(data['pickuplongitude']),
-
-      status:
-          data['status']?.toString() ?? 'searching',
-
-      acceptedBy:
-          data['acceptedBy']?.toString(),
-
-      // Custom Walker ID — Firebase Auth UID नहीं।
-      walkerId:
-          data['walkerid']?.toString(),
-
-      createdAt:
-          _readDate(data['createdAt']),
+      walkType: _string(
+        data['walkType'],
+        fallback: 'Insta Walk',
+      ),
     );
   }
 
-  static double _readDouble(dynamic value) {
+  Map<String, dynamic> toMap() {
+    return {
+      'ownerId': ownerId,
+      'ownerName': ownerName,
+      'dogName': dogName,
+      'dogBreed': dogBreed,
+      'dogAge': dogAge,
+      'pickupAddress': pickupAddress,
+      'distanceKm': distanceKm,
+      'estimatedTime': estimatedTime,
+      'status': status,
+      'walkerId': walkerId,
+      'walkType': walkType,
+    };
+  }
+
+  static String _string(
+    dynamic value, {
+    String fallback = '',
+  }) {
+    if (value == null) return fallback;
+
+    final result = value.toString().trim();
+
+    if (result.isEmpty) return fallback;
+
+    return result;
+  }
+
+  static double _double(dynamic value) {
+    if (value == null) return 0;
+
     if (value is num) {
       return value.toDouble();
     }
 
-    return double.tryParse(
-          value?.toString() ?? '',
-        ) ??
-        0.0;
-  }
-
-  static DateTime? _readDate(dynamic value) {
-    if (value is Timestamp) {
-      return value.toDate();
-    }
-
-    if (value is DateTime) {
-      return value;
-    }
-
-    return null;
+    return double.tryParse(value.toString()) ?? 0;
   }
 }
