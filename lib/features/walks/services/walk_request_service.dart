@@ -1,74 +1,167 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/walk_request.dart';
 
 class WalkRequestService {
-  WalkRequestService({
-    FirebaseFirestore? firestore,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance;
+  WalkRequestService._();
 
-  final FirebaseFirestore _firestore;
+  static final WalkRequestService instance =
+      WalkRequestService._();
 
-  CollectionReference<Map<String, dynamic>> get _walkRequests =>
-      _firestore.collection('walk_requests');
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
 
   // ============================================================
-  // ACCEPTED WALKS FOR CURRENT WALKER
+  // PENDING WALK REQUESTS
   // ============================================================
 
-  Stream<List<WalkRequest>> watchAcceptedWalks({
-    required String walkerId,
-  }) {
-    return _walkRequests
-        .where('walkerId', isEqualTo: walkerId)
-        .where('status', isEqualTo: 'accepted')
+  Stream<List<WalkRequest>> pendingRequestsStream() {
+    return _firestore
+        .collection('walk_requests')
+        .where('status', isEqualTo: 'pending')
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map(WalkRequest.fromFirestore)
-              .toList(),
+          (snapshot) {
+            return snapshot.docs
+                .map(
+                  (doc) => WalkRequest.fromFirestore(doc),
+                )
+                .toList();
+          },
         );
-  }
-
-  // ============================================================
-  // SINGLE WALK
-  // ============================================================
-
-  Future<WalkRequest?> getWalk(String walkId) async {
-    final snapshot = await _walkRequests.doc(walkId).get();
-
-    if (!snapshot.exists) {
-      return null;
-    }
-
-    return WalkRequest.fromFirestore(snapshot);
   }
 
   // ============================================================
   // ACCEPT WALK
   // ============================================================
 
-  Future<void> acceptWalk({
-    required String walkId,
-    required String walkerId,
-  }) async {
-    await _walkRequests.doc(walkId).update({
-      'walkerId': walkerId,
-      'status': 'accepted',
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+  Future<void> acceptWalk(String walkId) async {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      throw Exception(
+        'Walker is not logged in.',
+      );
+    }
+
+    final walkerUid = user.uid;
+
+    // ----------------------------------------------------------
+    // IMPORTANT:
+    // यहां Walker UID से walkers collection में Walker ID निकलेगी.
+    // ----------------------------------------------------------
+
+    final walkerSnapshot = await _firestore
+        .collection('walkers')
+        .doc(walkerUid)
+        .get();
+
+    if (!walkerSnapshot.exists) {
+      throw Exception(
+        'Walker profile not found.',
+      );
+    }
+
+    final walkerData =
+        walkerSnapshot.data() ?? {};
+
+    final walkerId =
+        walkerData['walkerId']?.toString().trim() ?? '';
+
+    if (walkerId.isEmpty) {
+      throw Exception(
+        'Walker ID not found.',
+      );
+    }
+
+    // ----------------------------------------------------------
+    // TRANSACTION
+    // ----------------------------------------------------------
+
+    final walkRef = _firestore
+        .collection('walk_requests')
+        .doc(walkId);
+
+    await _firestore.runTransaction(
+      (transaction) async {
+        final walkSnapshot =
+            await transaction.get(walkRef);
+
+        if (!walkSnapshot.exists) {
+          throw Exception(
+            'Walk request no longer exists.',
+          );
+        }
+
+        final data =
+            walkSnapshot.data();
+
+        if (data == null) {
+          throw Exception(
+            'Walk request data is empty.',
+          );
+        }
+
+        final status =
+            data['status']?.toString() ?? '';
+
+        if (status != 'pending') {
+          throw Exception(
+            'This walk has already been accepted.',
+          );
+        }
+
+        transaction.update(
+          walkRef,
+          {
+            'status': 'accepted',
+            'walkerId': walkerId,
+            'walkerUid': walkerUid,
+            'acceptedAt':
+                FieldValue.serverTimestamp(),
+          },
+        );
+      },
+    );
   }
 
   // ============================================================
-  // REJECT / CANCEL
+  // ACCEPTED WALK FOR CURRENT WALKER
   // ============================================================
 
-  Future<void> cancelWalk({
-    required String walkId,
-  }) async {
-    await _walkRequests.doc(walkId).update({
-      'status': 'cancelled',
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+  Stream<List<WalkRequest>> acceptedWalksStream() {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      return Stream.value(
+        <WalkRequest>[],
+      );
+    }
+
+    return _firestore
+        .collection('walk_requests')
+        .where(
+          'walkerUid',
+          isEqualTo: user.uid,
+        )
+        .where(
+          'status',
+          isEqualTo: 'accepted',
+        )
+        .snapshots()
+        .map(
+          (snapshot) {
+            return snapshot.docs
+                .map(
+                  (doc) =>
+                      WalkRequest.fromFirestore(doc),
+                )
+                .toList();
+          },
+        );
   }
 }
