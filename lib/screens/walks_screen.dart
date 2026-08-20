@@ -13,6 +13,7 @@ import '../features/walks/widgets/insta_walk_info.dart';
 import '../features/walks/widgets/insta_walk_radar.dart';
 import '../features/walks/widgets/insta_walk_search_button.dart';
 import '../features/walks/widgets/walk_request_card.dart';
+import '../screens/active_walk_details_screen.dart';
 
 class WalksScreen extends StatefulWidget {
   const WalksScreen({super.key});
