@@ -590,11 +590,13 @@ class _LiveWalkScreenState
   // OWNER CARD
   // ============================================================
 
-_ownerCard(
-  ownerId: activeData['ownerId']?.toString().trim() ?? '',
-),
+Widget _ownerCard({
+  required String ownerId,
+}) {
   final String displayOwnerId =
-      ownerId.isNotEmpty ? ownerId : 'Owner ID unavailable';
+      ownerId.isNotEmpty
+          ? ownerId
+          : 'Owner ID unavailable';
 
   return Container(
     width: double.infinity,
@@ -633,7 +635,8 @@ _ownerCard(
 
         Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
               const Text(
                 'DOG OWNER',
@@ -711,7 +714,6 @@ _ownerCard(
     ),
   );
 }
-
 
   // ============================================================
   // LIVE MAP CARD
