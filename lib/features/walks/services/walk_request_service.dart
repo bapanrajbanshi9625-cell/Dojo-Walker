@@ -27,32 +27,20 @@ class WalkRequestService {
           isEqualTo: 'searching',
         )
         .snapshots()
-        .map(
-          (snapshot) {
-            return snapshot.docs
-                .map(
-                  (doc) => WalkRequest.fromFirestore(doc),
-                )
-                .toList();
-          },
-        );
+        .map((snapshot) {
+      return snapshot.docs
+          .map(
+            (doc) => WalkRequest.fromFirestore(doc),
+          )
+          .toList();
+    });
   }
 
   // ============================================================
   // ACCEPT WALK
-  //
-  // searching
-  //     ↓
-  // accepted
-  //
-  // IMPORTANT:
-  // यहां Live Walk START नहीं होगी.
-  // Start Walk button दबाने पर startWalk() चलेगा.
   // ============================================================
 
-  Future<void> acceptWalk(
-    String walkId,
-  ) async {
+  Future<void> acceptWalk(String walkId) async {
     final User? user = _auth.currentUser;
 
     if (user == null) {
@@ -74,6 +62,12 @@ class WalkRequestService {
             .doc(walkerUid)
             .get();
 
+    if (!accountSnapshot.exists) {
+      throw Exception(
+        'Walker account not found.',
+      );
+    }
+
     final Map<String, dynamic>? accountData =
         accountSnapshot.data();
 
@@ -90,7 +84,7 @@ class WalkRequestService {
     }
 
     // ==========================================================
-    // WALK REQUEST
+    // WALK REQUEST REFERENCE
     // ==========================================================
 
     final DocumentReference<Map<String, dynamic>>
@@ -99,7 +93,7 @@ class WalkRequestService {
             .doc(walkId);
 
     // ==========================================================
-    // TRANSACTION
+    // ACCEPT USING TRANSACTION
     // ==========================================================
 
     await _firestore.runTransaction(
@@ -126,10 +120,7 @@ class WalkRequestService {
         final String status =
             data['status']?.toString() ?? '';
 
-        // ======================================================
-        // ONLY SEARCHING REQUEST CAN BE ACCEPTED
-        // ======================================================
-
+        // Only searching requests can be accepted.
         if (status != 'searching') {
           throw Exception(
             'This walk has already been accepted.',
@@ -140,17 +131,10 @@ class WalkRequestService {
           walkRef,
           {
             'status': 'accepted',
-
-            // Main Walker ID
             'walkerId': walkerId,
-
-            // Firebase Auth UID
             'walkerUid': walkerUid,
-
-            // Acceptance time
             'acceptedAt':
                 FieldValue.serverTimestamp(),
-
             'updatedAt':
                 FieldValue.serverTimestamp(),
           },
@@ -183,31 +167,29 @@ class WalkRequestService {
           isEqualTo: 'accepted',
         )
         .snapshots()
-        .map(
-          (snapshot) {
-            return snapshot.docs
-                .map(
-                  (doc) =>
-                      WalkRequest.fromFirestore(doc),
-                )
-                .toList();
-          },
-        );
+        .map((snapshot) {
+      return snapshot.docs
+          .map(
+            (doc) =>
+                WalkRequest.fromFirestore(doc),
+          )
+          .toList();
+    });
   }
 
   // ============================================================
   // START WALK
   //
-  // accepted
-  //     ↓
-  // in_progress
+  // Creates/updates:
   //
-  // और active_walks/{walkId} document create होगा.
+  // active_walk/{walkId}
+  //
+  // liveWalkSessions/session-{walkId}
   // ============================================================
 
-  Future<void> startWalk(
-    WalkRequest request,
-  ) async {
+  Future<String> startWalk({
+    required WalkRequest request,
+  }) async {
     final User? user = _auth.currentUser;
 
     if (user == null) {
@@ -235,7 +217,7 @@ class WalkRequestService {
         accountData?['walkerId']
                 ?.toString()
                 .trim() ??
-            '';
+            request.walkerId;
 
     if (walkerId.isEmpty) {
       throw Exception(
@@ -244,225 +226,190 @@ class WalkRequestService {
     }
 
     // ==========================================================
+    // IDs
+    // ==========================================================
+
+    final String walkId = request.walkId;
+
+    if (walkId.trim().isEmpty) {
+      throw Exception(
+        'Walk ID is missing.',
+      );
+    }
+
+    final String sessionId =
+        'session-$walkId';
+
+    // ==========================================================
     // REFERENCES
     // ==========================================================
 
     final DocumentReference<Map<String, dynamic>>
-        walkRef = _firestore
-            .collection('walk_requests')
-            .doc(request.id);
+        activeWalkRef = _firestore
+            .collection('active_walk')
+            .doc(walkId);
 
     final DocumentReference<Map<String, dynamic>>
-        activeWalkRef = _firestore
-            .collection('active_walks')
-            .doc(request.id);
+        sessionRef = _firestore
+            .collection('liveWalkSessions')
+            .doc(sessionId);
 
     // ==========================================================
-    // TRANSACTION
+    // CREATE ACTIVE WALK + LIVE SESSION
     // ==========================================================
 
     await _firestore.runTransaction(
       (transaction) async {
         final DocumentSnapshot<Map<String, dynamic>>
-            walkSnapshot =
-            await transaction.get(walkRef);
+            existingActiveWalk =
+            await transaction.get(activeWalkRef);
 
-        if (!walkSnapshot.exists) {
-          throw Exception(
-            'Walk request no longer exists.',
-          );
+        if (existingActiveWalk.exists) {
+          final Map<String, dynamic>? existingData =
+              existingActiveWalk.data();
+
+          final String existingStatus =
+              existingData?['status']
+                      ?.toString()
+                      .toLowerCase() ??
+                  '';
+
+          if (existingStatus == 'active') {
+            throw Exception(
+              'This walk is already active.',
+            );
+          }
         }
-
-        final Map<String, dynamic>? data =
-            walkSnapshot.data();
-
-        if (data == null) {
-          throw Exception(
-            'Walk request data is empty.',
-          );
-        }
-
-        final String status =
-            data['status']?.toString() ?? '';
-
-        // ======================================================
-        // ONLY ACCEPTED WALK CAN START
-        // ======================================================
-
-        if (status != 'accepted') {
-          throw Exception(
-            'Only an accepted walk can be started.',
-          );
-        }
-
-        // ======================================================
-        // CREATE ACTIVE WALK
-        // ======================================================
 
         transaction.set(
           activeWalkRef,
           {
-            // Main IDs
-            'walkId': request.id,
+            'ownerId': request.ownerId,
             'walkerId': walkerId,
-            'walkerUid': walkerUid,
-
-            // Owner
-            'ownerUid':
-                data['ownerUid']?.toString() ?? '',
-            'ownerName':
-                data['ownerName']?.toString() ?? '',
-            'ownerPhone':
-                data['ownerPhone']?.toString() ?? '',
-
-            // Dog
-            'dogName':
-                data['dogName']?.toString() ?? '',
-            'dogBreed':
-                data['dogBreed']?.toString() ?? '',
-            'dogAge':
-                data['dogAge']?.toString() ?? '',
-
-            // Pickup
-            'pickupAddress':
-                data['pickupAddress']?.toString() ?? '',
-
-            // Walk information
-            'distanceKm':
-                data['distanceKm'] ?? 0,
-            'estimatedTime':
-                data['estimatedTime']?.toString() ?? '',
-            'walkType':
-                data['walkType']?.toString() ?? '',
-
-            // Live walk status
+            'currentLat': 0.0,
+            'currentLng': 0.0,
+            'distance': '0.0 km',
+            'duration': '00:00:00',
+            'peeCount': 0,
+            'poopCount': 0,
             'status': 'active',
-
-            // Time
             'startedAt':
                 FieldValue.serverTimestamp(),
             'updatedAt':
                 FieldValue.serverTimestamp(),
           },
+          SetOptions(
+            merge: true,
+          ),
         );
 
-        // ======================================================
-        // UPDATE ORIGINAL REQUEST
-        // ======================================================
-
-        transaction.update(
-          walkRef,
+        transaction.set(
+          sessionRef,
           {
-            'status': 'in_progress',
-            'startedAt':
-                FieldValue.serverTimestamp(),
+            'id': sessionId,
+            'ownerId': request.ownerId,
+            'walkerId': walkerId,
+            'dogName': request.dogName,
+            'currentLocation': {
+              'lat': 0.0,
+              'lng': 0.0,
+            },
+            'distanceKm': 0.0,
+            'elapsedSeconds': 0,
+            'peeCount': 0,
+            'poopCount': 0,
+            'events': <Map<String, dynamic>>[],
+            'routeCoordinates':
+                <Map<String, dynamic>>[],
+            'status': 'ACTIVE',
             'updatedAt':
                 FieldValue.serverTimestamp(),
           },
+          SetOptions(
+            merge: true,
+          ),
         );
       },
     );
+
+    return sessionId;
   }
 
   // ============================================================
   // END WALK
-  //
-  // active
-  //   ↓
-  // completed
   // ============================================================
 
-  Future<void> endWalk(
-    String walkId,
-  ) async {
+  Future<void> endWalk({
+    required String walkId,
+    required String sessionId,
+  }) async {
     final DocumentReference<Map<String, dynamic>>
         activeWalkRef = _firestore
-            .collection('active_walks')
+            .collection('active_walk')
             .doc(walkId);
 
     final DocumentReference<Map<String, dynamic>>
-        walkRef = _firestore
-            .collection('walk_requests')
-            .doc(walkId);
+        sessionRef = _firestore
+            .collection('liveWalkSessions')
+            .doc(sessionId);
 
-    await _firestore.runTransaction(
-      (transaction) async {
-        final DocumentSnapshot<Map<String, dynamic>>
-            activeSnapshot =
-            await transaction.get(activeWalkRef);
+    final WriteBatch batch =
+        _firestore.batch();
 
-        if (!activeSnapshot.exists) {
-          throw Exception(
-            'Active walk not found.',
-          );
-        }
-
-        transaction.update(
-          activeWalkRef,
-          {
-            'status': 'completed',
-            'endedAt':
-                FieldValue.serverTimestamp(),
-            'updatedAt':
-                FieldValue.serverTimestamp(),
-          },
-        );
-
-        transaction.update(
-          walkRef,
-          {
-            'status': 'completed',
-            'endedAt':
-                FieldValue.serverTimestamp(),
-            'updatedAt':
-                FieldValue.serverTimestamp(),
-          },
-        );
+    batch.set(
+      activeWalkRef,
+      {
+        'status': 'completed',
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+        'endedAt':
+            FieldValue.serverTimestamp(),
       },
+      SetOptions(
+        merge: true,
+      ),
     );
+
+    batch.set(
+      sessionRef,
+      {
+        'status': 'COMPLETED',
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    await batch.commit();
   }
 
   // ============================================================
-  // ACTIVE WALKS FOR CURRENT WALKER
+  // LIVE WALK SESSION STREAM
   // ============================================================
 
-  Stream<List<DocumentSnapshot<Map<String, dynamic>>>>
-      activeWalksStream() {
-    final User? user = _auth.currentUser;
-
-    if (user == null) {
-      return Stream.value(
-        <DocumentSnapshot<Map<String, dynamic>>>[],
-      );
-    }
-
+  Stream<DocumentSnapshot<Map<String, dynamic>>>
+      liveWalkSessionStream(
+    String sessionId,
+  ) {
     return _firestore
-        .collection('active_walks')
-        .where(
-          'walkerUid',
-          isEqualTo: user.uid,
-        )
-        .where(
-          'status',
-          isEqualTo: 'active',
-        )
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs,
-        );
+        .collection('liveWalkSessions')
+        .doc(sessionId)
+        .snapshots();
   }
 
   // ============================================================
-  // GET ONE ACTIVE WALK
+  // ACTIVE WALK STREAM
   // ============================================================
 
-  Future<DocumentSnapshot<Map<String, dynamic>>>
-      getActiveWalk(
+  Stream<DocumentSnapshot<Map<String, dynamic>>>
+      activeWalkStream(
     String walkId,
-  ) async {
+  ) {
     return _firestore
-        .collection('active_walks')
+        .collection('active_walk')
         .doc(walkId)
-        .get();
+        .snapshots();
   }
 }
