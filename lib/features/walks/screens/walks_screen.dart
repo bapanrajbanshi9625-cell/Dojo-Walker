@@ -175,7 +175,7 @@ class WalksScreen extends StatelessWidget {
                       request: request,
 
                       onAccept: () {
-                        return _acceptWalk(
+                        _acceptWalk(
                           context,
                           request,
                         );
