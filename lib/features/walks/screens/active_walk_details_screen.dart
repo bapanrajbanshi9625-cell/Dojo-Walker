@@ -1,8 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../models/walk_request.dart';
 import '../services/walk_request_service.dart';
-import '../screens/live_walk_screen.dart';
+import '../../../screens/live_walk_screen.dart';
 import '../widgets/fake_map.dart';
 import '../widgets/floating_start_walk_button.dart';
 
@@ -25,29 +26,16 @@ class _ActiveWalkDetailsScreenState
   // COLORS
   // ============================================================
 
-  static const Color orange =
-      Color(0xFFFF6600);
-
-  static const Color blue =
-      Color(0xFF238EAE);
-
-  static const Color green =
-      Color(0xFF16A34A);
-
-  static const Color greenLight =
-      Color(0xFFEAF7EF);
-
-  static const Color dark =
-      Color(0xFF263746);
-
-  static const Color muted =
-      Color(0xFF7A8289);
-
-  static const Color background =
-      Color(0xFFF5F6F8);
+  static const Color orange = Color(0xFFFF6600);
+  static const Color blue = Color(0xFF238EAE);
+  static const Color green = Color(0xFF16A34A);
+  static const Color greenLight = Color(0xFFEAF7EF);
+  static const Color dark = Color(0xFF263746);
+  static const Color muted = Color(0xFF7A8289);
+  static const Color background = Color(0xFFF5F6F8);
 
   // ============================================================
-  // START WALK STATE
+  // STATE
   // ============================================================
 
   bool _isStartingWalk = false;
@@ -55,14 +43,16 @@ class _ActiveWalkDetailsScreenState
   WalkRequest get request => widget.request;
 
   // ============================================================
-  // START WALK
+  // START LIVE WALK
   //
   // ACCEPTED
-  //     ↓
-  // startWalk()
-  //     ↓
-  // active_walks/{walkId}
-  //     ↓
+  //    ↓
+  // WalkRequestService.startLiveWalk()
+  //    ↓
+  // active_walk/{walkId}
+  // liveWalkSessions/{sessionId}
+  // walk_requests/{walkId} → active
+  //    ↓
   // LiveWalkScreen
   // ============================================================
 
@@ -77,34 +67,39 @@ class _ActiveWalkDetailsScreenState
 
     try {
       // ========================================================
-      // CREATE ACTIVE WALK IN FIRESTORE
+      // CREATE ACTIVE WALK + LIVE SESSION
       // ========================================================
 
-      await WalkRequestService.instance.startWalk(
-        request,
-      );
-
-      // ========================================================
-      // READ CREATED ACTIVE WALK
-      // ========================================================
-
-      final activeSnapshot =
-          await WalkRequestService.instance.getActiveWalk(
+      final String sessionId =
+          await WalkRequestService.instance.startLiveWalk(
         request.id,
       );
 
-      if (!activeSnapshot.exists) {
+      // ========================================================
+      // READ LIVE SESSION
+      //
+      // liveWalkSessions/{sessionId}
+      // ========================================================
+
+      final DocumentSnapshot<Map<String, dynamic>>
+          sessionSnapshot =
+          await FirebaseFirestore.instance
+              .collection('liveWalkSessions')
+              .doc(sessionId)
+              .get();
+
+      if (!sessionSnapshot.exists) {
         throw Exception(
-          'Active walk could not be created.',
+          'Live walk session could not be created.',
         );
       }
 
-      final Map<String, dynamic>? data =
-          activeSnapshot.data();
+      final Map<String, dynamic>? sessionData =
+          sessionSnapshot.data();
 
-      if (data == null) {
+      if (sessionData == null) {
         throw Exception(
-          'Active walk data is empty.',
+          'Live walk session data is empty.',
         );
       }
 
@@ -113,7 +108,10 @@ class _ActiveWalkDetailsScreenState
       // ========================================================
 
       final String ownerUid =
-          data['ownerUid']?.toString().trim() ?? '';
+          sessionData['ownerUid']
+                  ?.toString()
+                  .trim() ??
+              '';
 
       if (ownerUid.isEmpty) {
         throw Exception(
@@ -123,25 +121,28 @@ class _ActiveWalkDetailsScreenState
 
       // ========================================================
       // OWNER NAME
+      //
+      // WalkRequest में available name use करेंगे.
       // ========================================================
 
       final String ownerName =
-          data['ownerName']?.toString().trim() ??
-              request.ownerName;
+          request.ownerName.trim();
 
       // ========================================================
       // OWNER PHONE
+      //
+      // Current live session structure में ownerPhone नहीं है.
+      // इसलिए null भेजेंगे.
       // ========================================================
 
-      final String ownerPhone =
-          data['ownerPhone']?.toString().trim() ?? '';
+      const String? ownerPhone = null;
 
       if (!mounted) {
         return;
       }
 
       // ========================================================
-      // OPEN EXISTING LIVE WALK SCREEN
+      // OPEN LIVE WALK SCREEN
       // ========================================================
 
       await Navigator.pushReplacement(
@@ -150,12 +151,10 @@ class _ActiveWalkDetailsScreenState
           builder: (_) => LiveWalkScreen(
             ownerUid: ownerUid,
             ownerName: ownerName.isEmpty
-                ? request.ownerName
+                ? 'Owner'
                 : ownerName,
             walkId: request.id,
-            ownerPhone: ownerPhone.isEmpty
-                ? null
-                : ownerPhone,
+            ownerPhone: ownerPhone,
           ),
         ),
       );
@@ -178,9 +177,8 @@ class _ActiveWalkDetailsScreenState
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text(
-              message,
-            ),
+            content: Text(message),
+            behavior: SnackBarBehavior.floating,
           ),
         );
     }
@@ -246,9 +244,7 @@ class _ActiveWalkDetailsScreenState
                       size: 19,
                     ),
                     SizedBox(width: 10),
-                    Text(
-                      'Cancel Walk',
-                    ),
+                    Text('Cancel Walk'),
                   ],
                 ),
               ),
@@ -262,9 +258,7 @@ class _ActiveWalkDetailsScreenState
                       size: 19,
                     ),
                     SizedBox(width: 10),
-                    Text(
-                      'Report',
-                    ),
+                    Text('Report'),
                   ],
                 ),
               ),
@@ -291,15 +285,13 @@ class _ActiveWalkDetailsScreenState
               // =================================================
 
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(
+                padding: const EdgeInsets.symmetric(
                   horizontal: 18,
                 ),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: 11,
                       vertical: 7,
                     ),
@@ -339,27 +331,22 @@ class _ActiveWalkDetailsScreenState
               // =================================================
 
               Container(
-                margin:
-                    const EdgeInsets.symmetric(
+                margin: const EdgeInsets.symmetric(
                   horizontal: 18,
                 ),
                 height: 255,
                 decoration: BoxDecoration(
                   borderRadius:
                       BorderRadius.circular(22),
-                  color:
-                      const Color(0xFFE7EEF0),
+                  color: const Color(0xFFE7EEF0),
                   border: Border.all(
-                    color:
-                        const Color(0xFFD6E0E2),
+                    color: const Color(0xFFD6E0E2),
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black
-                          .withOpacity(.08),
+                      color: Colors.black.withOpacity(.08),
                       blurRadius: 16,
-                      offset:
-                          const Offset(0, 6),
+                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
@@ -374,8 +361,7 @@ class _ActiveWalkDetailsScreenState
                         left: 110,
                         top: 100,
                         child: MapMarker(
-                          icon:
-                              Icons.pets_rounded,
+                          icon: Icons.pets_rounded,
                           color: orange,
                         ),
                       ),
@@ -384,8 +370,8 @@ class _ActiveWalkDetailsScreenState
                         right: 95,
                         bottom: 70,
                         child: MapMarker(
-                          icon: Icons
-                              .directions_walk_rounded,
+                          icon:
+                              Icons.directions_walk_rounded,
                           color: blue,
                         ),
                       ),
@@ -395,18 +381,15 @@ class _ActiveWalkDetailsScreenState
                         left: 12,
                         child: Container(
                           padding:
-                              const EdgeInsets
-                                  .symmetric(
+                              const EdgeInsets.symmetric(
                             horizontal: 10,
                             vertical: 7,
                           ),
-                          decoration:
-                              BoxDecoration(
-                            color: Colors.white
-                                .withOpacity(.94),
+                          decoration: BoxDecoration(
+                            color:
+                                Colors.white.withOpacity(.94),
                             borderRadius:
-                                BorderRadius
-                                    .circular(10),
+                                BorderRadius.circular(10),
                           ),
                           child: const Row(
                             children: [
@@ -418,8 +401,7 @@ class _ActiveWalkDetailsScreenState
                               SizedBox(width: 5),
                               Text(
                                 'PICKUP MAP',
-                                style:
-                                    TextStyle(
+                                style: TextStyle(
                                   color: dark,
                                   fontSize: 9,
                                   fontWeight:
@@ -442,8 +424,7 @@ class _ActiveWalkDetailsScreenState
               // =================================================
 
               Container(
-                margin:
-                    const EdgeInsets.symmetric(
+                margin: const EdgeInsets.symmetric(
                   horizontal: 18,
                 ),
                 height: 56,
@@ -455,8 +436,7 @@ class _ActiveWalkDetailsScreenState
                     BoxShadow(
                       color: blue.withOpacity(.25),
                       blurRadius: 12,
-                      offset:
-                          const Offset(0, 5),
+                      offset: const Offset(0, 5),
                     ),
                   ],
                 ),
@@ -465,17 +445,21 @@ class _ActiveWalkDetailsScreenState
                   child: InkWell(
                     borderRadius:
                         BorderRadius.circular(16),
-                    onTap: () {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Navigation will open after Google Maps is connected.',
-                          ),
-                        ),
-                      );
-                    },
+                    onTap: _isStartingWalk
+                        ? null
+                        : () {
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Navigation will open after Google Maps is connected.',
+                                ),
+                                behavior:
+                                    SnackBarBehavior.floating,
+                              ),
+                            );
+                          },
                     child: const Row(
                       mainAxisAlignment:
                           MainAxisAlignment.center,
@@ -521,7 +505,9 @@ class _ActiveWalkDetailsScreenState
                     _personRow(
                       Icons.person_rounded,
                       blue,
-                      request.ownerName,
+                      request.ownerName.isEmpty
+                          ? 'Owner'
+                          : request.ownerName,
                       'Dog Owner',
                     ),
 
@@ -537,7 +523,9 @@ class _ActiveWalkDetailsScreenState
                     _personRow(
                       Icons.pets_rounded,
                       green,
-                      request.dogName,
+                      request.dogName.isEmpty
+                          ? 'Dog'
+                          : request.dogName,
                       '${request.dogBreed} • ${request.dogAge}',
                     ),
 
@@ -547,8 +535,7 @@ class _ActiveWalkDetailsScreenState
                       children: [
                         Expanded(
                           child: _primaryButton(
-                            icon:
-                                Icons.call_rounded,
+                            icon: Icons.call_rounded,
                             label: 'Call',
                             color: green,
                             onPressed: () {},
@@ -557,8 +544,8 @@ class _ActiveWalkDetailsScreenState
                         const SizedBox(width: 10),
                         Expanded(
                           child: _primaryButton(
-                            icon: Icons
-                                .chat_bubble_rounded,
+                            icon:
+                                Icons.chat_bubble_rounded,
                             label: 'Chat',
                             color: blue,
                             onPressed: () {},
@@ -587,8 +574,7 @@ class _ActiveWalkDetailsScreenState
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color:
-                            const Color(0xFFFFF1EA),
+                        color: const Color(0xFFFFF1EA),
                         borderRadius:
                             BorderRadius.circular(12),
                       ),
@@ -615,7 +601,9 @@ class _ActiveWalkDetailsScreenState
                           ),
                           const SizedBox(height: 5),
                           Text(
-                            request.pickupAddress,
+                            request.pickupAddress.isEmpty
+                                ? 'Pickup address unavailable'
+                                : request.pickupAddress,
                             style: const TextStyle(
                               color: dark,
                               fontSize: 13,
@@ -749,8 +737,7 @@ class _ActiveWalkDetailsScreenState
     String title,
   ) {
     return Padding(
-      padding:
-          const EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         20,
         0,
         20,
@@ -775,27 +762,22 @@ class _ActiveWalkDetailsScreenState
     required Widget child,
   }) {
     return Container(
-      margin:
-          const EdgeInsets.symmetric(
+      margin: const EdgeInsets.symmetric(
         horizontal: 18,
       ),
-      padding:
-          const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius:
             BorderRadius.circular(20),
         border: Border.all(
-          color:
-              const Color(0xFFE1E6E8),
+          color: const Color(0xFFE1E6E8),
         ),
         boxShadow: [
           BoxShadow(
-            color:
-                Colors.black.withOpacity(.045),
+            color: Colors.black.withOpacity(.045),
             blurRadius: 13,
-            offset:
-                const Offset(0, 5),
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -818,10 +800,8 @@ class _ActiveWalkDetailsScreenState
         Container(
           width: 44,
           height: 44,
-          decoration:
-              BoxDecoration(
-            color:
-                color.withOpacity(.10),
+          decoration: BoxDecoration(
+            color: color.withOpacity(.10),
             borderRadius:
                 BorderRadius.circular(13),
           ),
@@ -839,19 +819,20 @@ class _ActiveWalkDetailsScreenState
             children: [
               Text(
                 title,
-                style:
-                    const TextStyle(
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
                   color: dark,
                   fontSize: 15,
-                  fontWeight:
-                      FontWeight.w800,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 3),
               Text(
                 subtitle,
-                style:
-                    const TextStyle(
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
                   color: muted,
                   fontSize: 11,
                 ),
@@ -883,21 +864,16 @@ class _ActiveWalkDetailsScreenState
         ),
         label: Text(
           label,
-          style:
-              const TextStyle(
+          style: const TextStyle(
             fontSize: 13,
-            fontWeight:
-                FontWeight.w800,
+            fontWeight: FontWeight.w800,
           ),
         ),
-        style:
-            ElevatedButton.styleFrom(
+        style: ElevatedButton.styleFrom(
           backgroundColor: color,
-          foregroundColor:
-              Colors.white,
+          foregroundColor: Colors.white,
           elevation: 0,
-          shape:
-              RoundedRectangleBorder(
+          shape: RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(14),
           ),
@@ -921,10 +897,8 @@ class _ActiveWalkDetailsScreenState
         Container(
           width: 36,
           height: 36,
-          decoration:
-              BoxDecoration(
-            color:
-                const Color(0xFFF1F5F6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F6),
             borderRadius:
                 BorderRadius.circular(10),
           ),
@@ -938,22 +912,23 @@ class _ActiveWalkDetailsScreenState
         Expanded(
           child: Text(
             title,
-            style:
-                const TextStyle(
+            style: const TextStyle(
               color: muted,
               fontSize: 12,
-              fontWeight:
-                  FontWeight.w600,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
-        Text(
-          value,
-          style: TextStyle(
-            color: valueColor,
-            fontSize: 12,
-            fontWeight:
-                FontWeight.w800,
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: valueColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
       ],
@@ -966,14 +941,12 @@ class _ActiveWalkDetailsScreenState
 
   static Widget _divider() {
     return const Padding(
-      padding:
-          EdgeInsets.symmetric(
+      padding: EdgeInsets.symmetric(
         vertical: 11,
       ),
       child: Divider(
         height: 1,
-        color:
-            Color(0xFFE9ECEE),
+        color: Color(0xFFE9ECEE),
       ),
     );
   }
@@ -988,8 +961,9 @@ class _ActiveWalkDetailsScreenState
     showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
-        title:
-            const Text('Cancel Walk?'),
+        title: const Text(
+          'Cancel Walk?',
+        ),
         content: const Text(
           'Are you sure you want to cancel this accepted walk?',
         ),
@@ -997,14 +971,12 @@ class _ActiveWalkDetailsScreenState
           TextButton(
             onPressed: () =>
                 Navigator.pop(context),
-            child:
-                const Text('Keep'),
+            child: const Text('Keep'),
           ),
           TextButton(
             onPressed: () =>
                 Navigator.pop(context),
-            child:
-                const Text('Cancel Walk'),
+            child: const Text('Cancel Walk'),
           ),
         ],
       ),
