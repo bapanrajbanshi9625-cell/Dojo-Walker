@@ -1,167 +1,237 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 
 import '../models/walk_request.dart';
+import '../services/walk_request_service.dart';
+import '../widgets/insta_walk_container.dart';
+import '../widgets/walk_request_card.dart';
 
-class WalkRequestService {
-  WalkRequestService._();
+class WalksScreen extends StatelessWidget {
+  const WalksScreen({
+    super.key,
+  });
 
-  static final WalkRequestService instance =
-      WalkRequestService._();
+  static const Color orange =
+      Color(0xFFFF6600);
 
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+  static const Color dark =
+      Color(0xFF263746);
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  static const Color background =
+      Color(0xFFF5F6F8);
 
-  // ============================================================
-  // PENDING WALK REQUESTS
-  // ============================================================
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Scaffold(
+      backgroundColor: background,
 
-  Stream<List<WalkRequest>> pendingRequestsStream() {
-    return _firestore
-        .collection('walk_requests')
-        .where('status', isEqualTo: 'pending')
-        .snapshots()
-        .map(
-          (snapshot) {
-            return snapshot.docs
-                .map(
-                  (doc) => WalkRequest.fromFirestore(doc),
-                )
-                .toList();
-          },
-        );
+      // ========================================================
+      // APP BAR
+      // ========================================================
+
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        titleSpacing: 18,
+
+        title: const Text(
+          'Walks',
+          style: TextStyle(
+            color: dark,
+            fontSize: 21,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(
+              right: 16,
+            ),
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: const Color(
+                0xFFFFF1EA,
+              ),
+              borderRadius:
+                  BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.notifications_none_rounded,
+              color: orange,
+            ),
+          ),
+        ],
+      ),
+
+      // ========================================================
+      // BODY
+      // ========================================================
+
+      body: StreamBuilder<List<WalkRequest>>(
+        stream: WalkRequestService.instance
+            .pendingRequestsStream(),
+
+        builder: (
+          context,
+          snapshot,
+        ) {
+          final requests =
+              snapshot.data ?? <WalkRequest>[];
+
+          return ListView(
+            padding: const EdgeInsets.only(
+              top: 16,
+              bottom: 30,
+            ),
+
+            children: [
+              // ==================================================
+              // INSTA WALK
+              // ==================================================
+
+              const InstaWalkContainer(),
+
+              const SizedBox(
+                height: 18,
+              ),
+
+              // ==================================================
+              // LOADING
+              // ==================================================
+
+              if (snapshot.connectionState ==
+                  ConnectionState.waiting)
+                const Padding(
+                  padding: EdgeInsets.all(25),
+                  child: Center(
+                    child:
+                        CircularProgressIndicator(),
+                  ),
+                ),
+
+              // ==================================================
+              // ERROR
+              // ==================================================
+
+              if (snapshot.hasError)
+                Padding(
+                  padding: const EdgeInsets.all(
+                    20,
+                  ),
+                  child: Text(
+                    'Unable to load walk requests.',
+                    textAlign:
+                        TextAlign.center,
+                    style: const TextStyle(
+                      color: dark,
+                      fontWeight:
+                          FontWeight.w600,
+                    ),
+                  ),
+                ),
+
+              // ==================================================
+              // EMPTY
+              // ==================================================
+
+              if (!snapshot.hasError &&
+                  snapshot.connectionState !=
+                      ConnectionState.waiting &&
+                  requests.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    20,
+                    20,
+                    10,
+                  ),
+                  child: Center(
+                    child: Text(
+                      'No new walk requests right now.',
+                      style: TextStyle(
+                        color: Color(
+                          0xFF7A8289,
+                        ),
+                        fontSize: 13,
+                        fontWeight:
+                            FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+
+              // ==================================================
+              // WALK REQUESTS
+              // ==================================================
+
+              if (!snapshot.hasError)
+                ...requests.map(
+                  (request) {
+                    return WalkRequestCard(
+                      request: request,
+
+                      onAccept: () {
+                        return _acceptWalk(
+                          context,
+                          request,
+                        );
+                      },
+                    );
+                  },
+                ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   // ============================================================
   // ACCEPT WALK
   // ============================================================
 
-  Future<void> acceptWalk(String walkId) async {
-    final user = _auth.currentUser;
+  Future<void> _acceptWalk(
+    BuildContext context,
+    WalkRequest request,
+  ) async {
+    try {
+      await WalkRequestService.instance
+          .acceptWalk(
+        request.id,
+      );
 
-    if (user == null) {
-      throw Exception(
-        'Walker is not logged in.',
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Walk accepted successfully.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst(
+              'Exception: ',
+              '',
+            ),
+          ),
+        ),
       );
     }
-
-    final walkerUid = user.uid;
-
-    // ----------------------------------------------------------
-    // IMPORTANT:
-    // यहां Walker UID से walkers collection में Walker ID निकलेगी.
-    // ----------------------------------------------------------
-
-    final walkerSnapshot = await _firestore
-        .collection('walkers')
-        .doc(walkerUid)
-        .get();
-
-    if (!walkerSnapshot.exists) {
-      throw Exception(
-        'Walker profile not found.',
-      );
-    }
-
-    final walkerData =
-        walkerSnapshot.data() ?? {};
-
-    final walkerId =
-        walkerData['walkerId']?.toString().trim() ?? '';
-
-    if (walkerId.isEmpty) {
-      throw Exception(
-        'Walker ID not found.',
-      );
-    }
-
-    // ----------------------------------------------------------
-    // TRANSACTION
-    // ----------------------------------------------------------
-
-    final walkRef = _firestore
-        .collection('walk_requests')
-        .doc(walkId);
-
-    await _firestore.runTransaction(
-      (transaction) async {
-        final walkSnapshot =
-            await transaction.get(walkRef);
-
-        if (!walkSnapshot.exists) {
-          throw Exception(
-            'Walk request no longer exists.',
-          );
-        }
-
-        final data =
-            walkSnapshot.data();
-
-        if (data == null) {
-          throw Exception(
-            'Walk request data is empty.',
-          );
-        }
-
-        final status =
-            data['status']?.toString() ?? '';
-
-        if (status != 'pending') {
-          throw Exception(
-            'This walk has already been accepted.',
-          );
-        }
-
-        transaction.update(
-          walkRef,
-          {
-            'status': 'accepted',
-            'walkerId': walkerId,
-            'walkerUid': walkerUid,
-            'acceptedAt':
-                FieldValue.serverTimestamp(),
-          },
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // ACCEPTED WALK FOR CURRENT WALKER
-  // ============================================================
-
-  Stream<List<WalkRequest>> acceptedWalksStream() {
-    final user = _auth.currentUser;
-
-    if (user == null) {
-      return Stream.value(
-        <WalkRequest>[],
-      );
-    }
-
-    return _firestore
-        .collection('walk_requests')
-        .where(
-          'walkerUid',
-          isEqualTo: user.uid,
-        )
-        .where(
-          'status',
-          isEqualTo: 'accepted',
-        )
-        .snapshots()
-        .map(
-          (snapshot) {
-            return snapshot.docs
-                .map(
-                  (doc) =>
-                      WalkRequest.fromFirestore(doc),
-                )
-                .toList();
-          },
-        );
   }
 }
