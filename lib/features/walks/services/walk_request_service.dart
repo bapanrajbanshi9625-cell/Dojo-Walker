@@ -16,29 +16,26 @@ class WalkRequestService {
       FirebaseAuth.instance;
 
   // ============================================================
-  // PENDING WALK REQUESTS
+  // PENDING / SEARCHING WALK REQUESTS
   // ============================================================
 
   Stream<List<WalkRequest>> pendingRequestsStream() {
-  return _firestore
-      .collection('walk_requests')
-      .where(
-        'status',
-        isEqualTo: 'searching',
-      )
-      .snapshots()
-      .map(
-        (snapshot) {
-          return snapshot.docs
-              .map(
-                (doc) => WalkRequest.fromFirestore(
-                  doc.id,
-                  doc.data(),
-                ),
-              )
-              .toList();
-        },
-      );
+    return _firestore
+        .collection('walk_requests')
+        .where(
+          'status',
+          isEqualTo: 'searching',
+        )
+        .snapshots()
+        .map(
+          (snapshot) {
+            return snapshot.docs
+                .map(
+                  (doc) => WalkRequest.fromFirestore(doc),
+                )
+                .toList();
+          },
+        );
   }
 
   // ============================================================
@@ -46,7 +43,7 @@ class WalkRequestService {
   // ============================================================
 
   Future<void> acceptWalk(String walkId) async {
-    final user = _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
       throw Exception(
@@ -54,29 +51,27 @@ class WalkRequestService {
       );
     }
 
-    final walkerUid = user.uid;
+    final String walkerUid = user.uid;
 
-    // ----------------------------------------------------------
-    // IMPORTANT:
-    // यहां Walker UID से walkers collection में Walker ID निकलेगी.
-    // ----------------------------------------------------------
+    // ==========================================================
+    // GET WALKER ID
+    // phoneAccounts/{UID}
+    // ==========================================================
 
-    final walkerSnapshot = await _firestore
-        .collection('walkers')
-        .doc(walkerUid)
-        .get();
+    final DocumentSnapshot<Map<String, dynamic>>
+        accountSnapshot = await _firestore
+            .collection('phoneAccounts')
+            .doc(walkerUid)
+            .get();
 
-    if (!walkerSnapshot.exists) {
-      throw Exception(
-        'Walker profile not found.',
-      );
-    }
+    final Map<String, dynamic>? accountData =
+        accountSnapshot.data();
 
-    final walkerData =
-        walkerSnapshot.data() ?? {};
-
-    final walkerId =
-        walkerData['walkerId']?.toString().trim() ?? '';
+    final String walkerId =
+        accountData?['walkerId']
+                ?.toString()
+                .trim() ??
+            '';
 
     if (walkerId.isEmpty) {
       throw Exception(
@@ -84,17 +79,23 @@ class WalkRequestService {
       );
     }
 
-    // ----------------------------------------------------------
-    // TRANSACTION
-    // ----------------------------------------------------------
+    // ==========================================================
+    // WALK REQUEST REFERENCE
+    // ==========================================================
 
-    final walkRef = _firestore
-        .collection('walk_requests')
-        .doc(walkId);
+    final DocumentReference<Map<String, dynamic>>
+        walkRef = _firestore
+            .collection('walk_requests')
+            .doc(walkId);
+
+    // ==========================================================
+    // TRANSACTION
+    // ==========================================================
 
     await _firestore.runTransaction(
       (transaction) async {
-        final walkSnapshot =
+        final DocumentSnapshot<Map<String, dynamic>>
+            walkSnapshot =
             await transaction.get(walkRef);
 
         if (!walkSnapshot.exists) {
@@ -103,7 +104,7 @@ class WalkRequestService {
           );
         }
 
-        final data =
+        final Map<String, dynamic>? data =
             walkSnapshot.data();
 
         if (data == null) {
@@ -112,10 +113,12 @@ class WalkRequestService {
           );
         }
 
-        final status =
+        final String status =
             data['status']?.toString() ?? '';
 
-        if (status != 'pending') {
+        // IMPORTANT:
+        // Insta Walk requests are "searching"
+        if (status != 'searching') {
           throw Exception(
             'This walk has already been accepted.',
           );
@@ -124,9 +127,16 @@ class WalkRequestService {
         transaction.update(
           walkRef,
           {
+            // Current status
             'status': 'accepted',
+
+            // Main business Walker ID
             'walkerId': walkerId,
+
+            // Firebase internal UID
             'walkerUid': walkerUid,
+
+            // Acceptance time
             'acceptedAt':
                 FieldValue.serverTimestamp(),
           },
@@ -136,11 +146,11 @@ class WalkRequestService {
   }
 
   // ============================================================
-  // ACCEPTED WALK FOR CURRENT WALKER
+  // ACCEPTED WALKS FOR CURRENT WALKER
   // ============================================================
 
   Stream<List<WalkRequest>> acceptedWalksStream() {
-    final user = _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
       return Stream.value(
