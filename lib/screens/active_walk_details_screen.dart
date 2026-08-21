@@ -62,6 +62,27 @@ class _ActiveWalkDetailsScreenState
   bool _sheetExpanded = false;
 
   // ==========================================================================
+  // INIT
+  // ==========================================================================
+
+  @override
+  void initState() {
+    super.initState();
+
+    _sheetController.addListener(_onSheetChanged);
+  }
+
+  void _onSheetChanged() {
+    final bool expanded = _sheetController.size > 0.55;
+
+    if (_sheetExpanded != expanded && mounted) {
+      setState(() {
+        _sheetExpanded = expanded;
+      });
+    }
+  }
+
+  // ==========================================================================
   // BUILD
   // ==========================================================================
 
@@ -190,7 +211,8 @@ class _ActiveWalkDetailsScreenState
   // ==========================================================================
 
   Widget _buildMap() {
-    final LatLng? center = _walkerLocation ??
+    final LatLng? center =
+        _walkerLocation ??
         _pickupLocation ??
         _destinationLocation;
 
@@ -253,10 +275,8 @@ class _ActiveWalkDetailsScreenState
         TileLayer(
           urlTemplate:
               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName:
-              'com.doojowalker.app',
+          userAgentPackageName: 'com.doojowalker.app',
         ),
-
         if (markers.isNotEmpty)
           MarkerLayer(
             markers: markers,
@@ -273,6 +293,9 @@ class _ActiveWalkDetailsScreenState
     final LatLng? location = _walkerLocation;
 
     if (location == null) {
+      _showMessage(
+        'Live location is not available yet.',
+      );
       return;
     }
 
@@ -314,6 +337,7 @@ class _ActiveWalkDetailsScreenState
         ),
         children: [
           // HANDLE
+
           GestureDetector(
             onTap: _toggleSheet,
             child: Center(
@@ -478,7 +502,7 @@ class _ActiveWalkDetailsScreenState
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${_ownerNameText} • ${_dogNameText}',
+                    '$_ownerNameText • $_dogNameText',
                     maxLines: 1,
                     overflow:
                         TextOverflow.ellipsis,
@@ -944,24 +968,17 @@ class _ActiveWalkDetailsScreenState
   // ==========================================================================
 
   void _callOwner() {
-    final String phone =
-        widget.request.ownerPhone.trim();
-
-    if (phone.isEmpty) {
-      _showMessage(
-        'Owner phone number is not available.',
-      );
-      return;
-    }
-
     /*
-     * यहां ownerPhone real Firestore data से आ रहा है।
+     * Current WalkRequest model में ownerPhone नहीं है।
      *
-     * Phone launcher को तुम्हारे existing project/service के साथ
-     * connect किया जा सकता है। अभी कोई fake number नहीं लगाया गया है।
+     * इसलिए यहां ownerPhone को direct access नहीं किया गया है।
+     * Fake number भी नहीं लगाया गया है।
+     *
+     * जब existing owner phone service/model से उपलब्ध होगा,
+     * इसी method में real phone launcher लगाया जा सकता है।
      */
     _showMessage(
-      'Calling $phone',
+      'Owner phone number is not available.',
     );
   }
 
@@ -971,10 +988,8 @@ class _ActiveWalkDetailsScreenState
 
   void _openChat() {
     /*
-     * Chat screen/service तुम्हारे project में जिस existing implementation
-     * से जुड़ा है, उसके साथ यहां navigation जोड़ा जाएगा।
-     *
-     * कोई fake chat screen नहीं बनाया गया।
+     * Existing project के chat service/screen से connect किया जा सकता है।
+     * कोई fake chat screen नहीं बनाया गया है।
      */
     _showMessage(
       'Chat is not connected yet.',
@@ -1204,6 +1219,7 @@ class _ActiveWalkDetailsScreenState
 
   String get _breedText {
     final value = widget.request.dogBreed.trim();
+
     return value.isEmpty
         ? 'Breed not available'
         : value;
@@ -1221,6 +1237,7 @@ class _ActiveWalkDetailsScreenState
   String get _destinationText {
     /*
      * Current WalkRequest में destination field उपलब्ध नहीं है।
+     *
      * इसलिए fake destination नहीं दिखाया जा रहा।
      */
     return 'Destination not available';
@@ -1250,6 +1267,7 @@ class _ActiveWalkDetailsScreenState
   String get _ownerNoteText {
     /*
      * Owner-note field current WalkRequest में उपलब्ध नहीं है।
+     *
      * Fake note नहीं दिखाया जा रहा।
      */
     return 'No additional note provided by owner.';
@@ -1275,8 +1293,13 @@ class _ActiveWalkDetailsScreenState
       );
   }
 
+  // ==========================================================================
+  // DISPOSE
+  // ==========================================================================
+
   @override
   void dispose() {
+    _sheetController.removeListener(_onSheetChanged);
     _sheetController.dispose();
     super.dispose();
   }
@@ -1432,25 +1455,28 @@ class _ReachSliderState
                       });
                     }
                   },
-                  child: Container(
-                    width: handleSize,
-                    height: handleSize,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius:
-                          BorderRadius.circular(15),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
+                  child: const SizedBox(
+                    width: 50,
+                    height: 50,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.all(
+                          Radius.circular(15),
                         ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.arrow_forward,
-                      color: green,
-                      size: 22,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.arrow_forward,
+                        color: green,
+                        size: 22,
+                      ),
                     ),
                   ),
                 ),
