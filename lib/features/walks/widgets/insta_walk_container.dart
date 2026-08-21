@@ -3,7 +3,6 @@
 
 import 'package:flutter/material.dart';
 
-import '../services/walker_location_service.dart';
 import 'insta_walk_map_radar.dart';
 
 class InstaWalkContainer extends StatelessWidget {
@@ -65,9 +64,7 @@ class InstaWalkContainer extends StatelessWidget {
                   size: 28,
                 ),
               ),
-
               const SizedBox(width: 12),
-
               const Expanded(
                 child: Column(
                   crossAxisAlignment:
@@ -81,9 +78,7 @@ class InstaWalkContainer extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-
                     SizedBox(height: 3),
-
                     Text(
                       'Find a walk right now',
                       style: TextStyle(
@@ -100,7 +95,7 @@ class InstaWalkContainer extends StatelessWidget {
           const SizedBox(height: 15),
 
           // =====================================================
-          // DESCRIPTION
+          // NORMAL DESCRIPTION
           // =====================================================
 
           if (!searching)
@@ -115,9 +110,6 @@ class InstaWalkContainer extends StatelessWidget {
 
           // =====================================================
           // MAP + RADAR
-          //
-          // SEARCH START HOTE HI CONTAINER KE ANDAR
-          // MAP + RADAR DIKHEGA
           // =====================================================
 
           if (searching) ...[
@@ -139,9 +131,7 @@ class InstaWalkContainer extends StatelessWidget {
                     ),
                   ),
                 ),
-
                 SizedBox(width: 8),
-
                 Expanded(
                   child: Text(
                     'Searching for nearby Insta Walk requests...',
@@ -159,9 +149,7 @@ class InstaWalkContainer extends StatelessWidget {
           const SizedBox(height: 15),
 
           // =====================================================
-          // SEARCH BUTTON
-          //
-          // BUTTON KI POSITION SAME RAHEGI
+          // SEARCH / STOP BUTTON
           // =====================================================
 
           SizedBox(
@@ -169,14 +157,12 @@ class InstaWalkContainer extends StatelessWidget {
             height: 49,
             child: ElevatedButton.icon(
               onPressed: onSearch,
-
               icon: Icon(
                 searching
                     ? Icons.stop_rounded
                     : Icons.search_rounded,
                 color: const Color(0xFF238EAE),
               ),
-
               label: Text(
                 searching
                     ? 'Stop Insta Walk Search'
@@ -186,7 +172,6 @@ class InstaWalkContainer extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 elevation: 0,
