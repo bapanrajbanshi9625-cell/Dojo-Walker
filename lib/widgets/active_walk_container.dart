@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../models/walk_request.dart';
+import '../features/walks/models/walk_request.dart';
 import '../screens/active_walk_details_screen.dart';
 
 class ActiveWalkContainer extends StatelessWidget {
