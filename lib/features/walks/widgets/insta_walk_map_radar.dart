@@ -429,8 +429,8 @@ class _MapRadarPainter extends CustomPainter {
     final double angle =
         progress * math.pi * 2;
 
-    final double sweepWidth =
-        math.pi / 3;
+    const double sweepWidth =
+    math.pi / 3;
 
     final Paint sweepPaint = Paint()
       ..shader = SweepGradient(
