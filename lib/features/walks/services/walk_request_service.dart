@@ -39,6 +39,30 @@ class WalkRequestService {
 
   // ============================================================
   // PENDING / SEARCHING WALK REQUESTS
+  //
+  // IMPORTANT:
+  // Walker को एक समय में केवल ONE pending request मिलेगी.
+  //
+  // अगर Firestore में:
+  //
+  // Request A = searching
+  // Request B = searching
+  // Request C = searching
+  //
+  // तो Walker app को केवल ONE request मिलेगी.
+  //
+  // जब पहली request:
+  //
+  // searching → accepted
+  //
+  // या
+  //
+  // searching → rejected
+  //
+  // होगी, stream फिर update होगी और अगली
+  // searching request दिखाई दे सकती है.
+  //
+  // RINGTONE LOGIC में कोई बदलाव नहीं किया गया है.
   // ============================================================
 
   Stream<List<WalkRequest>> pendingRequestsStream() {
@@ -49,11 +73,25 @@ class WalkRequestService {
         )
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
+      if (snapshot.docs.isEmpty) {
+        return <WalkRequest>[];
+      }
+
+      final List<WalkRequest> requests = snapshot.docs
           .map(
             (doc) => WalkRequest.fromFirestore(doc),
           )
           .toList();
+
+      // --------------------------------------------------------
+      // ONLY ONE REQUEST
+      //
+      // बाकी searching requests अभी Walker app को नहीं मिलेंगी.
+      // --------------------------------------------------------
+
+      return <WalkRequest>[
+        requests.first,
+      ];
     });
   }
 
