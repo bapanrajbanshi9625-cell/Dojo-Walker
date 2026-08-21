@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ====================================================== -->
+    <!-- DOJO WALKER -->
+    <!-- Foreground Live Walk GPS Service -->
+    <!-- ====================================================== -->
+
+    <string name="app_name">Dojo Walker</string>
+
+    <string name="live_walk_tracking_channel_name">
+        Live Walk Tracking
+    </string>
+
+    <string name="live_walk_tracking_channel_description">
+        Keeps Live Walk location tracking active while the app is in the background.
+    </string>
+
+</resources>
