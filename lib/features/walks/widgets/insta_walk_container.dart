@@ -115,7 +115,11 @@ class InstaWalkContainer extends StatelessWidget {
           if (searching) ...[
             const SizedBox(height: 2),
 
-            const InstaWalkMapRadar(),
+            // FIX:
+            // InstaWalkMapRadar requires searching.
+            InstaWalkMapRadar(
+              searching: searching,
+            ),
 
             const SizedBox(height: 15),
 
