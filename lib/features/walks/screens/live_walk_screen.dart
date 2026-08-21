@@ -52,18 +52,16 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   StreamSubscription<Position>? _locationSubscription;
 
-  bool _ending = false;
-  bool _gpsStarting = false;
-  bool _gpsActive = false;
+bool _ending = false;
+bool _gpsStarting = false;
+bool _gpsActive = false;
 
-  Position? _lastPosition;
+double _totalDistanceKm = 0.0;
 
-  double _totalDistanceKm = 0.0;
+final List<Map<String, dynamic>> _routeCoordinates =
+    <Map<String, dynamic>>[];
 
-  final List<Map<String, dynamic>> _routeCoordinates =
-      <Map<String, dynamic>>[];
-
-  bool _routeLoaded = false;
+bool _routeLoaded = false;
 
   // ============================================================
   // SESSION ID
