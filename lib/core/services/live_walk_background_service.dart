@@ -179,18 +179,16 @@ class LiveWalkBackgroundService {
       // --------------------------------------------------------
 
       try {
-        final Position position =
-            await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-          ),
-        );
+  final Position position =
+      await Geolocator.getCurrentPosition(
+    desiredAccuracy: LocationAccuracy.high,
+  );
 
-        if (_running) {
-          await _processPosition(position);
-        }
-      } catch (_) {
-        // First GPS fix can temporarily fail.
+  if (_running) {
+    await _processPosition(position);
+  }
+} catch (_) {
+  // First GPS fix can temporarily fail.
       }
 
       // --------------------------------------------------------
