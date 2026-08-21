@@ -16,15 +16,11 @@ class QrScannerScreen extends StatefulWidget {
 }
 
 class _QrScannerScreenState extends State<QrScannerScreen> {
-  // ==========================================================
-  // STATE
-  // ==========================================================
-
   bool isScanCompleted = false;
   bool isProcessing = false;
 
   // ==========================================================
-  // FIREBASE
+  // FIRESTORE
   // ==========================================================
 
   final FirebaseFirestore _firestore =
@@ -53,8 +49,15 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       // 1. DECODE QR JSON
       // ======================================================
 
-      final dynamic decodedData =
-          jsonDecode(rawData);
+      dynamic decodedData;
+
+      try {
+        decodedData = jsonDecode(rawData);
+      } catch (_) {
+        throw Exception(
+          'Invalid QR Code format.',
+        );
+      }
 
       if (decodedData is! Map) {
         throw Exception(
@@ -67,53 +70,43 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       // ======================================================
 
       final String type =
-          decodedData['type']
-                  ?.toString()
-                  .trim() ??
-              '';
+          decodedData['type']?.toString().trim() ?? '';
 
       final String ownerUid =
-          decodedData['ownerUid']
-                  ?.toString()
-                  .trim()
-                  .isNotEmpty ==
-              true
-          ? decodedData['ownerUid']
+          (
+            decodedData['ownerUid'] ??
+            decodedData['uid'] ??
+            decodedData['userId'] ??
+            ''
+          )
               .toString()
-              .trim()
-          : decodedData['uid']
-                  ?.toString()
-                  .trim() ??
-              '';
+              .trim();
 
       final String ownerName =
-          decodedData['ownerName']
-                  ?.toString()
-                  .trim()
-                  .isNotEmpty ==
-              true
-          ? decodedData['ownerName']
+          (
+            decodedData['ownerName'] ??
+            decodedData['name'] ??
+            'Owner'
+          )
               .toString()
-              .trim()
-          : decodedData['name']
-                  ?.toString()
-                  .trim() ??
-              'Owner';
+              .trim();
 
       final String ownerPhone =
-          decodedData['ownerPhone']
-                  ?.toString()
-                  .trim() ??
-              decodedData['phoneNumber']
-                  ?.toString()
-                  .trim() ??
-              '';
+          (
+            decodedData['ownerPhone'] ??
+            decodedData['phoneNumber'] ??
+            ''
+          )
+              .toString()
+              .trim();
 
       final String ownerUserId =
-          decodedData['userId']
-                  ?.toString()
-                  .trim() ??
-              ownerUid;
+          (
+            decodedData['userId'] ??
+            ownerUid
+          )
+              .toString()
+              .trim();
 
       final String qrWalkId =
           decodedData['walkId']
@@ -142,7 +135,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       }
 
       // ======================================================
-      // 5. GET WALKER
+      // 5. CHECK WALKER LOGIN
       // ======================================================
 
       final User? walker =
@@ -164,29 +157,36 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       }
 
       // ======================================================
-      // 6. GET OWNER QR FROM FIRESTORE
+      // 6. PREVENT WALKER FROM SCANNING OWN QR
       // ======================================================
+
+      if (walkerUid == ownerUid) {
+        throw Exception(
+          'You cannot scan your own Owner QR Code.',
+        );
+      }
+
+      // ======================================================
+      // 7. READ OWNER QR FROM FIRESTORE
       //
-      // Owner app creates:
+      // Owner app:
       //
       // qr_codes/{ownerUid}
-      //
-      // Therefore Walker reads exactly:
-      //
-      // qr_codes/{ownerUid}
       // ======================================================
+
+      final DocumentReference<
+          Map<String, dynamic>> ownerQrRef =
+          _firestore
+              .collection('qr_codes')
+              .doc(ownerUid);
 
       final DocumentSnapshot<
           Map<String, dynamic>> ownerQR =
-          await _firestore
-              .collection('qr_codes')
-              .doc(ownerUid)
-              .get();
+          await ownerQrRef.get();
 
       if (!ownerQR.exists) {
         throw Exception(
-          'Owner QR not found.\n'
-          'Please ask the Owner to generate a new QR code.',
+          'Owner QR not found in Firebase.',
         );
       }
 
@@ -195,17 +195,18 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               <String, dynamic>{};
 
       // ======================================================
-      // 7. VERIFY FIREBASE OWNER UID
+      // 8. VERIFY OWNER UID FROM FIRESTORE
       // ======================================================
 
       final String firebaseOwnerUid =
-          firebaseData['ownerUid']
-                  ?.toString()
-                  .trim() ??
-              firebaseData['uid']
-                  ?.toString()
-                  .trim() ??
-              '';
+          (
+            firebaseData['ownerUid'] ??
+            firebaseData['uid'] ??
+            firebaseData['userId'] ??
+            ''
+          )
+              .toString()
+              .trim();
 
       if (firebaseOwnerUid.isEmpty) {
         throw Exception(
@@ -220,159 +221,65 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       }
 
       // ======================================================
-      // 8. GET VERIFIED OWNER DATA
+      // 9. GET VERIFIED OWNER INFORMATION
       // ======================================================
 
-      final String firebaseOwnerName =
-          firebaseData['ownerName']
-                  ?.toString()
-                  .trim()
-                  .isNotEmpty ==
-              true
-          ? firebaseData['ownerName']
+      String firebaseOwnerName =
+          (
+            firebaseData['ownerName'] ??
+            firebaseData['name'] ??
+            ownerName
+          )
               .toString()
-              .trim()
-          : firebaseData['name']
-                  ?.toString()
-                  .trim()
-                  .isNotEmpty ==
-              true
-          ? firebaseData['name']
-              .toString()
-              .trim()
-          : ownerName;
+              .trim();
+
+      if (firebaseOwnerName.isEmpty) {
+        firebaseOwnerName = 'Owner';
+      }
 
       final String firebaseOwnerPhone =
-          firebaseData['ownerPhone']
-                  ?.toString()
-                  .trim() ??
-              firebaseData['phoneNumber']
-                  ?.toString()
-                  .trim() ??
-              ownerPhone;
+          (
+            firebaseData['ownerPhone'] ??
+            firebaseData['phoneNumber'] ??
+            ownerPhone
+          )
+              .toString()
+              .trim();
 
       final String firebaseWalkId =
-          firebaseData['walkId']
-                  ?.toString()
-                  .trim()
-                  .isNotEmpty ==
-              true
-          ? firebaseData['walkId']
+          (
+            firebaseData['walkId'] ??
+            qrWalkId
+          )
               .toString()
-              .trim()
-          : qrWalkId;
+              .trim();
 
       // ======================================================
-      // 9. READ SAVED OWNER DESTINATION
-      // ======================================================
-      //
-      // Owner QR contains:
-      //
-      // ownerLocation:
-      // {
-      //   latitude,
-      //   longitude,
-      //   accuracy
-      // }
-      //
-      // This is ONLY a location snapshot.
-      //
-      // It is NOT Owner live location.
+      // 10. CHECK IF QR IS ALREADY SCANNED
       // ======================================================
 
-      Map<String, dynamic>? ownerLocation;
+      final bool alreadyScanned =
+          firebaseData['scanned'] == true;
 
-      final dynamic qrOwnerLocation =
-          firebaseData['ownerLocation'];
+      final String? previousWalker =
+          firebaseData['scannedBy']
+              ?.toString()
+              .trim();
 
-      if (qrOwnerLocation is Map) {
-        final dynamic latitude =
-            qrOwnerLocation['latitude'];
-
-        final dynamic longitude =
-            qrOwnerLocation['longitude'];
-
-        if (latitude != null &&
-            longitude != null) {
-          ownerLocation =
-              <String, dynamic>{
-            'latitude':
-                _toDouble(latitude),
-            'longitude':
-                _toDouble(longitude),
-          };
-
-          final dynamic accuracy =
-              qrOwnerLocation['accuracy'];
-
-          if (accuracy != null) {
-            ownerLocation['accuracy'] =
-                _toDouble(accuracy);
-          }
-        }
+      if (alreadyScanned &&
+          previousWalker != null &&
+          previousWalker.isNotEmpty &&
+          previousWalker != walkerUid) {
+        throw Exception(
+          'This Owner QR is already connected with another walker.',
+        );
       }
 
       // ======================================================
-      // 10. VERIFY LOCATION TYPE
+      // 11. MARK QR AS SCANNED
       // ======================================================
 
-      final String ownerLocationType =
-          firebaseData['ownerLocationType']
-                  ?.toString()
-                  .trim() ??
-              'saved';
-
-      // ======================================================
-      // 11. CHECK EXISTING ACTIVE WALK
-      // ======================================================
-      //
-      // Prevent accidental duplicate active walks
-      // for the same Walker + Owner.
-      // ======================================================
-
-      final QuerySnapshot<
-          Map<String, dynamic>> existingWalks =
-          await _firestore
-              .collection('active_walks')
-              .where(
-                'walkerUid',
-                isEqualTo: walkerUid,
-              )
-              .where(
-                'status',
-                isEqualTo: 'active',
-              )
-              .limit(10)
-              .get();
-
-      for (final QueryDocumentSnapshot<
-          Map<String, dynamic>> doc
-          in existingWalks.docs) {
-        final Map<String, dynamic> data =
-            doc.data();
-
-        final String existingOwnerUid =
-            data['ownerUid']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        if (existingOwnerUid ==
-            ownerUid) {
-          throw Exception(
-            'You already have an active walk with this Owner.',
-          );
-        }
-      }
-
-      // ======================================================
-      // 12. MARK QR AS SCANNED
-      // ======================================================
-
-      await _firestore
-          .collection('qr_codes')
-          .doc(ownerUid)
-          .update({
+      await ownerQrRef.update({
         'scanned': true,
         'scannedBy': walkerUid,
         'scannedAt':
@@ -382,7 +289,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       });
 
       // ======================================================
-      // 13. CREATE ACTIVE WALK
+      // 12. CREATE ACTIVE WALK
       // ======================================================
 
       final DocumentReference<
@@ -391,15 +298,21 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               .collection('active_walks')
               .doc();
 
-      final Map<String, dynamic>
-          activeWalkData =
+      final String activeWalkId =
+          walkRef.id;
+
+      // ======================================================
+      // 13. ACTIVE WALK DATA
+      // ======================================================
+
+      final Map<String, dynamic> activeWalkData =
           <String, dynamic>{
         // ----------------------------------------------------
         // WALK
         // ----------------------------------------------------
 
         'walkId':
-            walkRef.id,
+            activeWalkId,
 
         'qrWalkId':
             firebaseWalkId,
@@ -434,43 +347,20 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         'status':
             'active',
 
-        // ----------------------------------------------------
-        // LOCATION TYPE
-        // ----------------------------------------------------
-        //
-        // saved = destination snapshot
-        //
-        // Never live owner tracking.
-        // ----------------------------------------------------
+        'walkStarted':
+            true,
 
-        'ownerLocationType':
-            ownerLocationType,
-
-        // ----------------------------------------------------
-        // OWNER DESTINATION
-        // ----------------------------------------------------
-
-        if (ownerLocation != null)
-          'ownerLocation':
-              ownerLocation,
-
-        // ----------------------------------------------------
-        // TRACKING FLAGS
-        // ----------------------------------------------------
-
-        'walkerTracking':
+        'walkEnded':
             false,
+
+        // ----------------------------------------------------
+        // TRACKING
+        // ----------------------------------------------------
 
         'trackingStarted':
             false,
 
         'trackingEnded':
-            false,
-
-        'walkStarted':
-            false,
-
-        'walkEnded':
             false,
 
         // ----------------------------------------------------
@@ -492,76 +382,44 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       // 14. SUCCESS
       // ======================================================
 
-      debugPrint(
-        'Owner QR scanned successfully.',
-      );
-
-      debugPrint(
-        'Owner UID: $ownerUid',
-      );
-
-      debugPrint(
-        'Walker UID: $walkerUid',
-      );
-
-      debugPrint(
-        'Active Walk ID: ${walkRef.id}',
-      );
-
-      if (ownerLocation != null) {
-        debugPrint(
-          'Saved Owner destination: '
-          '${ownerLocation['latitude']}, '
-          '${ownerLocation['longitude']}',
-        );
-      } else {
-        debugPrint(
-          'Owner destination was not available.',
-        );
-      }
-
-      // ======================================================
-      // 15. RETURN TO LIVE WALK
-      // ======================================================
-
       if (!mounted) {
         return;
       }
 
+      final Map<String, dynamic> result =
+          <String, dynamic>{
+        'ownerUid':
+            ownerUid,
+
+        'ownerUserId':
+            ownerUserId,
+
+        'ownerName':
+            firebaseOwnerName,
+
+        'ownerPhone':
+            firebaseOwnerPhone,
+
+        'walkerUid':
+            walkerUid,
+
+        'walkId':
+            activeWalkId,
+
+        'qrWalkId':
+            firebaseWalkId,
+
+        'status':
+            'active',
+      };
+
+      // ======================================================
+      // RETURN TO LIVE WALK SCREEN
+      // ======================================================
+
       Navigator.pop(
         context,
-        jsonEncode({
-          'ownerUid':
-              ownerUid,
-
-          'ownerUserId':
-              ownerUserId,
-
-          'ownerName':
-              firebaseOwnerName,
-
-          'ownerPhone':
-              firebaseOwnerPhone,
-
-          'walkerUid':
-              walkerUid,
-
-          'walkId':
-              walkRef.id,
-
-          'qrWalkId':
-              firebaseWalkId,
-
-          'status':
-              'active',
-
-          'ownerLocationType':
-              ownerLocationType,
-
-          if (ownerLocation != null)
-            'ownerLocation':
-                ownerLocation,
-        }),
+        jsonEncode(result),
       );
     } on FirebaseException catch (e) {
       debugPrint(
@@ -580,13 +438,12 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       _showError(
         e.code == 'permission-denied'
-            ? 'You do not have permission to connect with this Owner.'
-            : e.message ??
-                'Unable to connect with Owner.',
+            ? 'Permission denied. Please check Firebase rules.'
+            : 'Firebase error: ${e.message ?? e.code}',
       );
     } catch (e) {
       debugPrint(
-        'QR scan error: $e',
+        'QR processing error: $e',
       );
 
       if (!mounted) {
@@ -608,29 +465,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   }
 
   // ==========================================================
-  // DOUBLE / INT / STRING SAFE DOUBLE
-  // ==========================================================
-
-  double _toDouble(
-    dynamic value,
-  ) {
-    if (value is num) {
-      return value.toDouble();
-    }
-
-    return double.tryParse(
-          value.toString(),
-        ) ??
-        0.0;
-  }
-
-  // ==========================================================
   // ERROR MESSAGE
   // ==========================================================
 
-  void _showError(
-    String message,
-  ) {
+  void _showError(String message) {
     if (!mounted) {
       return;
     }
@@ -641,19 +479,20 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         SnackBar(
           content: Text(
             message,
+            style: const TextStyle(
+              color: Colors.white,
+            ),
           ),
+          backgroundColor:
+              const Color(0xFFB91C1C),
           behavior:
               SnackBarBehavior.floating,
           margin:
               const EdgeInsets.all(16),
-          backgroundColor:
-              const Color(0xFF263746),
           shape:
               RoundedRectangleBorder(
             borderRadius:
-                BorderRadius.circular(
-              14,
-            ),
+                BorderRadius.circular(14),
           ),
         ),
       );
@@ -664,9 +503,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   // ==========================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor:
           Colors.black,
@@ -677,14 +514,16 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       appBar: AppBar(
         backgroundColor:
-            const Color(0xFFE45D32),
+            const Color(0xFFF4511E),
 
-        elevation: 0,
+        elevation:
+            0,
 
         title: const Text(
           'Scan Owner QR Code',
           style: TextStyle(
-            color: Colors.white,
+            color:
+                Colors.white,
             fontWeight:
                 FontWeight.w800,
           ),
@@ -692,7 +531,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
         iconTheme:
             const IconThemeData(
-          color: Colors.white,
+          color:
+              Colors.white,
         ),
       ),
 
@@ -709,9 +549,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
           MobileScanner(
             onDetect:
-                (
-              BarcodeCapture capture,
-            ) {
+                (BarcodeCapture capture) {
               if (isScanCompleted ||
                   isProcessing) {
                 return;
@@ -725,7 +563,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 if (rawData != null &&
                     rawData.trim().isNotEmpty) {
                   _processOwnerQR(
-                    rawData.trim(),
+                    rawData,
                   );
 
                   break;
@@ -740,12 +578,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
           IgnorePointer(
             child: Container(
-              decoration:
-                  BoxDecoration(
-                color: Colors.black
-                    .withValues(
-                  alpha: .18,
-                ),
+              color:
+                  Colors.black.withOpacity(
+                .18,
               ),
             ),
           ),
@@ -755,50 +590,87 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           // ==================================================
 
           Center(
-            child: Container(
-              width: 270,
-              height: 270,
-              decoration:
-                  BoxDecoration(
-                borderRadius:
-                    BorderRadius.circular(
-                  22,
-                ),
-                border:
-                    Border.all(
-                  color:
-                      const Color(
-                    0xFFFF6B35,
-                  ),
-                  width: 3,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color:
-                        const Color(
-                      0xFFFF6B35,
-                    ).withValues(
-                      alpha: .35,
+            child: SizedBox(
+              width: 280,
+              height: 280,
+              child: Stack(
+                children: [
+                  // ------------------------------------------
+                  // OUTER FRAME
+                  // ------------------------------------------
+
+                  Container(
+                    decoration:
+                        BoxDecoration(
+                      border:
+                          Border.all(
+                        color:
+                            Colors.transparent,
+                        width: 2,
+                      ),
+                      borderRadius:
+                          BorderRadius.circular(
+                        22,
+                      ),
                     ),
-                    blurRadius: 20,
-                    spreadRadius: 2,
+                  ),
+
+                  // ------------------------------------------
+                  // TOP LEFT
+                  // ------------------------------------------
+
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    child:
+                        _corner(
+                      top: true,
+                      left: true,
+                    ),
+                  ),
+
+                  // ------------------------------------------
+                  // TOP RIGHT
+                  // ------------------------------------------
+
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child:
+                        _corner(
+                      top: true,
+                      left: false,
+                    ),
+                  ),
+
+                  // ------------------------------------------
+                  // BOTTOM LEFT
+                  // ------------------------------------------
+
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    child:
+                        _corner(
+                      top: false,
+                      left: true,
+                    ),
+                  ),
+
+                  // ------------------------------------------
+                  // BOTTOM RIGHT
+                  // ------------------------------------------
+
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child:
+                        _corner(
+                      top: false,
+                      left: false,
+                    ),
                   ),
                 ],
-              ),
-            ),
-          ),
-
-          // ==================================================
-          // SCAN CORNERS
-          // ==================================================
-
-          Center(
-            child: SizedBox(
-              width: 270,
-              height: 270,
-              child: CustomPaint(
-                painter:
-                    _ScannerCornersPainter(),
               ),
             ),
           ),
@@ -808,7 +680,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           // ==================================================
 
           Positioned(
-            top: 28,
+            top: 24,
             left: 24,
             right: 24,
             child: Container(
@@ -819,13 +691,13 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ),
               decoration:
                   BoxDecoration(
-                color: Colors.black
-                    .withValues(
-                  alpha: .58,
+                color:
+                    Colors.black.withOpacity(
+                  .58,
                 ),
                 borderRadius:
                     BorderRadius.circular(
-                  16,
+                  14,
                 ),
               ),
               child: const Row(
@@ -835,20 +707,20 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                         .qr_code_scanner_rounded,
                     color:
                         Colors.white,
-                    size: 22,
+                    size: 21,
                   ),
                   SizedBox(
-                    width: 10,
+                    width: 9,
                   ),
                   Expanded(
                     child: Text(
-                      'Scan the Owner QR code to start the walk.',
+                      'Scan the Owner QR Code',
                       style:
                           TextStyle(
                         color:
                             Colors.white,
                         fontSize:
-                            13,
+                            14,
                         fontWeight:
                             FontWeight.w700,
                       ),
@@ -860,134 +732,96 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           ),
 
           // ==================================================
-          // CENTER LABEL
-          // ==================================================
-
-          Positioned(
-            top:
-                MediaQuery.of(context)
-                        .size
-                        .height /
-                    2 +
-                145,
-            left: 30,
-            right: 30,
-            child: const Text(
-              'Place the Owner QR code inside the frame',
-              textAlign:
-                  TextAlign.center,
-              style:
-                  TextStyle(
-                color:
-                    Colors.white,
-                fontSize:
-                    14,
-                fontWeight:
-                    FontWeight.w700,
-                shadows: [
-                  Shadow(
-                    color:
-                        Colors.black87,
-                    blurRadius:
-                        6,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // ==================================================
           // PROCESSING
           // ==================================================
 
           if (isProcessing)
-            Container(
-              color: Colors.black
-                  .withValues(
-                alpha: .48,
-              ),
-              child: Center(
-                child: Card(
-                  elevation: 12,
-                  margin:
-                      const EdgeInsets
-                          .symmetric(
-                    horizontal: 35,
+            Center(
+              child: Container(
+                margin:
+                    const EdgeInsets.symmetric(
+                  horizontal: 35,
+                ),
+                padding:
+                    const EdgeInsets.all(
+                  24,
+                ),
+                decoration:
+                    BoxDecoration(
+                  color:
+                      Colors.white,
+                  borderRadius:
+                      BorderRadius.circular(
+                    20,
                   ),
-                  shape:
-                      RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(
-                      22,
+                  boxShadow: const [
+                    BoxShadow(
+                      color:
+                          Colors.black38,
+                      blurRadius:
+                          20,
+                      offset:
+                          Offset(0, 8),
                     ),
-                  ),
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.all(
-                      24,
-                    ),
-                    child: Column(
-                      mainAxisSize:
-                          MainAxisSize.min,
-                      children: [
-                        const SizedBox(
-                          width: 42,
-                          height: 42,
-                          child:
-                              CircularProgressIndicator(
-                            strokeWidth:
-                                3,
-                            valueColor:
-                                AlwaysStoppedAnimation<
-                                    Color>(
-                              Color(
-                                0xFFE45D32,
-                              ),
-                            ),
+                  ],
+                ),
+                child: const Column(
+                  mainAxisSize:
+                      MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 38,
+                      height: 38,
+                      child:
+                          CircularProgressIndicator(
+                        strokeWidth:
+                            3,
+                        valueColor:
+                            AlwaysStoppedAnimation<
+                                Color>(
+                          Color(
+                            0xFFF4511E,
                           ),
                         ),
-
-                        const SizedBox(
-                          height: 18,
-                        ),
-
-                        const Text(
-                          'Connecting to Owner...',
-                          textAlign:
-                              TextAlign.center,
-                          style:
-                              TextStyle(
-                            fontSize:
-                                16,
-                            fontWeight:
-                                FontWeight.w800,
-                            color:
-                                Color(
-                              0xFF263746,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(
-                          height: 6,
-                        ),
-
-                        Text(
-                          'Verifying QR and creating Live Walk',
-                          textAlign:
-                              TextAlign.center,
-                          style:
-                              TextStyle(
-                            fontSize:
-                                12,
-                            color:
-                                Colors.grey
-                                    .shade600,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                    SizedBox(
+                      height: 16,
+                    ),
+                    Text(
+                      'Connecting to Owner...',
+                      textAlign:
+                          TextAlign.center,
+                      style:
+                          TextStyle(
+                        fontSize:
+                            15,
+                        fontWeight:
+                            FontWeight.w800,
+                        color:
+                            Color(
+                          0xFF263746,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      height: 5,
+                    ),
+                    Text(
+                      'Verifying QR and creating Live Walk.',
+                      textAlign:
+                          TextAlign.center,
+                      style:
+                          TextStyle(
+                        fontSize:
+                            11,
+                        color:
+                            Color(
+                          0xFF6B7280,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -998,41 +832,39 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
           if (!isProcessing)
             Positioned(
-              bottom: 38,
+              bottom: 35,
               left: 20,
               right: 20,
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(
+                  horizontal: 17,
                   vertical: 13,
-                  horizontal: 16,
                 ),
                 decoration:
                     BoxDecoration(
-                  color: Colors.black
-                      .withValues(
-                    alpha: .62,
+                  color:
+                      Colors.black.withOpacity(
+                    .68,
                   ),
                   borderRadius:
                       BorderRadius.circular(
-                    16,
+                    15,
                   ),
                 ),
                 child: const Row(
-                  mainAxisAlignment:
-                      MainAxisAlignment.center,
                   children: [
                     Icon(
                       Icons
                           .camera_alt_rounded,
                       color:
                           Colors.white,
-                      size: 18,
+                      size: 19,
                     ),
                     SizedBox(
-                      width: 8,
+                      width: 9,
                     ),
-                    Flexible(
+                    Expanded(
                       child: Text(
                         "Point your camera at the Owner's QR Code",
                         textAlign:
@@ -1056,157 +888,67 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       ),
     );
   }
-}
 
-// ================================================================
-// SCANNER CORNERS PAINTER
-// ================================================================
+  // ==========================================================
+  // SCAN CORNER
+  // ==========================================================
 
-class _ScannerCornersPainter
-    extends CustomPainter {
-  @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
-    const Color color =
-        Color(0xFFFF6B35);
+  Widget _corner({
+    required bool top,
+    required bool left,
+  }) {
+    const Color orange =
+        Color(0xFFFF6600);
 
-    const double length = 28;
-    const double strokeWidth = 5;
-    const double radius = 5;
+    const double length =
+        42;
 
-    final Paint paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
+    const double thickness =
+        4;
 
-    // ==========================================================
-    // TOP LEFT
-    // ==========================================================
-
-    final Path topLeft =
-        Path()
-          ..moveTo(
-            0,
-            length,
-          )
-          ..lineTo(
-            0,
-            radius,
-          )
-          ..quadraticBezierTo(
-            0,
-            0,
-            radius,
-            0,
-          )
-          ..lineTo(
-            length,
-            0,
-          );
-
-    canvas.drawPath(
-      topLeft,
-      paint,
+    return SizedBox(
+      width: length,
+      height: length,
+      child: Stack(
+        children: [
+          Positioned(
+            top: top ? 0 : null,
+            bottom: top ? null : 0,
+            left: left ? 0 : null,
+            right: left ? null : 0,
+            child: Container(
+              width: length,
+              height: thickness,
+              decoration:
+                  BoxDecoration(
+                color: orange,
+                borderRadius:
+                    BorderRadius.circular(
+                  4,
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: top ? 0 : null,
+            bottom: top ? null : 0,
+            left: left ? 0 : null,
+            right: left ? null : 0,
+            child: Container(
+              width: thickness,
+              height: length,
+              decoration:
+                  BoxDecoration(
+                color: orange,
+                borderRadius:
+                    BorderRadius.circular(
+                  4,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
-
-    // ==========================================================
-    // TOP RIGHT
-    // ==========================================================
-
-    final Path topRight =
-        Path()
-          ..moveTo(
-            size.width - length,
-            0,
-          )
-          ..lineTo(
-            size.width - radius,
-            0,
-          )
-          ..quadraticBezierTo(
-            size.width,
-            0,
-            size.width,
-            radius,
-          )
-          ..lineTo(
-            size.width,
-            length,
-          );
-
-    canvas.drawPath(
-      topRight,
-      paint,
-    );
-
-    // ==========================================================
-    // BOTTOM LEFT
-    // ==========================================================
-
-    final Path bottomLeft =
-        Path()
-          ..moveTo(
-            0,
-            size.height - length,
-          )
-          ..lineTo(
-            0,
-            size.height - radius,
-          )
-          ..quadraticBezierTo(
-            0,
-            size.height,
-            radius,
-            size.height,
-          )
-          ..lineTo(
-            length,
-            size.height,
-          );
-
-    canvas.drawPath(
-      bottomLeft,
-      paint,
-    );
-
-    // ==========================================================
-    // BOTTOM RIGHT
-    // ==========================================================
-
-    final Path bottomRight =
-        Path()
-          ..moveTo(
-            size.width - length,
-            size.height,
-          )
-          ..lineTo(
-            size.width - radius,
-            size.height,
-          )
-          ..quadraticBezierTo(
-            size.width,
-            size.height,
-            size.width,
-            size.height - radius,
-          )
-          ..lineTo(
-            size.width,
-            size.height - length,
-          );
-
-    canvas.drawPath(
-      bottomRight,
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(
-    covariant CustomPainter oldDelegate,
-  ) {
-    return false;
   }
 }
