@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../models/walk_request.dart';
+import '../features/walks/models/walk_request.dart';
 import '../features/walks/screens/live_walk_screen.dart';
 
 class ActiveWalkDetailsScreen extends StatefulWidget {
