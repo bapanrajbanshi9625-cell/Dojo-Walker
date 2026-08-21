@@ -175,7 +175,6 @@ class InstaWalkContainer extends StatelessWidget {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Existing radar widget
                       Positioned.fill(
                         child: InstaWalkMapRadar(
                           searching: searching,
@@ -194,7 +193,7 @@ class InstaWalkContainer extends StatelessWidget {
                           top: 20 +
                               ((dotY + 1) / 2) *
                                   180,
-                          child: _RadarDot(),
+                          child: const _RadarDot(),
                         ),
                     ],
                   ),
@@ -206,18 +205,20 @@ class InstaWalkContainer extends StatelessWidget {
                 // SEARCH STATUS
                 // ----------------------------------------------
 
-                Row(
+                const Row(
                   children: [
-                    Container(
+                    SizedBox(
                       width: 9,
                       height: 9,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF62E6A7),
-                        shape: BoxShape.circle,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Color(0xFF62E6A7),
+                          shape: BoxShape.circle,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    const Expanded(
+                    SizedBox(width: 8),
+                    Expanded(
                       child: Text(
                         'Searching for nearby Insta Walk requests...',
                         style: TextStyle(
