@@ -1034,8 +1034,8 @@ class _WalksScreenState extends State<WalksScreen>
   // REQUEST LIST
   // ============================================================
 
-  Widget _buildRequests() {
-    if (_requests.isEmpty) {
+  Widget _buildRequests(BuildContext context) {
+  if (_requests.isEmpty) {
       return Container(
         width: double.infinity,
         padding:
