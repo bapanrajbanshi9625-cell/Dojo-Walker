@@ -1,148 +1,534 @@
+// File location: lib/screens/qr_scanner_screen.dart
+
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../models/walk_request.dart';
-import '../services/walk_request_service.dart';
-import '../../../screens/live_walk_screen.dart';
-import '../widgets/fake_map.dart';
-import '../widgets/floating_start_walk_button.dart';
+import 'live_walk_screen.dart';
 
-class ActiveWalkDetailsScreen extends StatefulWidget {
-  final WalkRequest request;
-
-  const ActiveWalkDetailsScreen({
-    super.key,
-    required this.request,
-  });
+class QrScannerScreen extends StatefulWidget {
+  const QrScannerScreen({super.key});
 
   @override
-  State<ActiveWalkDetailsScreen> createState() =>
-      _ActiveWalkDetailsScreenState();
+  State<QrScannerScreen> createState() =>
+      _QrScannerScreenState();
 }
 
-class _ActiveWalkDetailsScreenState
-    extends State<ActiveWalkDetailsScreen> {
-  // ============================================================
-  // COLORS
-  // ============================================================
+class _QrScannerScreenState extends State<QrScannerScreen> {
+  // ==========================================================
+  // FIREBASE
+  // ==========================================================
 
-  static const Color orange = Color(0xFFFF6600);
-  static const Color blue = Color(0xFF238EAE);
-  static const Color green = Color(0xFF16A34A);
-  static const Color greenLight = Color(0xFFEAF7EF);
-  static const Color dark = Color(0xFF263746);
-  static const Color muted = Color(0xFF7A8289);
-  static const Color background = Color(0xFFF5F6F8);
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
 
-  // ============================================================
-  // STATE
-  // ============================================================
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
 
-  bool _isStartingWalk = false;
+  // ==========================================================
+  // SCAN STATE
+  // ==========================================================
 
-  WalkRequest get request => widget.request;
+  bool isScanCompleted = false;
+  bool isProcessing = false;
 
-  // ============================================================
-  // START LIVE WALK
+  // ==========================================================
+  // PROCESS OWNER QR
   //
-  // ACCEPTED
+  // QR SCAN
   //    ↓
-  // WalkRequestService.startLiveWalk()
+  // VERIFY OWNER
   //    ↓
-  // active_walk/{walkId}
-  // liveWalkSessions/{sessionId}
-  // walk_requests/{walkId} → active
+  // CREATE liveWalkSessions/{sessionId}
   //    ↓
-  // LiveWalkScreen
-  // ============================================================
+  // status = live
+  //    ↓
+  // DIRECT LiveWalkScreen
+  //
+  // IMPORTANT:
+  // ActiveWalkDetailsScreen is NOT used here.
+  // Start Walk button is NOT used here.
+  // ==========================================================
 
-  Future<void> _startWalk() async {
-    if (_isStartingWalk) {
+  Future<void> _processOwnerQR(
+    String rawData,
+  ) async {
+    if (isScanCompleted || isProcessing) {
+      return;
+    }
+
+    if (!mounted) {
       return;
     }
 
     setState(() {
-      _isStartingWalk = true;
+      isScanCompleted = true;
+      isProcessing = true;
     });
 
     try {
       // ========================================================
-      // CREATE ACTIVE WALK + LIVE SESSION
+      // 1. DECODE QR JSON
       // ========================================================
 
+      dynamic decodedData;
+
+      try {
+        decodedData = jsonDecode(rawData);
+      } catch (_) {
+        throw Exception(
+          'Invalid QR Code format.',
+        );
+      }
+
+      if (decodedData is! Map) {
+        throw Exception(
+          'Invalid Owner QR Code.',
+        );
+      }
+
+      // ========================================================
+      // 2. READ QR DATA
+      // ========================================================
+
+      final String type =
+          decodedData['type']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      final String ownerUid =
+          (
+            decodedData['ownerUid'] ??
+            decodedData['uid'] ??
+            decodedData['userId'] ??
+            ''
+          )
+              .toString()
+              .trim();
+
+      final String ownerName =
+          (
+            decodedData['ownerName'] ??
+            decodedData['name'] ??
+            'Owner'
+          )
+              .toString()
+              .trim();
+
+      final String ownerPhone =
+          (
+            decodedData['ownerPhone'] ??
+            decodedData['phoneNumber'] ??
+            decodedData['phone'] ??
+            ''
+          )
+              .toString()
+              .trim();
+
+      final String ownerUserId =
+          (
+            decodedData['userId'] ??
+            ownerUid
+          )
+              .toString()
+              .trim();
+
+      final String qrWalkId =
+          decodedData['walkId']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      // ========================================================
+      // 3. VERIFY QR TYPE
+      // ========================================================
+
+      if (type != 'owner') {
+        throw Exception(
+          'This is not a valid Owner QR Code.',
+        );
+      }
+
+      // ========================================================
+      // 4. VERIFY OWNER UID
+      // ========================================================
+
+      if (ownerUid.isEmpty) {
+        throw Exception(
+          'Owner UID is missing from QR Code.',
+        );
+      }
+
+      // ========================================================
+      // 5. CHECK WALKER LOGIN
+      // ========================================================
+
+      final User? walker =
+          _auth.currentUser;
+
+      if (walker == null) {
+        throw Exception(
+          'Walker is not logged in.',
+        );
+      }
+
+      final String walkerUid =
+          walker.uid.trim();
+
+      if (walkerUid.isEmpty) {
+        throw Exception(
+          'Walker UID is missing.',
+        );
+      }
+
+      // ========================================================
+      // 6. PREVENT SELF SCAN
+      // ========================================================
+
+      if (walkerUid == ownerUid) {
+        throw Exception(
+          'You cannot scan your own Owner QR Code.',
+        );
+      }
+
+      // ========================================================
+      // 7. READ OWNER QR FROM FIRESTORE
+      //
+      // qr_codes/{ownerUid}
+      // ========================================================
+
+      final DocumentReference<
+          Map<String, dynamic>> ownerQrRef =
+          _firestore
+              .collection('qr_codes')
+              .doc(ownerUid);
+
+      final DocumentSnapshot<
+          Map<String, dynamic>> ownerQR =
+          await ownerQrRef.get();
+
+      if (!ownerQR.exists) {
+        throw Exception(
+          'Owner QR not found in Firebase.',
+        );
+      }
+
+      final Map<String, dynamic> firebaseData =
+          ownerQR.data() ??
+              <String, dynamic>{};
+
+      // ========================================================
+      // 8. VERIFY OWNER UID FROM FIREBASE
+      // ========================================================
+
+      final String firebaseOwnerUid =
+          (
+            firebaseData['ownerUid'] ??
+            firebaseData['uid'] ??
+            firebaseData['userId'] ??
+            ''
+          )
+              .toString()
+              .trim();
+
+      if (firebaseOwnerUid.isEmpty) {
+        throw Exception(
+          'Owner UID is missing in Firebase.',
+        );
+      }
+
+      if (firebaseOwnerUid != ownerUid) {
+        throw Exception(
+          'Owner QR verification failed.',
+        );
+      }
+
+      // ========================================================
+      // 9. VERIFIED OWNER DATA
+      // ========================================================
+
+      String firebaseOwnerName =
+          (
+            firebaseData['ownerName'] ??
+            firebaseData['name'] ??
+            ownerName
+          )
+              .toString()
+              .trim();
+
+      if (firebaseOwnerName.isEmpty) {
+        firebaseOwnerName = 'Owner';
+      }
+
+      final String firebaseOwnerPhone =
+          (
+            firebaseData['ownerPhone'] ??
+            firebaseData['phoneNumber'] ??
+            firebaseData['phone'] ??
+            ownerPhone
+          )
+              .toString()
+              .trim();
+
+      final String firebaseWalkId =
+          (
+            firebaseData['walkId'] ??
+            qrWalkId
+          )
+              .toString()
+              .trim();
+
+      // ========================================================
+      // 10. CHECK QR ALREADY CONNECTED
+      // ========================================================
+
+      final bool alreadyScanned =
+          firebaseData['scanned'] == true;
+
+      final String previousWalker =
+          firebaseData['scannedBy']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      if (alreadyScanned &&
+          previousWalker.isNotEmpty &&
+          previousWalker != walkerUid) {
+        throw Exception(
+          'This Owner QR is already connected with another walker.',
+        );
+      }
+
+      // ========================================================
+      // 11. CREATE LIVE WALK SESSION
+      //
+      // IMPORTANT:
+      //
+      // QR scan = WALK STARTED
+      //
+      // इसलिए यहाँ सीधे:
+      //
+      // liveWalkSessions/{sessionId}
+      //
+      // status = live
+      //
+      // No ActiveWalkDetailsScreen.
+      // No Start Walk button.
+      // ========================================================
+
+      final DocumentReference<
+          Map<String, dynamic>> sessionRef =
+          _firestore
+              .collection('liveWalkSessions')
+              .doc();
+
       final String sessionId =
-          await WalkRequestService.instance.startLiveWalk(
-        request.id,
+          sessionRef.id;
+
+      // ========================================================
+      // 12. LIVE SESSION DATA
+      // ========================================================
+
+      final Map<String, dynamic> liveSessionData =
+          <String, dynamic>{
+        // ------------------------------------------------------
+        // SESSION
+        // ------------------------------------------------------
+
+        'id': sessionId,
+
+        'sessionId': sessionId,
+
+        'walkId': sessionId,
+
+        'qrWalkId': firebaseWalkId,
+
+        // ------------------------------------------------------
+        // OWNER
+        //
+        // Keep both naming styles for compatibility.
+        // ------------------------------------------------------
+
+        'ownerId': ownerUid,
+
+        'ownerUid': ownerUid,
+
+        'ownerUserId': ownerUserId,
+
+        'ownerName': firebaseOwnerName,
+
+        'ownerPhone': firebaseOwnerPhone,
+
+        // ------------------------------------------------------
+        // WALKER
+        // ------------------------------------------------------
+
+        'walkerId': walkerUid,
+
+        'walkerUid': walkerUid,
+
+        // ------------------------------------------------------
+        // LIVE STATUS
+        // ------------------------------------------------------
+
+        'status': 'live',
+
+        'walkStarted': true,
+
+        'walkEnded': false,
+
+        // ------------------------------------------------------
+        // TRACKING
+        // ------------------------------------------------------
+
+        'trackingStarted': false,
+
+        'trackingEnded': false,
+
+        // ------------------------------------------------------
+        // LIVE WALK METRICS
+        //
+        // These start only after QR scan because
+        // QR scan itself starts the Live Walk.
+        // ------------------------------------------------------
+
+        'distanceKm': 0,
+
+        'elapsedSeconds': 0,
+
+        'peeCount': 0,
+
+        'poopCount': 0,
+
+        'events': <dynamic>[],
+
+        'routeCoordinates': <dynamic>[],
+
+        // ------------------------------------------------------
+        // LOCATION
+        //
+        // Actual location will be updated by LiveWalkScreen.
+        // ------------------------------------------------------
+
+        'currentLocation': null,
+
+        'currentLat': null,
+
+        'currentLng': null,
+
+        // ------------------------------------------------------
+        // START TIME
+        // ------------------------------------------------------
+
+        'startedAt':
+            FieldValue.serverTimestamp(),
+
+        'liveStartedAt':
+            FieldValue.serverTimestamp(),
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      };
+
+      // ========================================================
+      // 13. SAVE LIVE SESSION
+      // ========================================================
+
+      await sessionRef.set(
+        liveSessionData,
       );
 
       // ========================================================
-      // READ LIVE SESSION
+      // 14. MARK OWNER QR AS SCANNED
       //
-      // liveWalkSessions/{sessionId}
+      // QR itself is also updated.
       // ========================================================
 
-      final DocumentSnapshot<Map<String, dynamic>>
-          sessionSnapshot =
-          await FirebaseFirestore.instance
-              .collection('liveWalkSessions')
-              .doc(sessionId)
-              .get();
+      await ownerQrRef.update({
+        'scanned': true,
 
-      if (!sessionSnapshot.exists) {
+        'scannedBy': walkerUid,
+
+        'scannedAt':
+            FieldValue.serverTimestamp(),
+
+        'liveWalkSessionId':
+            sessionId,
+
+        'liveWalkId':
+            sessionId,
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      });
+
+      // ========================================================
+      // 15. VERIFY SESSION WAS SAVED
+      // ========================================================
+
+      final DocumentSnapshot<
+          Map<String, dynamic>> verifySnapshot =
+          await sessionRef.get();
+
+      if (!verifySnapshot.exists) {
         throw Exception(
           'Live walk session could not be created.',
         );
       }
 
-      final Map<String, dynamic>? sessionData =
-          sessionSnapshot.data();
+      final Map<String, dynamic>? verifyData =
+          verifySnapshot.data();
 
-      if (sessionData == null) {
+      if (verifyData == null) {
         throw Exception(
           'Live walk session data is empty.',
         );
       }
 
-      // ========================================================
-      // OWNER UID
-      // ========================================================
-
-      final String ownerUid =
-          sessionData['ownerUid']
+      final String savedStatus =
+          verifyData['status']
                   ?.toString()
                   .trim() ??
               '';
 
-      if (ownerUid.isEmpty) {
+      if (savedStatus != 'live') {
         throw Exception(
-          'Owner UID not found for this walk.',
+          'Live walk status could not be activated.',
         );
       }
 
       // ========================================================
-      // OWNER NAME
-      //
-      // WalkRequest में available name use करेंगे.
+      // 16. NAVIGATE DIRECTLY TO LIVE WALK
       // ========================================================
-
-      final String ownerName =
-          request.ownerName.trim();
-
-      // ========================================================
-      // OWNER PHONE
-      //
-      // Current live session structure में ownerPhone नहीं है.
-      // इसलिए null भेजेंगे.
-      // ========================================================
-
-      const String? ownerPhone = null;
 
       if (!mounted) {
         return;
       }
 
+      final String liveOwnerName =
+          verifyData['ownerName']
+                  ?.toString()
+                  .trim() ??
+              firebaseOwnerName;
+
+      final String liveOwnerPhone =
+          verifyData['ownerPhone']
+                  ?.toString()
+                  .trim() ??
+              firebaseOwnerPhone;
+
       // ========================================================
-      // OPEN LIVE WALK SCREEN
+      // IMPORTANT:
+      //
+      // walkId = sessionId
+      //
+      // LiveWalkScreen can now directly use:
+      //
+      // liveWalkSessions/{sessionId}
       // ========================================================
 
       await Navigator.pushReplacement(
@@ -150,121 +536,133 @@ class _ActiveWalkDetailsScreenState
         MaterialPageRoute(
           builder: (_) => LiveWalkScreen(
             ownerUid: ownerUid,
-            ownerName: ownerName.isEmpty
-                ? 'Owner'
-                : ownerName,
-            walkId: request.id,
-            ownerPhone: ownerPhone,
+
+            ownerName:
+                liveOwnerName.isEmpty
+                    ? 'Owner'
+                    : liveOwnerName,
+
+            walkId: sessionId,
+
+            ownerPhone:
+                liveOwnerPhone.isEmpty
+                    ? null
+                    : liveOwnerPhone,
           ),
         ),
       );
-    } catch (e) {
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'QR Firebase error: '
+        '${e.code} - ${e.message}',
+      );
+
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _isStartingWalk = false;
+        isScanCompleted = false;
+        isProcessing = false;
       });
 
-      final String message =
-          e.toString().replaceFirst(
-                'Exception: ',
-                '',
-              );
+      _showError(
+        e.code == 'permission-denied'
+            ? 'Permission denied. Please check Firebase rules.'
+            : 'Firebase error: ${e.message ?? e.code}',
+      );
+    } catch (e) {
+      debugPrint(
+        'QR processing error: $e',
+      );
 
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(message),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        isScanCompleted = false;
+        isProcessing = false;
+      });
+
+      _showError(
+        e.toString().replaceFirst(
+              'Exception: ',
+              '',
+            ),
+      );
     }
   }
 
-  // ============================================================
+  // ==========================================================
+  // ERROR
+  // ==========================================================
+
+  void _showError(
+    String message,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            message,
+            style: const TextStyle(
+              color: Colors.white,
+            ),
+          ),
+          backgroundColor:
+              const Color(0xFFB91C1C),
+          behavior:
+              SnackBarBehavior.floating,
+          margin:
+              const EdgeInsets.all(16),
+          shape:
+              RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(14),
+          ),
+        ),
+      );
+  }
+
+  // ==========================================================
   // BUILD
-  // ============================================================
+  // ==========================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: Colors.black,
 
       // ========================================================
       // APP BAR
       // ========================================================
 
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
+        backgroundColor:
+            const Color(0xFFF4511E),
+
         elevation: 0,
 
-        leading: IconButton(
-          onPressed: _isStartingWalk
-              ? null
-              : () => Navigator.pop(context),
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: dark,
-          ),
-        ),
-
         title: const Text(
-          'Active Walk',
+          'Scan Owner QR Code',
           style: TextStyle(
-            color: dark,
-            fontSize: 19,
+            color: Colors.white,
             fontWeight: FontWeight.w800,
           ),
         ),
 
-        actions: [
-          PopupMenuButton<String>(
-            enabled: !_isStartingWalk,
-            icon: const Icon(
-              Icons.more_vert_rounded,
-              color: dark,
-            ),
-            onSelected: (value) {
-              if (value == 'cancel') {
-                _showCancelDialog(context);
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: 'cancel',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.cancel_outlined,
-                      color: dark,
-                      size: 19,
-                    ),
-                    SizedBox(width: 10),
-                    Text('Cancel Walk'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'report',
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.flag_outlined,
-                      color: dark,
-                      size: 19,
-                    ),
-                    SizedBox(width: 10),
-                    Text('Report'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+        iconTheme:
+            const IconThemeData(
+          color: Colors.white,
+        ),
       ),
 
       // ========================================================
@@ -272,711 +670,419 @@ class _ActiveWalkDetailsScreenState
       // ========================================================
 
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          ListView(
-            padding: const EdgeInsets.only(
-              bottom: 105,
+          // ====================================================
+          // CAMERA
+          // ====================================================
+
+          MobileScanner(
+            onDetect:
+                (BarcodeCapture capture) {
+              if (isScanCompleted ||
+                  isProcessing) {
+                return;
+              }
+
+              for (final Barcode barcode
+                  in capture.barcodes) {
+                final String? rawData =
+                    barcode.rawValue;
+
+                if (rawData != null &&
+                    rawData.trim().isNotEmpty) {
+                  _processOwnerQR(
+                    rawData,
+                  );
+
+                  break;
+                }
+              }
+            },
+          ),
+
+          // ====================================================
+          // DARK OVERLAY
+          // ====================================================
+
+          IgnorePointer(
+            child: Container(
+              color:
+                  Colors.black.withOpacity(
+                .18,
+              ),
             ),
-            children: [
-              const SizedBox(height: 16),
+          ),
 
-              // =================================================
-              // STATUS
-              // =================================================
+          // ====================================================
+          // SCAN FRAME
+          // ====================================================
 
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                ),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 11,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: greenLight,
+          Center(
+            child: SizedBox(
+              width: 280,
+              height: 280,
+              child: Stack(
+                children: [
+                  // --------------------------------------------
+                  // OUTER FRAME
+                  // --------------------------------------------
+
+                  Container(
+                    decoration:
+                        BoxDecoration(
+                      border:
+                          Border.all(
+                        color:
+                            Colors.transparent,
+                        width: 2,
+                      ),
                       borderRadius:
-                          BorderRadius.circular(10),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.check_circle_rounded,
-                          color: green,
-                          size: 16,
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          'WALK ACCEPTED',
-                          style: TextStyle(
-                            color: green,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: .4,
-                          ),
-                        ),
-                      ],
+                          BorderRadius.circular(
+                        22,
+                      ),
                     ),
                   ),
-                ),
-              ),
 
-              const SizedBox(height: 12),
+                  // --------------------------------------------
+                  // TOP LEFT
+                  // --------------------------------------------
 
-              // =================================================
-              // MAP
-              // =================================================
-
-              Container(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                ),
-                height: 255,
-                decoration: BoxDecoration(
-                  borderRadius:
-                      BorderRadius.circular(22),
-                  color: const Color(0xFFE7EEF0),
-                  border: Border.all(
-                    color: const Color(0xFFD6E0E2),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(.08),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius:
-                      BorderRadius.circular(22),
-                  child: Stack(
-                    children: [
-                      const FakeMap(),
-
-                      const Positioned(
-                        left: 110,
-                        top: 100,
-                        child: MapMarker(
-                          icon: Icons.pets_rounded,
-                          color: orange,
-                        ),
-                      ),
-
-                      const Positioned(
-                        right: 95,
-                        bottom: 70,
-                        child: MapMarker(
-                          icon:
-                              Icons.directions_walk_rounded,
-                          color: blue,
-                        ),
-                      ),
-
-                      Positioned(
-                        top: 12,
-                        left: 12,
-                        child: Container(
-                          padding:
-                              const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 7,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                Colors.white.withOpacity(.94),
-                            borderRadius:
-                                BorderRadius.circular(10),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(
-                                Icons.map_outlined,
-                                size: 15,
-                                color: dark,
-                              ),
-                              SizedBox(width: 5),
-                              Text(
-                                'PICKUP MAP',
-                                style: TextStyle(
-                                  color: dark,
-                                  fontSize: 9,
-                                  fontWeight:
-                                      FontWeight.w900,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // =================================================
-              // NAVIGATION
-              // =================================================
-
-              Container(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                ),
-                height: 56,
-                decoration: BoxDecoration(
-                  color: blue,
-                  borderRadius:
-                      BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: blue.withOpacity(.25),
-                      blurRadius: 12,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius:
-                        BorderRadius.circular(16),
-                    onTap: _isStartingWalk
-                        ? null
-                        : () {
-                            ScaffoldMessenger.of(
-                              context,
-                            ).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Navigation will open after Google Maps is connected.',
-                                ),
-                                behavior:
-                                    SnackBarBehavior.floating,
-                              ),
-                            );
-                          },
-                    child: const Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.navigation_rounded,
-                          color: Colors.white,
-                          size: 21,
-                        ),
-                        SizedBox(width: 9),
-                        Text(
-                          'Navigation',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight:
-                                FontWeight.w800,
-                          ),
-                        ),
-                        SizedBox(width: 7),
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      ],
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    child: _corner(
+                      top: true,
+                      left: true,
                     ),
                   ),
-                ),
+
+                  // --------------------------------------------
+                  // TOP RIGHT
+                  // --------------------------------------------
+
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: _corner(
+                      top: true,
+                      left: false,
+                    ),
+                  ),
+
+                  // --------------------------------------------
+                  // BOTTOM LEFT
+                  // --------------------------------------------
+
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    child: _corner(
+                      top: false,
+                      left: true,
+                    ),
+                  ),
+
+                  // --------------------------------------------
+                  // BOTTOM RIGHT
+                  // --------------------------------------------
+
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: _corner(
+                      top: false,
+                      left: false,
+                    ),
+                  ),
+                ],
               ),
-
-              const SizedBox(height: 20),
-
-              // =================================================
-              // OWNER + DOG
-              // =================================================
-
-              _sectionTitle('Owner & Dog'),
-
-              _card(
-                child: Column(
-                  children: [
-                    _personRow(
-                      Icons.person_rounded,
-                      blue,
-                      request.ownerName.isEmpty
-                          ? 'Owner'
-                          : request.ownerName,
-                      'Dog Owner',
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    const Divider(
-                      height: 1,
-                      color: Color(0xFFE9ECEE),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    _personRow(
-                      Icons.pets_rounded,
-                      green,
-                      request.dogName.isEmpty
-                          ? 'Dog'
-                          : request.dogName,
-                      '${request.dogBreed} • ${request.dogAge}',
-                    ),
-
-                    const SizedBox(height: 15),
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _primaryButton(
-                            icon: Icons.call_rounded,
-                            label: 'Call',
-                            color: green,
-                            onPressed: () {},
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _primaryButton(
-                            icon:
-                                Icons.chat_bubble_rounded,
-                            label: 'Chat',
-                            color: blue,
-                            onPressed: () {},
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // =================================================
-              // PICKUP LOCATION
-              // =================================================
-
-              _sectionTitle('Pickup Location'),
-
-              _card(
-                child: Row(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF1EA),
-                        borderRadius:
-                            BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.location_on_rounded,
-                        color: orange,
-                      ),
-                    ),
-                    const SizedBox(width: 11),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'PICK-UP ADDRESS',
-                            style: TextStyle(
-                              color: muted,
-                              fontSize: 9,
-                              fontWeight:
-                                  FontWeight.w900,
-                              letterSpacing: .5,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            request.pickupAddress.isEmpty
-                                ? 'Pickup address unavailable'
-                                : request.pickupAddress,
-                            style: const TextStyle(
-                              color: dark,
-                              fontSize: 13,
-                              height: 1.4,
-                              fontWeight:
-                                  FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // =================================================
-              // WALK INFORMATION
-              // =================================================
-
-              _sectionTitle('Walk Information'),
-
-              _card(
-                child: Column(
-                  children: [
-                    _detailRow(
-                      Icons.route_rounded,
-                      'Distance',
-                      '${request.distanceKm.toStringAsFixed(1)} km',
-                    ),
-                    _divider(),
-                    _detailRow(
-                      Icons.access_time_rounded,
-                      'Estimated arrival',
-                      request.estimatedTime,
-                    ),
-                    _divider(),
-                    _detailRow(
-                      Icons.flash_on_rounded,
-                      'Walk type',
-                      request.walkType,
-                    ),
-                    _divider(),
-                    _detailRow(
-                      Icons.check_circle_outline_rounded,
-                      'Status',
-                      request.status,
-                      valueColor: green,
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 30),
-            ],
+            ),
           ),
 
           // ====================================================
-          // START WALK BUTTON
+          // TOP INSTRUCTION
           // ====================================================
 
-          if (!_isStartingWalk)
-            FloatingStartWalkButton(
-              onPressed: _startWalk,
-            )
-          else
-            _startingWalkButton(),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // STARTING BUTTON
-  // ============================================================
-
-  Widget _startingWalkButton() {
-    return SafeArea(
-      top: false,
-      child: Center(
-        child: SizedBox(
-          width: 190,
-          height: 48,
-          child: ElevatedButton(
-            onPressed: null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: orange,
-              disabledBackgroundColor: orange,
-              disabledForegroundColor: Colors.white,
-              elevation: 9,
-              shape: RoundedRectangleBorder(
+          Positioned(
+            top: 24,
+            left: 24,
+            right: 24,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              decoration:
+                  BoxDecoration(
+                color:
+                    Colors.black.withOpacity(
+                  .58,
+                ),
                 borderRadius:
-                    BorderRadius.circular(28),
+                    BorderRadius.circular(
+                  14,
+                ),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons
+                        .qr_code_scanner_rounded,
+                    color:
+                        Colors.white,
+                    size: 21,
+                  ),
+                  SizedBox(
+                    width: 9,
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Scan the Owner QR Code',
+                      style:
+                          TextStyle(
+                        color:
+                            Colors.white,
+                        fontSize:
+                            14,
+                        fontWeight:
+                            FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: const Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: 19,
-                  height: 19,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
+          ),
+
+          // ====================================================
+          // PROCESSING
+          // ====================================================
+
+          if (isProcessing)
+            Center(
+              child: Container(
+                margin:
+                    const EdgeInsets.symmetric(
+                  horizontal: 35,
                 ),
-                SizedBox(width: 9),
-                Text(
-                  'Starting Walk...',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
+                padding:
+                    const EdgeInsets.all(
+                  24,
                 ),
-              ],
+                decoration:
+                    BoxDecoration(
+                  color:
+                      Colors.white,
+                  borderRadius:
+                      BorderRadius.circular(
+                    20,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color:
+                          Colors.black38,
+                      blurRadius:
+                          20,
+                      offset:
+                          Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child:
+                    const Column(
+                  mainAxisSize:
+                      MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 38,
+                      height: 38,
+                      child:
+                          CircularProgressIndicator(
+                        strokeWidth:
+                            3,
+                        valueColor:
+                            AlwaysStoppedAnimation<
+                                Color>(
+                          Color(
+                            0xFFF4511E,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(
+                      height: 16,
+                    ),
+
+                    Text(
+                      'Starting Live Walk...',
+                      textAlign:
+                          TextAlign.center,
+                      style:
+                          TextStyle(
+                        fontSize:
+                            15,
+                        fontWeight:
+                            FontWeight.w800,
+                        color:
+                            Color(
+                          0xFF263746,
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(
+                      height: 5,
+                    ),
+
+                    Text(
+                      'Verifying Owner and creating live session.',
+                      textAlign:
+                          TextAlign.center,
+                      style:
+                          TextStyle(
+                        fontSize:
+                            11,
+                        color:
+                            Color(
+                          0xFF6B7280,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
 
-  // ============================================================
-  // SECTION TITLE
-  // ============================================================
+          // ====================================================
+          // BOTTOM MESSAGE
+          // ====================================================
 
-  static Widget _sectionTitle(
-    String title,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        20,
-        0,
-        20,
-        9,
-      ),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: dark,
-          fontSize: 14,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // CARD
-  // ============================================================
-
-  static Widget _card({
-    required Widget child,
-  }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: 18,
-      ),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFFE1E6E8),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(.045),
-            blurRadius: 13,
-            offset: const Offset(0, 5),
-          ),
+          if (!isProcessing)
+            Positioned(
+              bottom: 35,
+              left: 20,
+              right: 20,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(
+                  horizontal: 17,
+                  vertical: 13,
+                ),
+                decoration:
+                    BoxDecoration(
+                  color:
+                      Colors.black.withOpacity(
+                    .68,
+                  ),
+                  borderRadius:
+                      BorderRadius.circular(
+                    15,
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons
+                          .camera_alt_rounded,
+                      color:
+                          Colors.white,
+                      size: 19,
+                    ),
+                    SizedBox(
+                      width: 9,
+                    ),
+                    Expanded(
+                      child: Text(
+                        "Point your camera at the Owner's QR Code",
+                        textAlign:
+                            TextAlign.center,
+                        style:
+                            TextStyle(
+                          color:
+                              Colors.white,
+                          fontSize:
+                              13,
+                          fontWeight:
+                              FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
-      child: child,
     );
   }
 
-  // ============================================================
-  // PERSON ROW
-  // ============================================================
+  // ==========================================================
+  // SCAN CORNER
+  // ==========================================================
 
-  static Widget _personRow(
-    IconData icon,
-    Color color,
-    String title,
-    String subtitle,
-  ) {
-    return Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: color.withOpacity(.10),
-            borderRadius:
-                BorderRadius.circular(13),
-          ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 22,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: dark,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: muted,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // PRIMARY BUTTON
-  // ============================================================
-
-  static Widget _primaryButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onPressed,
+  Widget _corner({
+    required bool top,
+    required bool left,
   }) {
+    const Color orange =
+        Color(0xFFFF6600);
+
+    const double length = 42;
+
+    const double thickness = 4;
+
     return SizedBox(
-      height: 48,
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(
-          icon,
-          size: 19,
-        ),
-        label: Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(14),
-          ),
-        ),
-      ),
-    );
-  }
+      width: length,
+      height: length,
+      child: Stack(
+        children: [
+          // ====================================================
+          // HORIZONTAL
+          // ====================================================
 
-  // ============================================================
-  // DETAIL ROW
-  // ============================================================
-
-  static Widget _detailRow(
-    IconData icon,
-    String title,
-    String value, {
-    Color valueColor = dark,
-  }) {
-    return Row(
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F6),
-            borderRadius:
-                BorderRadius.circular(10),
-          ),
-          child: Icon(
-            icon,
-            color: blue,
-            size: 18,
-          ),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              color: muted,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+          Positioned(
+            top: top ? 0 : null,
+            bottom: top ? null : 0,
+            left: left ? 0 : null,
+            right: left ? null : 0,
+            child: Container(
+              width: length,
+              height: thickness,
+              decoration:
+                  BoxDecoration(
+                color: orange,
+                borderRadius:
+                    BorderRadius.circular(
+                  4,
+                ),
+              ),
             ),
           ),
-        ),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: valueColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
+
+          // ====================================================
+          // VERTICAL
+          // ====================================================
+
+          Positioned(
+            top: top ? 0 : null,
+            bottom: top ? null : 0,
+            left: left ? 0 : null,
+            right: left ? null : 0,
+            child: Container(
+              width: thickness,
+              height: length,
+              decoration:
+                  BoxDecoration(
+                color: orange,
+                borderRadius:
+                    BorderRadius.circular(
+                  4,
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // DIVIDER
-  // ============================================================
-
-  static Widget _divider() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(
-        vertical: 11,
-      ),
-      child: Divider(
-        height: 1,
-        color: Color(0xFFE9ECEE),
-      ),
-    );
-  }
-
-  // ============================================================
-  // CANCEL DIALOG
-  // ============================================================
-
-  static void _showCancelDialog(
-    BuildContext context,
-  ) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text(
-          'Cancel Walk?',
-        ),
-        content: const Text(
-          'Are you sure you want to cancel this accepted walk?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(context),
-            child: const Text('Keep'),
-          ),
-          TextButton(
-            onPressed: () =>
-                Navigator.pop(context),
-            child: const Text('Cancel Walk'),
           ),
         ],
       ),
