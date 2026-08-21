@@ -7,6 +7,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import 'live_walk_screen.dart';
+
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
 
@@ -28,6 +30,16 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
   // ==========================================================
   // PROCESS OWNER QR
+  //
+  // QR SCAN
+  //    ↓
+  // VERIFY OWNER
+  //    ↓
+  // active_walk/{walkId}
+  //    ↓
+  // liveWalkSessions/{walkId}
+  //    ↓
+  // DIRECT LIVE WALK
   // ==========================================================
 
   Future<void> _processOwnerQR(String rawData) async {
@@ -70,7 +82,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       // ======================================================
 
       final String type =
-          decodedData['type']?.toString().trim() ?? '';
+          decodedData['type']
+                  ?.toString()
+                  .trim() ??
+              '';
 
       final String ownerUid =
           (
@@ -157,7 +172,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       }
 
       // ======================================================
-      // 6. PREVENT WALKER FROM SCANNING OWN QR
+      // 6. PREVENT SELF SCAN
       // ======================================================
 
       if (walkerUid == ownerUid) {
@@ -168,8 +183,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       // ======================================================
       // 7. READ OWNER QR FROM FIRESTORE
-      //
-      // Owner app:
       //
       // qr_codes/{ownerUid}
       // ======================================================
@@ -221,7 +234,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       }
 
       // ======================================================
-      // 9. GET VERIFIED OWNER INFORMATION
+      // 9. VERIFIED OWNER INFORMATION
       // ======================================================
 
       String firebaseOwnerName =
@@ -255,7 +268,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               .trim();
 
       // ======================================================
-      // 10. CHECK IF QR IS ALREADY SCANNED
+      // 10. CHECK QR ALREADY SCANNED
       // ======================================================
 
       final bool alreadyScanned =
@@ -276,7 +289,34 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       }
 
       // ======================================================
-      // 11. MARK QR AS SCANNED
+      // 11. CHECK EXISTING ACTIVE WALK FOR THIS WALKER
+      //
+      // Prevent accidental duplicate Live Walk.
+      // ======================================================
+
+      final QuerySnapshot<
+          Map<String, dynamic>> existingWalkSnapshot =
+          await _firestore
+              .collection('active_walk')
+              .where(
+                'walkerUid',
+                isEqualTo: walkerUid,
+              )
+              .where(
+                'status',
+                isEqualTo: 'active',
+              )
+              .limit(1)
+              .get();
+
+      if (existingWalkSnapshot.docs.isNotEmpty) {
+        throw Exception(
+          'You already have an active Live Walk.',
+        );
+      }
+
+      // ======================================================
+      // 12. MARK OWNER QR AS SCANNED
       // ======================================================
 
       await ownerQrRef.update({
@@ -289,20 +329,31 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       });
 
       // ======================================================
-      // 12. CREATE ACTIVE WALK
+      // 13. CREATE ONE COMMON WALK ID
+      //
+      // Same ID will be used for:
+      //
+      // active_walk/{walkId}
+      // liveWalkSessions/{walkId}
+      //
+      // This is important because LiveWalkScreen reads
+      // active_walk/{walkId} and liveWalkSessions/{sessionId}.
       // ======================================================
 
       final DocumentReference<
           Map<String, dynamic>> walkRef =
           _firestore
-              .collection('active_walks')
+              .collection('active_walk')
               .doc();
 
-      final String activeWalkId =
+      final String walkId =
           walkRef.id;
 
+      final String sessionId =
+          walkId;
+
       // ======================================================
-      // 13. ACTIVE WALK DATA
+      // 14. CREATE ACTIVE WALK DATA
       // ======================================================
 
       final Map<String, dynamic> activeWalkData =
@@ -312,10 +363,16 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         // ----------------------------------------------------
 
         'walkId':
-            activeWalkId,
+            walkId,
 
         'qrWalkId':
             firebaseWalkId,
+
+        'source':
+            'owner_qr',
+
+        'walkType':
+            'QR Walk',
 
         // ----------------------------------------------------
         // OWNER
@@ -363,6 +420,47 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         'trackingEnded':
             false,
 
+        'elapsedSeconds':
+            0,
+
+        'distanceKm':
+            0.0,
+
+        'distance':
+            '0.0 km',
+
+        'peeCount':
+            0,
+
+        'poopCount':
+            0,
+
+        'routeCoordinates':
+            <Map<String, dynamic>>[],
+
+        // ----------------------------------------------------
+        // LOCATION
+        // ----------------------------------------------------
+
+        'currentLocation':
+            <String, dynamic>{
+          'lat': 0.0,
+          'lng': 0.0,
+        },
+
+        'currentLat':
+            0.0,
+
+        'currentLng':
+            0.0,
+
+        // ----------------------------------------------------
+        // SESSION
+        // ----------------------------------------------------
+
+        'sessionId':
+            sessionId,
+
         // ----------------------------------------------------
         // TIMESTAMPS
         // ----------------------------------------------------
@@ -374,20 +472,32 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             FieldValue.serverTimestamp(),
       };
 
-      await walkRef.set(
-        activeWalkData,
-      );
-
       // ======================================================
-      // 14. SUCCESS
+      // 15. CREATE LIVE SESSION DATA
       // ======================================================
 
-      if (!mounted) {
-        return;
-      }
+      final DocumentReference<
+          Map<String, dynamic>> sessionRef =
+          _firestore
+              .collection('liveWalkSessions')
+              .doc(sessionId);
 
-      final Map<String, dynamic> result =
+      final Map<String, dynamic> liveSessionData =
           <String, dynamic>{
+        // ----------------------------------------------------
+        // SESSION
+        // ----------------------------------------------------
+
+        'sessionId':
+            sessionId,
+
+        'walkId':
+            walkId,
+
+        // ----------------------------------------------------
+        // OWNER
+        // ----------------------------------------------------
+
         'ownerUid':
             ownerUid,
 
@@ -400,26 +510,159 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         'ownerPhone':
             firebaseOwnerPhone,
 
+        // ----------------------------------------------------
+        // WALKER
+        // ----------------------------------------------------
+
         'walkerUid':
             walkerUid,
 
-        'walkId':
-            activeWalkId,
-
-        'qrWalkId':
-            firebaseWalkId,
+        // ----------------------------------------------------
+        // STATUS
+        // ----------------------------------------------------
 
         'status':
             'active',
+
+        // ----------------------------------------------------
+        // TIMER
+        // ----------------------------------------------------
+
+        'elapsedSeconds':
+            0,
+
+        // ----------------------------------------------------
+        // DISTANCE
+        // ----------------------------------------------------
+
+        'distanceKm':
+            0.0,
+
+        // ----------------------------------------------------
+        // DOG EVENTS
+        // ----------------------------------------------------
+
+        'peeCount':
+            0,
+
+        'poopCount':
+            0,
+
+        // ----------------------------------------------------
+        // LOCATION
+        // ----------------------------------------------------
+
+        'currentLocation':
+            <String, dynamic>{
+          'lat': 0.0,
+          'lng': 0.0,
+        },
+
+        // ----------------------------------------------------
+        // ROUTE
+        // ----------------------------------------------------
+
+        'routeCoordinates':
+            <Map<String, dynamic>>[],
+
+        // ----------------------------------------------------
+        // TRACKING
+        // ----------------------------------------------------
+
+        'trackingStarted':
+            false,
+
+        'trackingEnded':
+            false,
+
+        // ----------------------------------------------------
+        // TIMESTAMPS
+        // ----------------------------------------------------
+
+        'startedAt':
+            FieldValue.serverTimestamp(),
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
       };
 
       // ======================================================
-      // RETURN TO LIVE WALK SCREEN
+      // 16. WRITE BOTH DOCUMENTS
+      //
+      // Batch makes the creation much safer.
       // ======================================================
 
-      Navigator.pop(
+      final WriteBatch batch =
+          _firestore.batch();
+
+      batch.set(
+        walkRef,
+        activeWalkData,
+      );
+
+      batch.set(
+        sessionRef,
+        liveSessionData,
+      );
+
+      await batch.commit();
+
+      // ======================================================
+      // 17. VERIFY ACTIVE WALK
+      // ======================================================
+
+      final DocumentSnapshot<
+          Map<String, dynamic>> createdWalk =
+          await walkRef.get();
+
+      if (!createdWalk.exists) {
+        throw Exception(
+          'Active Live Walk could not be created.',
+        );
+      }
+
+      // ======================================================
+      // 18. VERIFY LIVE SESSION
+      // ======================================================
+
+      final DocumentSnapshot<
+          Map<String, dynamic>> createdSession =
+          await sessionRef.get();
+
+      if (!createdSession.exists) {
+        throw Exception(
+          'Live Walk session could not be created.',
+        );
+      }
+
+      // ======================================================
+      // 19. OPEN LIVE WALK DIRECTLY
+      // ======================================================
+
+      if (!mounted) {
+        return;
+      }
+
+      await Navigator.pushReplacement(
         context,
-        jsonEncode(result),
+        MaterialPageRoute(
+          builder: (_) => LiveWalkScreen(
+            ownerUid:
+                ownerUid,
+            ownerName:
+                firebaseOwnerName.isEmpty
+                    ? 'Owner'
+                    : firebaseOwnerName,
+            walkId:
+                walkId,
+            ownerPhone:
+                firebaseOwnerPhone.isEmpty
+                    ? null
+                    : firebaseOwnerPhone,
+            sessionId:
+                sessionId,
+          ),
+        ),
       );
     } on FirebaseException catch (e) {
       debugPrint(
@@ -468,7 +711,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   // ERROR MESSAGE
   // ==========================================================
 
-  void _showError(String message) {
+  void _showError(
+    String message,
+  ) {
     if (!mounted) {
       return;
     }
@@ -503,7 +748,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   // ==========================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       backgroundColor:
           Colors.black,
@@ -555,8 +802,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 return;
               }
 
-              for (final Barcode barcode
-                  in capture.barcodes) {
+              for (
+                final Barcode barcode
+                    in capture.barcodes
+              ) {
                 final String? rawData =
                     barcode.rawValue;
 
@@ -595,10 +844,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               height: 280,
               child: Stack(
                 children: [
-                  // ------------------------------------------
-                  // OUTER FRAME
-                  // ------------------------------------------
-
                   Container(
                     decoration:
                         BoxDecoration(
@@ -615,57 +860,37 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     ),
                   ),
 
-                  // ------------------------------------------
-                  // TOP LEFT
-                  // ------------------------------------------
-
                   Positioned(
                     top: 0,
                     left: 0,
-                    child:
-                        _corner(
+                    child: _corner(
                       top: true,
                       left: true,
                     ),
                   ),
 
-                  // ------------------------------------------
-                  // TOP RIGHT
-                  // ------------------------------------------
-
                   Positioned(
                     top: 0,
                     right: 0,
-                    child:
-                        _corner(
+                    child: _corner(
                       top: true,
                       left: false,
                     ),
                   ),
 
-                  // ------------------------------------------
-                  // BOTTOM LEFT
-                  // ------------------------------------------
-
                   Positioned(
                     bottom: 0,
                     left: 0,
-                    child:
-                        _corner(
+                    child: _corner(
                       top: false,
                       left: true,
                     ),
                   ),
 
-                  // ------------------------------------------
-                  // BOTTOM RIGHT
-                  // ------------------------------------------
-
                   Positioned(
                     bottom: 0,
                     right: 0,
-                    child:
-                        _corner(
+                    child: _corner(
                       top: false,
                       left: false,
                     ),
@@ -703,8 +928,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               child: const Row(
                 children: [
                   Icon(
-                    Icons
-                        .qr_code_scanner_rounded,
+                    Icons.qr_code_scanner_rounded,
                     color:
                         Colors.white,
                     size: 21,
@@ -789,7 +1013,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       height: 16,
                     ),
                     Text(
-                      'Connecting to Owner...',
+                      'Starting Live Walk...',
                       textAlign:
                           TextAlign.center,
                       style:
@@ -808,7 +1032,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       height: 5,
                     ),
                     Text(
-                      'Verifying QR and creating Live Walk.',
+                      'Verifying Owner QR and connecting the walk.',
                       textAlign:
                           TextAlign.center,
                       style:
@@ -855,8 +1079,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 child: const Row(
                   children: [
                     Icon(
-                      Icons
-                          .camera_alt_rounded,
+                      Icons.camera_alt_rounded,
                       color:
                           Colors.white,
                       size: 19,
@@ -912,10 +1135,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       child: Stack(
         children: [
           Positioned(
-            top: top ? 0 : null,
-            bottom: top ? null : 0,
-            left: left ? 0 : null,
-            right: left ? null : 0,
+            top:
+                top ? 0 : null,
+            bottom:
+                top ? null : 0,
+            left:
+                left ? 0 : null,
+            right:
+                left ? null : 0,
             child: Container(
               width: length,
               height: thickness,
@@ -930,10 +1157,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             ),
           ),
           Positioned(
-            top: top ? 0 : null,
-            bottom: top ? null : 0,
-            left: left ? 0 : null,
-            right: left ? null : 0,
+            top:
+                top ? 0 : null,
+            bottom:
+                top ? null : 0,
+            left:
+                left ? 0 : null,
+            right:
+                left ? null : 0,
             child: Container(
               width: thickness,
               height: length,
