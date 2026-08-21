@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -7,8 +10,7 @@ import '../features/walks/models/walk_request.dart';
 class ActiveWalkDetailsScreen extends StatefulWidget {
   final WalkRequest request;
 
-  /// Optional callback:
-  /// Reach के बाद तुम्हारा अगला screen खोलने के लिए।
+  /// Reach होने के बाद अगला page खोलने के लिए.
   final VoidCallback? onReached;
 
   const ActiveWalkDetailsScreen({
@@ -24,28 +26,431 @@ class ActiveWalkDetailsScreen extends StatefulWidget {
 
 class _ActiveWalkDetailsScreenState
     extends State<ActiveWalkDetailsScreen> {
+  // ========================================================================
+  // COLORS
+  // ========================================================================
+
   static const Color orange = Color(0xFFFF6600);
   static const Color navy = Color(0xFF263746);
   static const Color green = Color(0xFF159447);
+  static const Color greenLight = Color(0xFFE7F7ED);
 
-  final MapController _mapController = MapController();
+  // ========================================================================
+  // FIREBASE
+  // ========================================================================
 
-  bool _reached = false;
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
 
-  // --------------------------------------------------------------------------
-  // IMPORTANT
-  //
-  // WalkRequest model में अभी latitude/longitude fields नहीं हैं।
-  //
-  // इसलिए यहां कोई fake location नहीं रखी गई है।
-  //
-  // जब WalkRequest में pickupLat / pickupLng और live walker location
-  // आएगी, इसी map को real Firebase/GPS data से connect किया जाएगा।
-  // --------------------------------------------------------------------------
+  // ========================================================================
+  // MAP
+  // ========================================================================
+
+  final MapController _mapController =
+      MapController();
 
   LatLng? _walkerLocation;
   LatLng? _pickupLocation;
   LatLng? _destinationLocation;
+
+  // ========================================================================
+  // LIVE DATA
+  // ========================================================================
+
+  StreamSubscription<
+      DocumentSnapshot<Map<String, dynamic>>>?
+      _activeWalkSubscription;
+
+  StreamSubscription<
+      DocumentSnapshot<Map<String, dynamic>>>?
+      _sessionSubscription;
+
+  String _liveStatus = 'active';
+
+  double? _liveDistanceKm;
+  int? _elapsedSeconds;
+
+  // ========================================================================
+  // REACHED
+  // ========================================================================
+
+  bool _reached = false;
+  bool _reaching = false;
+
+  // ========================================================================
+  // SHEET
+  // ========================================================================
+
+  final DraggableScrollableController
+      _sheetController =
+      DraggableScrollableController();
+
+  // ========================================================================
+  // LIFECYCLE
+  // ========================================================================
+
+  @override
+  void initState() {
+    super.initState();
+
+    _startLiveListeners();
+  }
+
+  @override
+  void dispose() {
+    _activeWalkSubscription?.cancel();
+    _sessionSubscription?.cancel();
+    _sheetController.dispose();
+
+    super.dispose();
+  }
+
+  // ========================================================================
+  // FIREBASE LIVE LISTENERS
+  // ========================================================================
+
+  void _startLiveListeners() {
+    final String walkId = widget.request.id;
+
+    if (walkId.trim().isEmpty) {
+      return;
+    }
+
+    // ----------------------------------------------------------------------
+    // active_walk/{walkId}
+    // ----------------------------------------------------------------------
+
+    _activeWalkSubscription = _firestore
+        .collection('active_walk')
+        .doc(walkId)
+        .snapshots()
+        .listen(
+      _handleActiveWalkSnapshot,
+      onError: (_) {},
+    );
+
+    // ----------------------------------------------------------------------
+    // liveWalkSessions/session-{walkId}
+    // ----------------------------------------------------------------------
+
+    final String sessionId =
+        'session-$walkId';
+
+    _sessionSubscription = _firestore
+        .collection('liveWalkSessions')
+        .doc(sessionId)
+        .snapshots()
+        .listen(
+      _handleSessionSnapshot,
+      onError: (_) {},
+    );
+  }
+
+  // ========================================================================
+  // ACTIVE WALK SNAPSHOT
+  // ========================================================================
+
+  void _handleActiveWalkSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    if (!snapshot.exists) {
+      return;
+    }
+
+    final Map<String, dynamic> data =
+        snapshot.data() ??
+            <String, dynamic>{};
+
+    final LatLng? location =
+        _extractLocationFromActiveWalk(data);
+
+    final String status =
+        _readString(
+      data['status'],
+      fallback: _liveStatus,
+    );
+
+    final double? distance =
+        _readDouble(data['distanceKm']);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      if (location != null) {
+        _walkerLocation = location;
+      }
+
+      _liveStatus = status;
+
+      if (distance != null) {
+        _liveDistanceKm = distance;
+      }
+    });
+
+    _moveMapToWalkerIfNeeded(location);
+  }
+
+  // ========================================================================
+  // SESSION SNAPSHOT
+  // ========================================================================
+
+  void _handleSessionSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    if (!snapshot.exists) {
+      return;
+    }
+
+    final Map<String, dynamic> data =
+        snapshot.data() ??
+            <String, dynamic>{};
+
+    final LatLng? location =
+        _extractLocationFromSession(data);
+
+    final double? distance =
+        _readDouble(data['distanceKm']);
+
+    final int? elapsed =
+        _readInt(data['elapsedSeconds']);
+
+    final String status =
+        _readString(
+      data['status'],
+      fallback: _liveStatus,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      if (location != null) {
+        _walkerLocation = location;
+      }
+
+      if (distance != null) {
+        _liveDistanceKm = distance;
+      }
+
+      if (elapsed != null) {
+        _elapsedSeconds = elapsed;
+      }
+
+      _liveStatus = status;
+    });
+
+    _moveMapToWalkerIfNeeded(location);
+  }
+
+  // ========================================================================
+  // ACTIVE WALK LOCATION
+  // ========================================================================
+
+  LatLng? _extractLocationFromActiveWalk(
+    Map<String, dynamic> data,
+  ) {
+    final double? lat =
+        _readDouble(data['currentLat']);
+
+    final double? lng =
+        _readDouble(data['currentLng']);
+
+    if (lat == null || lng == null) {
+      return null;
+    }
+
+    if (!_validCoordinate(lat, lng)) {
+      return null;
+    }
+
+    return LatLng(lat, lng);
+  }
+
+  // ========================================================================
+  // SESSION LOCATION
+  // ========================================================================
+
+  LatLng? _extractLocationFromSession(
+    Map<String, dynamic> data,
+  ) {
+    final dynamic location =
+        data['currentLocation'];
+
+    if (location is Map) {
+      final double? lat =
+          _readDouble(location['lat']);
+
+      final double? lng =
+          _readDouble(location['lng']);
+
+      if (lat != null &&
+          lng != null &&
+          _validCoordinate(lat, lng)) {
+        return LatLng(lat, lng);
+      }
+    }
+
+    return null;
+  }
+
+  // ========================================================================
+  // MAP
+  // ========================================================================
+
+  Widget _buildMap() {
+    final LatLng? center =
+        _walkerLocation ??
+            _pickupLocation ??
+            _destinationLocation;
+
+    // ----------------------------------------------------------------------
+    // IMPORTANT:
+    //
+    // No fake coordinate.
+    //
+    // अगर Firebase में अभी location नहीं है,
+    // map India को fake center नहीं करेगा.
+    // खाली map + location message दिखेगा.
+    // ----------------------------------------------------------------------
+
+    if (center == null) {
+      return Stack(
+        children: [
+          Container(
+            color: const Color(0xFFEFF2F3),
+          ),
+          const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.location_searching_rounded,
+                  color: Color(0xFF7D878D),
+                  size: 32,
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Waiting for live location...',
+                  style: TextStyle(
+                    color: Color(0xFF667077),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return FlutterMap(
+      mapController: _mapController,
+      options: MapOptions(
+        initialCenter: center,
+        initialZoom: 16,
+      ),
+      children: [
+        // ------------------------------------------------------------------
+        // REAL OPENSTREETMAP
+        // ------------------------------------------------------------------
+
+        TileLayer(
+          urlTemplate:
+              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName:
+              'com.doojowalker.app',
+        ),
+
+        // ------------------------------------------------------------------
+        // ROUTE
+        // ------------------------------------------------------------------
+
+        if (_walkerLocation != null &&
+            _pickupLocation != null)
+          PolylineLayer(
+            polylines: [
+              Polyline(
+                points: [
+                  _walkerLocation!,
+                  _pickupLocation!,
+                ],
+                color: orange,
+                strokeWidth: 5,
+              ),
+            ],
+          ),
+
+        // ------------------------------------------------------------------
+        // MARKERS
+        // ------------------------------------------------------------------
+
+        MarkerLayer(
+          markers: [
+            if (_walkerLocation != null)
+              Marker(
+                point: _walkerLocation!,
+                width: 56,
+                height: 56,
+                child: _walkerMarker(),
+              ),
+
+            if (_pickupLocation != null)
+              Marker(
+                point: _pickupLocation!,
+                width: 62,
+                height: 62,
+                child: _pickupMarker(),
+              ),
+
+            if (_destinationLocation != null)
+              Marker(
+                point: _destinationLocation!,
+                width: 45,
+                height: 45,
+                child: _destinationMarker(),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ========================================================================
+  // MOVE MAP
+  // ========================================================================
+
+  void _moveMapToWalkerIfNeeded(
+    LatLng? location,
+  ) {
+    if (location == null) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) {
+        if (!mounted) {
+          return;
+        }
+
+        try {
+          _mapController.move(
+            location,
+            16,
+          );
+        } catch (_) {
+          // MapController may not be attached yet.
+        }
+      },
+    );
+  }
+
+  // ========================================================================
+  // BUILD
+  // ========================================================================
 
   @override
   Widget build(BuildContext context) {
@@ -53,17 +458,17 @@ class _ActiveWalkDetailsScreenState
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // ==================================================================
-          // MAP
-          // ==================================================================
+          // ================================================================
+          // FULL MAP
+          // ================================================================
 
           Positioned.fill(
             child: _buildMap(),
           ),
 
-          // ==================================================================
+          // ================================================================
           // TOP BAR
-          // ==================================================================
+          // ================================================================
 
           SafeArea(
             child: Padding(
@@ -84,50 +489,15 @@ class _ActiveWalkDetailsScreenState
                     },
                   ),
 
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 9,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius:
-                          BorderRadius.circular(30),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 14,
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(
-                          Icons.circle,
-                          size: 8,
-                          color: Color(0xFF18A957),
-                        ),
-                        SizedBox(width: 7),
-                        Text(
-                          'LIVE WALK',
-                          style: TextStyle(
-                            color: navy,
-                            fontSize: 11,
-                            fontWeight:
-                                FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  _liveBadge(),
                 ],
               ),
             ),
           ),
 
-          // ==================================================================
+          // ================================================================
           // MY LOCATION
-          // ==================================================================
+          // ================================================================
 
           Positioned(
             right: 16,
@@ -135,9 +505,12 @@ class _ActiveWalkDetailsScreenState
             child: _circleButton(
               Icons.my_location,
               () {
-                if (_walkerLocation != null) {
+                final LatLng? location =
+                    _walkerLocation;
+
+                if (location != null) {
                   _mapController.move(
-                    _walkerLocation!,
+                    location,
                     17,
                   );
                 }
@@ -146,11 +519,12 @@ class _ActiveWalkDetailsScreenState
             ),
           ),
 
-          // ==================================================================
-          // DETAILS BOTTOM SHEET
-          // ==================================================================
+          // ================================================================
+          // BOTTOM DETAILS
+          // ================================================================
 
           DraggableScrollableSheet(
+            controller: _sheetController,
             initialChildSize: .46,
             minChildSize: .25,
             maxChildSize: .90,
@@ -165,7 +539,8 @@ class _ActiveWalkDetailsScreenState
               ScrollController controller,
             ) {
               return Container(
-                decoration: const BoxDecoration(
+                decoration:
+                    const BoxDecoration(
                   color: Colors.white,
                   borderRadius:
                       BorderRadius.vertical(
@@ -183,35 +558,25 @@ class _ActiveWalkDetailsScreenState
                   controller: controller,
                   physics:
                       const ClampingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(
+                  padding:
+                      const EdgeInsets.fromLTRB(
                     18,
                     9,
                     18,
-                    12,
+                    18,
                   ),
                   children: [
                     // HANDLE
-                    Center(
-                      child: Container(
-                        width: 48,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color:
-                              const Color(0xFFD3D8DB),
-                          borderRadius:
-                              BorderRadius.circular(20),
-                        ),
-                      ),
-                    ),
+                    _sheetHandle(),
 
                     const SizedBox(height: 13),
 
-                    // DOG / OWNER
+                    // DOG
                     _dogHeader(),
 
                     const SizedBox(height: 10),
 
-                    // STATUS
+                    // LIVE STATUS
                     _liveStatus(),
 
                     const SizedBox(height: 10),
@@ -224,17 +589,19 @@ class _ActiveWalkDetailsScreenState
                             Icons.location_on,
                             'PICKUP',
                             widget.request
-                                .pickupAddress,
+                                    .pickupAddress
+                                    .isEmpty
+                                ? 'Pickup address unavailable'
+                                : widget.request
+                                    .pickupAddress,
                           ),
                         ),
-
                         const SizedBox(width: 8),
-
                         Expanded(
                           child: _addressCard(
                             Icons.flag,
                             'DESTINATION',
-                            'Destination not available',
+                            'Destination unavailable',
                           ),
                         ),
                       ],
@@ -247,26 +614,21 @@ class _ActiveWalkDetailsScreenState
                       children: [
                         Expanded(
                           child: _statCard(
-                            '${widget.request.distanceKm.toStringAsFixed(1)} km',
+                            _distanceText(),
                             'Distance',
                           ),
                         ),
                         const SizedBox(width: 7),
                         Expanded(
                           child: _statCard(
-                            widget.request
-                                .estimatedTime
-                                .isEmpty
-                                ? '--'
-                                : widget.request
-                                    .estimatedTime,
+                            _etaText(),
                             'ETA',
                           ),
                         ),
                         const SizedBox(width: 7),
                         Expanded(
                           child: _statCard(
-                            'LIVE',
+                            _durationText(),
                             'Walk',
                           ),
                         ),
@@ -302,90 +664,89 @@ class _ActiveWalkDetailsScreenState
     );
   }
 
-  // ==========================================================================
-  // MAP
-  // ==========================================================================
+  // ========================================================================
+  // LIVE BADGE
+  // ========================================================================
 
-  Widget _buildMap() {
-    final LatLng center =
-        _walkerLocation ??
-            _pickupLocation ??
-            const LatLng(
-              20.5937,
-              78.9629,
-            );
-
-    return FlutterMap(
-      mapController: _mapController,
-      options: MapOptions(
-        initialCenter: center,
-        initialZoom:
-            _walkerLocation == null &&
-                    _pickupLocation == null
-                ? 5
-                : 16,
+  Widget _liveBadge() {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 9,
       ),
-      children: [
-        TileLayer(
-          urlTemplate:
-              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName:
-              'com.doojowalker.app',
-        ),
-
-        if (_walkerLocation != null ||
-            _pickupLocation != null ||
-            _destinationLocation != null)
-          MarkerLayer(
-            markers: [
-              if (_walkerLocation != null)
-                Marker(
-                  point: _walkerLocation!,
-                  width: 56,
-                  height: 56,
-                  child: _walkerMarker(),
-                ),
-
-              if (_pickupLocation != null)
-                Marker(
-                  point: _pickupLocation!,
-                  width: 62,
-                  height: 62,
-                  child: _pickupMarker(),
-                ),
-
-              if (_destinationLocation != null)
-                Marker(
-                  point: _destinationLocation!,
-                  width: 45,
-                  height: 45,
-                  child: _destinationMarker(),
-                ),
-            ],
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.circular(30),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 14,
           ),
-      ],
+        ],
+      ),
+      child: const Row(
+        children: [
+          Icon(
+            Icons.circle,
+            size: 8,
+            color: Color(0xFF18A957),
+          ),
+          SizedBox(width: 7),
+          Text(
+            'LIVE WALK',
+            style: TextStyle(
+              color: navy,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  // ==========================================================================
+  // ========================================================================
+  // SHEET HANDLE
+  // ========================================================================
+
+  Widget _sheetHandle() {
+    return Center(
+      child: Container(
+        width: 48,
+        height: 5,
+        decoration: BoxDecoration(
+          color: const Color(0xFFD3D8DB),
+          borderRadius:
+              BorderRadius.circular(20),
+        ),
+      ),
+    );
+  }
+
+  // ========================================================================
   // DOG HEADER
-  // ==========================================================================
+  // ========================================================================
 
   Widget _dogHeader() {
     final String dogName =
-        widget.request.dogName.isEmpty
-            ? 'Dog'
-            : widget.request.dogName;
+        _fallback(
+      widget.request.dogName,
+      'Dog',
+    );
 
     final String breed =
-        widget.request.dogBreed.isEmpty
-            ? 'Breed not available'
-            : widget.request.dogBreed;
+        _fallback(
+      widget.request.dogBreed,
+      'Breed not available',
+    );
 
     final String owner =
-        widget.request.ownerName.isEmpty
-            ? 'Owner'
-            : widget.request.ownerName;
+        _fallback(
+      widget.request.ownerName,
+      'Owner',
+    );
 
     return Row(
       children: [
@@ -456,7 +817,8 @@ class _ActiveWalkDetailsScreenState
         ),
 
         Container(
-          padding: const EdgeInsets.symmetric(
+          padding:
+              const EdgeInsets.symmetric(
             horizontal: 12,
             vertical: 9,
           ),
@@ -468,7 +830,7 @@ class _ActiveWalkDetailsScreenState
           child: Column(
             children: [
               Text(
-                '${widget.request.distanceKm.toStringAsFixed(1)} km',
+                _distanceText(),
                 style: const TextStyle(
                   color: orange,
                   fontSize: 12,
@@ -490,14 +852,18 @@ class _ActiveWalkDetailsScreenState
     );
   }
 
-  // ==========================================================================
+  // ========================================================================
   // LIVE STATUS
-  // ==========================================================================
+  // ========================================================================
 
   Widget _liveStatus() {
+    final bool isActive =
+        _liveStatus.toLowerCase() == 'active';
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         horizontal: 12,
         vertical: 10,
       ),
@@ -516,23 +882,26 @@ class _ActiveWalkDetailsScreenState
             color: green,
             size: 18,
           ),
+
           const SizedBox(width: 9),
 
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment:
                   CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Walking to pickup',
-                  style: TextStyle(
+                  isActive
+                      ? 'Walking to pickup'
+                      : _liveStatus.toUpperCase(),
+                  style: const TextStyle(
                     color: Color(0xFF237546),
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                SizedBox(height: 2),
-                Text(
+                const SizedBox(height: 2),
+                const Text(
                   'Live location active',
                   style: TextStyle(
                     color: Color(0xFF6B8B77),
@@ -556,9 +925,9 @@ class _ActiveWalkDetailsScreenState
     );
   }
 
-  // ==========================================================================
+  // ========================================================================
   // ADDRESS
-  // ==========================================================================
+  // ========================================================================
 
   Widget _addressCard(
     IconData icon,
@@ -566,7 +935,8 @@ class _ActiveWalkDetailsScreenState
     String value,
   ) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding:
+          const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: const Color(0xFFF7F8F9),
         borderRadius:
@@ -579,7 +949,9 @@ class _ActiveWalkDetailsScreenState
             color: orange,
             size: 17,
           ),
+
           const SizedBox(width: 7),
+
           Expanded(
             child: Column(
               crossAxisAlignment:
@@ -613,16 +985,17 @@ class _ActiveWalkDetailsScreenState
     );
   }
 
-  // ==========================================================================
+  // ========================================================================
   // STAT
-  // ==========================================================================
+  // ========================================================================
 
   Widget _statCard(
     String value,
     String title,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         vertical: 9,
         horizontal: 5,
       ),
@@ -657,14 +1030,15 @@ class _ActiveWalkDetailsScreenState
     );
   }
 
-  // ==========================================================================
+  // ========================================================================
   // OWNER NOTE
-  // ==========================================================================
+  // ========================================================================
 
   Widget _ownerNote() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding:
+          const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF8F2),
         borderRadius:
@@ -673,10 +1047,10 @@ class _ActiveWalkDetailsScreenState
           color: const Color(0xFFFFE8D7),
         ),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment:
             CrossAxisAlignment.start,
-        children: [
+        children: const [
           Row(
             children: [
               Icon(
@@ -709,9 +1083,9 @@ class _ActiveWalkDetailsScreenState
     );
   }
 
-  // ==========================================================================
+  // ========================================================================
   // CALL + CHAT
-  // ==========================================================================
+  // ========================================================================
 
   Widget _callChat() {
     return Row(
@@ -722,7 +1096,9 @@ class _ActiveWalkDetailsScreenState
             height: 50,
             child: ElevatedButton.icon(
               onPressed: () {
-                // Phone connection बाद में real owner phone से जोड़ा जाएगा।
+                // ------------------------------------------------------------
+                // यहाँ बाद में ownerPhone से वास्तविक call जोड़ा जाएगा.
+                // ------------------------------------------------------------
               },
               icon: const Icon(
                 Icons.call,
@@ -758,7 +1134,9 @@ class _ActiveWalkDetailsScreenState
             height: 50,
             child: OutlinedButton.icon(
               onPressed: () {
-                // Chat screen बाद में connect होगा।
+                // ------------------------------------------------------------
+                // Chat connection hook.
+                // ------------------------------------------------------------
               },
               icon: const Icon(
                 Icons.chat_bubble_outline,
@@ -792,27 +1170,76 @@ class _ActiveWalkDetailsScreenState
     );
   }
 
-  // ==========================================================================
-  // REACHED
-  // ==========================================================================
+  // ========================================================================
+  // REACH
+  // ========================================================================
 
-  void _handleReached() {
-    if (_reached) {
+  Future<void> _handleReached() async {
+    if (_reached || _reaching) {
       return;
     }
 
     setState(() {
-      _reached = true;
+      _reaching = true;
     });
 
-    if (widget.onReached != null) {
-      widget.onReached!();
+    try {
+      // --------------------------------------------------------------------
+      // IMPORTANT:
+      //
+      // अभी कोई नया fake document नहीं बनाया जा रहा.
+      //
+      // Existing walk_request को ही update करेंगे.
+      // --------------------------------------------------------------------
+
+      await _firestore
+          .collection('walk_requests')
+          .doc(widget.request.id)
+          .update({
+        'status': 'reached',
+        'reachedAt':
+            FieldValue.serverTimestamp(),
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _reached = true;
+        _reaching = false;
+      });
+
+      // --------------------------------------------------------------------
+      // NEXT PAGE
+      // --------------------------------------------------------------------
+
+      widget.onReached?.call();
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _reaching = false;
+      });
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(
+            'Unable to mark reached: $e',
+          ),
+        ),
+      );
     }
   }
 
-  // ==========================================================================
+  // ========================================================================
   // ROUND BUTTON
-  // ==========================================================================
+  // ========================================================================
 
   Widget _circleButton(
     IconData icon,
@@ -840,9 +1267,9 @@ class _ActiveWalkDetailsScreenState
     );
   }
 
-  // ==========================================================================
+  // ========================================================================
   // MAP MARKERS
-  // ==========================================================================
+  // ========================================================================
 
   Widget _walkerMarker() {
     return Container(
@@ -911,6 +1338,150 @@ class _ActiveWalkDetailsScreenState
       ),
     );
   }
+
+  // ========================================================================
+  // DISTANCE
+  // ========================================================================
+
+  String _distanceText() {
+    if (_liveDistanceKm != null) {
+      return '${_liveDistanceKm!.toStringAsFixed(1)} km';
+    }
+
+    return '${widget.request.distanceKm.toStringAsFixed(1)} km';
+  }
+
+  // ========================================================================
+  // ETA
+  // ========================================================================
+
+  String _etaText() {
+    final String value =
+        widget.request.estimatedTime.trim();
+
+    if (value.isEmpty) {
+      return '--';
+    }
+
+    return value;
+  }
+
+  // ========================================================================
+  // DURATION
+  // ========================================================================
+
+  String _durationText() {
+    if (_elapsedSeconds == null) {
+      return '--';
+    }
+
+    return _formatDuration(
+      _elapsedSeconds!,
+    );
+  }
+
+  // ========================================================================
+  // HELPERS
+  // ========================================================================
+
+  String _fallback(
+    String value,
+    String fallback,
+  ) {
+    final String result =
+        value.trim();
+
+    return result.isEmpty
+        ? fallback
+        : result;
+  }
+
+  String _readString(
+    dynamic value, {
+    String fallback = '',
+  }) {
+    if (value == null) {
+      return fallback;
+    }
+
+    final String result =
+        value.toString().trim();
+
+    return result.isEmpty
+        ? fallback
+        : result;
+  }
+
+  double? _readDouble(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(
+      value.toString().trim(),
+    );
+  }
+
+  int? _readInt(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+      value.toString().trim(),
+    );
+  }
+
+  bool _validCoordinate(
+    double lat,
+    double lng,
+  ) {
+    return lat >= -90 &&
+        lat <= 90 &&
+        lng >= -180 &&
+        lng <= 180 &&
+        !(lat == 0 && lng == 0);
+  }
+
+  String _formatDuration(
+    int totalSeconds,
+  ) {
+    final int hours =
+        totalSeconds ~/ 3600;
+
+    final int minutes =
+        (totalSeconds % 3600) ~/ 60;
+
+    final int seconds =
+        totalSeconds % 60;
+
+    final String hh =
+        hours.toString().padLeft(2, '0');
+
+    final String mm =
+        minutes.toString().padLeft(2, '0');
+
+    final String ss =
+        seconds.toString().padLeft(2, '0');
+
+    return '$hh:$mm:$ss';
+  }
 }
 
 // ============================================================================
@@ -934,6 +1505,9 @@ class ReachSlider extends StatefulWidget {
 
 class _ReachSliderState
     extends State<ReachSlider> {
+  static const Color green =
+      Color(0xFF159447);
+
   double position = 0;
 
   @override
@@ -946,8 +1520,16 @@ class _ReachSliderState
         const double handleSize = 50;
 
         final double maxPosition =
-            constraints.maxWidth -
-                handleSize;
+            (constraints.maxWidth -
+                    handleSize)
+                .clamp(
+          0.0,
+          double.infinity,
+        );
+
+        // ==================================================================
+        // SUCCESS
+        // ==================================================================
 
         if (widget.reached) {
           return Container(
@@ -976,8 +1558,7 @@ class _ReachSliderState
                     style: TextStyle(
                       color: green,
                       fontSize: 14,
-                      fontWeight:
-                          FontWeight.w900,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ],
@@ -985,6 +1566,10 @@ class _ReachSliderState
             ),
           );
         }
+
+        // ==================================================================
+        // SLIDER
+        // ==================================================================
 
         return Container(
           height: 54,
@@ -1027,12 +1612,16 @@ class _ReachSliderState
                 ),
               ),
 
+              // ==============================================================
+              // HANDLE
+              // ==============================================================
+
               Positioned(
                 left: position,
                 top: 2,
                 child: GestureDetector(
                   onHorizontalDragUpdate:
-                      (details) {
+                      (DragUpdateDetails details) {
                     setState(() {
                       position +=
                           details.delta.dx;
@@ -1045,7 +1634,7 @@ class _ReachSliderState
                     });
                   },
                   onHorizontalDragEnd:
-                      (_) {
+                      (DragEndDetails details) {
                     if (position >=
                         maxPosition * .80) {
                       widget.onReached();
@@ -1058,8 +1647,7 @@ class _ReachSliderState
                   child: Container(
                     width: handleSize,
                     height: handleSize,
-                    decoration:
-                        BoxDecoration(
+                    decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius:
                           BorderRadius.circular(15),
