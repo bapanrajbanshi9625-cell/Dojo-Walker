@@ -156,6 +156,126 @@ class WalkRequestService {
   }
 
   // ============================================================
+  // REJECT WALK
+  //
+  // searching
+  //      ↓
+  // rejected
+  //
+  // IMPORTANT:
+  // This does NOT delete the Firestore document.
+  //
+  // It only changes its status, so:
+  //
+  // pendingRequestsStream()
+  // automatically removes it from the Walker app.
+  // ============================================================
+
+  Future<void> rejectWalk(String walkId) async {
+    final User? user = _auth.currentUser;
+
+    if (user == null) {
+      throw Exception(
+        'Walker is not logged in.',
+      );
+    }
+
+    final String walkerUid = user.uid;
+
+    // ----------------------------------------------------------
+    // GET WALKER ID
+    // phoneAccounts/{Firebase UID}
+    // ----------------------------------------------------------
+
+    final DocumentSnapshot<Map<String, dynamic>> accountSnapshot =
+        await _phoneAccounts.doc(walkerUid).get();
+
+    final Map<String, dynamic>? accountData =
+        accountSnapshot.data();
+
+    final String walkerId =
+        accountData?['walkerId']?.toString().trim() ?? '';
+
+    if (walkerId.isEmpty) {
+      throw Exception(
+        'Walker ID not found.',
+      );
+    }
+
+    // ----------------------------------------------------------
+    // WALK REQUEST
+    // ----------------------------------------------------------
+
+    final DocumentReference<Map<String, dynamic>> walkRef =
+        _walkRequests.doc(walkId);
+
+    // ----------------------------------------------------------
+    // TRANSACTION
+    //
+    // Prevents rejecting a walk that was already accepted
+    // by another walker.
+    // ----------------------------------------------------------
+
+    await _firestore.runTransaction(
+      (transaction) async {
+        final DocumentSnapshot<Map<String, dynamic>> walkSnapshot =
+            await transaction.get(walkRef);
+
+        if (!walkSnapshot.exists) {
+          throw Exception(
+            'Walk request no longer exists.',
+          );
+        }
+
+        final Map<String, dynamic>? data =
+            walkSnapshot.data();
+
+        if (data == null) {
+          throw Exception(
+            'Walk request data is empty.',
+          );
+        }
+
+        final String status =
+            data['status']?.toString().trim() ?? '';
+
+        // ------------------------------------------------------
+        // ONLY SEARCHING REQUEST CAN BE REJECTED
+        // ------------------------------------------------------
+
+        if (status != 'searching') {
+          throw Exception(
+            'This walk is no longer available.',
+          );
+        }
+
+        // ------------------------------------------------------
+        // REJECT
+        // ------------------------------------------------------
+
+        transaction.update(
+          walkRef,
+          {
+            'status': 'rejected',
+
+            // Walker Firebase UID who rejected it.
+            'rejectedBy': walkerUid,
+
+            // Walker Business ID who rejected it.
+            'rejectedWalkerId': walkerId,
+
+            'rejectedAt':
+                FieldValue.serverTimestamp(),
+
+            'updatedAt':
+                FieldValue.serverTimestamp(),
+          },
+        );
+      },
+    );
+  }
+
+  // ============================================================
   // ACCEPTED WALKS FOR CURRENT WALKER
   // ============================================================
 
@@ -292,13 +412,6 @@ class WalkRequestService {
 
     // ----------------------------------------------------------
     // OWNER ID
-    //
-    // IMPORTANT:
-    // Owner ID is the actual ID we want to carry through
-    // the active walk and live session.
-    //
-    // Owner UID is kept separately for Firebase/backend use.
-    // It does NOT need to be shown in the UI.
     // ----------------------------------------------------------
 
     final String ownerId =
@@ -322,8 +435,6 @@ class WalkRequestService {
 
     // ----------------------------------------------------------
     // SESSION ID
-    //
-    // One live session per walk.
     // ----------------------------------------------------------
 
     final String sessionId =
@@ -363,10 +474,7 @@ class WalkRequestService {
         'distance': '0.0 km',
         'duration': '00:00:00',
 
-        // Owner ID is the main owner identifier.
         'ownerId': ownerId,
-
-        // UID is backend reference only.
         'ownerUid': ownerUid,
 
         'walkerId': walkerId,
@@ -401,10 +509,7 @@ class WalkRequestService {
 
         'walkId': walkId,
 
-        // Owner ID
         'ownerId': ownerId,
-
-        // Backend UID
         'ownerUid': ownerUid,
 
         'walkerId': walkerId,
@@ -422,7 +527,6 @@ class WalkRequestService {
         'elapsedSeconds': 0,
 
         'peeCount': 0,
-
         'poopCount': 0,
 
         'events': <Map<String, dynamic>>[],
@@ -455,7 +559,6 @@ class WalkRequestService {
         'ownerId': ownerId,
 
         'walkerId': walkerId,
-
         'walkerUid': walkerUid,
 
         'activeWalkId': walkId,
