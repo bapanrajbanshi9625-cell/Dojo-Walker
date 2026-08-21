@@ -16,7 +16,7 @@ import '../features/walks/services/walk_request_sound_service.dart';
 import '../features/walks/widgets/insta_walk_container.dart';
 import '../features/walks/widgets/walk_request_card.dart';
 
-import '../features/walks/screens/active_walk_details_screen.dart';
+import 'active_walk_details_screen.dart';
 
 class WalksScreen extends StatefulWidget {
   const WalksScreen({super.key});
