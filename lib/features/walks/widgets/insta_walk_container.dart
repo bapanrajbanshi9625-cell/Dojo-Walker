@@ -3,7 +3,8 @@
 
 import 'package:flutter/material.dart';
 
-import '../features/walks/widgets/insta_walk_map_radar.dart';
+import '../services/walker_location_service.dart';
+import 'insta_walk_map_radar.dart';
 
 class InstaWalkContainer extends StatelessWidget {
   final VoidCallback? onSearch;
