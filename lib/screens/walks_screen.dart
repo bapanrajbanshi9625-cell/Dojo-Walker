@@ -125,8 +125,6 @@ class _WalksScreenState extends State<WalksScreen>
     try {
       // ========================================================
       // 1. GET WALKER ID
-      //
-      // phoneAccounts/{UID}
       // ========================================================
 
       final DocumentSnapshot<Map<String, dynamic>>
@@ -152,8 +150,6 @@ class _WalksScreenState extends State<WalksScreen>
 
       // ========================================================
       // 2. LOAD SEARCH STATE
-      //
-      // users/{UID}
       // ========================================================
 
       final DocumentSnapshot<Map<String, dynamic>>
@@ -328,23 +324,14 @@ class _WalksScreenState extends State<WalksScreen>
         _requests.clear();
       });
 
-      // ========================================================
-      // STOP ANY OLD REQUEST SOUND
-      // ========================================================
-
+      // Stop any old request sound.
       await WalkRequestSoundService.instance
           .stopAll();
 
-      // ========================================================
-      // START REQUEST LISTENER
-      // ========================================================
-
+      // Start request listener.
       _startRequestListener();
 
-      // ========================================================
-      // SHOW RADAR DOT
-      // ========================================================
-
+      // Show radar dot.
       _moveRadarDot();
     } catch (e) {
       debugPrint(
@@ -367,17 +354,6 @@ class _WalksScreenState extends State<WalksScreen>
 
   // ============================================================
   // REQUEST LISTENER
-  //
-  // Firestore:
-  //
-  // walk_requests
-  // status == searching
-  //
-  // NEW REQUEST
-  //     ↓
-  // PLAY CUSTOM SOUND
-  //     ↓
-  // MAX 60 SECONDS
   // ============================================================
 
   void _startRequestListener() {
@@ -447,15 +423,6 @@ class _WalksScreenState extends State<WalksScreen>
 
         // ======================================================
         // SOUND MANAGEMENT
-        //
-        // NEW REQUEST
-        //     -> PLAY
-        //
-        // EXISTING REQUEST
-        //     -> DO NOT RESTART
-        //
-        // REMOVED REQUEST
-        //     -> STOP
         // ======================================================
 
         final Set<String> incomingIds =
@@ -606,19 +573,11 @@ class _WalksScreenState extends State<WalksScreen>
           final String status =
               data['status']?.toString() ?? '';
 
-          // ====================================================
-          // ONLY SEARCHING REQUEST CAN BE ACCEPTED
-          // ====================================================
-
           if (status != 'searching') {
             throw Exception(
               'Request already accepted.',
             );
           }
-
-          // ====================================================
-          // ACCEPT REQUEST
-          // ====================================================
 
           transaction.update(
             requestRef,
@@ -637,7 +596,7 @@ class _WalksScreenState extends State<WalksScreen>
       );
 
       // ========================================================
-      // STOP ACCEPTED REQUEST SOUND
+      // STOP SOUND
       // ========================================================
 
       await WalkRequestSoundService.instance
@@ -671,14 +630,14 @@ class _WalksScreenState extends State<WalksScreen>
       _requestSubscription = null;
 
       // ========================================================
-      // STOP ALL REMAINING REQUEST SOUNDS
+      // STOP ALL REMAINING SOUNDS
       // ========================================================
 
       await WalkRequestSoundService.instance
           .stopAll();
 
       // ========================================================
-      // READ UPDATED ACCEPTED REQUEST
+      // READ UPDATED REQUEST
       // ========================================================
 
       final DocumentSnapshot<Map<String, dynamic>>
@@ -696,10 +655,6 @@ class _WalksScreenState extends State<WalksScreen>
         acceptedSnapshot,
       );
 
-      // ========================================================
-      // UPDATE LOCAL STATE
-      // ========================================================
-
       if (!mounted) {
         return;
       }
@@ -715,7 +670,7 @@ class _WalksScreenState extends State<WalksScreen>
       });
 
       // ========================================================
-      // GO TO ACTIVE WALK
+      // OPEN ACTIVE WALK
       // ========================================================
 
       Navigator.pushReplacement(
@@ -732,9 +687,132 @@ class _WalksScreenState extends State<WalksScreen>
         'Accept Walk Request Error: $e',
       );
 
+      await WalkRequestSoundService.instance
+          .stopRequest(
+        request.id,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        'This walk request is no longer available.',
+      );
+    }
+  }
+
+  // ============================================================
+  // REJECT REQUEST
+  // ============================================================
+
+  Future<void> _rejectRequest(
+    WalkRequest request,
+  ) async {
+    final User? user = _auth.currentUser;
+
+    if (user == null) {
+      _showMessage(
+        'Please login first.',
+      );
+      return;
+    }
+
+    final String? walkerId =
+        await _getWalkerId();
+
+    if (walkerId == null ||
+        walkerId.trim().isEmpty) {
+      _showMessage(
+        'Walker ID is not available.',
+      );
+      return;
+    }
+
+    try {
+      final DocumentReference<
+          Map<String, dynamic>> requestRef =
+          _firestore
+              .collection('walk_requests')
+              .doc(request.id);
+
       // ========================================================
-      // SAFETY: STOP SOUND IF ACCEPT FAILS
+      // TRANSACTION
       // ========================================================
+
+      await _firestore.runTransaction(
+        (transaction) async {
+          final DocumentSnapshot<
+              Map<String, dynamic>> snapshot =
+              await transaction.get(
+            requestRef,
+          );
+
+          if (!snapshot.exists) {
+            throw Exception(
+              'Request no longer exists.',
+            );
+          }
+
+          final Map<String, dynamic>? data =
+              snapshot.data();
+
+          if (data == null) {
+            throw Exception(
+              'Walk request data is empty.',
+            );
+          }
+
+          final String status =
+              data['status']?.toString() ?? '';
+
+          if (status != 'searching') {
+            throw Exception(
+              'Request is no longer available.',
+            );
+          }
+
+          transaction.update(
+            requestRef,
+            {
+              'status': 'rejected',
+              'rejectedBy': walkerId,
+              'rejectedWalkerUid': user.uid,
+              'rejectedAt':
+                  FieldValue.serverTimestamp(),
+              'updatedAt':
+                  FieldValue.serverTimestamp(),
+            },
+          );
+        },
+      );
+
+      // ========================================================
+      // STOP ONLY THIS REQUEST SOUND
+      // ========================================================
+
+      await WalkRequestSoundService.instance
+          .stopRequest(
+        request.id,
+      );
+
+      // ========================================================
+      // REMOVE FROM LOCAL LIST
+      // ========================================================
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _requests.removeWhere(
+          (item) => item.id == request.id,
+        );
+      });
+    } catch (e) {
+      debugPrint(
+        'Reject Walk Request Error: $e',
+      );
 
       await WalkRequestSoundService.instance
           .stopRequest(
@@ -762,18 +840,11 @@ class _WalksScreenState extends State<WalksScreen>
       return;
     }
 
-    // ==========================================================
-    // STOP SOUND IMMEDIATELY
-    // ==========================================================
-
+    // Stop sounds immediately.
     await WalkRequestSoundService.instance
         .stopAll();
 
     try {
-      // ========================================================
-      // SAVE SEARCH STATE
-      // ========================================================
-
       await _firestore
           .collection('users')
           .doc(uid)
@@ -786,17 +857,9 @@ class _WalksScreenState extends State<WalksScreen>
         SetOptions(merge: true),
       );
 
-      // ========================================================
-      // CANCEL REQUEST LISTENER
-      // ========================================================
-
       await _requestSubscription?.cancel();
 
       _requestSubscription = null;
-
-      // ========================================================
-      // UPDATE UI
-      // ========================================================
 
       if (!mounted) {
         return;
@@ -968,10 +1031,7 @@ class _WalksScreenState extends State<WalksScreen>
   }
 
   // ============================================================
-  // REQUEST LIST UI
-  //
-  // This remains in WalksScreen because the actual request
-  // data and Accept callback belong to this screen.
+  // REQUEST LIST
   // ============================================================
 
   Widget _buildRequests() {
@@ -1045,11 +1105,18 @@ class _WalksScreenState extends State<WalksScreen>
             ),
           ),
         ),
+
         ..._requests.map(
           (request) => WalkRequestCard(
             request: request,
+
+            // ACCEPT
             onAccept: () =>
                 _acceptRequest(request),
+
+            // REJECT
+            onReject: () =>
+                _rejectRequest(request),
           ),
         ),
       ],
@@ -1067,10 +1134,6 @@ class _WalksScreenState extends State<WalksScreen>
     _dotTimer?.cancel();
 
     _dotGlowTimer?.cancel();
-
-    // ==========================================================
-    // STOP WALK REQUEST SOUND
-    // ==========================================================
 
     WalkRequestSoundService.instance
         .stopAll();
@@ -1102,6 +1165,7 @@ class _WalksScreenState extends State<WalksScreen>
                 // ==================================================
                 // DIVIDED INSTA WALK CONTAINER
                 // ==================================================
+
                 InstaWalkContainer(
                   searching: _searching,
                   loading: _loading,
@@ -1111,8 +1175,12 @@ class _WalksScreenState extends State<WalksScreen>
                   dotX: _dotX,
                   dotY: _dotY,
                   requests: _requests,
+
+                  // SEARCH / STOP
                   onSearchPressed:
                       _searchButtonPressed,
+
+                  // REQUEST LIST
                   requestListBuilder:
                       _buildRequests,
                 ),
