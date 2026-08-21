@@ -5,17 +5,81 @@
     <uses-sdk
         tools:overrideLibrary="dev.steenbakker.mobile_scanner, com.google.android.gms.vision" />
 
+    <!-- ====================================================== -->
+    <!-- NETWORK -->
+    <!-- ====================================================== -->
+
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- ====================================================== -->
+    <!-- CAMERA -->
+    <!-- QR Scanner + Selfie + Profile Photos -->
+    <!-- ====================================================== -->
+
     <uses-permission android:name="android.permission.CAMERA" />
 
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
 
+    <!-- ====================================================== -->
+    <!-- LOCATION -->
+    <!-- Live Walk GPS Tracking -->
+    <!-- ====================================================== -->
+
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION" />
+
+    <uses-permission
+        android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- ====================================================== -->
+    <!-- BACKGROUND LOCATION -->
+    <!-- Required only if Live Walk tracking continues -->
+    <!-- while app is minimized/backgrounded. -->
+    <!-- ====================================================== -->
+
+    <uses-permission
+        android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- ====================================================== -->
+    <!-- NOTIFICATIONS -->
+    <!-- Walk request ringtone / notifications -->
+    <!-- ====================================================== -->
+
+    <uses-permission
+        android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- ====================================================== -->
+    <!-- VIBRATION -->
+    <!-- Walk request alert -->
+    <!-- ====================================================== -->
+
+    <uses-permission
+        android:name="android.permission.VIBRATE" />
+
+    <!-- ====================================================== -->
+    <!-- AUDIO -->
+    <!-- Ringtone / notification sound -->
+    <!-- ====================================================== -->
+
+    <uses-permission
+        android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- ====================================================== -->
+    <!-- APPLICATION -->
+    <!-- ====================================================== -->
+
     <application
         android:label="Dojo Walker"
         android:name="${applicationName}"
-        android:icon="@android:drawable/sym_def_app_icon">
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:usesCleartextTraffic="false">
+
+        <!-- ================================================== -->
+        <!-- MAIN ACTIVITY -->
+        <!-- ================================================== -->
 
         <activity
             android:name=".MainActivity"
@@ -36,6 +100,10 @@
             </intent-filter>
 
         </activity>
+
+        <!-- ================================================== -->
+        <!-- FLUTTER -->
+        <!-- ================================================== -->
 
         <meta-data
             android:name="flutterEmbedding"
