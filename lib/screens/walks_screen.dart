@@ -11,6 +11,7 @@ import '../features/walker_home/containers/walker_home_header.dart';
 import '../features/walks/constants/walks_constants.dart';
 import '../features/walks/models/walk_request.dart';
 import '../features/walks/services/walk_request_sound_service.dart';
+import '../features/walks/widgets/insta_walk_container.dart';
 import '../features/walks/widgets/insta_walk_header.dart';
 import '../features/walks/widgets/insta_walk_info.dart';
 import '../features/walks/widgets/insta_walk_radar.dart';
