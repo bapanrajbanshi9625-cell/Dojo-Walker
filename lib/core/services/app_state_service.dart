@@ -216,7 +216,7 @@ class AppStateService {
           snapshot.docs.first;
 
       for (final doc in snapshot.docs) {
-        final data =
+        final Map<String, dynamic> data =
             doc.data();
 
         if (data['status'] == 'active') {
@@ -225,8 +225,16 @@ class AppStateService {
         }
       }
 
+      // --------------------------------------------------------
+      // SAFE FIRESTORE DATA
+      //
+      // DocumentSnapshot.data() nullable होता है।
+      // Empty map fallback के कारण analyzer error नहीं आएगा।
+      // --------------------------------------------------------
+
       final Map<String, dynamic> walkData =
-          selected.data();
+          selected.data() ??
+              <String, dynamic>{};
 
       _activeWalkId =
           selected.id;
@@ -297,7 +305,7 @@ class AppStateService {
           return;
         }
 
-        final data =
+        final Map<String, dynamic>? data =
             snapshot.data();
 
         if (data == null) {
@@ -333,7 +341,7 @@ class AppStateService {
           return;
         }
 
-        final data =
+        final Map<String, dynamic>? data =
             snapshot.data();
 
         if (data == null) {
