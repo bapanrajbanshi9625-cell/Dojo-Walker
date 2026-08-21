@@ -11,8 +11,7 @@ class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
 
   @override
-  State<QrScannerScreen> createState() =>
-      _QrScannerScreenState();
+  State<QrScannerScreen> createState() => _QrScannerScreenState();
 }
 
 class _QrScannerScreenState extends State<QrScannerScreen> {
@@ -33,9 +32,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   CollectionReference<Map<String, dynamic>> get _qrCodes =>
       _firestore.collection('qr_codes');
 
-  CollectionReference<Map<String, dynamic>> get _activeWalks =>
-      _firestore.collection('active_walk');
-
+  // IMPORTANT:
+  // Direct QR Live Walk uses ONLY liveWalkSessions.
   CollectionReference<Map<String, dynamic>>
       get _liveWalkSessions =>
           _firestore.collection('liveWalkSessions');
@@ -314,27 +312,28 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       }
 
       // ======================================================
-      // 12. CREATE ONE ACTIVE WALK ID
+      // 12. CREATE ONE LIVE WALK SESSION ID
       //
-      // This same ID is used everywhere:
+      // IMPORTANT:
       //
-      // active_walk/{walkId}
+      // QR FLOW:
+      //
+      // qr_codes/{ownerUid}
+      //          +
       // liveWalkSessions/{sessionId}
+      //
+      // NO active_walks document is created here.
+      //
+      // Insta Walk can continue using its own
+      // active_walks + liveWalkSessions connection.
       // ======================================================
 
       final DocumentReference<Map<String, dynamic>>
-          activeWalkRef =
-          _activeWalks.doc();
-
-      final String activeWalkId =
-          activeWalkRef.id;
+          sessionRef =
+          _liveWalkSessions.doc();
 
       final String sessionId =
-          'session-$activeWalkId';
-
-      final DocumentReference<Map<String, dynamic>>
-          sessionRef =
-          _liveWalkSessions.doc(sessionId);
+          sessionRef.id;
 
       // ======================================================
       // 13. MARK OWNER QR AS SCANNED
@@ -359,125 +358,12 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       );
 
       // ======================================================
-      // 14. CREATE ACTIVE WALK
-      //
-      // active_walk/{activeWalkId}
-      // ======================================================
-
-      batch.set(
-        activeWalkRef,
-        {
-          // --------------------------------------------------
-          // WALK
-          // --------------------------------------------------
-
-          'walkId':
-              activeWalkId,
-
-          'qrWalkId':
-              firebaseWalkId,
-
-          // --------------------------------------------------
-          // OWNER
-          // --------------------------------------------------
-
-          'ownerId':
-              ownerUserId,
-
-          'ownerUserId':
-              ownerUserId,
-
-          'ownerUid':
-              ownerUid,
-
-          'ownerName':
-              firebaseOwnerName,
-
-          'ownerPhone':
-              firebaseOwnerPhone,
-
-          // --------------------------------------------------
-          // WALKER
-          // --------------------------------------------------
-
-          'walkerId':
-              walkerId,
-
-          'walkerUid':
-              walkerUid,
-
-          // --------------------------------------------------
-          // STATUS
-          // --------------------------------------------------
-
-          'status':
-              'active',
-
-          'walkStarted':
-              true,
-
-          'walkEnded':
-              false,
-
-          // --------------------------------------------------
-          // TRACKING
-          // --------------------------------------------------
-
-          'trackingStarted':
-              false,
-
-          'trackingEnded':
-              false,
-
-          // --------------------------------------------------
-          // LOCATION
-          // --------------------------------------------------
-
-          'currentLat':
-              0.0,
-
-          'currentLng':
-              0.0,
-
-          // --------------------------------------------------
-          // WALK STATS
-          // --------------------------------------------------
-
-          'distance':
-              '0.0 km',
-
-          'duration':
-              '00:00:00',
-
-          'peeCount':
-              0,
-
-          'poopCount':
-              0,
-
-          // --------------------------------------------------
-          // SESSION
-          // --------------------------------------------------
-
-          'liveWalkSessionId':
-              sessionId,
-
-          // --------------------------------------------------
-          // TIMESTAMPS
-          // --------------------------------------------------
-
-          'startedAt':
-              FieldValue.serverTimestamp(),
-
-          'updatedAt':
-              FieldValue.serverTimestamp(),
-        },
-      );
-
-      // ======================================================
-      // 15. CREATE LIVE WALK SESSION
+      // 14. CREATE LIVE WALK SESSION
       //
       // liveWalkSessions/{sessionId}
+      //
+      // THIS IS THE ONLY LIVE WALK DOCUMENT CREATED
+      // BY DIRECT QR SCAN.
       // ======================================================
 
       batch.set(
@@ -494,10 +380,20 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               sessionId,
 
           'walkId':
-              activeWalkId,
+              sessionId,
 
           'qrWalkId':
               firebaseWalkId,
+
+          // --------------------------------------------------
+          // SOURCE
+          // --------------------------------------------------
+
+          'source':
+              'qr',
+
+          'startedFromQr':
+              true,
 
           // --------------------------------------------------
           // OWNER
@@ -581,6 +477,18 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           'status':
               'ACTIVE',
 
+          'walkStarted':
+              true,
+
+          'walkEnded':
+              false,
+
+          'trackingStarted':
+              false,
+
+          'trackingEnded':
+              false,
+
           // --------------------------------------------------
           // TIMESTAMPS
           // --------------------------------------------------
@@ -594,13 +502,15 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       );
 
       // ======================================================
-      // 16. COMMIT EVERYTHING TO FIRESTORE
+      // 15. COMMIT EVERYTHING
+      //
+      // QR update + Live Walk Session create
       // ======================================================
 
       await batch.commit();
 
       // ======================================================
-      // 17. SUCCESS
+      // 16. SUCCESS
       // ======================================================
 
       if (!mounted) {
@@ -631,7 +541,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             walkerId,
 
         'walkId':
-            activeWalkId,
+            sessionId,
 
         'qrWalkId':
             firebaseWalkId,
@@ -640,7 +550,13 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             sessionId,
 
         'status':
-            'active',
+            'ACTIVE',
+
+        'source':
+            'qr',
+
+        'startedFromQr':
+            true,
       };
 
       // ======================================================
