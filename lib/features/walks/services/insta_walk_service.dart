@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import '../constants/walks_constants.dart';
 import '../models/walk_request.dart';
@@ -16,20 +17,30 @@ class InstaWalkService {
   static final InstaWalkService instance =
       InstaWalkService._();
 
+  // ============================================================
+  // FIREBASE
+  // ============================================================
+
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
   final FirebaseAuth _auth =
       FirebaseAuth.instance;
 
+  // ============================================================
+  // SUBSCRIPTIONS / TIMERS
+  // ============================================================
+
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _requestSubscription;
 
   Timer? _expiryTimer;
 
-  bool _searching = false;
+  // ============================================================
+  // SEARCH STATE
+  // ============================================================
 
-  DateTime? _searchStartedAt;
+  bool _searching = false;
 
   String? _walkerId;
 
@@ -74,6 +85,10 @@ class InstaWalkService {
         const Duration(minutes: 2),
       );
 
+      // ========================================================
+      // SAVE SEARCH STATE
+      // ========================================================
+
       await _firestore
           .collection('users')
           .doc(user.uid)
@@ -97,23 +112,37 @@ class InstaWalkService {
         SetOptions(merge: true),
       );
 
+      // ========================================================
+      // UPDATE LOCAL STATE
+      // ========================================================
+
       _walkerId = walkerId;
-      _searchStartedAt = startedAt;
       _searching = true;
 
       _requests.clear();
 
-      // Old sounds must never continue.
+      // ========================================================
+      // STOP OLD SOUNDS
+      // ========================================================
+
       await WalkRequestSoundService.instance
           .stopAll();
 
+      // ========================================================
+      // START REQUEST LISTENER
+      // ========================================================
+
       _startRequestListener();
+
+      // ========================================================
+      // START 2 MINUTE EXPIRY
+      // ========================================================
 
       _startExpiryTimer(expiresAt);
 
       return true;
     } catch (e) {
-      print(
+      debugPrint(
         'Start Insta Walk Error: $e',
       );
 
@@ -135,12 +164,15 @@ class InstaWalkService {
     }
 
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      final DocumentSnapshot<
+          Map<String, dynamic>> snapshot =
+          await _firestore
+              .collection('users')
+              .doc(user.uid)
+              .get();
 
-      final data = snapshot.data();
+      final Map<String, dynamic>? data =
+          snapshot.data();
 
       if (data == null) {
         return;
@@ -152,6 +184,10 @@ class InstaWalkService {
       if (!searching) {
         return;
       }
+
+      // ========================================================
+      // READ EXPIRY TIME
+      // ========================================================
 
       DateTime? expiresAt;
 
@@ -167,18 +203,32 @@ class InstaWalkService {
       // ========================================================
 
       if (expiresAt == null ||
-          !expiresAt.isAfter(DateTime.now())) {
+          !expiresAt.isAfter(
+            DateTime.now(),
+          )) {
         await stopSearch();
         return;
       }
+
+      // ========================================================
+      // RESTORE WALKER ID
+      // ========================================================
 
       final dynamic savedWalkerId =
           data['walkerId'];
 
       if (savedWalkerId != null) {
-        _walkerId =
+        final String id =
             savedWalkerId.toString().trim();
+
+        if (id.isNotEmpty) {
+          _walkerId = id;
+        }
       }
+
+      // ========================================================
+      // RESTORE SEARCH
+      // ========================================================
 
       _searching = true;
 
@@ -186,7 +236,7 @@ class InstaWalkService {
 
       _startExpiryTimer(expiresAt);
     } catch (e) {
-      print(
+      debugPrint(
         'Restore Insta Walk Error: $e',
       );
     }
@@ -210,7 +260,7 @@ class InstaWalkService {
             .listen(
       _handleRequests,
       onError: (Object error) {
-        print(
+        debugPrint(
           'Insta Walk Request Listener Error: $error',
         );
       },
@@ -231,8 +281,19 @@ class InstaWalkService {
 
     final List<WalkRequest> incoming = [];
 
-    for (final document in snapshot.docs) {
-      final data = document.data();
+    // ==========================================================
+    // READ REQUESTS
+    // ==========================================================
+
+    for (final QueryDocumentSnapshot<
+            Map<String, dynamic>> document
+        in snapshot.docs) {
+      final Map<String, dynamic> data =
+          document.data();
+
+      // ========================================================
+      // DISTANCE FILTER
+      // ========================================================
 
       final double distance =
           _readDistance(
@@ -244,19 +305,27 @@ class InstaWalkService {
         continue;
       }
 
+      // ========================================================
+      // CONVERT FIRESTORE DOCUMENT
+      // ========================================================
+
       try {
-        final request =
+        final WalkRequest request =
             WalkRequest.fromFirestore(
           document,
         );
 
         incoming.add(request);
       } catch (e) {
-        print(
+        debugPrint(
           'Walk Request Parse Error: $e',
         );
       }
     }
+
+    // ==========================================================
+    // SORT NEAREST FIRST
+    // ==========================================================
 
     incoming.sort(
       (a, b) =>
@@ -265,16 +334,23 @@ class InstaWalkService {
       ),
     );
 
+    // ==========================================================
+    // REQUEST IDS
+    // ==========================================================
+
     final Set<String> incomingIds =
         incoming
-            .map((request) => request.id)
+            .map(
+              (request) => request.id,
+            )
             .toSet();
 
     // ==========================================================
     // NEW REQUEST SOUND
     // ==========================================================
 
-    for (final request in incoming) {
+    for (final WalkRequest request
+        in incoming) {
       final bool alreadyExists =
           _requests.any(
         (oldRequest) =>
@@ -293,7 +369,7 @@ class InstaWalkService {
     // REMOVED REQUEST SOUND
     // ==========================================================
 
-    for (final oldRequest
+    for (final WalkRequest oldRequest
         in List<WalkRequest>.from(_requests)) {
       if (!incomingIds.contains(
         oldRequest.id,
@@ -304,6 +380,10 @@ class InstaWalkService {
         );
       }
     }
+
+    // ==========================================================
+    // UPDATE REQUEST LIST
+    // ==========================================================
 
     _requests
       ..clear()
@@ -317,18 +397,42 @@ class InstaWalkService {
   Future<void> stopSearch() async {
     final User? user = _auth.currentUser;
 
+    // ==========================================================
+    // STOP LOCAL SEARCH IMMEDIATELY
+    // ==========================================================
+
     _searching = false;
+
+    // ==========================================================
+    // STOP EXPIRY TIMER
+    // ==========================================================
 
     _expiryTimer?.cancel();
     _expiryTimer = null;
 
+    // ==========================================================
+    // STOP REQUEST LISTENER
+    // ==========================================================
+
     await _requestSubscription?.cancel();
     _requestSubscription = null;
+
+    // ==========================================================
+    // STOP ALL REQUEST SOUNDS
+    // ==========================================================
 
     await WalkRequestSoundService.instance
         .stopAll();
 
+    // ==========================================================
+    // CLEAR REQUESTS
+    // ==========================================================
+
     _requests.clear();
+
+    // ==========================================================
+    // SAVE FIRESTORE STATE
+    // ==========================================================
 
     if (user != null) {
       try {
@@ -344,7 +448,7 @@ class InstaWalkService {
           SetOptions(merge: true),
         );
       } catch (e) {
-        print(
+        debugPrint(
           'Stop Insta Walk Firestore Error: $e',
         );
       }
@@ -397,13 +501,15 @@ class InstaWalkService {
     }
 
     try {
-      final snapshot =
+      final DocumentSnapshot<
+          Map<String, dynamic>> snapshot =
           await _firestore
               .collection('phoneAccounts')
               .doc(user.uid)
               .get();
 
-      final data = snapshot.data();
+      final Map<String, dynamic>? data =
+          snapshot.data();
 
       final dynamic value =
           data?['walkerId'];
@@ -414,11 +520,12 @@ class InstaWalkService {
 
         if (id.isNotEmpty) {
           _walkerId = id;
+
           return id;
         }
       }
     } catch (e) {
-      print(
+      debugPrint(
         'Walker ID Load Error: $e',
       );
     }
@@ -427,7 +534,7 @@ class InstaWalkService {
   }
 
   // ============================================================
-  // DISTANCE
+  // READ DISTANCE
   // ============================================================
 
   double _readDistance(
@@ -444,18 +551,34 @@ class InstaWalkService {
   }
 
   // ============================================================
-  // RESET
+  // RESET / DISPOSE SERVICE
   // ============================================================
 
   Future<void> disposeService() async {
+    // ==========================================================
+    // STOP EXPIRY TIMER
+    // ==========================================================
+
     _expiryTimer?.cancel();
     _expiryTimer = null;
+
+    // ==========================================================
+    // STOP REQUEST LISTENER
+    // ==========================================================
 
     await _requestSubscription?.cancel();
     _requestSubscription = null;
 
+    // ==========================================================
+    // STOP ALL SOUNDS
+    // ==========================================================
+
     await WalkRequestSoundService.instance
         .stopAll();
+
+    // ==========================================================
+    // CLEAR STATE
+    // ==========================================================
 
     _requests.clear();
 
