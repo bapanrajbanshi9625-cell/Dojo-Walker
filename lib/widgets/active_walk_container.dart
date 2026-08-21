@@ -19,198 +19,242 @@ class ActiveWalkContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: 18,
-      ),
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(23),
-        border: Border.all(
-          color: const Color(0xFFDDE7E1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(.07),
-            blurRadius: 17,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: greenLight,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.pets_rounded,
-                  color: green,
-                  size: 25,
-                ),
-              ),
-
-              const SizedBox(width: 11),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'ACTIVE WALK',
-                      style: TextStyle(
-                        color: dark,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: .5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${request.ownerName} • ${request.dogName}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: muted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 9,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: greenLight,
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: const Text(
-                  'ACCEPTED',
-                  style: TextStyle(
-                    color: green,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF7FAF8),
-              borderRadius: BorderRadius.circular(15),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                ActiveWalkDetailsScreen(
+              request: request,
             ),
-            child: Row(
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(
+          horizontal: 18,
+        ),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius:
+              BorderRadius.circular(20),
+          border: Border.all(
+            color: const Color(0xFFDDE7E1),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color:
+                  Colors.black.withOpacity(.07),
+              blurRadius: 17,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // ================================================================
+            // TOP STRIP
+            // ================================================================
+
+            Row(
               children: [
-                const Icon(
-                  Icons.location_on_rounded,
-                  color: green,
-                  size: 20,
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: greenLight,
+                    borderRadius:
+                        BorderRadius.circular(13),
+                  ),
+                  child: const Icon(
+                    Icons.pets_rounded,
+                    color: green,
+                    size: 23,
+                  ),
                 ),
-                const SizedBox(width: 8),
+
+                const SizedBox(width: 10),
+
                 Expanded(
-                  child: Text(
-                    request.pickupAddress,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: dark,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'ACTIVE WALK',
+                        style: TextStyle(
+                          color: dark,
+                          fontSize: 12,
+                          fontWeight:
+                              FontWeight.w900,
+                          letterSpacing: .5,
+                        ),
+                      ),
+
+                      const SizedBox(height: 3),
+
+                      Text(
+                        _title(),
+                        maxLines: 1,
+                        overflow:
+                            TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: muted,
+                          fontSize: 10,
+                          fontWeight:
+                              FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: greenLight,
+                    borderRadius:
+                        BorderRadius.circular(9),
+                  ),
+                  child: const Text(
+                    'ACCEPTED',
+                    style: TextStyle(
+                      color: green,
+                      fontSize: 8,
+                      fontWeight:
+                          FontWeight.w900,
                     ),
                   ),
+                ),
+
+                const SizedBox(width: 7),
+
+                const Icon(
+                  Icons.keyboard_arrow_up_rounded,
+                  color: green,
+                  size: 22,
                 ),
               ],
             ),
-          ),
 
-          const SizedBox(height: 13),
+            const SizedBox(height: 11),
 
-          Row(
-            children: [
-              Expanded(
-                child: _info(
-                  Icons.route_rounded,
-                  '${request.distanceKm.toStringAsFixed(1)} km',
-                  'Distance',
-                ),
+            // ================================================================
+            // PICKUP
+            // ================================================================
+
+            Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.symmetric(
+                horizontal: 11,
+                vertical: 9,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _info(
-                  Icons.access_time_rounded,
-                  request.estimatedTime,
-                  'Estimated',
-                ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF7FAF8),
+                borderRadius:
+                    BorderRadius.circular(14),
               ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        ActiveWalkDetailsScreen(
-                      request: request,
-                    ),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: blue,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: const Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.center,
+              child: Row(
                 children: [
-                  Text(
-                    'View Walk Details',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
+                  const Icon(
+                    Icons.location_on_rounded,
+                    color: green,
+                    size: 18,
+                  ),
+
+                  const SizedBox(width: 7),
+
+                  Expanded(
+                    child: Text(
+                      request.pickupAddress
+                              .trim()
+                              .isEmpty
+                          ? 'Pickup location'
+                          : request.pickupAddress,
+                      maxLines: 1,
+                      overflow:
+                          TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: dark,
+                        fontSize: 11,
+                        fontWeight:
+                            FontWeight.w700,
+                      ),
                     ),
                   ),
-                  SizedBox(width: 7),
-                  Icon(
+
+                  const Icon(
                     Icons.arrow_forward_rounded,
-                    size: 19,
+                    color: blue,
+                    size: 18,
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 9),
+
+            // ================================================================
+            // QUICK INFO
+            // ================================================================
+
+            Row(
+              children: [
+                Expanded(
+                  child: _info(
+                    Icons.route_rounded,
+                    '${request.distanceKm.toStringAsFixed(1)} km',
+                    'Distance',
+                  ),
+                ),
+
+                const SizedBox(width: 7),
+
+                Expanded(
+                  child: _info(
+                    Icons.access_time_rounded,
+                    request.estimatedTime.isEmpty
+                        ? '--'
+                        : request.estimatedTime,
+                    'Estimated',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  String _title() {
+    final String owner =
+        request.ownerName.trim();
+
+    final String dog =
+        request.dogName.trim();
+
+    if (owner.isNotEmpty &&
+        dog.isNotEmpty) {
+      return '$owner • $dog';
+    }
+
+    if (dog.isNotEmpty) {
+      return dog;
+    }
+
+    if (owner.isNotEmpty) {
+      return owner;
+    }
+
+    return 'Walk accepted';
   }
 
   static Widget _info(
@@ -219,13 +263,15 @@ class ActiveWalkContainer extends StatelessWidget {
     String label,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 9,
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 8,
       ),
       decoration: BoxDecoration(
         color: const Color(0xFFF7F8F8),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius:
+            BorderRadius.circular(11),
         border: Border.all(
           color: const Color(0xFFE5E8E8),
         ),
@@ -235,9 +281,11 @@ class ActiveWalkContainer extends StatelessWidget {
           Icon(
             icon,
             color: blue,
-            size: 17,
+            size: 16,
           ),
-          const SizedBox(width: 7),
+
+          const SizedBox(width: 6),
+
           Expanded(
             child: Column(
               crossAxisAlignment:
@@ -246,18 +294,21 @@ class ActiveWalkContainer extends StatelessWidget {
                 Text(
                   value,
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  overflow:
+                      TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: dark,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 10,
+                    fontWeight:
+                        FontWeight.w800,
                   ),
                 ),
+
                 Text(
                   label,
                   style: const TextStyle(
                     color: muted,
-                    fontSize: 8,
+                    fontSize: 7,
                   ),
                 ),
               ],
