@@ -36,12 +36,22 @@
 
     <!-- ====================================================== -->
     <!-- BACKGROUND LOCATION -->
-    <!-- Required only if Live Walk tracking continues -->
-    <!-- while app is minimized/backgrounded. -->
+    <!-- Live Walk continues while app is in background -->
     <!-- ====================================================== -->
 
     <uses-permission
         android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- ====================================================== -->
+    <!-- FOREGROUND LOCATION SERVICE -->
+    <!-- Android 14+ -->
+    <!-- ====================================================== -->
+
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
     <!-- ====================================================== -->
     <!-- NOTIFICATIONS -->
