@@ -250,14 +250,12 @@ bool _routeLoaded = false;
     // ----------------------------------------------------------
 
     final double serviceDistance =
-        _backgroundService.totalDistanceKm;
+    _backgroundService.totalDistanceKm;
 
-    if (serviceDistance >= 0) {
-      _totalDistanceKm =
-          serviceDistance;
-    }
-
-    _lastPosition = position;
+if (serviceDistance >= 0) {
+  _totalDistanceKm =
+      serviceDistance;
+}
 
     // ----------------------------------------------------------
     // ROUTE POINT
