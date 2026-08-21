@@ -235,12 +235,16 @@ class _ActiveWalkDetailsScreenState
       children: [
         const SizedBox(height: 9),
 
-        Container(
+        const SizedBox(
           width: 42,
           height: 4,
-          decoration: BoxDecoration(
-            color: Color(0xFFD0D5D8),
-            borderRadius: BorderRadius.circular(20),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Color(0xFFD0D5D8),
+              borderRadius: BorderRadius.all(
+                Radius.circular(20),
+              ),
+            ),
           ),
         ),
 
@@ -521,9 +525,6 @@ class _ActiveWalkDetailsScreenState
           ownerName: widget.request.ownerName,
           walkId: walkId,
           dogName: widget.request.dogName,
-
-          // WalkRequest में अभी ownerPhone नहीं है.
-          // इसलिए null भेजा जा रहा है.
           ownerPhone: null,
         ),
       ),
