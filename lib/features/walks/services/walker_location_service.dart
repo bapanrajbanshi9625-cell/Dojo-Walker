@@ -42,8 +42,7 @@ class WalkerLocationService {
     }
 
     if (permission == LocationPermission.denied ||
-        permission ==
-            LocationPermission.deniedForever) {
+        permission == LocationPermission.deniedForever) {
       return false;
     }
 
@@ -65,11 +64,7 @@ class WalkerLocationService {
     try {
       final Position position =
           await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 10,
-        ),
+        desiredAccuracy: LocationAccuracy.high,
       );
 
       _currentPosition = position;
@@ -115,6 +110,9 @@ class WalkerLocationService {
           _locationController.add(position);
         }
       },
+      onError: (Object error) {
+        // Keep the GPS stream alive.
+      },
     );
 
     return true;
@@ -157,6 +155,9 @@ class WalkerLocationService {
 
   Future<void> dispose() async {
     await stopTracking();
-    await _locationController.close();
+
+    if (!_locationController.isClosed) {
+      await _locationController.close();
+    }
   }
 }
