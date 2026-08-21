@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../features/walks/models/walk_request.dart';
+import '../features/walks/services/walk_request_service.dart';
 
 class ActiveWalkDetailsScreen extends StatefulWidget {
   final WalkRequest request;
@@ -34,23 +36,21 @@ class _ActiveWalkDetailsScreenState
   static const Color muted = Color(0xFF737C82);
 
   // ==========================================================================
+  // SERVICE
+  // ==========================================================================
+
+  final WalkRequestService _walkService =
+      WalkRequestService.instance;
+
+  // ==========================================================================
   // MAP
   // ==========================================================================
 
   final MapController _mapController = MapController();
 
-  /*
-   * IMPORTANT:
-   * Fake coordinates intentionally नहीं रखे गए हैं।
-   *
-   * जब current WalkRequest/service से real GPS coordinates उपलब्ध होंगे,
-   * इन्हीं variables में real LatLng assign किए जा सकते हैं।
-   */
   LatLng? _walkerLocation;
-  LatLng? _pickupLocation;
-  LatLng? _destinationLocation;
 
-  bool _reached = false;
+  bool _hasCenteredOnWalker = false;
 
   // ==========================================================================
   // BOTTOM SHEET
@@ -60,6 +60,12 @@ class _ActiveWalkDetailsScreenState
       DraggableScrollableController();
 
   bool _sheetExpanded = false;
+
+  // ==========================================================================
+  // REACHED
+  // ==========================================================================
+
+  bool _reached = false;
 
   // ==========================================================================
   // INIT
@@ -72,8 +78,13 @@ class _ActiveWalkDetailsScreenState
     _sheetController.addListener(_onSheetChanged);
   }
 
+  // ==========================================================================
+  // SHEET LISTENER
+  // ==========================================================================
+
   void _onSheetChanged() {
-    final bool expanded = _sheetController.size > 0.55;
+    final bool expanded =
+        _sheetController.size > 0.55;
 
     if (_sheetExpanded != expanded && mounted) {
       setState(() {
@@ -93,11 +104,40 @@ class _ActiveWalkDetailsScreenState
       body: Stack(
         children: [
           // ------------------------------------------------------------------
-          // FULL MAP
+          // LIVE MAP
           // ------------------------------------------------------------------
 
           Positioned.fill(
-            child: _buildMap(),
+            child: StreamBuilder<
+                dynamic>(
+              stream: _walkService.activeWalkStream(
+                widget.request.walkId.isNotEmpty
+                    ? widget.request.walkId
+                    : widget.request.id,
+              ),
+              builder: (
+                BuildContext context,
+                AsyncSnapshot<dynamic> snapshot,
+              ) {
+                final Map<String, dynamic> data =
+                    _readSnapshotData(snapshot.data);
+
+                final LatLng? liveLocation =
+                    _readWalkerLocation(data);
+
+                if (liveLocation != null) {
+                  _walkerLocation = liveLocation;
+
+                  _centerOnWalkerIfNeeded(
+                    liveLocation,
+                  );
+                }
+
+                return _buildMap(
+                  liveLocation,
+                );
+              },
+            ),
           ),
 
           // ------------------------------------------------------------------
@@ -138,11 +178,184 @@ class _ActiveWalkDetailsScreenState
               BuildContext context,
               ScrollController controller,
             ) {
-              return _buildBottomSheet(controller);
+              return _buildBottomSheet(
+                controller,
+              );
             },
           ),
         ],
       ),
+    );
+  }
+
+  // ==========================================================================
+  // SNAPSHOT DATA
+  // ==========================================================================
+
+  Map<String, dynamic> _readSnapshotData(
+    dynamic snapshot,
+  ) {
+    try {
+      if (snapshot == null) {
+        return <String, dynamic>{};
+      }
+
+      final dynamic data = snapshot.data();
+
+      if (data is Map<String, dynamic>) {
+        return data;
+      }
+
+      return <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  }
+
+  // ==========================================================================
+  // READ LIVE WALKER LOCATION
+  // ==========================================================================
+
+  LatLng? _readWalkerLocation(
+    Map<String, dynamic> data,
+  ) {
+    // ------------------------------------------------------------------------
+    // active_walk structure:
+    //
+    // currentLat
+    // currentLng
+    // ------------------------------------------------------------------------
+
+    final dynamic latValue =
+        data['currentLat'];
+
+    final dynamic lngValue =
+        data['currentLng'];
+
+    final double? lat =
+        _toDoubleOrNull(latValue);
+
+    final double? lng =
+        _toDoubleOrNull(lngValue);
+
+    if (lat != null &&
+        lng != null &&
+        _validCoordinates(lat, lng)) {
+      return LatLng(lat, lng);
+    }
+
+    // ------------------------------------------------------------------------
+    // Fallback:
+    //
+    // currentLocation:
+    // {
+    //   lat: ...,
+    //   lng: ...
+    // }
+    // ------------------------------------------------------------------------
+
+    final dynamic location =
+        data['currentLocation'];
+
+    if (location is Map) {
+      final double? nestedLat =
+          _toDoubleOrNull(
+        location['lat'],
+      );
+
+      final double? nestedLng =
+          _toDoubleOrNull(
+        location['lng'],
+      );
+
+      if (nestedLat != null &&
+          nestedLng != null &&
+          _validCoordinates(
+            nestedLat,
+            nestedLng,
+          )) {
+        return LatLng(
+          nestedLat,
+          nestedLng,
+        );
+      }
+    }
+
+    return null;
+  }
+
+  // ==========================================================================
+  // SAFE DOUBLE
+  // ==========================================================================
+
+  double? _toDoubleOrNull(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(
+      value.toString().trim(),
+    );
+  }
+
+  // ==========================================================================
+  // VALID COORDINATES
+  // ==========================================================================
+
+  bool _validCoordinates(
+    double latitude,
+    double longitude,
+  ) {
+    if (latitude == 0 &&
+        longitude == 0) {
+      return false;
+    }
+
+    if (latitude < -90 ||
+        latitude > 90) {
+      return false;
+    }
+
+    if (longitude < -180 ||
+        longitude > 180) {
+      return false;
+    }
+
+    return true;
+  }
+
+  // ==========================================================================
+  // AUTO CENTER
+  // ==========================================================================
+
+  void _centerOnWalkerIfNeeded(
+    LatLng location,
+  ) {
+    if (_hasCenteredOnWalker) {
+      return;
+    }
+
+    _hasCenteredOnWalker = true;
+
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) {
+        if (!mounted) {
+          return;
+        }
+
+        try {
+          _mapController.move(
+            location,
+            17,
+          );
+        } catch (_) {}
+      },
     );
   }
 
@@ -160,20 +373,23 @@ class _ActiveWalkDetailsScreenState
           0,
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment:
+              MainAxisAlignment.spaceBetween,
           children: [
             _circleButton(
               Icons.arrow_back_ios_new,
               () => Navigator.pop(context),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(
+              padding:
+                  const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 9,
               ),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(30),
+                borderRadius:
+                    BorderRadius.circular(30),
                 boxShadow: const [
                   BoxShadow(
                     color: Colors.black26,
@@ -194,7 +410,8 @@ class _ActiveWalkDetailsScreenState
                     style: TextStyle(
                       color: navy,
                       fontSize: 11,
-                      fontWeight: FontWeight.w900,
+                      fontWeight:
+                          FontWeight.w900,
                     ),
                   ),
                 ],
@@ -210,54 +427,41 @@ class _ActiveWalkDetailsScreenState
   // MAP
   // ==========================================================================
 
-  Widget _buildMap() {
-    final LatLng? center =
-        _walkerLocation ??
-        _pickupLocation ??
-        _destinationLocation;
-
+  Widget _buildMap(
+    LatLng? liveLocation,
+  ) {
     /*
-     * जब real coordinates नहीं हैं:
-     * India को सिर्फ fallback visual center रखा गया है।
+     * IMPORTANT:
      *
-     * यह किसी walk की fake location नहीं है।
+     * Real GPS available:
+     *   -> walker location
+     *
+     * Real GPS unavailable:
+     *   -> India visual fallback only
+     *
+     * Fake walk location कभी नहीं दिखाई जाएगी।
      */
+
     final LatLng mapCenter =
-        center ?? const LatLng(20.5937, 78.9629);
+        liveLocation ??
+            const LatLng(
+              20.5937,
+              78.9629,
+            );
 
-    final bool hasLocation = center != null;
+    final bool hasLocation =
+        liveLocation != null;
 
-    final List<Marker> markers = [];
+    final List<Marker> markers =
+        <Marker>[];
 
-    if (_walkerLocation != null) {
+    if (liveLocation != null) {
       markers.add(
         Marker(
-          point: _walkerLocation!,
+          point: liveLocation,
           width: 56,
           height: 56,
           child: _walkerMarker(),
-        ),
-      );
-    }
-
-    if (_pickupLocation != null) {
-      markers.add(
-        Marker(
-          point: _pickupLocation!,
-          width: 62,
-          height: 62,
-          child: _pickupMarker(),
-        ),
-      );
-    }
-
-    if (_destinationLocation != null) {
-      markers.add(
-        Marker(
-          point: _destinationLocation!,
-          width: 45,
-          height: 45,
-          child: _destinationMarker(),
         ),
       );
     }
@@ -266,8 +470,10 @@ class _ActiveWalkDetailsScreenState
       mapController: _mapController,
       options: MapOptions(
         initialCenter: mapCenter,
-        initialZoom: hasLocation ? 16 : 5,
-        interactionOptions: const InteractionOptions(
+        initialZoom:
+            hasLocation ? 17 : 5,
+        interactionOptions:
+            const InteractionOptions(
           flags: InteractiveFlag.all,
         ),
       ),
@@ -275,8 +481,10 @@ class _ActiveWalkDetailsScreenState
         TileLayer(
           urlTemplate:
               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.doojowalker.app',
+          userAgentPackageName:
+              'com.doojowalker.app',
         ),
+
         if (markers.isNotEmpty)
           MarkerLayer(
             markers: markers,
@@ -290,7 +498,8 @@ class _ActiveWalkDetailsScreenState
   // ==========================================================================
 
   void _moveToWalker() {
-    final LatLng? location = _walkerLocation;
+    final LatLng? location =
+        _walkerLocation;
 
     if (location == null) {
       _showMessage(
@@ -299,10 +508,16 @@ class _ActiveWalkDetailsScreenState
       return;
     }
 
-    _mapController.move(
-      location,
-      17,
-    );
+    try {
+      _mapController.move(
+        location,
+        17,
+      );
+    } catch (_) {
+      _showMessage(
+        'Map is not ready yet.',
+      );
+    }
   }
 
   // ==========================================================================
@@ -315,7 +530,8 @@ class _ActiveWalkDetailsScreenState
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(
+        borderRadius:
+            BorderRadius.vertical(
           top: Radius.circular(30),
         ),
         boxShadow: [
@@ -328,24 +544,26 @@ class _ActiveWalkDetailsScreenState
       ),
       child: ListView(
         controller: controller,
-        physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
+        physics:
+            const ClampingScrollPhysics(),
+        padding:
+            const EdgeInsets.fromLTRB(
           18,
           9,
           18,
           14,
         ),
         children: [
-          // HANDLE
-
           GestureDetector(
             onTap: _toggleSheet,
             child: Center(
               child: Container(
                 width: 48,
                 height: 5,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD3D8DB),
+                decoration:
+                    BoxDecoration(
+                  color:
+                      const Color(0xFFD3D8DB),
                   borderRadius:
                       BorderRadius.circular(20),
                 ),
@@ -355,17 +573,9 @@ class _ActiveWalkDetailsScreenState
 
           const SizedBox(height: 13),
 
-          // ================================================================
-          // COLLAPSED VIEW
-          // ================================================================
-
           _buildCollapsedActiveWalk(),
 
           const SizedBox(height: 12),
-
-          // ================================================================
-          // FULL DETAILS
-          // ================================================================
 
           _buildDogHeader(),
 
@@ -448,7 +658,7 @@ class _ActiveWalkDetailsScreenState
   }
 
   // ==========================================================================
-  // COLLAPSED ACTIVE WALK STRIP
+  // COLLAPSED ACTIVE WALK
   // ==========================================================================
 
   Widget _buildCollapsedActiveWalk() {
@@ -456,13 +666,15 @@ class _ActiveWalkDetailsScreenState
       onTap: _expandSheet,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(
+        padding:
+            const EdgeInsets.symmetric(
           horizontal: 13,
           vertical: 11,
         ),
         decoration: BoxDecoration(
           color: greenLight,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius:
+              BorderRadius.circular(16),
           border: Border.all(
             color: const Color(0xFFCBEBD7),
           ),
@@ -496,7 +708,8 @@ class _ActiveWalkDetailsScreenState
                     style: TextStyle(
                       color: navy,
                       fontSize: 11,
-                      fontWeight: FontWeight.w900,
+                      fontWeight:
+                          FontWeight.w900,
                       letterSpacing: .4,
                     ),
                   ),
@@ -509,7 +722,8 @@ class _ActiveWalkDetailsScreenState
                     style: const TextStyle(
                       color: muted,
                       fontSize: 9,
-                      fontWeight: FontWeight.w600,
+                      fontWeight:
+                          FontWeight.w600,
                     ),
                   ),
                 ],
@@ -517,7 +731,8 @@ class _ActiveWalkDetailsScreenState
             ),
 
             Container(
-              padding: const EdgeInsets.symmetric(
+              padding:
+                  const EdgeInsets.symmetric(
                 horizontal: 9,
                 vertical: 6,
               ),
@@ -531,7 +746,8 @@ class _ActiveWalkDetailsScreenState
                 style: TextStyle(
                   color: green,
                   fontSize: 8,
-                  fontWeight: FontWeight.w900,
+                  fontWeight:
+                      FontWeight.w900,
                 ),
               ),
             ),
@@ -560,7 +776,8 @@ class _ActiveWalkDetailsScreenState
           width: 60,
           height: 60,
           decoration: BoxDecoration(
-            color: const Color(0xFFFFF0E7),
+            color:
+                const Color(0xFFFFF0E7),
             borderRadius:
                 BorderRadius.circular(18),
           ),
@@ -588,7 +805,8 @@ class _ActiveWalkDetailsScreenState
                 style: const TextStyle(
                   color: navy,
                   fontSize: 19,
-                  fontWeight: FontWeight.w900,
+                  fontWeight:
+                      FontWeight.w900,
                 ),
               ),
 
@@ -602,7 +820,8 @@ class _ActiveWalkDetailsScreenState
                 style: const TextStyle(
                   color: muted,
                   fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  fontWeight:
+                      FontWeight.w600,
                 ),
               ),
 
@@ -623,12 +842,14 @@ class _ActiveWalkDetailsScreenState
         ),
 
         Container(
-          padding: const EdgeInsets.symmetric(
+          padding:
+              const EdgeInsets.symmetric(
             horizontal: 12,
             vertical: 9,
           ),
           decoration: BoxDecoration(
-            color: const Color(0xFFFFF0E7),
+            color:
+                const Color(0xFFFFF0E7),
             borderRadius:
                 BorderRadius.circular(15),
           ),
@@ -639,7 +860,8 @@ class _ActiveWalkDetailsScreenState
                 style: const TextStyle(
                   color: orange,
                   fontSize: 12,
-                  fontWeight: FontWeight.w900,
+                  fontWeight:
+                      FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 2),
@@ -662,18 +884,24 @@ class _ActiveWalkDetailsScreenState
   // ==========================================================================
 
   Widget _buildLiveStatus() {
+    final bool live =
+        _walkerLocation != null;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         horizontal: 12,
         vertical: 10,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0FAF4),
+        color:
+            const Color(0xFFF0FAF4),
         borderRadius:
             BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFD7EFDF),
+          color:
+              const Color(0xFFD7EFDF),
         ),
       ),
       child: Row(
@@ -686,24 +914,31 @@ class _ActiveWalkDetailsScreenState
 
           const SizedBox(width: 9),
 
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment:
                   CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Walking to pickup',
-                  style: TextStyle(
-                    color: Color(0xFF237546),
+                  live
+                      ? 'Walking to pickup'
+                      : 'Waiting for live location',
+                  style: const TextStyle(
+                    color:
+                        Color(0xFF237546),
                     fontSize: 10,
-                    fontWeight: FontWeight.w900,
+                    fontWeight:
+                        FontWeight.w900,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'Live walk is active',
-                  style: TextStyle(
-                    color: Color(0xFF6B8B77),
+                  live
+                      ? 'Live walk is active'
+                      : 'GPS location will appear here',
+                  style: const TextStyle(
+                    color:
+                        Color(0xFF6B8B77),
                     fontSize: 8,
                   ),
                 ),
@@ -714,8 +949,15 @@ class _ActiveWalkDetailsScreenState
           Container(
             width: 8,
             height: 8,
-            decoration: const BoxDecoration(
-              color: Color(0xFF18A957),
+            decoration:
+                BoxDecoration(
+              color: live
+                  ? const Color(
+                      0xFF18A957,
+                    )
+                  : const Color(
+                      0xFFB9C2BC,
+                    ),
               shape: BoxShape.circle,
             ),
           ),
@@ -734,9 +976,11 @@ class _ActiveWalkDetailsScreenState
     String value,
   ) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding:
+          const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F8F9),
+        color:
+            const Color(0xFFF7F8F9),
         borderRadius:
             BorderRadius.circular(15),
       ),
@@ -757,10 +1001,13 @@ class _ActiveWalkDetailsScreenState
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Color(0xFF9AA0A4),
+                  style:
+                      const TextStyle(
+                    color:
+                        Color(0xFF9AA0A4),
                     fontSize: 7,
-                    fontWeight: FontWeight.w900,
+                    fontWeight:
+                        FontWeight.w900,
                   ),
                 ),
 
@@ -771,10 +1018,12 @@ class _ActiveWalkDetailsScreenState
                   maxLines: 2,
                   overflow:
                       TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style:
+                      const TextStyle(
                     color: navy,
                     fontSize: 9,
-                    fontWeight: FontWeight.w800,
+                    fontWeight:
+                        FontWeight.w800,
                   ),
                 ),
               ],
@@ -794,12 +1043,14 @@ class _ActiveWalkDetailsScreenState
     String title,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         vertical: 9,
         horizontal: 5,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F8F9),
+        color:
+            const Color(0xFFF7F8F9),
         borderRadius:
             BorderRadius.circular(14),
       ),
@@ -813,7 +1064,8 @@ class _ActiveWalkDetailsScreenState
             style: const TextStyle(
               color: navy,
               fontSize: 11,
-              fontWeight: FontWeight.w900,
+              fontWeight:
+                  FontWeight.w900,
             ),
           ),
 
@@ -822,7 +1074,8 @@ class _ActiveWalkDetailsScreenState
           Text(
             title,
             style: const TextStyle(
-              color: Color(0xFF999FA3),
+              color:
+                  Color(0xFF999FA3),
               fontSize: 7,
             ),
           ),
@@ -838,13 +1091,16 @@ class _ActiveWalkDetailsScreenState
   Widget _buildOwnerNote() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding:
+          const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8F2),
+        color:
+            const Color(0xFFFFF8F2),
         borderRadius:
             BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFFFE8D7),
+          color:
+              const Color(0xFFFFE8D7),
         ),
       ),
       child: Column(
@@ -864,7 +1120,8 @@ class _ActiveWalkDetailsScreenState
                 style: TextStyle(
                   color: orange,
                   fontSize: 9,
-                  fontWeight: FontWeight.w900,
+                  fontWeight:
+                      FontWeight.w900,
                 ),
               ),
             ],
@@ -875,7 +1132,8 @@ class _ActiveWalkDetailsScreenState
           Text(
             _ownerNoteText,
             style: const TextStyle(
-              color: Color(0xFF666D72),
+              color:
+                  Color(0xFF666D72),
               fontSize: 10,
               height: 1.35,
             ),
@@ -896,7 +1154,8 @@ class _ActiveWalkDetailsScreenState
           flex: 6,
           child: SizedBox(
             height: 50,
-            child: ElevatedButton.icon(
+            child:
+                ElevatedButton.icon(
               onPressed: _callOwner,
               icon: const Icon(
                 Icons.call,
@@ -906,17 +1165,23 @@ class _ActiveWalkDetailsScreenState
                 'Call',
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w900,
+                  fontWeight:
+                      FontWeight.w900,
                 ),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
+              style:
+                  ElevatedButton.styleFrom(
+                backgroundColor:
+                    Colors.black,
+                foregroundColor:
+                    Colors.white,
                 elevation: 0,
                 shape:
                     RoundedRectangleBorder(
                   borderRadius:
-                      BorderRadius.circular(16),
+                      BorderRadius.circular(
+                    16,
+                  ),
                 ),
               ),
             ),
@@ -929,7 +1194,8 @@ class _ActiveWalkDetailsScreenState
           flex: 5,
           child: SizedBox(
             height: 50,
-            child: OutlinedButton.icon(
+            child:
+                OutlinedButton.icon(
               onPressed: _openChat,
               icon: const Icon(
                 Icons.chat_bubble_outline,
@@ -939,21 +1205,27 @@ class _ActiveWalkDetailsScreenState
                 'Chat',
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w800,
+                  fontWeight:
+                      FontWeight.w800,
                 ),
               ),
               style:
                   OutlinedButton.styleFrom(
                 foregroundColor: navy,
-                backgroundColor: Colors.white,
-                side: const BorderSide(
-                  color: Color(0xFFD5DADD),
+                backgroundColor:
+                    Colors.white,
+                side:
+                    const BorderSide(
+                  color:
+                      Color(0xFFD5DADD),
                   width: 1.3,
                 ),
                 shape:
                     RoundedRectangleBorder(
                   borderRadius:
-                      BorderRadius.circular(16),
+                      BorderRadius.circular(
+                    16,
+                  ),
                 ),
               ),
             ),
@@ -964,22 +1236,42 @@ class _ActiveWalkDetailsScreenState
   }
 
   // ==========================================================================
-  // CALL
+  // CALL OWNER
   // ==========================================================================
 
-  void _callOwner() {
-    /*
-     * Current WalkRequest model में ownerPhone नहीं है।
-     *
-     * इसलिए यहां ownerPhone को direct access नहीं किया गया है।
-     * Fake number भी नहीं लगाया गया है।
-     *
-     * जब existing owner phone service/model से उपलब्ध होगा,
-     * इसी method में real phone launcher लगाया जा सकता है।
-     */
-    _showMessage(
-      'Owner phone number is not available.',
+  Future<void> _callOwner() async {
+    final String phone =
+        widget.request.ownerPhone.trim();
+
+    if (phone.isEmpty) {
+      _showMessage(
+        'Owner phone number is not available.',
+      );
+      return;
+    }
+
+    final Uri uri = Uri(
+      scheme: 'tel',
+      path: phone,
     );
+
+    try {
+      final bool canLaunch =
+          await canLaunchUrl(uri);
+
+      if (!canLaunch) {
+        _showMessage(
+          'Unable to open phone dialer.',
+        );
+        return;
+      }
+
+      await launchUrl(uri);
+    } catch (_) {
+      _showMessage(
+        'Unable to call owner.',
+      );
+    }
   }
 
   // ==========================================================================
@@ -988,8 +1280,9 @@ class _ActiveWalkDetailsScreenState
 
   void _openChat() {
     /*
-     * Existing project के chat service/screen से connect किया जा सकता है।
-     * कोई fake chat screen नहीं बनाया गया है।
+     * Existing chat service/screen अभी project में connected नहीं है।
+     *
+     * इसलिए fake chat screen नहीं बनाया गया।
      */
     _showMessage(
       'Chat is not connected yet.',
@@ -1009,9 +1302,6 @@ class _ActiveWalkDetailsScreenState
       _reached = true;
     });
 
-    /*
-     * Parent/caller का existing next-screen connection preserve रहेगा।
-     */
     widget.onReached?.call();
   }
 
@@ -1023,7 +1313,9 @@ class _ActiveWalkDetailsScreenState
     _sheetController.animateTo(
       .90,
       duration:
-          const Duration(milliseconds: 350),
+          const Duration(
+        milliseconds: 350,
+      ),
       curve: Curves.easeOut,
     );
   }
@@ -1033,7 +1325,9 @@ class _ActiveWalkDetailsScreenState
       _sheetController.animateTo(
         .25,
         duration:
-            const Duration(milliseconds: 300),
+            const Duration(
+          milliseconds: 300,
+        ),
         curve: Curves.easeOut,
       );
     } else {
@@ -1048,10 +1342,12 @@ class _ActiveWalkDetailsScreenState
   Widget _buildBottomNavigation() {
     return Container(
       height: 54,
-      decoration: const BoxDecoration(
+      decoration:
+          const BoxDecoration(
         border: Border(
           top: BorderSide(
-            color: Color(0xFFF0F1F2),
+            color:
+                Color(0xFFF0F1F2),
           ),
         ),
       ),
@@ -1092,10 +1388,12 @@ class _ActiveWalkDetailsScreenState
         const SizedBox(height: 1),
         Text(
           title,
-          style: const TextStyle(
+          style:
+              const TextStyle(
             color: navy,
             fontSize: 8,
-            fontWeight: FontWeight.w600,
+            fontWeight:
+                FontWeight.w600,
           ),
         ),
       ],
@@ -1114,10 +1412,12 @@ class _ActiveWalkDetailsScreenState
     return Material(
       color: Colors.white,
       elevation: 5,
-      shape: const CircleBorder(),
+      shape:
+          const CircleBorder(),
       child: InkWell(
         onTap: onTap,
-        customBorder: const CircleBorder(),
+        customBorder:
+            const CircleBorder(),
         child: SizedBox(
           width: 46,
           height: 46,
@@ -1132,12 +1432,13 @@ class _ActiveWalkDetailsScreenState
   }
 
   // ==========================================================================
-  // MAP MARKERS
+  // WALKER MARKER
   // ==========================================================================
 
   Widget _walkerMarker() {
     return Container(
-      decoration: BoxDecoration(
+      decoration:
+          BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
         border: Border.all(
@@ -1161,64 +1462,34 @@ class _ActiveWalkDetailsScreenState
     );
   }
 
-  Widget _pickupMarker() {
-    return Container(
-      decoration: BoxDecoration(
-        color: orange,
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.white,
-          width: 4,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black45,
-            blurRadius: 12,
-          ),
-        ],
-      ),
-      child: const Center(
-        child: Icon(
-          Icons.pets,
-          color: Colors.white,
-          size: 24,
-        ),
-      ),
-    );
-  }
-
-  Widget _destinationMarker() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: navy,
-        shape: BoxShape.circle,
-      ),
-      child: const Center(
-        child: Icon(
-          Icons.flag,
-          color: Colors.white,
-          size: 18,
-        ),
-      ),
-    );
-  }
-
   // ==========================================================================
   // DATA HELPERS
   // ==========================================================================
 
   String get _ownerNameText {
-    final value = widget.request.ownerName.trim();
-    return value.isEmpty ? 'Owner' : value;
+    final String value =
+        widget.request.ownerName
+            .trim();
+
+    return value.isEmpty
+        ? 'Owner'
+        : value;
   }
 
   String get _dogNameText {
-    final value = widget.request.dogName.trim();
-    return value.isEmpty ? 'Dog' : value;
+    final String value =
+        widget.request.dogName
+            .trim();
+
+    return value.isEmpty
+        ? 'Dog'
+        : value;
   }
 
   String get _breedText {
-    final value = widget.request.dogBreed.trim();
+    final String value =
+        widget.request.dogBreed
+            .trim();
 
     return value.isEmpty
         ? 'Breed not available'
@@ -1226,8 +1497,9 @@ class _ActiveWalkDetailsScreenState
   }
 
   String get _pickupText {
-    final value =
-        widget.request.pickupAddress.trim();
+    final String value =
+        widget.request.pickupAddress
+            .trim();
 
     return value.isEmpty
         ? 'Pickup address not available'
@@ -1236,7 +1508,8 @@ class _ActiveWalkDetailsScreenState
 
   String get _destinationText {
     /*
-     * Current WalkRequest में destination field उपलब्ध नहीं है।
+     * Current WalkRequest/service में
+     * destination coordinates/address नहीं है।
      *
      * इसलिए fake destination नहीं दिखाया जा रहा।
      */
@@ -1244,7 +1517,8 @@ class _ActiveWalkDetailsScreenState
   }
 
   String get _distanceText {
-    final value = widget.request.distanceKm;
+    final double value =
+        widget.request.distanceKm;
 
     if (value <= 0) {
       return '--';
@@ -1254,21 +1528,24 @@ class _ActiveWalkDetailsScreenState
   }
 
   String get _etaText {
-    final value =
-        widget.request.estimatedTime.trim();
+    final String value =
+        widget.request.estimatedTime
+            .trim();
 
-    return value.isEmpty ? '--' : value;
+    return value.isEmpty
+        ? '--'
+        : value;
   }
 
   String get _walkStatusText {
-    return _reached ? 'Reached' : 'Active';
+    return _reached
+        ? 'Reached'
+        : 'Active';
   }
 
   String get _ownerNoteText {
     /*
-     * Owner-note field current WalkRequest में उपलब्ध नहीं है।
-     *
-     * Fake note नहीं दिखाया जा रहा।
+     * Owner-note अभी WalkRequest में नहीं है।
      */
     return 'No additional note provided by owner.';
   }
@@ -1277,7 +1554,9 @@ class _ActiveWalkDetailsScreenState
   // MESSAGE
   // ==========================================================================
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message,
+  ) {
     if (!mounted) {
       return;
     }
@@ -1286,9 +1565,12 @@ class _ActiveWalkDetailsScreenState
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content:
+              Text(message),
           duration:
-              const Duration(seconds: 2),
+              const Duration(
+            seconds: 2,
+          ),
         ),
       );
   }
@@ -1299,8 +1581,13 @@ class _ActiveWalkDetailsScreenState
 
   @override
   void dispose() {
-    _sheetController.removeListener(_onSheetChanged);
+    _sheetController
+        .removeListener(
+      _onSheetChanged,
+    );
+
     _sheetController.dispose();
+
     super.dispose();
   }
 }
@@ -1332,17 +1619,24 @@ class _ReachSliderState
   double _position = 0;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return LayoutBuilder(
       builder: (
         BuildContext context,
         BoxConstraints constraints,
       ) {
-        const double handleSize = 50;
+        const double handleSize =
+            50;
 
         final double maxPosition =
-            (constraints.maxWidth - handleSize)
-                .clamp(0.0, double.infinity);
+            (constraints.maxWidth -
+                    handleSize)
+                .clamp(
+          0.0,
+          double.infinity,
+        );
 
         // ====================================================================
         // SUCCESS
@@ -1351,31 +1645,45 @@ class _ReachSliderState
         if (widget.reached) {
           return Container(
             height: 54,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE7F7ED),
+            decoration:
+                BoxDecoration(
+              color:
+                  const Color(
+                0xFFE7F7ED,
+              ),
               borderRadius:
-                  BorderRadius.circular(17),
-              border: Border.all(
-                color: const Color(0xFFCBEBD7),
+                  BorderRadius.circular(
+                17,
+              ),
+              border:
+                  Border.all(
+                color:
+                    const Color(
+                  0xFFCBEBD7,
+                ),
               ),
             ),
             child: const Center(
               child: Row(
                 mainAxisAlignment:
-                    MainAxisAlignment.center,
+                    MainAxisAlignment
+                        .center,
                 children: [
                   Icon(
                     Icons.check_circle,
                     color: green,
                     size: 19,
                   ),
-                  SizedBox(width: 7),
+                  SizedBox(
+                    width: 7,
+                  ),
                   Text(
                     'Reached Pickup Point',
                     style: TextStyle(
                       color: green,
                       fontSize: 14,
-                      fontWeight: FontWeight.w900,
+                      fontWeight:
+                          FontWeight.w900,
                     ),
                   ),
                 ],
@@ -1390,12 +1698,22 @@ class _ReachSliderState
 
         return Container(
           height: 54,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE7F7ED),
+          decoration:
+              BoxDecoration(
+            color:
+                const Color(
+              0xFFE7F7ED,
+            ),
             borderRadius:
-                BorderRadius.circular(17),
-            border: Border.all(
-              color: const Color(0xFFCBEBD7),
+                BorderRadius.circular(
+              17,
+            ),
+            border:
+                Border.all(
+              color:
+                  const Color(
+                0xFFCBEBD7,
+              ),
             ),
           ),
           child: Stack(
@@ -1403,25 +1721,39 @@ class _ReachSliderState
               const Center(
                 child: Row(
                   mainAxisAlignment:
-                      MainAxisAlignment.center,
+                      MainAxisAlignment
+                          .center,
                   children: [
                     Text(
                       'Slide to Reach',
-                      style: TextStyle(
-                        color: Color(0xFF23834A),
+                      style:
+                          TextStyle(
+                        color:
+                            Color(
+                          0xFF23834A,
+                        ),
                         fontSize: 14,
-                        fontWeight: FontWeight.w900,
+                        fontWeight:
+                            FontWeight.w900,
                       ),
                     ),
-                    SizedBox(width: 4),
+                    SizedBox(
+                      width: 4,
+                    ),
                     Icon(
                       Icons.chevron_right,
-                      color: Color(0xFF23834A),
+                      color:
+                          Color(
+                        0xFF23834A,
+                      ),
                       size: 19,
                     ),
                     Icon(
                       Icons.chevron_right,
-                      color: Color(0xFF75B58E),
+                      color:
+                          Color(
+                        0xFF75B58E,
+                      ),
                       size: 19,
                     ),
                   ],
@@ -1431,44 +1763,71 @@ class _ReachSliderState
               Positioned(
                 left: _position,
                 top: 2,
-                child: GestureDetector(
+                child:
+                    GestureDetector(
                   onHorizontalDragUpdate:
-                      (DragUpdateDetails details) {
+                      (
+                    DragUpdateDetails
+                        details,
+                  ) {
                     setState(() {
                       _position +=
-                          details.delta.dx;
+                          details
+                              .delta
+                              .dx;
 
-                      _position = _position.clamp(
+                      _position =
+                          _position.clamp(
                         0.0,
                         maxPosition,
                       );
                     });
                   },
                   onHorizontalDragEnd:
-                      (DragEndDetails details) {
+                      (
+                    DragEndDetails
+                        details,
+                  ) {
                     if (_position >=
-                        maxPosition * .80) {
-                      widget.onReached();
+                        maxPosition *
+                            .80) {
+                      widget
+                          .onReached();
                     } else {
                       setState(() {
                         _position = 0;
                       });
                     }
                   },
-                  child: const SizedBox(
+                  child:
+                      const SizedBox(
                     width: 50,
                     height: 50,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.all(
-                          Radius.circular(15),
+                    child:
+                        DecoratedBox(
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            Colors.white,
+                        borderRadius:
+                            BorderRadius
+                                .all(
+                          Radius.circular(
+                            15,
+                          ),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
+                            color:
+                                Colors
+                                    .black26,
+                            blurRadius:
+                                8,
+                            offset:
+                                Offset(
+                              0,
+                              2,
+                            ),
                           ),
                         ],
                       ),
