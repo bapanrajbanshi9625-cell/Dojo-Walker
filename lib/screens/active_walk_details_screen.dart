@@ -1,16 +1,20 @@
-// File location: lib/screens/active_walk_details_screen.dart
-
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../features/walks/models/walk_request.dart';
-import '../features/walks/screens/live_walk_screen.dart';
 
 class ActiveWalkDetailsScreen extends StatefulWidget {
   final WalkRequest request;
 
+  /// Optional callback:
+  /// Reach के बाद तुम्हारा अगला screen खोलने के लिए।
+  final VoidCallback? onReached;
+
   const ActiveWalkDetailsScreen({
     super.key,
     required this.request,
+    this.onReached,
   });
 
   @override
@@ -20,15 +24,28 @@ class ActiveWalkDetailsScreen extends StatefulWidget {
 
 class _ActiveWalkDetailsScreenState
     extends State<ActiveWalkDetailsScreen> {
-  static const Color dark = Color(0xFF263746);
-  static const Color blue = Color(0xFF238EAE);
-  static const Color green = Color(0xFF16A34A);
-  static const Color orange = Color(0xFFF4511E);
-  static const Color muted = Color(0xFF7A8289);
+  static const Color orange = Color(0xFFFF6600);
+  static const Color navy = Color(0xFF263746);
+  static const Color green = Color(0xFF159447);
+
+  final MapController _mapController = MapController();
 
   bool _reached = false;
 
-  double _sheetHeight = 190;
+  // --------------------------------------------------------------------------
+  // IMPORTANT
+  //
+  // WalkRequest model में अभी latitude/longitude fields नहीं हैं।
+  //
+  // इसलिए यहां कोई fake location नहीं रखी गई है।
+  //
+  // जब WalkRequest में pickupLat / pickupLng और live walker location
+  // आएगी, इसी map को real Firebase/GPS data से connect किया जाएगा।
+  // --------------------------------------------------------------------------
+
+  LatLng? _walkerLocation;
+  LatLng? _pickupLocation;
+  LatLng? _destinationLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -36,9 +53,17 @@ class _ActiveWalkDetailsScreenState
       backgroundColor: Colors.white,
       body: Stack(
         children: [
+          // ==================================================================
+          // MAP
+          // ==================================================================
+
           Positioned.fill(
-            child: _buildMapArea(),
+            child: _buildMap(),
           ),
+
+          // ==================================================================
+          // TOP BAR
+          // ==================================================================
 
           SafeArea(
             child: Padding(
@@ -49,605 +74,538 @@ class _ActiveWalkDetailsScreenState
                 0,
               ),
               child: Row(
+                mainAxisAlignment:
+                    MainAxisAlignment.spaceBetween,
                 children: [
-                  _topButton(
-                    icon: Icons.arrow_back_rounded,
-                    onTap: () {
+                  _circleButton(
+                    Icons.arrow_back_ios_new,
+                    () {
                       Navigator.pop(context);
                     },
                   ),
-                  const Spacer(),
-                  _topButton(
-                    icon: Icons.headset_mic_rounded,
-                    onTap: _showSupport,
-                  ),
-                  const SizedBox(width: 8),
-                  _topButton(
-                    icon: Icons.more_vert_rounded,
-                    onTap: _showMoreOptions,
-                  ),
-                ],
-              ),
-            ),
-          ),
 
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: AnimatedContainer(
-              duration: const Duration(
-                milliseconds: 220,
-              ),
-              height: _sheetHeight,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(26),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 20,
-                    offset: Offset(0, -5),
-                  ),
-                ],
-              ),
-              child: GestureDetector(
-                onVerticalDragUpdate: (details) {
-                  setState(() {
-                    _sheetHeight -= details.delta.dy;
-
-                    if (_sheetHeight < 185) {
-                      _sheetHeight = 185;
-                    }
-
-                    if (_sheetHeight > 570) {
-                      _sheetHeight = 570;
-                    }
-                  });
-                },
-                child: _buildBottomSheet(),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // MAP AREA
-  // ============================================================
-
-  Widget _buildMapArea() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFEAF5F8),
-            Color(0xFFDDECEF),
-          ],
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _MapPainter(),
-            ),
-          ),
-
-          const Positioned(
-            left: 80,
-            top: 300,
-            child: _MapMarker(
-              color: blue,
-              icon: Icons.person_rounded,
-              label: 'You',
-            ),
-          ),
-
-          const Positioned(
-            right: 65,
-            top: 180,
-            child: _MapMarker(
-              color: orange,
-              icon: Icons.home_rounded,
-              label: 'Owner',
-            ),
-          ),
-
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _RoutePainter(),
-            ),
-          ),
-
-          Positioned(
-            top: 105,
-            left: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 13,
-                vertical: 10,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 12,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.directions_bike_rounded,
-                    color: blue,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 7),
-                  Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.request.dogName,
-                        style: const TextStyle(
-                          color: dark,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        widget.request.estimatedTime,
-                        style: const TextStyle(
-                          color: muted,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // BOTTOM SHEET
-  // ============================================================
-
-  Widget _buildBottomSheet() {
-    return Column(
-      children: [
-        const SizedBox(height: 9),
-
-        const SizedBox(
-          width: 42,
-          height: 4,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Color(0xFFD0D5D8),
-              borderRadius: BorderRadius.all(
-                Radius.circular(20),
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 13),
-
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 18,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF7EF),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.pets_rounded,
-                  color: green,
-                  size: 25,
-                ),
-              ),
-
-              const SizedBox(width: 11),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.request.dogName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: dark,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 9,
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      widget.request.ownerName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: muted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius:
+                          BorderRadius.circular(30),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 14,
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.circle,
+                          size: 8,
+                          color: Color(0xFF18A957),
+                        ),
+                        SizedBox(width: 7),
+                        Text(
+                          'LIVE WALK',
+                          style: TextStyle(
+                            color: navy,
+                            fontSize: 11,
+                            fontWeight:
+                                FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ==================================================================
+          // MY LOCATION
+          // ==================================================================
+
+          Positioned(
+            right: 16,
+            bottom: 330,
+            child: _circleButton(
+              Icons.my_location,
+              () {
+                if (_walkerLocation != null) {
+                  _mapController.move(
+                    _walkerLocation!,
+                    17,
+                  );
+                }
+              },
+              iconColor: orange,
+            ),
+          ),
+
+          // ==================================================================
+          // DETAILS BOTTOM SHEET
+          // ==================================================================
+
+          DraggableScrollableSheet(
+            initialChildSize: .46,
+            minChildSize: .25,
+            maxChildSize: .90,
+            snap: true,
+            snapSizes: const [
+              .25,
+              .46,
+              .90,
+            ],
+            builder: (
+              BuildContext context,
+              ScrollController controller,
+            ) {
+              return Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius:
+                      BorderRadius.vertical(
+                    top: Radius.circular(30),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 25,
+                      offset: Offset(0, -7),
                     ),
                   ],
                 ),
-              ),
-
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: _reached
-                      ? const Color(0xFFEAF7EF)
-                      : const Color(0xFFFFF3E9),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  _reached ? 'REACHED' : 'ON THE WAY',
-                  style: TextStyle(
-                    color: _reached ? green : orange,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w900,
+                child: ListView(
+                  controller: controller,
+                  physics:
+                      const ClampingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    18,
+                    9,
+                    18,
+                    12,
                   ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        if (_sheetHeight > 280)
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(
-                18,
-                15,
-                18,
-                10,
-              ),
-              child: Column(
-                children: [
-                  _section(
-                    title: 'OWNER DETAILS',
-                    icon: Icons.person_rounded,
-                    children: [
-                      _detail(
-                        'Owner',
-                        widget.request.ownerName,
-                        Icons.person_outline_rounded,
-                      ),
-                      _detail(
-                        'Pickup',
-                        widget.request.pickupAddress,
-                        Icons.location_on_outlined,
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  _section(
-                    title: 'DOG DETAILS',
-                    icon: Icons.pets_rounded,
-                    children: [
-                      _detail(
-                        'Dog Name',
-                        widget.request.dogName,
-                        Icons.pets_outlined,
-                      ),
-                      if (widget.request.dogBreed.isNotEmpty)
-                        _detail(
-                          'Breed',
-                          widget.request.dogBreed,
-                          Icons.category_outlined,
-                        ),
-                      if (widget.request.dogAge.isNotEmpty)
-                        _detail(
-                          'Age',
-                          widget.request.dogAge,
-                          Icons.cake_outlined,
-                        ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  _section(
-                    title: 'WALK DETAILS',
-                    icon: Icons.route_rounded,
-                    children: [
-                      _detail(
-                        'Walk ID',
-                        _walkId(),
-                        Icons.tag_rounded,
-                      ),
-                      _detail(
-                        'Distance',
-                        '${widget.request.distanceKm.toStringAsFixed(1)} km',
-                        Icons.straighten_rounded,
-                      ),
-                      _detail(
-                        'Estimated Time',
-                        widget.request.estimatedTime,
-                        Icons.access_time_rounded,
-                      ),
-                      _detail(
-                        'Walk Type',
-                        widget.request.walkType,
-                        Icons.directions_walk_rounded,
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: _reached
-                          ? _startWalk
-                          : _simulateReach,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            _reached ? green : blue,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
+                  children: [
+                    // HANDLE
+                    Center(
+                      child: Container(
+                        width: 48,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color:
+                              const Color(0xFFD3D8DB),
                           borderRadius:
-                              BorderRadius.circular(15),
+                              BorderRadius.circular(20),
                         ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment:
-                            MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            _reached
-                                ? Icons.play_arrow_rounded
-                                : Icons.location_on_rounded,
-                            size: 22,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _reached
-                                ? 'START WALK'
-                                : 'REACH',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
+
+                    const SizedBox(height: 13),
+
+                    // DOG / OWNER
+                    _dogHeader(),
+
+                    const SizedBox(height: 10),
+
+                    // STATUS
+                    _liveStatus(),
+
+                    const SizedBox(height: 10),
+
+                    // LOCATIONS
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _addressCard(
+                            Icons.location_on,
+                            'PICKUP',
+                            widget.request
+                                .pickupAddress,
+                          ),
+                        ),
+
+                        const SizedBox(width: 8),
+
+                        Expanded(
+                          child: _addressCard(
+                            Icons.flag,
+                            'DESTINATION',
+                            'Destination not available',
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // STATS
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _statCard(
+                            '${widget.request.distanceKm.toStringAsFixed(1)} km',
+                            'Distance',
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: _statCard(
+                            widget.request
+                                .estimatedTime
+                                .isEmpty
+                                ? '--'
+                                : widget.request
+                                    .estimatedTime,
+                            'ETA',
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                        Expanded(
+                          child: _statCard(
+                            'LIVE',
+                            'Walk',
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // OWNER NOTE
+                    _ownerNote(),
+
+                    const SizedBox(height: 10),
+
+                    // CALL + CHAT
+                    _callChat(),
+
+                    const SizedBox(height: 10),
+
+                    // REACH
+                    ReachSlider(
+                      reached: _reached,
+                      onReached: _handleReached,
+                    ),
+
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================================================
+  // MAP
+  // ==========================================================================
+
+  Widget _buildMap() {
+    final LatLng center =
+        _walkerLocation ??
+            _pickupLocation ??
+            const LatLng(
+              20.5937,
+              78.9629,
+            );
+
+    return FlutterMap(
+      mapController: _mapController,
+      options: MapOptions(
+        initialCenter: center,
+        initialZoom:
+            _walkerLocation == null &&
+                    _pickupLocation == null
+                ? 5
+                : 16,
+      ),
+      children: [
+        TileLayer(
+          urlTemplate:
+              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName:
+              'com.doojowalker.app',
+        ),
+
+        if (_walkerLocation != null ||
+            _pickupLocation != null ||
+            _destinationLocation != null)
+          MarkerLayer(
+            markers: [
+              if (_walkerLocation != null)
+                Marker(
+                  point: _walkerLocation!,
+                  width: 56,
+                  height: 56,
+                  child: _walkerMarker(),
+                ),
+
+              if (_pickupLocation != null)
+                Marker(
+                  point: _pickupLocation!,
+                  width: 62,
+                  height: 62,
+                  child: _pickupMarker(),
+                ),
+
+              if (_destinationLocation != null)
+                Marker(
+                  point: _destinationLocation!,
+                  width: 45,
+                  height: 45,
+                  child: _destinationMarker(),
+                ),
+            ],
           ),
       ],
     );
   }
 
-  // ============================================================
-  // REACH
-  // ============================================================
+  // ==========================================================================
+  // DOG HEADER
+  // ==========================================================================
 
-  void _simulateReach() {
-    setState(() {
-      _reached = true;
-      _sheetHeight = 430;
-    });
+  Widget _dogHeader() {
+    final String dogName =
+        widget.request.dogName.isEmpty
+            ? 'Dog'
+            : widget.request.dogName;
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Owner location reached. You can start the walk.',
+    final String breed =
+        widget.request.dogBreed.isEmpty
+            ? 'Breed not available'
+            : widget.request.dogBreed;
+
+    final String owner =
+        widget.request.ownerName.isEmpty
+            ? 'Owner'
+            : widget.request.ownerName;
+
+    return Row(
+      children: [
+        Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF0E7),
+            borderRadius:
+                BorderRadius.circular(18),
           ),
-          backgroundColor: green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-  }
-
-  // ============================================================
-  // START WALK
-  // ============================================================
-
-  void _startWalk() {
-    final String ownerUid = _ownerUid();
-    final String walkId = _walkId();
-
-    if (ownerUid.isEmpty) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Owner information is missing.',
+          child: const Center(
+            child: Icon(
+              Icons.pets_rounded,
+              color: orange,
+              size: 31,
             ),
           ),
-        );
-      return;
-    }
-
-    if (walkId.isEmpty) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Walk ID is missing.',
-            ),
-          ),
-        );
-      return;
-    }
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => LiveWalkScreen(
-          ownerUid: ownerUid,
-          ownerName: widget.request.ownerName,
-          walkId: walkId,
-          dogName: widget.request.dogName,
-          ownerPhone: null,
         ),
-      ),
-    );
-  }
 
-  // ============================================================
-  // WALK ID
-  // ============================================================
+        const SizedBox(width: 12),
 
-  String _walkId() {
-    final String value = widget.request.id.trim();
-
-    if (value.isNotEmpty) {
-      return value;
-    }
-
-    return '';
-  }
-
-  // ============================================================
-  // OWNER UID
-  // ============================================================
-
-  String _ownerUid() {
-    final String ownerId =
-        widget.request.ownerId.trim();
-
-    if (ownerId.isNotEmpty) {
-      return ownerId;
-    }
-
-    return '';
-  }
-
-  // ============================================================
-  // SECTION
-  // ============================================================
-
-  Widget _section({
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7FAF8),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFE4EBE7),
-        ),
-      ),
-      child: Column(
-        children: [
-          Row(
+        Expanded(
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
-              Icon(
-                icon,
-                color: blue,
-                size: 17,
-              ),
-              const SizedBox(width: 7),
               Text(
-                title,
+                dogName,
+                maxLines: 1,
+                overflow:
+                    TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: dark,
-                  fontSize: 10,
+                  color: navy,
+                  fontSize: 19,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: .4,
+                ),
+              ),
+
+              const SizedBox(height: 3),
+
+              Text(
+                breed,
+                maxLines: 1,
+                overflow:
+                    TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF737C82),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              const SizedBox(height: 2),
+
+              Text(
+                'Owner: $owner',
+                maxLines: 1,
+                overflow:
+                    TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF9AA0A4),
+                  fontSize: 9,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          ...children,
+        ),
+
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 9,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF0E7),
+            borderRadius:
+                BorderRadius.circular(15),
+          ),
+          child: Column(
+            children: [
+              Text(
+                '${widget.request.distanceKm.toStringAsFixed(1)} km',
+                style: const TextStyle(
+                  color: orange,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'away',
+                style: TextStyle(
+                  color: Color(0xFF92999D),
+                  fontSize: 8,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==========================================================================
+  // LIVE STATUS
+  // ==========================================================================
+
+  Widget _liveStatus() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 10,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FAF4),
+        borderRadius:
+            BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFD7EFDF),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.navigation,
+            color: green,
+            size: 18,
+          ),
+          const SizedBox(width: 9),
+
+          const Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Walking to pickup',
+                  style: TextStyle(
+                    color: Color(0xFF237546),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Live location active',
+                  style: TextStyle(
+                    color: Color(0xFF6B8B77),
+                    fontSize: 8,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: Color(0xFF18A957),
+              shape: BoxShape.circle,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // ============================================================
-  // DETAIL ROW
-  // ============================================================
+  // ==========================================================================
+  // ADDRESS
+  // ==========================================================================
 
-  Widget _detail(
+  Widget _addressCard(
+    IconData icon,
     String title,
     String value,
-    IconData icon,
   ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: 5,
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8F9),
+        borderRadius:
+            BorderRadius.circular(15),
       ),
       child: Row(
         children: [
           Icon(
             icon,
-            color: muted,
+            color: orange,
             size: 17,
           ),
-          const SizedBox(width: 9),
-          Text(
-            title,
-            style: const TextStyle(
-              color: muted,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const Spacer(),
-          Flexible(
-            child: Text(
-              value.isEmpty ? '-' : value,
-              textAlign: TextAlign.right,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: dark,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-              ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF9AA0A4),
+                    fontSize: 7,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: navy,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -655,289 +613,476 @@ class _ActiveWalkDetailsScreenState
     );
   }
 
-  // ============================================================
-  // TOP BUTTON
-  // ============================================================
+  // ==========================================================================
+  // STAT
+  // ==========================================================================
 
-  Widget _topButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(13),
-      elevation: 4,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(13),
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Icon(
-            icon,
-            color: dark,
-            size: 21,
-          ),
-        ),
+  Widget _statCard(
+    String value,
+    String title,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        vertical: 9,
+        horizontal: 5,
       ),
-    );
-  }
-
-  // ============================================================
-  // SUPPORT
-  // ============================================================
-
-  void _showSupport() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8F9),
+        borderRadius:
+            BorderRadius.circular(14),
       ),
-      builder: (_) {
-        return const SafeArea(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.headset_mic_rounded,
-                  color: blue,
-                  size: 34,
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Walk Support',
-                  style: TextStyle(
-                    color: dark,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                SizedBox(height: 7),
-                Text(
-                  'Need help with this walk?',
-                  style: TextStyle(
-                    color: muted,
-                    fontSize: 12,
-                  ),
-                ),
-                SizedBox(height: 20),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // MORE OPTIONS
-  // ============================================================
-
-  void _showMoreOptions() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
-      ),
-      builder: (_) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(
-                  Icons.info_outline_rounded,
-                  color: blue,
-                ),
-                title: const Text(
-                  'Walk Information',
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.close_rounded,
-                  color: Colors.red,
-                ),
-                title: const Text(
-                  'Close',
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ==================================================================
-// MAP MARKER
-// ==================================================================
-
-class _MapMarker extends StatelessWidget {
-  final Color color;
-  final IconData icon;
-  final String label;
-
-  const _MapMarker({
-    required this.color,
-    required this.icon,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 45,
-          height: 45,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.white,
-              width: 4,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 22,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 7,
-            vertical: 3,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(7),
-          ),
-          child: Text(
-            label,
+      child: Column(
+        children: [
+          Text(
+            value,
+            maxLines: 1,
+            overflow:
+                TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w800,
+              color: navy,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: const TextStyle(
+              color: Color(0xFF999FA3),
+              fontSize: 7,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================================================
+  // OWNER NOTE
+  // ==========================================================================
+
+  Widget _ownerNote() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8F2),
+        borderRadius:
+            BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFFFE8D7),
+        ),
+      ),
+      child: const Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.sticky_note_2_outlined,
+                color: orange,
+                size: 15,
+              ),
+              SizedBox(width: 6),
+              Text(
+                'OWNER NOTE',
+                style: TextStyle(
+                  color: orange,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 5),
+          Text(
+            'No additional note provided by owner.',
+            style: TextStyle(
+              color: Color(0xFF666D72),
+              fontSize: 10,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================================================
+  // CALL + CHAT
+  // ==========================================================================
+
+  Widget _callChat() {
+    return Row(
+      children: [
+        Expanded(
+          flex: 6,
+          child: SizedBox(
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                // Phone connection बाद में real owner phone से जोड़ा जाएगा।
+              },
+              icon: const Icon(
+                Icons.call,
+                size: 19,
+              ),
+              label: const Text(
+                'Call',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              style:
+                  ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape:
+                    RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(16),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        const SizedBox(width: 10),
+
+        Expanded(
+          flex: 5,
+          child: SizedBox(
+            height: 50,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                // Chat screen बाद में connect होगा।
+              },
+              icon: const Icon(
+                Icons.chat_bubble_outline,
+                size: 19,
+              ),
+              label: const Text(
+                'Chat',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              style:
+                  OutlinedButton.styleFrom(
+                foregroundColor: navy,
+                backgroundColor: Colors.white,
+                side: const BorderSide(
+                  color: Color(0xFFD5DADD),
+                  width: 1.3,
+                ),
+                shape:
+                    RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(16),
+                ),
+              ),
             ),
           ),
         ),
       ],
     );
   }
+
+  // ==========================================================================
+  // REACHED
+  // ==========================================================================
+
+  void _handleReached() {
+    if (_reached) {
+      return;
+    }
+
+    setState(() {
+      _reached = true;
+    });
+
+    if (widget.onReached != null) {
+      widget.onReached!();
+    }
+  }
+
+  // ==========================================================================
+  // ROUND BUTTON
+  // ==========================================================================
+
+  Widget _circleButton(
+    IconData icon,
+    VoidCallback onTap, {
+    Color iconColor = navy,
+  }) {
+    return Material(
+      color: Colors.white,
+      elevation: 5,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder:
+            const CircleBorder(),
+        child: SizedBox(
+          width: 46,
+          height: 46,
+          child: Icon(
+            icon,
+            color: iconColor,
+            size: 20,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==========================================================================
+  // MAP MARKERS
+  // ==========================================================================
+
+  Widget _walkerMarker() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: orange,
+          width: 4,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black38,
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.person,
+          color: navy,
+          size: 22,
+        ),
+      ),
+    );
+  }
+
+  Widget _pickupMarker() {
+    return Container(
+      decoration: BoxDecoration(
+        color: orange,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.white,
+          width: 4,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black45,
+            blurRadius: 12,
+          ),
+        ],
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.pets,
+          color: Colors.white,
+          size: 24,
+        ),
+      ),
+    );
+  }
+
+  Widget _destinationMarker() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: navy,
+        shape: BoxShape.circle,
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.flag,
+          color: Colors.white,
+          size: 18,
+        ),
+      ),
+    );
+  }
 }
 
-// ==================================================================
-// MAP BACKGROUND
-// ==================================================================
+// ============================================================================
+// REACH SLIDER
+// ============================================================================
 
-class _MapPainter extends CustomPainter {
-  @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
-    final Paint road = Paint()
-      ..color = Colors.white.withOpacity(.65)
-      ..strokeWidth = 18
-      ..style = PaintingStyle.stroke;
+class ReachSlider extends StatefulWidget {
+  final bool reached;
+  final VoidCallback onReached;
 
-    final Paint road2 = Paint()
-      ..color = Colors.white.withOpacity(.45)
-      ..strokeWidth = 10
-      ..style = PaintingStyle.stroke;
-
-    final Path path1 = Path()
-      ..moveTo(0, size.height * .30)
-      ..quadraticBezierTo(
-        size.width * .35,
-        size.height * .18,
-        size.width,
-        size.height * .38,
-      );
-
-    final Path path2 = Path()
-      ..moveTo(size.width * .10, size.height)
-      ..quadraticBezierTo(
-        size.width * .42,
-        size.height * .65,
-        size.width * .90,
-        0,
-      );
-
-    canvas.drawPath(path1, road);
-    canvas.drawPath(path2, road2);
-  }
+  const ReachSlider({
+    super.key,
+    required this.reached,
+    required this.onReached,
+  });
 
   @override
-  bool shouldRepaint(
-    covariant CustomPainter oldDelegate,
-  ) {
-    return false;
-  }
+  State<ReachSlider> createState() =>
+      _ReachSliderState();
 }
 
-// ==================================================================
-// ROUTE POLYLINE
-// ==================================================================
-
-class _RoutePainter extends CustomPainter {
-  @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
-    final Paint route = Paint()
-      ..color = const Color(0xFF238EAE)
-      ..strokeWidth = 5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final Path path = Path()
-      ..moveTo(
-        size.width * .18,
-        size.height * .57,
-      )
-      ..quadraticBezierTo(
-        size.width * .42,
-        size.height * .50,
-        size.width * .57,
-        size.height * .40,
-      )
-      ..quadraticBezierTo(
-        size.width * .70,
-        size.height * .31,
-        size.width * .84,
-        size.height * .22,
-      );
-
-    canvas.drawPath(path, route);
-  }
+class _ReachSliderState
+    extends State<ReachSlider> {
+  double position = 0;
 
   @override
-  bool shouldRepaint(
-    covariant CustomPainter oldDelegate,
-  ) {
-    return false;
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (
+        BuildContext context,
+        BoxConstraints constraints,
+      ) {
+        const double handleSize = 50;
+
+        final double maxPosition =
+            constraints.maxWidth -
+                handleSize;
+
+        if (widget.reached) {
+          return Container(
+            height: 54,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE7F7ED),
+              borderRadius:
+                  BorderRadius.circular(17),
+              border: Border.all(
+                color: const Color(0xFFCBEBD7),
+              ),
+            ),
+            child: const Center(
+              child: Row(
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    color: green,
+                    size: 19,
+                  ),
+                  SizedBox(width: 7),
+                  Text(
+                    'Reached Pickup Point',
+                    style: TextStyle(
+                      color: green,
+                      fontSize: 14,
+                      fontWeight:
+                          FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Container(
+          height: 54,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE7F7ED),
+            borderRadius:
+                BorderRadius.circular(17),
+            border: Border.all(
+              color: const Color(0xFFCBEBD7),
+            ),
+          ),
+          child: Stack(
+            children: [
+              const Center(
+                child: Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Slide to Reach',
+                      style: TextStyle(
+                        color: Color(0xFF23834A),
+                        fontSize: 14,
+                        fontWeight:
+                            FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(
+                      Icons.chevron_right,
+                      color: Color(0xFF23834A),
+                      size: 19,
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      color: Color(0xFF75B58E),
+                      size: 19,
+                    ),
+                  ],
+                ),
+              ),
+
+              Positioned(
+                left: position,
+                top: 2,
+                child: GestureDetector(
+                  onHorizontalDragUpdate:
+                      (details) {
+                    setState(() {
+                      position +=
+                          details.delta.dx;
+
+                      position =
+                          position.clamp(
+                        0.0,
+                        maxPosition,
+                      );
+                    });
+                  },
+                  onHorizontalDragEnd:
+                      (_) {
+                    if (position >=
+                        maxPosition * .80) {
+                      widget.onReached();
+                    } else {
+                      setState(() {
+                        position = 0;
+                      });
+                    }
+                  },
+                  child: Container(
+                    width: handleSize,
+                    height: handleSize,
+                    decoration:
+                        BoxDecoration(
+                      color: Colors.white,
+                      borderRadius:
+                          BorderRadius.circular(15),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward,
+                      color: green,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
