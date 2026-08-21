@@ -160,9 +160,10 @@ class _ActiveWalkDetailsScreenState
             ),
           ),
 
-          CustomPaint(
-            size: Size.infinite,
-            painter: _RoutePainter(),
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _RoutePainter(),
+            ),
           ),
 
           Positioned(
@@ -238,7 +239,7 @@ class _ActiveWalkDetailsScreenState
           width: 42,
           height: 4,
           decoration: BoxDecoration(
-            color: const Color(0xFFD0D5D8),
+            color: Color(0xFFD0D5D8),
             borderRadius: BorderRadius.circular(20),
           ),
         ),
@@ -366,6 +367,12 @@ class _ActiveWalkDetailsScreenState
                           widget.request.dogBreed,
                           Icons.category_outlined,
                         ),
+                      if (widget.request.dogAge.isNotEmpty)
+                        _detail(
+                          'Age',
+                          widget.request.dogAge,
+                          Icons.cake_outlined,
+                        ),
                     ],
                   ),
 
@@ -389,6 +396,11 @@ class _ActiveWalkDetailsScreenState
                         'Estimated Time',
                         widget.request.estimatedTime,
                         Icons.access_time_rounded,
+                      ),
+                      _detail(
+                        'Walk Type',
+                        widget.request.walkType,
+                        Icons.directions_walk_rounded,
                       ),
                     ],
                   ),
@@ -509,9 +521,10 @@ class _ActiveWalkDetailsScreenState
           ownerName: widget.request.ownerName,
           walkId: walkId,
           dogName: widget.request.dogName,
-          ownerPhone: widget.request.ownerPhone.isEmpty
-              ? null
-              : widget.request.ownerPhone,
+
+          // WalkRequest में अभी ownerPhone नहीं है.
+          // इसलिए null भेजा जा रहा है.
+          ownerPhone: null,
         ),
       ),
     );
@@ -522,14 +535,13 @@ class _ActiveWalkDetailsScreenState
   // ============================================================
 
   String _walkId() {
-    final String value =
-        widget.request.walkId.trim();
+    final String value = widget.request.id.trim();
 
     if (value.isNotEmpty) {
       return value;
     }
 
-    return 'WALK-${widget.request.hashCode.abs()}';
+    return '';
   }
 
   // ============================================================
@@ -537,13 +549,6 @@ class _ActiveWalkDetailsScreenState
   // ============================================================
 
   String _ownerUid() {
-    final String uid =
-        widget.request.ownerUid.trim();
-
-    if (uid.isNotEmpty) {
-      return uid;
-    }
-
     final String ownerId =
         widget.request.ownerId.trim();
 
