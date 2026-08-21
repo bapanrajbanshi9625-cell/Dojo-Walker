@@ -8,15 +8,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../features/walker_home/containers/walker_home_header.dart';
+
 import '../features/walks/constants/walks_constants.dart';
 import '../features/walks/models/walk_request.dart';
 import '../features/walks/services/walk_request_sound_service.dart';
+
 import '../features/walks/widgets/insta_walk_container.dart';
-import '../features/walks/widgets/insta_walk_header.dart';
-import '../features/walks/widgets/insta_walk_info.dart';
-import '../features/walks/widgets/insta_walk_radar.dart';
-import '../features/walks/widgets/insta_walk_search_button.dart';
 import '../features/walks/widgets/walk_request_card.dart';
+
 import '../features/walks/screens/active_walk_details_screen.dart';
 
 class WalksScreen extends StatefulWidget {
@@ -99,6 +98,7 @@ class _WalksScreenState extends State<WalksScreen>
       duration: const Duration(seconds: 3),
     )..repeat();
 
+    // Move radar dot every 10 seconds while searching.
     _dotTimer = Timer.periodic(
       const Duration(seconds: 10),
       (_) {
@@ -328,12 +328,23 @@ class _WalksScreenState extends State<WalksScreen>
         _requests.clear();
       });
 
-      // Make sure no old sound is playing
-      // when a fresh search starts.
+      // ========================================================
+      // STOP ANY OLD REQUEST SOUND
+      // ========================================================
+
       await WalkRequestSoundService.instance
           .stopAll();
 
+      // ========================================================
+      // START REQUEST LISTENER
+      // ========================================================
+
       _startRequestListener();
+
+      // ========================================================
+      // SHOW RADAR DOT
+      // ========================================================
+
       _moveRadarDot();
     } catch (e) {
       debugPrint(
@@ -437,23 +448,26 @@ class _WalksScreenState extends State<WalksScreen>
         // ======================================================
         // SOUND MANAGEMENT
         //
-        // Only NEW request gets sound.
+        // NEW REQUEST
+        //     -> PLAY
         //
-        // Existing request:
-        // No restart.
+        // EXISTING REQUEST
+        //     -> DO NOT RESTART
         //
-        // Removed/accepted request:
-        // Sound stops.
+        // REMOVED REQUEST
+        //     -> STOP
         // ======================================================
 
         final Set<String> incomingIds =
-            incoming.map(
-          (request) => request.id,
-        ).toSet();
+            incoming
+                .map(
+                  (request) => request.id,
+                )
+                .toSet();
 
-        // ------------------------------------------------------
+        // ======================================================
         // PLAY SOUND FOR NEW REQUEST
-        // ------------------------------------------------------
+        // ======================================================
 
         for (final WalkRequest request
             in incoming) {
@@ -471,9 +485,9 @@ class _WalksScreenState extends State<WalksScreen>
           }
         }
 
-        // ------------------------------------------------------
+        // ======================================================
         // STOP SOUND FOR REMOVED REQUEST
-        // ------------------------------------------------------
+        // ======================================================
 
         for (final WalkRequest oldRequest
             in List<WalkRequest>.from(_requests)) {
@@ -623,7 +637,7 @@ class _WalksScreenState extends State<WalksScreen>
       );
 
       // ========================================================
-      // STOP SOUND IMMEDIATELY
+      // STOP ACCEPTED REQUEST SOUND
       // ========================================================
 
       await WalkRequestSoundService.instance
@@ -773,7 +787,7 @@ class _WalksScreenState extends State<WalksScreen>
       );
 
       // ========================================================
-      // CANCEL LISTENER
+      // CANCEL REQUEST LISTENER
       // ========================================================
 
       await _requestSubscription?.cancel();
@@ -781,7 +795,7 @@ class _WalksScreenState extends State<WalksScreen>
       _requestSubscription = null;
 
       // ========================================================
-      // UI
+      // UPDATE UI
       // ========================================================
 
       if (!mounted) {
@@ -954,144 +968,10 @@ class _WalksScreenState extends State<WalksScreen>
   }
 
   // ============================================================
-  // DISPOSE
-  // ============================================================
-
-  @override
-  void dispose() {
-    _requestSubscription?.cancel();
-
-    _dotTimer?.cancel();
-
-    _dotGlowTimer?.cancel();
-
-    // ==========================================================
-    // STOP WALK REQUEST SOUND
-    // ==========================================================
-
-    WalkRequestSoundService.instance
-        .stopAll();
-
-    _radarController.dispose();
-
-    super.dispose();
-  }
-
-  // ============================================================
-  // BUILD
-  // ============================================================
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor:
-          const Color(0xFFF5F6F8),
-      body: Column(
-        children: [
-          const WalkerHomeHeader(),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.only(
-                bottom: 30,
-              ),
-              children: [
-                _buildMainContainer(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // MAIN INSTA WALK CONTAINER
-  // ============================================================
-
-  Widget _buildMainContainer() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(
-        18,
-        16,
-        18,
-        10,
-      ),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            WalksConstants.lightBlue,
-            WalksConstants.lightBlue2,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius:
-            BorderRadius.circular(28),
-        border: Border.all(
-          color:
-              Colors.white.withOpacity(.75),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color:
-                Colors.black.withOpacity(.08),
-            blurRadius: 20,
-            offset:
-                const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          InstaWalkHeader(
-            searching: _searching,
-          ),
-
-          const SizedBox(
-            height: 18,
-          ),
-
-          if (!_searching)
-            const InstaWalkInfo(),
-
-          if (_searching) ...[
-            InstaWalkRadar(
-              animation:
-                  _radarController,
-              dotVisible:
-                  _dotVisible,
-              dotX: _dotX,
-              dotY: _dotY,
-            ),
-
-            const SizedBox(
-              height: 14,
-            ),
-
-            _buildRequests(),
-          ],
-
-          const SizedBox(
-            height: 16,
-          ),
-
-          InstaWalkSearchButton(
-            loading: _loading,
-            searching: _searching,
-            onPressed:
-                _searchButtonPressed,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // REQUEST LIST
+  // REQUEST LIST UI
+  //
+  // This remains in WalksScreen because the actual request
+  // data and Accept callback belong to this screen.
   // ============================================================
 
   Widget _buildRequests() {
@@ -1120,16 +1000,13 @@ class _WalksScreenState extends State<WalksScreen>
                 valueColor:
                     AlwaysStoppedAnimation<
                         Color>(
-                  WalksConstants
-                      .radarGreen,
+                  WalksConstants.radarGreen,
                 ),
               ),
             ),
-
             SizedBox(
               width: 10,
             ),
-
             Expanded(
               child: Text(
                 'Waiting for nearby walk requests...',
@@ -1168,7 +1045,6 @@ class _WalksScreenState extends State<WalksScreen>
             ),
           ),
         ),
-
         ..._requests.map(
           (request) => WalkRequestCard(
             request: request,
@@ -1177,6 +1053,74 @@ class _WalksScreenState extends State<WalksScreen>
           ),
         ),
       ],
+    );
+  }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
+
+  @override
+  void dispose() {
+    _requestSubscription?.cancel();
+
+    _dotTimer?.cancel();
+
+    _dotGlowTimer?.cancel();
+
+    // ==========================================================
+    // STOP WALK REQUEST SOUND
+    // ==========================================================
+
+    WalkRequestSoundService.instance
+        .stopAll();
+
+    _radarController.dispose();
+
+    super.dispose();
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor:
+          const Color(0xFFF5F6F8),
+      body: Column(
+        children: [
+          const WalkerHomeHeader(),
+
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.only(
+                bottom: 30,
+              ),
+              children: [
+                // ==================================================
+                // DIVIDED INSTA WALK CONTAINER
+                // ==================================================
+                InstaWalkContainer(
+                  searching: _searching,
+                  loading: _loading,
+                  radarAnimation:
+                      _radarController,
+                  dotVisible: _dotVisible,
+                  dotX: _dotX,
+                  dotY: _dotY,
+                  requests: _requests,
+                  onSearchPressed:
+                      _searchButtonPressed,
+                  requestListBuilder:
+                      _buildRequests,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
