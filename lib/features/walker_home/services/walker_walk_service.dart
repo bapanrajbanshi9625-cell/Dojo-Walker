@@ -14,16 +14,18 @@ class WalkerWalkService {
   static Future<WalkerWalkData?> scanOwnerQr(
     BuildContext context,
   ) async {
-    final String? scannedData = await Navigator.push<String>(
+    final String? scannedData =
+        await Navigator.push<String>(
       context,
       MaterialPageRoute(
-        builder: (context) => const QrScannerScreen(),
+        builder: (context) =>
+            const QrScannerScreen(),
       ),
     );
 
     if (!context.mounted ||
         scannedData == null ||
-        scannedData.isEmpty) {
+        scannedData.trim().isEmpty) {
       return null;
     }
 
@@ -32,10 +34,13 @@ class WalkerWalkService {
       // DECODE QR
       // ========================================================
 
-      final dynamic decoded = jsonDecode(scannedData);
+      final dynamic decoded =
+          jsonDecode(scannedData);
 
       if (decoded is! Map) {
-        throw Exception('Invalid QR data.');
+        throw Exception(
+          'Invalid QR data.',
+        );
       }
 
       // ========================================================
@@ -45,7 +50,8 @@ class WalkerWalkService {
       final String type =
           decoded['type']?.toString() ?? '';
 
-      if (type.isNotEmpty && type != 'owner') {
+      if (type.isNotEmpty &&
+          type.toLowerCase() != 'owner') {
         throw Exception(
           'This is not a valid Owner QR Code.',
         );
@@ -68,10 +74,28 @@ class WalkerWalkService {
       final String ownerPhone =
           decoded['ownerPhone']?.toString() ??
           decoded['phoneNumber']?.toString() ??
+          decoded['phone']?.toString() ??
           '';
+
+      // ========================================================
+      // WALK DATA
+      // ========================================================
 
       final String walkId =
           decoded['walkId']?.toString() ??
+          decoded['walkID']?.toString() ??
+          decoded['id']?.toString() ??
+          '';
+
+      final String dogName =
+          decoded['dogName']?.toString() ??
+          decoded['petName']?.toString() ??
+          decoded['dog']?.toString() ??
+          'Dog';
+
+      final String dogBreed =
+          decoded['dogBreed']?.toString() ??
+          decoded['breed']?.toString() ??
           '';
 
       // ========================================================
@@ -97,7 +121,7 @@ class WalkerWalkService {
       // VALIDATE OWNER
       // ========================================================
 
-      if (ownerUid.isEmpty) {
+      if (ownerUid.trim().isEmpty) {
         throw Exception(
           'Owner UID is missing from QR.',
         );
@@ -107,31 +131,50 @@ class WalkerWalkService {
       // VALIDATE WALK
       // ========================================================
 
-      if (walkId.isEmpty) {
+      if (walkId.trim().isEmpty) {
         throw Exception(
           'Walk ID is missing from QR.',
         );
       }
 
+      // ========================================================
+      // RETURN WALK DATA
+      // ========================================================
+
       return WalkerWalkData(
-        ownerName: ownerName,
-        ownerUid: ownerUid,
-        ownerPhone:
-            ownerPhone.isEmpty ? null : ownerPhone,
-        walkId: walkId,
+        ownerName: ownerName.trim().isEmpty
+            ? 'Owner'
+            : ownerName.trim(),
+        ownerUid: ownerUid.trim(),
+        ownerPhone: ownerPhone.trim().isEmpty
+            ? null
+            : ownerPhone.trim(),
+        walkId: walkId.trim(),
+        dogName: dogName.trim().isEmpty
+            ? 'Dog'
+            : dogName.trim(),
+        dogBreed: dogBreed.trim(),
       );
     } catch (e) {
       if (!context.mounted) {
         return null;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Could not read Owner QR: $e',
+      final String message =
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              );
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not read Owner QR: $message',
+            ),
           ),
-        ),
-      );
+        );
 
       return null;
     }
@@ -145,36 +188,107 @@ class WalkerWalkService {
     BuildContext context,
     WalkerWalkData walk,
   ) async {
+    // ==========================================================
+    // WALKER AUTH
+    // ==========================================================
+
     final User? walkerUser =
         FirebaseAuth.instance.currentUser;
 
     if (walkerUser == null) {
-      if (!context.mounted) return;
+      if (!context.mounted) {
+        return;
+      }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Walker is not logged in.',
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Walker is not logged in.',
+            ),
           ),
-        ),
-      );
+        );
 
       return;
     }
 
     if (walkerUser.uid.isEmpty) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Walker UID is missing.',
+            ),
+          ),
+        );
+
       return;
     }
 
-    if (!context.mounted) return;
+    // ==========================================================
+    // VALIDATE WALK DATA
+    // ==========================================================
+
+    if (walk.ownerUid.trim().isEmpty) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Owner UID is missing.',
+            ),
+          ),
+        );
+
+      return;
+    }
+
+    if (walk.walkId.trim().isEmpty) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Walk ID is missing.',
+            ),
+          ),
+        );
+
+      return;
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+
+    // ==========================================================
+    // OPEN LIVE WALK
+    // ==========================================================
 
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => LiveWalkScreen(
+        builder: (context) =>
+            LiveWalkScreen(
           ownerUid: walk.ownerUid,
-          walkId: walk.walkId,
           ownerName: walk.ownerName,
+          walkId: walk.walkId,
+          dogName: walk.dogName,
+          dogBreed: walk.dogBreed,
           ownerPhone: walk.ownerPhone,
         ),
       ),
@@ -191,11 +305,15 @@ class WalkerWalkData {
   final String ownerUid;
   final String? ownerPhone;
   final String walkId;
+  final String dogName;
+  final String dogBreed;
 
   const WalkerWalkData({
     required this.ownerName,
     required this.ownerUid,
     required this.ownerPhone,
     required this.walkId,
+    required this.dogName,
+    required this.dogBreed,
   });
 }
