@@ -17,10 +17,10 @@ dependencies:
   # FIREBASE
   # ==========================================================
 
-  firebase_core: ^2.24.2
-  firebase_auth: ^4.16.0
-  cloud_firestore: ^4.17.5
-  firebase_storage: ^11.6.5
+  firebase_core: ^3.15.2
+  firebase_auth: ^5.7.0
+  cloud_firestore: ^5.6.12
+  firebase_storage: ^12.4.10
 
   # ==========================================================
   # LOCAL STORAGE
