@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../core/services/live_walk_background_service.dart';
 import '../services/walk_request_service.dart';
 import '../services/walker_location_service.dart';
 import '../widgets/live_walk_bottom_sheet.dart';
@@ -46,6 +47,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   final WalkerLocationService _locationService =
       WalkerLocationService.instance;
 
+  final LiveWalkBackgroundService _backgroundService =
+      LiveWalkBackgroundService.instance;
+
   StreamSubscription<Position>? _locationSubscription;
 
   bool _ending = false;
@@ -66,7 +70,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ============================================================
 
   String get sessionId {
-    final String? value = widget.sessionId?.trim();
+    final String? value =
+        widget.sessionId?.trim();
 
     if (value != null && value.isNotEmpty) {
       return value;
@@ -102,7 +107,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   }
 
   // ============================================================
-  // START GPS
+  // START GPS / BACKGROUND TRACKING
   // ============================================================
 
   Future<void> _startGpsTracking() async {
@@ -113,6 +118,10 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     _gpsStarting = true;
 
     try {
+      // --------------------------------------------------------
+      // LOCATION PERMISSION
+      // --------------------------------------------------------
+
       final bool allowed =
           await _locationService.ensurePermission();
 
@@ -126,27 +135,31 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         return;
       }
 
-      // --------------------------------------------------------
-      // FIRST LOCATION
-      // --------------------------------------------------------
-
-      final Position? firstPosition =
-          await _locationService.getCurrentLocation();
-
-      if (firstPosition != null && mounted && !_ending) {
-        await _handlePosition(firstPosition);
-      }
-
       if (_ending || !mounted) {
         return;
       }
 
       // --------------------------------------------------------
-      // CONTINUOUS GPS
+      // START CENTRAL BACKGROUND GPS SERVICE
+      // --------------------------------------------------------
+      //
+      // IMPORTANT:
+      // अब LiveWalkScreen अपना अलग GPS stream नहीं चलाएगा।
+      //
+      // एक ही GPS service:
+      //
+      // LiveWalkBackgroundService
+      //
+      // location + distance + Firebase sync संभालेगी।
       // --------------------------------------------------------
 
       final bool started =
-          await _locationService.startTracking();
+          await _backgroundService.start(
+        walkId: widget.walkId,
+        sessionId: sessionId,
+        initialDistanceKm:
+            _totalDistanceKm,
+      );
 
       if (!started) {
         if (mounted) {
@@ -158,10 +171,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         return;
       }
 
+      // --------------------------------------------------------
+      // LISTEN TO CENTRAL GPS SERVICE
+      // --------------------------------------------------------
+
       await _locationSubscription?.cancel();
 
       _locationSubscription =
-          _locationService.locationStream.listen(
+          _backgroundService.locationStream.listen(
         (Position position) {
           if (!mounted || _ending) {
             return;
@@ -173,12 +190,28 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         },
         onError: (Object error) {
           debugPrint(
-            'Walker GPS stream error: $error',
+            'Walker background GPS stream error: $error',
           );
         },
       );
 
       _gpsActive = true;
+
+      // --------------------------------------------------------
+      // USE CURRENT LOCATION IF AVAILABLE
+      // --------------------------------------------------------
+
+      final Position? current =
+          _backgroundService.lastPosition;
+
+      if (current != null &&
+          mounted &&
+          !_ending) {
+        await _handlePosition(
+          current,
+          writeToFirebase: false,
+        );
+      }
 
       if (mounted) {
         setState(() {});
@@ -203,31 +236,27 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ============================================================
 
   Future<void> _handlePosition(
-    Position position,
-  ) async {
-    // IMPORTANT:
-    // Stop callbacks after screen is gone or walk is ending.
+    Position position, {
+    bool writeToFirebase = false,
+  }) async {
     if (!mounted || _ending) {
       return;
     }
 
     // ----------------------------------------------------------
-    // DISTANCE FROM PREVIOUS GPS POINT
+    // DISTANCE
+    //
+    // Background service already calculates the official
+    // distance. इसलिए screen केवल service की value use करेगी।
+    // इससे double counting नहीं होगी।
     // ----------------------------------------------------------
 
-    if (_lastPosition != null) {
-      final double segmentKm =
-          _locationService.distanceInKm(
-        walkerLatitude: _lastPosition!.latitude,
-        walkerLongitude: _lastPosition!.longitude,
-        requestLatitude: position.latitude,
-        requestLongitude: position.longitude,
-      );
+    final double serviceDistance =
+        _backgroundService.totalDistanceKm;
 
-      // Ignore impossible GPS jumps.
-      if (segmentKm <= 0.5) {
-        _totalDistanceKm += segmentKm;
-      }
+    if (serviceDistance >= 0) {
+      _totalDistanceKm =
+          serviceDistance;
     }
 
     _lastPosition = position;
@@ -243,10 +272,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       'timestamp':
           DateTime.now().millisecondsSinceEpoch,
     };
-
-    // ----------------------------------------------------------
-    // PREVENT DUPLICATE POINTS
-    // ----------------------------------------------------------
 
     bool shouldAddPoint = true;
 
@@ -264,7 +289,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         last['lng']?.toString() ?? '',
       );
 
-      if (lastLat != null && lastLng != null) {
+      if (lastLat != null &&
+          lastLng != null) {
         final double distanceMeters =
             Geolocator.distanceBetween(
           lastLat,
@@ -280,63 +306,47 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     }
 
     if (shouldAddPoint) {
-      _routeCoordinates.add(routePoint);
+      _routeCoordinates.add(
+        routePoint,
+      );
     }
 
     // ----------------------------------------------------------
-    // FIRESTORE UPDATE
+    // SCREEN STATE
     // ----------------------------------------------------------
 
-    try {
-      final Map<String, dynamic> sessionData =
-          <String, dynamic>{
-        'currentLocation': <String, dynamic>{
-          'lat': position.latitude,
-          'lng': position.longitude,
-        },
-        'currentLat': position.latitude,
-        'currentLng': position.longitude,
-        'distanceKm': _totalDistanceKm,
-        'gpsAccuracy': position.accuracy,
-        'gpsHeading': position.heading,
-        'gpsSpeed': position.speed,
-        'gpsUpdatedAt':
-            FieldValue.serverTimestamp(),
-        'updatedAt':
-            FieldValue.serverTimestamp(),
-      };
+    if (mounted) {
+      setState(() {});
+    }
 
-      if (shouldAddPoint) {
-        sessionData['routeCoordinates'] =
-            _routeCoordinates;
+    // ----------------------------------------------------------
+    // IMPORTANT
+    //
+    // Background service already writes:
+    //
+    // active_walk
+    // liveWalkSessions
+    //
+    // इसलिए normal GPS callback में duplicate Firestore write
+    // नहीं करेंगे।
+    //
+    // यह parameter केवल compatibility के लिए रखा गया है।
+    // ----------------------------------------------------------
+
+    if (writeToFirebase) {
+      try {
+        await _service.updateLiveLocation(
+          walkId: widget.walkId,
+          sessionId: sessionId,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          distanceKm: _totalDistanceKm,
+        );
+      } catch (e) {
+        debugPrint(
+          'Live GPS Firestore update error: $e',
+        );
       }
-
-      // --------------------------------------------------------
-      // UPDATE LIVE SESSION
-      // --------------------------------------------------------
-
-      await _sessionRef.set(
-        sessionData,
-        SetOptions(
-          merge: true,
-        ),
-      );
-
-      // --------------------------------------------------------
-      // UPDATE ACTIVE WALK TOO
-      // --------------------------------------------------------
-
-      await _service.updateLiveLocation(
-        walkId: widget.walkId,
-        sessionId: sessionId,
-        latitude: position.latitude,
-        longitude: position.longitude,
-        distanceKm: _totalDistanceKm,
-      );
-    } catch (e) {
-      debugPrint(
-        'Live GPS Firestore update error: $e',
-      );
     }
   }
 
@@ -354,8 +364,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     final dynamic raw =
         data['routeCoordinates'];
 
-    // Don't mark loaded until Firestore actually gives us
-    // useful route data.
     if (raw is List) {
       for (final dynamic item in raw) {
         if (item is Map) {
@@ -386,7 +394,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 'lat': latitude,
                 'lng': longitude,
                 if (item['timestamp'] != null)
-                  'timestamp': item['timestamp'],
+                  'timestamp':
+                      item['timestamp'],
               },
             );
           }
@@ -408,7 +417,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     if (parsedDistance != null &&
         parsedDistance >= 0) {
-      _totalDistanceKm = parsedDistance;
+      _totalDistanceKm =
+          parsedDistance;
     }
 
     _routeLoaded = true;
@@ -423,7 +433,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     _locationSubscription = null;
 
-    await _locationService.stopTracking();
+    await _backgroundService.stop();
 
     _gpsActive = false;
   }
@@ -442,10 +452,16 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     });
 
     try {
-      // GPS first stop.
+      // --------------------------------------------------------
+      // STOP CENTRAL GPS SERVICE FIRST
+      // --------------------------------------------------------
+
       await _stopGpsTracking();
 
-      // Then complete Firestore walk.
+      // --------------------------------------------------------
+      // COMPLETE FIRESTORE WALK
+      // --------------------------------------------------------
+
       await _service.endLiveWalk(
         widget.walkId,
         sessionId: sessionId,
@@ -481,8 +497,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           ),
         );
 
-      // If Firestore ending failed,
-      // resume GPS.
+      // --------------------------------------------------------
+      // FIRESTORE END FAILED
+      //
+      // Resume GPS.
+      // --------------------------------------------------------
+
       if (!_gpsActive) {
         await _startGpsTracking();
       }
@@ -785,13 +805,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         return Scaffold(
           backgroundColor:
               Colors.white,
-
           extendBodyBehindAppBar:
               true,
-
-          // ====================================================
-          // APP BAR
-          // ====================================================
 
           appBar: AppBar(
             backgroundColor: orange,
@@ -842,26 +857,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             ],
           ),
 
-          // ====================================================
-          // BODY
-          // ====================================================
-
           body: Stack(
             children: [
-              // ------------------------------------------------
-              // LIVE MAP
-              // ------------------------------------------------
-
               Positioned.fill(
                 child: LiveWalkMap(
                   sessionData:
                       data,
                 ),
               ),
-
-              // ------------------------------------------------
-              // LIVE BADGE
-              // ------------------------------------------------
 
               Positioned(
                 top: MediaQuery.of(
@@ -875,10 +878,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                     _liveBadge(),
               ),
 
-              // ------------------------------------------------
-              // GPS BADGE
-              // ------------------------------------------------
-
               Positioned(
                 top: MediaQuery.of(
                           context,
@@ -890,10 +889,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 child:
                     _gpsBadge(data),
               ),
-
-              // ------------------------------------------------
-              // BOTTOM SHEET
-              // ------------------------------------------------
 
               Align(
                 alignment:
@@ -987,35 +982,25 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     final dynamic lng =
         data['currentLng'];
 
-    final bool validLat =
+    final double? parsedLat =
         double.tryParse(
-              lat?.toString() ?? '',
-            ) !=
-            null;
+      lat?.toString() ?? '',
+    );
 
-    final bool validLng =
+    final double? parsedLng =
         double.tryParse(
-              lng?.toString() ?? '',
-            ) !=
-            null;
+      lng?.toString() ?? '',
+    );
 
     final bool hasLocation =
-        validLat &&
-            validLng &&
-            double.parse(
-                  lat.toString(),
-                ) !=
-                0 &&
-            double.parse(
-                  lng.toString(),
-                ) !=
-                0;
+        parsedLat != null &&
+            parsedLng != null &&
+            parsedLat != 0 &&
+            parsedLng != 0;
 
     final Color color =
         hasLocation
-            ? const Color(
-                0xFF16A34A,
-              )
+            ? const Color(0xFF16A34A)
             : orange;
 
     return Container(
@@ -1196,7 +1181,16 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   @override
   void dispose() {
     _locationSubscription?.cancel();
-    _locationService.stopTracking();
+
+    // IMPORTANT:
+    // यहां background service को stop नहीं कर रहे।
+    //
+    // इसका मतलब:
+    // LiveWalkScreen बंद/minimize होने पर भी
+    // tracking चल सकती है।
+    //
+    // केवल End Walk पर _stopGpsTracking() चलेगा।
+    //
 
     super.dispose();
   }
