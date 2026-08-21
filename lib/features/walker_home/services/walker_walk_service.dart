@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../screens/live_walk_screen.dart';
+import '../../walks/screens/live_walk_screen.dart';
 import '../../../screens/qr_scanner_screen.dart';
 
 class WalkerWalkService {
