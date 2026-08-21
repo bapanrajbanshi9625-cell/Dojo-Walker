@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/walk_request.dart';
-import 'live_walk_screen.dart';
+import '../features/walks/screens/live_walk_screen.dart';
 
 class ActiveWalkDetailsScreen extends StatefulWidget {
   final WalkRequest request;
@@ -34,20 +34,11 @@ class _ActiveWalkDetailsScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
       body: Stack(
         children: [
-          // =====================================================
-          // FULL SCREEN MAP AREA
-          // =====================================================
-
           Positioned.fill(
             child: _buildMapArea(),
           ),
-
-          // =====================================================
-          // TOP BAR
-          // =====================================================
 
           SafeArea(
             child: Padding(
@@ -65,32 +56,20 @@ class _ActiveWalkDetailsScreenState
                       Navigator.pop(context);
                     },
                   ),
-
                   const Spacer(),
-
                   _topButton(
                     icon: Icons.headset_mic_rounded,
-                    onTap: () {
-                      _showSupport();
-                    },
+                    onTap: _showSupport,
                   ),
-
                   const SizedBox(width: 8),
-
                   _topButton(
                     icon: Icons.more_vert_rounded,
-                    onTap: () {
-                      _showMoreOptions();
-                    },
+                    onTap: _showMoreOptions,
                   ),
                 ],
               ),
             ),
           ),
-
-          // =====================================================
-          // BOTTOM DETAILS SHEET
-          // =====================================================
 
           Positioned(
             left: 0,
@@ -155,19 +134,11 @@ class _ActiveWalkDetailsScreenState
       ),
       child: Stack(
         children: [
-          // ----------------------------------------------------
-          // MAP GRID / ROAD STYLE BACKGROUND
-          // ----------------------------------------------------
-
           Positioned.fill(
             child: CustomPaint(
               painter: _MapPainter(),
             ),
           ),
-
-          // ----------------------------------------------------
-          // WALKER MARKER
-          // ----------------------------------------------------
 
           const Positioned(
             left: 80,
@@ -179,10 +150,6 @@ class _ActiveWalkDetailsScreenState
             ),
           ),
 
-          // ----------------------------------------------------
-          // OWNER MARKER
-          // ----------------------------------------------------
-
           const Positioned(
             right: 65,
             top: 180,
@@ -193,20 +160,10 @@ class _ActiveWalkDetailsScreenState
             ),
           ),
 
-          // ----------------------------------------------------
-          // ROUTE / POLYLINE
-          //
-          // Actual GPS polyline can be connected here later.
-          // ----------------------------------------------------
-
           CustomPaint(
             size: Size.infinite,
             painter: _RoutePainter(),
           ),
-
-          // ----------------------------------------------------
-          // ETA CARD
-          // ----------------------------------------------------
 
           Positioned(
             top: 105,
@@ -221,7 +178,7 @@ class _ActiveWalkDetailsScreenState
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: const [
                   BoxShadow(
-                    color: Colors.black18,
+                    color: Colors.black26,
                     blurRadius: 12,
                     offset: Offset(0, 4),
                   ),
@@ -277,10 +234,6 @@ class _ActiveWalkDetailsScreenState
       children: [
         const SizedBox(height: 9),
 
-        // ------------------------------------------------------
-        // DRAG HANDLE
-        // ------------------------------------------------------
-
         Container(
           width: 42,
           height: 4,
@@ -291,10 +244,6 @@ class _ActiveWalkDetailsScreenState
         ),
 
         const SizedBox(height: 13),
-
-        // ------------------------------------------------------
-        // ALWAYS VISIBLE MINI INFO
-        // ------------------------------------------------------
 
         Padding(
           padding: const EdgeInsets.symmetric(
@@ -372,10 +321,6 @@ class _ActiveWalkDetailsScreenState
           ),
         ),
 
-        // ------------------------------------------------------
-        // EXPANDED DETAILS
-        // ------------------------------------------------------
-
         if (_sheetHeight > 280)
           Expanded(
             child: SingleChildScrollView(
@@ -415,6 +360,12 @@ class _ActiveWalkDetailsScreenState
                         widget.request.dogName,
                         Icons.pets_outlined,
                       ),
+                      if (widget.request.dogBreed.isNotEmpty)
+                        _detail(
+                          'Breed',
+                          widget.request.dogBreed,
+                          Icons.category_outlined,
+                        ),
                     ],
                   ),
 
@@ -443,10 +394,6 @@ class _ActiveWalkDetailsScreenState
                   ),
 
                   const SizedBox(height: 15),
-
-                  // ------------------------------------------------
-                  // MAIN ACTION
-                  // ------------------------------------------------
 
                   SizedBox(
                     width: double.infinity,
@@ -499,9 +446,6 @@ class _ActiveWalkDetailsScreenState
 
   // ============================================================
   // REACH
-  //
-  // GPS service आने के बाद यही function actual distance check
-  // करेगा. UI अभी READY है.
   // ============================================================
 
   void _simulateReach() {
@@ -528,14 +472,46 @@ class _ActiveWalkDetailsScreenState
   // ============================================================
 
   void _startWalk() {
+    final String ownerUid = _ownerUid();
+    final String walkId = _walkId();
+
+    if (ownerUid.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Owner information is missing.',
+            ),
+          ),
+        );
+      return;
+    }
+
+    if (walkId.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Walk ID is missing.',
+            ),
+          ),
+        );
+      return;
+    }
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (_) => LiveWalkScreen(
-          ownerUid: _ownerUid(),
+          ownerUid: ownerUid,
           ownerName: widget.request.ownerName,
-          walkId: _walkId(),
-          ownerPhone: null,
+          walkId: walkId,
+          dogName: widget.request.dogName,
+          ownerPhone: widget.request.ownerPhone.isEmpty
+              ? null
+              : widget.request.ownerPhone,
         ),
       ),
     );
@@ -546,16 +522,12 @@ class _ActiveWalkDetailsScreenState
   // ============================================================
 
   String _walkId() {
-    final dynamic request = widget.request;
+    final String value =
+        widget.request.walkId.trim();
 
-    try {
-      final dynamic value = request.walkId;
-
-      if (value != null &&
-          value.toString().trim().isNotEmpty) {
-        return value.toString();
-      }
-    } catch (_) {}
+    if (value.isNotEmpty) {
+      return value;
+    }
 
     return 'WALK-${widget.request.hashCode.abs()}';
   }
@@ -565,25 +537,19 @@ class _ActiveWalkDetailsScreenState
   // ============================================================
 
   String _ownerUid() {
-    final dynamic request = widget.request;
+    final String uid =
+        widget.request.ownerUid.trim();
 
-    try {
-      final dynamic value = request.ownerUid;
+    if (uid.isNotEmpty) {
+      return uid;
+    }
 
-      if (value != null &&
-          value.toString().trim().isNotEmpty) {
-        return value.toString();
-      }
-    } catch (_) {}
+    final String ownerId =
+        widget.request.ownerId.trim();
 
-    try {
-      final dynamic value = request.ownerId;
-
-      if (value != null &&
-          value.toString().trim().isNotEmpty) {
-        return value.toString();
-      }
-    } catch (_) {}
+    if (ownerId.isNotEmpty) {
+      return ownerId;
+    }
 
     return '';
   }
@@ -667,7 +633,7 @@ class _ActiveWalkDetailsScreenState
           const Spacer(),
           Flexible(
             child: Text(
-              value,
+              value.isEmpty ? '-' : value,
               textAlign: TextAlign.right,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
