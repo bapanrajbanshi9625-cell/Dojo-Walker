@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -27,15 +28,13 @@ class _InstaWalkMapRadarState
   // MAP
   // ============================================================
 
-  final MapController _mapController =
-      MapController();
+  final MapController _mapController = MapController();
 
   // ============================================================
   // GPS
   // ============================================================
 
-  final WalkerLocationService
-      _locationService =
+  final WalkerLocationService _locationService =
       WalkerLocationService.instance;
 
   Position? _position;
@@ -44,15 +43,13 @@ class _InstaWalkMapRadarState
   // GPS SUBSCRIPTION
   // ============================================================
 
-  StreamSubscription<Position>?
-      _locationSubscription;
+  StreamSubscription<Position>? _locationSubscription;
 
   // ============================================================
   // RADAR ANIMATION
   // ============================================================
 
-  late final AnimationController
-      _radarController;
+  late final AnimationController _radarController;
 
   // ============================================================
   // INIT
@@ -62,14 +59,36 @@ class _InstaWalkMapRadarState
   void initState() {
     super.initState();
 
-    _radarController =
-        AnimationController(
+    _radarController = AnimationController(
       vsync: this,
-      duration:
-          const Duration(seconds: 2),
-    )..repeat();
+      duration: const Duration(seconds: 2),
+    );
+
+    if (widget.searching) {
+      _radarController.repeat();
+    }
 
     _startLocation();
+  }
+
+  // ============================================================
+  // SEARCHING CHANGE
+  // ============================================================
+
+  @override
+  void didUpdateWidget(
+    covariant InstaWalkMapRadar oldWidget,
+  ) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.searching != oldWidget.searching) {
+      if (widget.searching) {
+        _radarController.repeat();
+      } else {
+        _radarController.stop();
+        _radarController.value = 0;
+      }
+    }
   }
 
   // ============================================================
@@ -78,8 +97,7 @@ class _InstaWalkMapRadarState
 
   Future<void> _startLocation() async {
     final Position? position =
-        await _locationService
-            .getCurrentLocation();
+        await _locationService.getCurrentLocation();
 
     if (!mounted) {
       return;
@@ -93,12 +111,17 @@ class _InstaWalkMapRadarState
       _moveMap(position);
     }
 
-    await _locationService
-        .startTracking();
+    final bool trackingStarted =
+        await _locationService.startTracking();
+
+    if (!trackingStarted || !mounted) {
+      return;
+    }
+
+    await _locationSubscription?.cancel();
 
     _locationSubscription =
-        _locationService.locationStream
-            .listen(
+        _locationService.locationStream.listen(
       (Position position) {
         if (!mounted) {
           return;
@@ -118,6 +141,10 @@ class _InstaWalkMapRadarState
   // ============================================================
 
   void _moveMap(Position position) {
+    if (!mounted) {
+      return;
+    }
+
     try {
       _mapController.move(
         LatLng(
@@ -126,7 +153,9 @@ class _InstaWalkMapRadarState
         ),
         15.2,
       );
-    } catch (_) {}
+    } catch (_) {
+      // MapController may not be attached yet.
+    }
   }
 
   // ============================================================
@@ -136,8 +165,7 @@ class _InstaWalkMapRadarState
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius:
-          BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(22),
       child: SizedBox(
         width: double.infinity,
         height: 260,
@@ -148,19 +176,15 @@ class _InstaWalkMapRadarState
             // ==================================================
 
             FlutterMap(
-              mapController:
-                  _mapController,
-              options: MapOptions(
-                initialCenter:
-                    const LatLng(
+              mapController: _mapController,
+              options: const MapOptions(
+                initialCenter: LatLng(
                   20.5937,
                   78.9629,
                 ),
                 initialZoom: 5,
-                interactionOptions:
-                    const InteractionOptions(
-                  flags:
-                      InteractiveFlag.all,
+                interactionOptions: InteractionOptions(
+                  flags: InteractiveFlag.all,
                 ),
               ),
               children: [
@@ -202,15 +226,11 @@ class _InstaWalkMapRadarState
                           _position!.latitude,
                           _position!.longitude,
                         ),
-                        radius:
-                            3500,
-                        useRadiusInMeter:
-                            true,
-                        color: Colors.blue
-                            .withOpacity(.08),
+                        radius: 3500,
+                        useRadiusInMeter: true,
+                        color: Colors.blue.withOpacity(.08),
                         borderColor:
-                            Colors.blue
-                                .withOpacity(.55),
+                            Colors.blue.withOpacity(.55),
                         borderStrokeWidth: 2,
                       ),
                     ],
@@ -226,16 +246,11 @@ class _InstaWalkMapRadarState
               Positioned.fill(
                 child: IgnorePointer(
                   child: AnimatedBuilder(
-                    animation:
-                        _radarController,
-                    builder:
-                        (context, child) {
+                    animation: _radarController,
+                    builder: (context, child) {
                       return CustomPaint(
-                        painter:
-                            _MapRadarPainter(
-                          progress:
-                              _radarController
-                                  .value,
+                        painter: _MapRadarPainter(
+                          progress: _radarController.value,
                         ),
                       );
                     },
@@ -254,33 +269,28 @@ class _InstaWalkMapRadarState
             ),
 
             // ====================================================
-            // GPS ERROR
+            // GPS ERROR / LOADING
             // ====================================================
 
             if (_position == null)
               Positioned.fill(
                 child: Container(
-                  color: Colors.white
-                      .withOpacity(.82),
-                  alignment:
-                      Alignment.center,
+                  color: Colors.white.withOpacity(.82),
+                  alignment: Alignment.center,
                   child: const Column(
-                    mainAxisSize:
-                        MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         Icons.location_off_rounded,
                         size: 30,
-                        color:
-                            Color(0xFF238EAE),
+                        color: Color(0xFF238EAE),
                       ),
                       SizedBox(height: 8),
                       Text(
                         'Getting current location...',
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight:
-                              FontWeight.w700,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
@@ -304,16 +314,14 @@ class _InstaWalkMapRadarState
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black
-                .withOpacity(.22),
+            color: Colors.black.withOpacity(.22),
             blurRadius: 8,
           ),
         ],
       ),
       padding: const EdgeInsets.all(5),
       child: Container(
-        decoration:
-            const BoxDecoration(
+        decoration: const BoxDecoration(
           shape: BoxShape.circle,
           color: Color(0xFF238EAE),
         ),
@@ -332,33 +340,27 @@ class _InstaWalkMapRadarState
 
   Widget _buildStatus() {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 10,
         vertical: 7,
       ),
       decoration: BoxDecoration(
-        color: Colors.white
-            .withOpacity(.92),
-        borderRadius:
-            BorderRadius.circular(12),
+        color: Colors.white.withOpacity(.92),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black
-                .withOpacity(.12),
+            color: Colors.black.withOpacity(.12),
             blurRadius: 8,
           ),
         ],
       ),
       child: Row(
-        mainAxisSize:
-            MainAxisSize.min,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             width: 8,
             height: 8,
-            decoration:
-                const BoxDecoration(
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
               color: Color(0xFF20A45A),
             ),
@@ -370,10 +372,8 @@ class _InstaWalkMapRadarState
                 : 'Current Location',
             style: const TextStyle(
               fontSize: 10,
-              fontWeight:
-                  FontWeight.w800,
-              color:
-                  Color(0xFF263746),
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF263746),
             ),
           ),
         ],
@@ -387,9 +387,7 @@ class _InstaWalkMapRadarState
 
   @override
   void dispose() {
-    _locationSubscription
-        ?.cancel();
-
+    _locationSubscription?.cancel();
     _radarController.dispose();
 
     super.dispose();
@@ -400,8 +398,7 @@ class _InstaWalkMapRadarState
 // MAP RADAR PAINTER
 // ================================================================
 
-class _MapRadarPainter
-    extends CustomPainter {
+class _MapRadarPainter extends CustomPainter {
   final double progress;
 
   const _MapRadarPainter({
@@ -413,8 +410,7 @@ class _MapRadarPainter
     Canvas canvas,
     Size size,
   ) {
-    final Offset center =
-        Offset(
+    final Offset center = Offset(
       size.width / 2,
       size.height / 2,
     );
@@ -424,7 +420,7 @@ class _MapRadarPainter
           size.width,
           size.height,
         ) *
-            .48;
+        .48;
 
     // ==========================================================
     // RADAR SWEEP
@@ -436,29 +432,22 @@ class _MapRadarPainter
     final double sweepWidth =
         math.pi / 3;
 
-    final Paint sweepPaint =
-        Paint()
-          ..shader =
-              SweepGradient(
-            startAngle:
-                angle - sweepWidth,
-            endAngle:
-                angle,
-            colors: [
-              Colors.transparent,
-              Colors.cyan
-                  .withOpacity(.04),
-              Colors.cyan
-                  .withOpacity(.18),
-              Colors.cyan
-                  .withOpacity(.32),
-            ],
-          ).createShader(
-            Rect.fromCircle(
-              center: center,
-              radius: maxRadius,
-            ),
-          );
+    final Paint sweepPaint = Paint()
+      ..shader = SweepGradient(
+        startAngle: angle - sweepWidth,
+        endAngle: angle,
+        colors: [
+          Colors.transparent,
+          Colors.cyan.withOpacity(.04),
+          Colors.cyan.withOpacity(.18),
+          Colors.cyan.withOpacity(.32),
+        ],
+      ).createShader(
+        Rect.fromCircle(
+          center: center,
+          radius: maxRadius,
+        ),
+      );
 
     canvas.drawCircle(
       center,
@@ -470,19 +459,15 @@ class _MapRadarPainter
     // RADAR RINGS
     // ==========================================================
 
-    final Paint ringPaint =
-        Paint()
-          ..style =
-              PaintingStyle.stroke
-          ..strokeWidth = 1
-          ..color = Colors.cyan
-              .withOpacity(.20);
+    final Paint ringPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = Colors.cyan.withOpacity(.20);
 
     for (int i = 1; i <= 3; i++) {
       canvas.drawCircle(
         center,
-        maxRadius *
-            (i / 3),
+        maxRadius * (i / 3),
         ringPaint,
       );
     }
@@ -491,32 +476,26 @@ class _MapRadarPainter
     // ROTATING LINE
     // ==========================================================
 
-    final Offset end =
-        Offset(
+    final Offset end = Offset(
       center.dx +
-          math.cos(angle) *
-              maxRadius,
+          math.cos(angle) * maxRadius,
       center.dy +
-          math.sin(angle) *
-              maxRadius,
+          math.sin(angle) * maxRadius,
     );
 
-    final Paint linePaint =
-        Paint()
-          ..strokeWidth = 2
-          ..shader =
-              LinearGradient(
-            colors: [
-              Colors.transparent,
-              Colors.cyan
-                  .withOpacity(.75),
-            ],
-          ).createShader(
-            Rect.fromPoints(
-              center,
-              end,
-            ),
-          );
+    final Paint linePaint = Paint()
+      ..strokeWidth = 2
+      ..shader = LinearGradient(
+        colors: [
+          Colors.transparent,
+          Colors.cyan.withOpacity(.75),
+        ],
+      ).createShader(
+        Rect.fromPoints(
+          center,
+          end,
+        ),
+      );
 
     canvas.drawLine(
       center,
@@ -528,10 +507,8 @@ class _MapRadarPainter
     // CENTER GLOW
     // ==========================================================
 
-    final Paint centerPaint =
-        Paint()
-          ..color = Colors.cyan
-              .withOpacity(.80);
+    final Paint centerPaint = Paint()
+      ..color = Colors.cyan.withOpacity(.80);
 
     canvas.drawCircle(
       center,
@@ -544,7 +521,6 @@ class _MapRadarPainter
   bool shouldRepaint(
     covariant _MapRadarPainter oldDelegate,
   ) {
-    return oldDelegate.progress !=
-        progress;
+    return oldDelegate.progress != progress;
   }
 }
