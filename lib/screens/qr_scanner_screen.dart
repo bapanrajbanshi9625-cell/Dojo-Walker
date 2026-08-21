@@ -2,10 +2,10 @@
 
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
@@ -16,11 +16,32 @@ class QrScannerScreen extends StatefulWidget {
 }
 
 class _QrScannerScreenState extends State<QrScannerScreen> {
+  // ==========================================================
+  // STATE
+  // ==========================================================
+
   bool isScanCompleted = false;
   bool isProcessing = false;
 
+  // ==========================================================
+  // FIREBASE
+  // ==========================================================
+
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  // ==========================================================
+  // PROCESS OWNER QR
+  // ==========================================================
+
   Future<void> _processOwnerQR(String rawData) async {
-    if (isScanCompleted || isProcessing) return;
+    if (isScanCompleted || isProcessing) {
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       isScanCompleted = true;
@@ -28,59 +49,81 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     });
 
     try {
-      // ==================================================
-      // 1. READ QR JSON
-      // ==================================================
+      // ======================================================
+      // 1. DECODE QR JSON
+      // ======================================================
 
-      final dynamic decodedData = jsonDecode(rawData);
+      final dynamic decodedData =
+          jsonDecode(rawData);
 
       if (decodedData is! Map) {
-        throw Exception('Invalid Owner QR Code');
+        throw Exception(
+          'Invalid Owner QR Code.',
+        );
       }
 
-      // ==================================================
-      // 2. READ OWNER DATA
-      //
-      // New QR format:
-      // ownerUid
-      // ownerName
-      // ownerPhone
-      // walkId
-      //
-      // Old compatibility:
-      // uid
-      // name
-      // userId
-      // ==================================================
+      // ======================================================
+      // 2. READ QR DATA
+      // ======================================================
 
       final String type =
-          decodedData['type']?.toString() ?? '';
+          decodedData['type']
+                  ?.toString()
+                  .trim() ??
+              '';
 
       final String ownerUid =
-          decodedData['ownerUid']?.toString() ??
-              decodedData['uid']?.toString() ??
+          decodedData['ownerUid']
+                  ?.toString()
+                  .trim()
+                  .isNotEmpty ==
+              true
+          ? decodedData['ownerUid']
+              .toString()
+              .trim()
+          : decodedData['uid']
+                  ?.toString()
+                  .trim() ??
               '';
 
       final String ownerName =
-          decodedData['ownerName']?.toString() ??
-              decodedData['name']?.toString() ??
+          decodedData['ownerName']
+                  ?.toString()
+                  .trim()
+                  .isNotEmpty ==
+              true
+          ? decodedData['ownerName']
+              .toString()
+              .trim()
+          : decodedData['name']
+                  ?.toString()
+                  .trim() ??
               'Owner';
 
       final String ownerPhone =
-          decodedData['ownerPhone']?.toString() ??
-              decodedData['phoneNumber']?.toString() ??
+          decodedData['ownerPhone']
+                  ?.toString()
+                  .trim() ??
+              decodedData['phoneNumber']
+                  ?.toString()
+                  .trim() ??
               '';
 
       final String ownerUserId =
-          decodedData['userId']?.toString() ??
+          decodedData['userId']
+                  ?.toString()
+                  .trim() ??
               ownerUid;
 
       final String qrWalkId =
-          decodedData['walkId']?.toString() ?? '';
+          decodedData['walkId']
+                  ?.toString()
+                  .trim() ??
+              '';
 
-      // ==================================================
-      // 3. CHECK QR TYPE
-      // ==================================================
+      // ======================================================
+      // 3. VERIFY QR TYPE
+      // ======================================================
 
       if (type != 'owner') {
         throw Exception(
@@ -88,15 +131,19 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         );
       }
 
+      // ======================================================
+      // 4. VERIFY OWNER UID
+      // ======================================================
+
       if (ownerUid.isEmpty) {
         throw Exception(
           'Owner UID is missing from QR Code.',
         );
       }
 
-      // ==================================================
-      // 4. CHECK WALKER LOGIN
-      // ==================================================
+      // ======================================================
+      // 5. GET WALKER
+      // ======================================================
 
       final User? walker =
           FirebaseAuth.instance.currentUser;
@@ -107,7 +154,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         );
       }
 
-      final String walkerUid = walker.uid;
+      final String walkerUid =
+          walker.uid.trim();
 
       if (walkerUid.isEmpty) {
         throw Exception(
@@ -115,27 +163,22 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         );
       }
 
-      // ==================================================
-      // 5. FIND OWNER QR
+      // ======================================================
+      // 6. GET OWNER QR FROM FIRESTORE
+      // ======================================================
       //
-      // IMPORTANT:
-      //
-      // Owner app saves:
-      //
-      // qr_codes/
-      //    OWNER_UID/
-      //
-      // So Walker MUST read:
+      // Owner app creates:
       //
       // qr_codes/{ownerUid}
       //
-      // NOT:
+      // Therefore Walker reads exactly:
       //
-      // qr_codes/owner_qr
-      // ==================================================
+      // qr_codes/{ownerUid}
+      // ======================================================
 
-      final DocumentSnapshot<Map<String, dynamic>>
-          ownerQR = await FirebaseFirestore.instance
+      final DocumentSnapshot<
+          Map<String, dynamic>> ownerQR =
+          await _firestore
               .collection('qr_codes')
               .doc(ownerUid)
               .get();
@@ -143,7 +186,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       if (!ownerQR.exists) {
         throw Exception(
           'Owner QR not found.\n'
-          'Owner UID: $ownerUid',
+          'Please ask the Owner to generate a new QR code.',
         );
       }
 
@@ -151,13 +194,17 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           ownerQR.data() ??
               <String, dynamic>{};
 
-      // ==================================================
-      // 6. VERIFY OWNER UID
-      // ==================================================
+      // ======================================================
+      // 7. VERIFY FIREBASE OWNER UID
+      // ======================================================
 
       final String firebaseOwnerUid =
-          firebaseData['ownerUid']?.toString() ??
-              firebaseData['uid']?.toString() ??
+          firebaseData['ownerUid']
+                  ?.toString()
+                  .trim() ??
+              firebaseData['uid']
+                  ?.toString()
+                  .trim() ??
               '';
 
       if (firebaseOwnerUid.isEmpty) {
@@ -172,33 +219,157 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         );
       }
 
-      // ==================================================
-      // 7. GET FIREBASE OWNER DATA
-      // ==================================================
+      // ======================================================
+      // 8. GET VERIFIED OWNER DATA
+      // ======================================================
 
       final String firebaseOwnerName =
-          firebaseData['ownerName']?.toString() ??
-              firebaseData['name']?.toString() ??
-              ownerName;
+          firebaseData['ownerName']
+                  ?.toString()
+                  .trim()
+                  .isNotEmpty ==
+              true
+          ? firebaseData['ownerName']
+              .toString()
+              .trim()
+          : firebaseData['name']
+                  ?.toString()
+                  .trim()
+                  .isNotEmpty ==
+              true
+          ? firebaseData['name']
+              .toString()
+              .trim()
+          : ownerName;
 
       final String firebaseOwnerPhone =
-          firebaseData['ownerPhone']?.toString() ??
-              firebaseData['phoneNumber']?.toString() ??
+          firebaseData['ownerPhone']
+                  ?.toString()
+                  .trim() ??
+              firebaseData['phoneNumber']
+                  ?.toString()
+                  .trim() ??
               ownerPhone;
 
       final String firebaseWalkId =
-          firebaseData['walkId']?.toString() ??
-              qrWalkId;
+          firebaseData['walkId']
+                  ?.toString()
+                  .trim()
+                  .isNotEmpty ==
+              true
+          ? firebaseData['walkId']
+              .toString()
+              .trim()
+          : qrWalkId;
 
-      // ==================================================
-      // 8. MARK OWNER QR AS SCANNED
+      // ======================================================
+      // 9. READ SAVED OWNER DESTINATION
+      // ======================================================
       //
-      // Same document:
+      // Owner QR contains:
       //
-      // qr_codes/{ownerUid}
-      // ==================================================
+      // ownerLocation:
+      // {
+      //   latitude,
+      //   longitude,
+      //   accuracy
+      // }
+      //
+      // This is ONLY a location snapshot.
+      //
+      // It is NOT Owner live location.
+      // ======================================================
 
-      await FirebaseFirestore.instance
+      Map<String, dynamic>? ownerLocation;
+
+      final dynamic qrOwnerLocation =
+          firebaseData['ownerLocation'];
+
+      if (qrOwnerLocation is Map) {
+        final dynamic latitude =
+            qrOwnerLocation['latitude'];
+
+        final dynamic longitude =
+            qrOwnerLocation['longitude'];
+
+        if (latitude != null &&
+            longitude != null) {
+          ownerLocation =
+              <String, dynamic>{
+            'latitude':
+                _toDouble(latitude),
+            'longitude':
+                _toDouble(longitude),
+          };
+
+          final dynamic accuracy =
+              qrOwnerLocation['accuracy'];
+
+          if (accuracy != null) {
+            ownerLocation['accuracy'] =
+                _toDouble(accuracy);
+          }
+        }
+      }
+
+      // ======================================================
+      // 10. VERIFY LOCATION TYPE
+      // ======================================================
+
+      final String ownerLocationType =
+          firebaseData['ownerLocationType']
+                  ?.toString()
+                  .trim() ??
+              'saved';
+
+      // ======================================================
+      // 11. CHECK EXISTING ACTIVE WALK
+      // ======================================================
+      //
+      // Prevent accidental duplicate active walks
+      // for the same Walker + Owner.
+      // ======================================================
+
+      final QuerySnapshot<
+          Map<String, dynamic>> existingWalks =
+          await _firestore
+              .collection('active_walks')
+              .where(
+                'walkerUid',
+                isEqualTo: walkerUid,
+              )
+              .where(
+                'status',
+                isEqualTo: 'active',
+              )
+              .limit(10)
+              .get();
+
+      for (final QueryDocumentSnapshot<
+          Map<String, dynamic>> doc
+          in existingWalks.docs) {
+        final Map<String, dynamic> data =
+            doc.data();
+
+        final String existingOwnerUid =
+            data['ownerUid']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        if (existingOwnerUid ==
+            ownerUid) {
+          throw Exception(
+            'You already have an active walk with this Owner.',
+          );
+        }
+      }
+
+      // ======================================================
+      // 12. MARK QR AS SCANNED
+      // ======================================================
+
+      await _firestore
           .collection('qr_codes')
           .doc(ownerUid)
           .update({
@@ -210,93 +381,312 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             FieldValue.serverTimestamp(),
       });
 
-      // ==================================================
-      // 9. CREATE ACTIVE WALK
-      // ==================================================
+      // ======================================================
+      // 13. CREATE ACTIVE WALK
+      // ======================================================
 
       final DocumentReference<
           Map<String, dynamic>> walkRef =
-          FirebaseFirestore.instance
+          _firestore
               .collection('active_walks')
               .doc();
 
-      await walkRef.set({
-        'walkId': walkRef.id,
+      final Map<String, dynamic>
+          activeWalkData =
+          <String, dynamic>{
+        // ----------------------------------------------------
+        // WALK
+        // ----------------------------------------------------
 
+        'walkId':
+            walkRef.id,
+
+        'qrWalkId':
+            firebaseWalkId,
+
+        // ----------------------------------------------------
         // OWNER
-        'ownerUid': ownerUid,
-        'ownerUserId': ownerUserId,
-        'ownerName': firebaseOwnerName,
-        'ownerPhone': firebaseOwnerPhone,
+        // ----------------------------------------------------
 
+        'ownerUid':
+            ownerUid,
+
+        'ownerUserId':
+            ownerUserId,
+
+        'ownerName':
+            firebaseOwnerName,
+
+        'ownerPhone':
+            firebaseOwnerPhone,
+
+        // ----------------------------------------------------
         // WALKER
-        'walkerUid': walkerUid,
+        // ----------------------------------------------------
 
-        // QR WALK ID
-        'qrWalkId': firebaseWalkId,
+        'walkerUid':
+            walkerUid,
 
+        // ----------------------------------------------------
         // STATUS
-        'status': 'active',
+        // ----------------------------------------------------
+
+        'status':
+            'active',
+
+        // ----------------------------------------------------
+        // LOCATION TYPE
+        // ----------------------------------------------------
+        //
+        // saved = destination snapshot
+        //
+        // Never live owner tracking.
+        // ----------------------------------------------------
+
+        'ownerLocationType':
+            ownerLocationType,
+
+        // ----------------------------------------------------
+        // OWNER DESTINATION
+        // ----------------------------------------------------
+
+        if (ownerLocation != null)
+          'ownerLocation':
+              ownerLocation,
+
+        // ----------------------------------------------------
+        // TRACKING FLAGS
+        // ----------------------------------------------------
+
+        'walkerTracking':
+            false,
+
+        'trackingStarted':
+            false,
+
+        'trackingEnded':
+            false,
+
+        'walkStarted':
+            false,
+
+        'walkEnded':
+            false,
+
+        // ----------------------------------------------------
+        // TIMESTAMPS
+        // ----------------------------------------------------
 
         'startedAt':
             FieldValue.serverTimestamp(),
 
         'updatedAt':
             FieldValue.serverTimestamp(),
-      });
+      };
 
-      // ==================================================
-      // 10. RETURN TO LIVE WALK
-      // ==================================================
+      await walkRef.set(
+        activeWalkData,
+      );
 
-      if (!mounted) return;
+      // ======================================================
+      // 14. SUCCESS
+      // ======================================================
+
+      debugPrint(
+        'Owner QR scanned successfully.',
+      );
+
+      debugPrint(
+        'Owner UID: $ownerUid',
+      );
+
+      debugPrint(
+        'Walker UID: $walkerUid',
+      );
+
+      debugPrint(
+        'Active Walk ID: ${walkRef.id}',
+      );
+
+      if (ownerLocation != null) {
+        debugPrint(
+          'Saved Owner destination: '
+          '${ownerLocation['latitude']}, '
+          '${ownerLocation['longitude']}',
+        );
+      } else {
+        debugPrint(
+          'Owner destination was not available.',
+        );
+      }
+
+      // ======================================================
+      // 15. RETURN TO LIVE WALK
+      // ======================================================
+
+      if (!mounted) {
+        return;
+      }
 
       Navigator.pop(
         context,
         jsonEncode({
-          'ownerUid': ownerUid,
-          'ownerUserId': ownerUserId,
-          'ownerName': firebaseOwnerName,
-          'ownerPhone': firebaseOwnerPhone,
-          'walkerUid': walkerUid,
-          'walkId': walkRef.id,
-          'status': 'active',
+          'ownerUid':
+              ownerUid,
+
+          'ownerUserId':
+              ownerUserId,
+
+          'ownerName':
+              firebaseOwnerName,
+
+          'ownerPhone':
+              firebaseOwnerPhone,
+
+          'walkerUid':
+              walkerUid,
+
+          'walkId':
+              walkRef.id,
+
+          'qrWalkId':
+              firebaseWalkId,
+
+          'status':
+              'active',
+
+          'ownerLocationType':
+              ownerLocationType,
+
+          if (ownerLocation != null)
+            'ownerLocation':
+                ownerLocation,
         }),
       );
-    } catch (e) {
-      if (!mounted) return;
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'QR Firebase error: '
+        '${e.code} - ${e.message}',
+      );
+
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         isScanCompleted = false;
         isProcessing = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Scan failed: $e',
-          ),
-        ),
+      _showError(
+        e.code == 'permission-denied'
+            ? 'You do not have permission to connect with this Owner.'
+            : e.message ??
+                'Unable to connect with Owner.',
+      );
+    } catch (e) {
+      debugPrint(
+        'QR scan error: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        isScanCompleted = false;
+        isProcessing = false;
+      });
+
+      _showError(
+        e.toString().replaceFirst(
+              'Exception: ',
+              '',
+            ),
       );
     }
   }
 
-  // ======================================================
+  // ==========================================================
+  // DOUBLE / INT / STRING SAFE DOUBLE
+  // ==========================================================
+
+  double _toDouble(
+    dynamic value,
+  ) {
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(
+          value.toString(),
+        ) ??
+        0.0;
+  }
+
+  // ==========================================================
+  // ERROR MESSAGE
+  // ==========================================================
+
+  void _showError(
+    String message,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            message,
+          ),
+          behavior:
+              SnackBarBehavior.floating,
+          margin:
+              const EdgeInsets.all(16),
+          backgroundColor:
+              const Color(0xFF263746),
+          shape:
+              RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(
+              14,
+            ),
+          ),
+        ),
+      );
+  }
+
+  // ==========================================================
   // BUILD
-  // ======================================================
+  // ==========================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor:
+          Colors.black,
+
+      // ======================================================
+      // APP BAR
+      // ======================================================
 
       appBar: AppBar(
-        backgroundColor: Colors.deepOrange,
+        backgroundColor:
+            const Color(0xFFE45D32),
+
+        elevation: 0,
 
         title: const Text(
           'Scan Owner QR Code',
           style: TextStyle(
             color: Colors.white,
+            fontWeight:
+                FontWeight.w800,
           ),
         ),
 
@@ -306,17 +696,22 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         ),
       ),
 
-      body: Stack(
-        children: [
+      // ======================================================
+      // BODY
+      // ======================================================
 
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
           // ==================================================
           // CAMERA
           // ==================================================
 
           MobileScanner(
             onDetect:
-                (BarcodeCapture capture) {
-
+                (
+              BarcodeCapture capture,
+            ) {
               if (isScanCompleted ||
                   isProcessing) {
                 return;
@@ -324,15 +719,13 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
               for (final Barcode barcode
                   in capture.barcodes) {
-
                 final String? rawData =
                     barcode.rawValue;
 
                 if (rawData != null &&
-                    rawData.isNotEmpty) {
-
+                    rawData.trim().isNotEmpty) {
                   _processOwnerQR(
-                    rawData,
+                    rawData.trim(),
                   );
 
                   break;
@@ -342,26 +735,163 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           ),
 
           // ==================================================
-          // SCAN BOX
+          // DARK OVERLAY
+          // ==================================================
+
+          IgnorePointer(
+            child: Container(
+              decoration:
+                  BoxDecoration(
+                color: Colors.black
+                    .withValues(
+                  alpha: .18,
+                ),
+              ),
+            ),
+          ),
+
+          // ==================================================
+          // SCAN FRAME
           // ==================================================
 
           Center(
             child: Container(
-              width: 260,
-              height: 260,
-
+              width: 270,
+              height: 270,
               decoration:
                   BoxDecoration(
-                border: Border.all(
+                borderRadius:
+                    BorderRadius.circular(
+                  22,
+                ),
+                border:
+                    Border.all(
                   color:
-                      Colors.deepOrange,
+                      const Color(
+                    0xFFFF6B35,
+                  ),
                   width: 3,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        const Color(
+                      0xFFFF6B35,
+                    ).withValues(
+                      alpha: .35,
+                    ),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+            ),
+          ),
 
+          // ==================================================
+          // SCAN CORNERS
+          // ==================================================
+
+          Center(
+            child: SizedBox(
+              width: 270,
+              height: 270,
+              child: CustomPaint(
+                painter:
+                    _ScannerCornersPainter(),
+              ),
+            ),
+          ),
+
+          // ==================================================
+          // TOP INSTRUCTION
+          // ==================================================
+
+          Positioned(
+            top: 28,
+            left: 24,
+            right: 24,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              decoration:
+                  BoxDecoration(
+                color: Colors.black
+                    .withValues(
+                  alpha: .58,
+                ),
                 borderRadius:
                     BorderRadius.circular(
                   16,
                 ),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons
+                        .qr_code_scanner_rounded,
+                    color:
+                        Colors.white,
+                    size: 22,
+                  ),
+                  SizedBox(
+                    width: 10,
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Scan the Owner QR code to start the walk.',
+                      style:
+                          TextStyle(
+                        color:
+                            Colors.white,
+                        fontSize:
+                            13,
+                        fontWeight:
+                            FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ==================================================
+          // CENTER LABEL
+          // ==================================================
+
+          Positioned(
+            top:
+                MediaQuery.of(context)
+                        .size
+                        .height /
+                    2 +
+                145,
+            left: 30,
+            right: 30,
+            child: const Text(
+              'Place the Owner QR code inside the frame',
+              textAlign:
+                  TextAlign.center,
+              style:
+                  TextStyle(
+                color:
+                    Colors.white,
+                fontSize:
+                    14,
+                fontWeight:
+                    FontWeight.w700,
+                shadows: [
+                  Shadow(
+                    color:
+                        Colors.black87,
+                    blurRadius:
+                        6,
+                  ),
+                ],
               ),
             ),
           ),
@@ -371,32 +901,92 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           // ==================================================
 
           if (isProcessing)
-            const Center(
-              child: Card(
-                child: Padding(
-                  padding:
-                      EdgeInsets.all(20),
-
-                  child: Column(
-                    mainAxisSize:
-                        MainAxisSize.min,
-
-                    children: [
-                      CircularProgressIndicator(),
-
-                      SizedBox(
-                        height: 15,
-                      ),
-
-                      Text(
-                        'Connecting to Owner...',
-                        style:
-                            TextStyle(
-                          fontWeight:
-                              FontWeight.w600,
+            Container(
+              color: Colors.black
+                  .withValues(
+                alpha: .48,
+              ),
+              child: Center(
+                child: Card(
+                  elevation: 12,
+                  margin:
+                      const EdgeInsets
+                          .symmetric(
+                    horizontal: 35,
+                  ),
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(
+                      22,
+                    ),
+                  ),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.all(
+                      24,
+                    ),
+                    child: Column(
+                      mainAxisSize:
+                          MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 42,
+                          height: 42,
+                          child:
+                              CircularProgressIndicator(
+                            strokeWidth:
+                                3,
+                            valueColor:
+                                AlwaysStoppedAnimation<
+                                    Color>(
+                              Color(
+                                0xFFE45D32,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+
+                        const SizedBox(
+                          height: 18,
+                        ),
+
+                        const Text(
+                          'Connecting to Owner...',
+                          textAlign:
+                              TextAlign.center,
+                          style:
+                              TextStyle(
+                            fontSize:
+                                16,
+                            fontWeight:
+                                FontWeight.w800,
+                            color:
+                                Color(
+                              0xFF263746,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(
+                          height: 6,
+                        ),
+
+                        Text(
+                          'Verifying QR and creating Live Walk',
+                          textAlign:
+                              TextAlign.center,
+                          style:
+                              TextStyle(
+                            fontSize:
+                                12,
+                            color:
+                                Colors.grey
+                                    .shade600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -408,45 +998,215 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
           if (!isProcessing)
             Positioned(
-              bottom: 50,
+              bottom: 38,
               left: 20,
               right: 20,
-
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(
-                  vertical: 12,
+                  vertical: 13,
                   horizontal: 16,
                 ),
-
                 decoration:
                     BoxDecoration(
-                  color:
-                      Colors.black54,
-
+                  color: Colors.black
+                      .withValues(
+                    alpha: .62,
+                  ),
                   borderRadius:
                       BorderRadius.circular(
-                    10,
+                    16,
                   ),
                 ),
-
-                child: const Text(
-                  "Point your camera at the Owner's QR Code",
-
-                  textAlign:
-                      TextAlign.center,
-
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight:
-                        FontWeight.bold,
-                  ),
+                child: const Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons
+                          .camera_alt_rounded,
+                      color:
+                          Colors.white,
+                      size: 18,
+                    ),
+                    SizedBox(
+                      width: 8,
+                    ),
+                    Flexible(
+                      child: Text(
+                        "Point your camera at the Owner's QR Code",
+                        textAlign:
+                            TextAlign.center,
+                        style:
+                            TextStyle(
+                          color:
+                              Colors.white,
+                          fontSize:
+                              13,
+                          fontWeight:
+                              FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
         ],
       ),
     );
+  }
+}
+
+// ================================================================
+// SCANNER CORNERS PAINTER
+// ================================================================
+
+class _ScannerCornersPainter
+    extends CustomPainter {
+  @override
+  void paint(
+    Canvas canvas,
+    Size size,
+  ) {
+    const Color color =
+        Color(0xFFFF6B35);
+
+    const double length = 28;
+    const double strokeWidth = 5;
+    const double radius = 5;
+
+    final Paint paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    // ==========================================================
+    // TOP LEFT
+    // ==========================================================
+
+    final Path topLeft =
+        Path()
+          ..moveTo(
+            0,
+            length,
+          )
+          ..lineTo(
+            0,
+            radius,
+          )
+          ..quadraticBezierTo(
+            0,
+            0,
+            radius,
+            0,
+          )
+          ..lineTo(
+            length,
+            0,
+          );
+
+    canvas.drawPath(
+      topLeft,
+      paint,
+    );
+
+    // ==========================================================
+    // TOP RIGHT
+    // ==========================================================
+
+    final Path topRight =
+        Path()
+          ..moveTo(
+            size.width - length,
+            0,
+          )
+          ..lineTo(
+            size.width - radius,
+            0,
+          )
+          ..quadraticBezierTo(
+            size.width,
+            0,
+            size.width,
+            radius,
+          )
+          ..lineTo(
+            size.width,
+            length,
+          );
+
+    canvas.drawPath(
+      topRight,
+      paint,
+    );
+
+    // ==========================================================
+    // BOTTOM LEFT
+    // ==========================================================
+
+    final Path bottomLeft =
+        Path()
+          ..moveTo(
+            0,
+            size.height - length,
+          )
+          ..lineTo(
+            0,
+            size.height - radius,
+          )
+          ..quadraticBezierTo(
+            0,
+            size.height,
+            radius,
+            size.height,
+          )
+          ..lineTo(
+            length,
+            size.height,
+          );
+
+    canvas.drawPath(
+      bottomLeft,
+      paint,
+    );
+
+    // ==========================================================
+    // BOTTOM RIGHT
+    // ==========================================================
+
+    final Path bottomRight =
+        Path()
+          ..moveTo(
+            size.width - length,
+            size.height,
+          )
+          ..lineTo(
+            size.width - radius,
+            size.height,
+          )
+          ..quadraticBezierTo(
+            size.width,
+            size.height,
+            size.width,
+            size.height - radius,
+          )
+          ..lineTo(
+            size.width,
+            size.height - length,
+          );
+
+    canvas.drawPath(
+      bottomRight,
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(
+    covariant CustomPainter oldDelegate,
+  ) {
+    return false;
   }
 }
