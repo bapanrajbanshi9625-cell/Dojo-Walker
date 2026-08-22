@@ -9,7 +9,6 @@ import '../features/walker_home/containers/past_walks_container.dart';
 import '../features/walker_home/services/walker_walk_service.dart';
 
 import 'walker_home/walker_home_details_sheet.dart';
-import 'walker_home/walker_home_action_buttons.dart';
 
 class WalkerHomeScreen extends StatefulWidget {
   const WalkerHomeScreen({super.key});
