@@ -1,3 +1,6 @@
+// File:
+// lib/screens/walker_home_screen.dart
+
 import 'package:flutter/material.dart';
 
 import '../features/walker_home/containers/walker_home_header.dart';
@@ -15,8 +18,7 @@ class WalkerHomeScreen extends StatefulWidget {
       _WalkerHomeScreenState();
 }
 
-class _WalkerHomeScreenState
-    extends State<WalkerHomeScreen> {
+class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
   // ============================================================
   // SHOW DETAILS
   // ============================================================
@@ -45,26 +47,25 @@ class _WalkerHomeScreenState
       body: Column(
         children: [
           // ======================================================
-          // HEADER
+          // COMPACT APP BAR
           // ======================================================
 
           const WalkerHomeHeader(),
 
           // ======================================================
-          // CONTENT
+          // HOME CONTENT
           // ======================================================
 
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(
                 16,
-                14,
+                8,
                 16,
                 24,
               ),
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // ==================================================
                   // WELCOME
@@ -72,7 +73,11 @@ class _WalkerHomeScreenState
 
                   const WelcomeContainer(),
 
-                  const SizedBox(height: 18),
+                  // ==================================================
+                  // 10px GAP
+                  // ==================================================
+
+                  const SizedBox(height: 10),
 
                   // ==================================================
                   // TODAY SUMMARY
@@ -92,7 +97,11 @@ class _WalkerHomeScreenState
                     },
                   ),
 
-                  const SizedBox(height: 18),
+                  // ==================================================
+                  // 14px GAP
+                  // ==================================================
+
+                  const SizedBox(height: 14),
 
                   // ==================================================
                   // PAST WALKS
