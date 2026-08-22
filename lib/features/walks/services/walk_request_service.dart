@@ -39,30 +39,6 @@ class WalkRequestService {
 
   // ============================================================
   // PENDING / SEARCHING WALK REQUESTS
-  //
-  // IMPORTANT:
-  // Walker को एक समय में केवल ONE pending request मिलेगी.
-  //
-  // अगर Firestore में:
-  //
-  // Request A = searching
-  // Request B = searching
-  // Request C = searching
-  //
-  // तो Walker app को केवल ONE request मिलेगी.
-  //
-  // जब पहली request:
-  //
-  // searching → accepted
-  //
-  // या
-  //
-  // searching → rejected
-  //
-  // होगी, stream फिर update होगी और अगली
-  // searching request दिखाई दे सकती है.
-  //
-  // RINGTONE LOGIC में कोई बदलाव नहीं किया गया है.
   // ============================================================
 
   Stream<List<WalkRequest>> pendingRequestsStream() {
@@ -83,12 +59,7 @@ class WalkRequestService {
           )
           .toList();
 
-      // --------------------------------------------------------
-      // ONLY ONE REQUEST
-      //
-      // बाकी searching requests अभी Walker app को नहीं मिलेंगी.
-      // --------------------------------------------------------
-
+      // Walker को एक समय में केवल ONE request दिखेगी.
       return <WalkRequest>[
         requests.first,
       ];
@@ -97,15 +68,6 @@ class WalkRequestService {
 
   // ============================================================
   // ACCEPT WALK
-  //
-  // searching
-  //      ↓
-  // accepted
-  //
-  // Saves:
-  // walkerId
-  // walkerUid
-  // acceptedAt
   // ============================================================
 
   Future<void> acceptWalk(String walkId) async {
@@ -139,119 +101,11 @@ class WalkRequestService {
       );
     }
 
-    // ----------------------------------------------------------
-    // WALK REQUEST
-    // ----------------------------------------------------------
-
     final DocumentReference<Map<String, dynamic>> walkRef =
         _walkRequests.doc(walkId);
 
     // ----------------------------------------------------------
     // TRANSACTION
-    // ----------------------------------------------------------
-
-    await _firestore.runTransaction(
-      (transaction) async {
-        final DocumentSnapshot<Map<String, dynamic>> walkSnapshot =
-            await transaction.get(walkRef);
-
-        if (!walkSnapshot.exists) {
-          throw Exception(
-            'Walk request no longer exists.',
-          );
-        }
-
-        final Map<String, dynamic>? data =
-            walkSnapshot.data();
-
-        if (data == null) {
-          throw Exception(
-            'Walk request data is empty.',
-          );
-        }
-
-        final String status =
-            data['status']?.toString() ?? '';
-
-        if (status != 'searching') {
-          throw Exception(
-            'This walk has already been accepted.',
-          );
-        }
-
-        transaction.update(
-          walkRef,
-          {
-            'status': 'accepted',
-            'walkerId': walkerId,
-            'walkerUid': walkerUid,
-            'acceptedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // REJECT WALK
-  //
-  // searching
-  //      ↓
-  // rejected
-  //
-  // IMPORTANT:
-  // This does NOT delete the Firestore document.
-  //
-  // It only changes its status, so:
-  //
-  // pendingRequestsStream()
-  // automatically removes it from the Walker app.
-  // ============================================================
-
-  Future<void> rejectWalk(String walkId) async {
-    final User? user = _auth.currentUser;
-
-    if (user == null) {
-      throw Exception(
-        'Walker is not logged in.',
-      );
-    }
-
-    final String walkerUid = user.uid;
-
-    // ----------------------------------------------------------
-    // GET WALKER ID
-    // phoneAccounts/{Firebase UID}
-    // ----------------------------------------------------------
-
-    final DocumentSnapshot<Map<String, dynamic>> accountSnapshot =
-        await _phoneAccounts.doc(walkerUid).get();
-
-    final Map<String, dynamic>? accountData =
-        accountSnapshot.data();
-
-    final String walkerId =
-        accountData?['walkerId']?.toString().trim() ?? '';
-
-    if (walkerId.isEmpty) {
-      throw Exception(
-        'Walker ID not found.',
-      );
-    }
-
-    // ----------------------------------------------------------
-    // WALK REQUEST
-    // ----------------------------------------------------------
-
-    final DocumentReference<Map<String, dynamic>> walkRef =
-        _walkRequests.doc(walkId);
-
-    // ----------------------------------------------------------
-    // TRANSACTION
-    //
-    // Prevents rejecting a walk that was already accepted
-    // by another walker.
     // ----------------------------------------------------------
 
     await _firestore.runTransaction(
@@ -277,9 +131,91 @@ class WalkRequestService {
         final String status =
             data['status']?.toString().trim() ?? '';
 
-        // ------------------------------------------------------
-        // ONLY SEARCHING REQUEST CAN BE REJECTED
-        // ------------------------------------------------------
+        if (status != 'searching') {
+          throw Exception(
+            'This walk has already been accepted.',
+          );
+        }
+
+        transaction.update(
+          walkRef,
+          {
+            'status': 'accepted',
+            'walkerId': walkerId,
+            'walkerUid': walkerUid,
+            'acceptedAt':
+                FieldValue.serverTimestamp(),
+            'updatedAt':
+                FieldValue.serverTimestamp(),
+          },
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // REJECT WALK
+  // ============================================================
+
+  Future<void> rejectWalk(String walkId) async {
+    final User? user = _auth.currentUser;
+
+    if (user == null) {
+      throw Exception(
+        'Walker is not logged in.',
+      );
+    }
+
+    final String walkerUid = user.uid;
+
+    // ----------------------------------------------------------
+    // GET WALKER ID
+    // ----------------------------------------------------------
+
+    final DocumentSnapshot<Map<String, dynamic>> accountSnapshot =
+        await _phoneAccounts.doc(walkerUid).get();
+
+    final Map<String, dynamic>? accountData =
+        accountSnapshot.data();
+
+    final String walkerId =
+        accountData?['walkerId']?.toString().trim() ?? '';
+
+    if (walkerId.isEmpty) {
+      throw Exception(
+        'Walker ID not found.',
+      );
+    }
+
+    final DocumentReference<Map<String, dynamic>> walkRef =
+        _walkRequests.doc(walkId);
+
+    // ----------------------------------------------------------
+    // TRANSACTION
+    // ----------------------------------------------------------
+
+    await _firestore.runTransaction(
+      (transaction) async {
+        final DocumentSnapshot<Map<String, dynamic>> walkSnapshot =
+            await transaction.get(walkRef);
+
+        if (!walkSnapshot.exists) {
+          throw Exception(
+            'Walk request no longer exists.',
+          );
+        }
+
+        final Map<String, dynamic>? data =
+            walkSnapshot.data();
+
+        if (data == null) {
+          throw Exception(
+            'Walk request data is empty.',
+          );
+        }
+
+        final String status =
+            data['status']?.toString().trim() ?? '';
 
         if (status != 'searching') {
           throw Exception(
@@ -287,24 +223,14 @@ class WalkRequestService {
           );
         }
 
-        // ------------------------------------------------------
-        // REJECT
-        // ------------------------------------------------------
-
         transaction.update(
           walkRef,
           {
             'status': 'rejected',
-
-            // Walker Firebase UID who rejected it.
             'rejectedBy': walkerUid,
-
-            // Walker Business ID who rejected it.
             'rejectedWalkerId': walkerId,
-
             'rejectedAt':
                 FieldValue.serverTimestamp(),
-
             'updatedAt':
                 FieldValue.serverTimestamp(),
           },
@@ -365,16 +291,21 @@ class WalkRequestService {
   // ============================================================
   // START LIVE WALK
   //
-  // Creates:
+  // IMPORTANT OWNER UID FIX:
   //
-  // active_walk/{walkId}
+  // New Insta Walk request:
+  //     ownerAuthUid = Firebase Auth UID
   //
-  // liveWalkSessions/{sessionId}
+  // Older requests:
+  //     ownerUid = Firebase Auth UID
   //
-  // And changes:
+  // इसलिए:
   //
-  // walk_requests/{walkId}
-  // status = active
+  // ownerAuthUid → primary
+  // ownerUid     → fallback
+  //
+  // Active/live documents में दोनों fields save किए जाते हैं
+  // ताकि existing code भी न टूटे.
   // ============================================================
 
   Future<String> startLiveWalk(
@@ -455,12 +386,46 @@ class WalkRequestService {
     final String ownerId =
         walkData['ownerId']?.toString().trim() ?? '';
 
-    final String ownerUid =
-        walkData['ownerUid']?.toString().trim() ?? '';
-
     if (ownerId.isEmpty) {
       throw Exception(
         'Owner ID not found for this walk.',
+      );
+    }
+
+    // ----------------------------------------------------------
+    // OWNER AUTH UID
+    //
+    // NEW STRUCTURE:
+    // ownerAuthUid
+    //
+    // OLD STRUCTURE:
+    // ownerUid
+    //
+    // Primary = ownerAuthUid
+    // Fallback = ownerUid
+    // ----------------------------------------------------------
+
+    String ownerAuthUid =
+        walkData['ownerAuthUid']
+                ?.toString()
+                .trim() ??
+            '';
+
+    if (ownerAuthUid.isEmpty) {
+      ownerAuthUid =
+          walkData['ownerUid']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    // ----------------------------------------------------------
+    // FINAL SAFETY CHECK
+    // ----------------------------------------------------------
+
+    if (ownerAuthUid.isEmpty) {
+      throw Exception(
+        'Owner Auth UID not found for this walk.',
       );
     }
 
@@ -512,9 +477,16 @@ class WalkRequestService {
         'distance': '0.0 km',
         'duration': '00:00:00',
 
+        // Owner business ID
         'ownerId': ownerId,
-        'ownerUid': ownerUid,
 
+        // NEW canonical Auth UID
+        'ownerAuthUid': ownerAuthUid,
+
+        // Backward compatibility
+        'ownerUid': ownerAuthUid,
+
+        // Walker
         'walkerId': walkerId,
         'walkerUid': walkerUid,
 
@@ -547,9 +519,14 @@ class WalkRequestService {
 
         'walkId': walkId,
 
+        // Owner
         'ownerId': ownerId,
-        'ownerUid': ownerUid,
+        'ownerAuthUid': ownerAuthUid,
 
+        // Backward compatibility
+        'ownerUid': ownerAuthUid,
+
+        // Walker
         'walkerId': walkerId,
         'walkerUid': walkerUid,
 
@@ -587,6 +564,9 @@ class WalkRequestService {
 
     // ==========================================================
     // WALK REQUEST → ACTIVE
+    //
+    // Keep ownerAuthUid as the canonical field.
+    // Also keep ownerUid for old code compatibility.
     // ==========================================================
 
     batch.update(
@@ -595,6 +575,10 @@ class WalkRequestService {
         'status': 'active',
 
         'ownerId': ownerId,
+
+        'ownerAuthUid': ownerAuthUid,
+
+        'ownerUid': ownerAuthUid,
 
         'walkerId': walkerId,
         'walkerUid': walkerUid,
@@ -618,15 +602,6 @@ class WalkRequestService {
 
   // ============================================================
   // END LIVE WALK
-  //
-  // active_walk/{walkId}
-  // status = completed
-  //
-  // liveWalkSessions/{sessionId}
-  // status = COMPLETED
-  //
-  // walk_requests/{walkId}
-  // status = completed
   // ============================================================
 
   Future<void> endLiveWalk(
@@ -657,11 +632,17 @@ class WalkRequestService {
         walkSnapshot.data();
 
     final String resolvedSessionId =
-        sessionId ??
-            data?['liveWalkSessionId']
-                ?.toString()
-                .trim() ??
-            'session-$walkId';
+        sessionId?.trim().isNotEmpty == true
+            ? sessionId!.trim()
+            : data?['liveWalkSessionId']
+                    ?.toString()
+                    .trim()
+                    .isNotEmpty ==
+                true
+                ? data!['liveWalkSessionId']
+                    .toString()
+                    .trim()
+                : 'session-$walkId';
 
     final WriteBatch batch =
         _firestore.batch();
@@ -750,8 +731,6 @@ class WalkRequestService {
 
   // ============================================================
   // UPDATE CURRENT LOCATION
-  //
-  // active_walk + liveWalkSessions
   // ============================================================
 
   Future<void> updateLiveLocation({
@@ -928,14 +907,19 @@ class WalkRequestService {
   String _formatDuration(
     int totalSeconds,
   ) {
+    final int safeSeconds =
+        totalSeconds < 0
+            ? 0
+            : totalSeconds;
+
     final int hours =
-        totalSeconds ~/ 3600;
+        safeSeconds ~/ 3600;
 
     final int minutes =
-        (totalSeconds % 3600) ~/ 60;
+        (safeSeconds % 3600) ~/ 60;
 
     final int seconds =
-        totalSeconds % 60;
+        safeSeconds % 60;
 
     final String hh =
         hours.toString().padLeft(
