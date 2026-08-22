@@ -89,12 +89,12 @@ class InstaWalkContainer extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(26),
             border: Border.all(
-              color: _orange.withValues(alpha: 0.20),
+              color: _orange.withOpacity(0.20),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.14),
+                color: Colors.black.withOpacity(0.14),
                 blurRadius: 22,
                 offset: const Offset(0, 9),
               ),
@@ -124,7 +124,7 @@ class InstaWalkContainer extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: _orange.withValues(alpha: 0.25),
+                          color: _orange.withOpacity(0.25),
                           blurRadius: 12,
                           offset: const Offset(0, 5),
                         ),
@@ -175,10 +175,10 @@ class InstaWalkContainer extends StatelessWidget {
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.07),
+                      color: Colors.white.withOpacity(0.07),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: Colors.white.withOpacity(0.08),
                       ),
                     ),
                     child: const Row(
@@ -215,10 +215,10 @@ class InstaWalkContainer extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.055),
+                    color: Colors.white.withOpacity(0.055),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.06),
+                      color: Colors.white.withOpacity(0.06),
                     ),
                   ),
                   child: const Row(
@@ -261,10 +261,10 @@ class InstaWalkContainer extends StatelessWidget {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: _green.withValues(alpha: 0.08),
+                    color: _green.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(13),
                     border: Border.all(
-                      color: _green.withValues(alpha: 0.14),
+                      color: _green.withOpacity(0.14),
                     ),
                   ),
                   child: Row(
@@ -311,7 +311,7 @@ class InstaWalkContainer extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: const Color(0xFF0B131A),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.06),
+                        color: Colors.white.withOpacity(0.06),
                       ),
                     ),
                     child: Stack(
@@ -339,7 +339,7 @@ class InstaWalkContainer extends StatelessWidget {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: _orange.withValues(alpha: 0.55),
+                                color: _orange.withOpacity(0.55),
                                 blurRadius: 14,
                                 spreadRadius: 3,
                               ),
@@ -371,10 +371,10 @@ class InstaWalkContainer extends StatelessWidget {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: _navy.withValues(alpha: 0.88),
+                              color: _navy.withOpacity(0.88),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.08),
+                                color: Colors.white.withOpacity(0.08),
                               ),
                             ),
                             child: const Row(
@@ -412,7 +412,7 @@ class InstaWalkContainer extends StatelessWidget {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: _navy.withValues(alpha: 0.88),
+                              color: _navy.withOpacity(0.88),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Row(
@@ -453,7 +453,7 @@ class InstaWalkContainer extends StatelessWidget {
                     vertical: 11,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.045),
+                    color: Colors.white.withOpacity(0.045),
                     borderRadius: BorderRadius.circular(13),
                   ),
                   child: const Row(
@@ -506,7 +506,7 @@ class InstaWalkContainer extends StatelessWidget {
                       borderRadius: BorderRadius.circular(15),
                       side: BorderSide(
                         color: searching
-                            ? Colors.white.withValues(alpha: 0.08)
+                            ? Colors.white.withOpacity(0.08)
                             : Colors.transparent,
                       ),
                     ),
@@ -543,12 +543,10 @@ class InstaWalkContainer extends StatelessWidget {
                           size: 21,
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          searching
-                              ? 'Stop Insta Walk Search'
-                              : 'Start Insta Walk Search',
+                        const Text(
+                          'Start Insta Walk Search',
                           style: TextStyle(
-                            color: searching ? Colors.white : Colors.white,
+                            color: Colors.white,
                             fontWeight: FontWeight.w800,
                             fontSize: 13,
                           ),
@@ -601,7 +599,7 @@ class _RadarDot extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF62E6A7).withValues(alpha: 0.70),
+            color: const Color(0xFF62E6A7).withOpacity(0.70),
             blurRadius: 12,
             spreadRadius: 4,
           ),
