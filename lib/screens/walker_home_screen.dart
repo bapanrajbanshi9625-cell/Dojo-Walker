@@ -96,16 +96,6 @@ class _WalkerHomeScreenState
                   const SizedBox(height: 18),
 
                   // ==================================================
-                  // LIVE LOCATION
-                  // ==================================================
-
-                  const LiveLocationContainer(
-                    isWalkStarted: false,
-                  ),
-
-                  const SizedBox(height: 18),
-
-                  // ==================================================
                   // PAST WALKS
                   // ==================================================
 
