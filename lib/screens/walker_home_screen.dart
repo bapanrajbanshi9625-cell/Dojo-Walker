@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../features/walker_home/containers/walker_home_header.dart';
 import '../features/walker_home/containers/welcome_container.dart';
 import '../features/walker_home/containers/today_summary_container.dart';
-import '../features/walker_home/containers/live_location_container.dart';
 import '../features/walker_home/containers/past_walks_container.dart';
 
 import 'walker_home/walker_home_details_sheet.dart';
