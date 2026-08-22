@@ -514,13 +514,18 @@ class InstaWalkContainer extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      // ==================================================
+                      // LOADING
+                      // ==================================================
+
                       if (loading) ...[
                         const SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(
                               Colors.white,
                             ),
                           ),
@@ -534,18 +539,27 @@ class InstaWalkContainer extends StatelessWidget {
                             fontSize: 13,
                           ),
                         ),
-                      ] else ...[
+                      ]
+
+                      // ==================================================
+                      // NORMAL / SEARCHING
+                      // ==================================================
+
+                      else ...[
                         Icon(
                           searching
                               ? Icons.stop_circle_outlined
                               : Icons.flash_on_rounded,
-                          color: searching ? _orange : Colors.white,
+                          color:
+                              searching ? _orange : Colors.white,
                           size: 21,
                         ),
                         const SizedBox(width: 8),
-                        const Text(
-                          'Start Insta Walk Search',
-                          style: TextStyle(
+                        Text(
+                          searching
+                              ? 'Stop Insta Walk Search'
+                              : 'Start Insta Walk Search',
+                          style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w800,
                             fontSize: 13,
