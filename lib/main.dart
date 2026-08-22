@@ -19,14 +19,11 @@ Future<void> main() async {
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
-        options:
-            DefaultFirebaseOptions.currentPlatform,
+        options: DefaultFirebaseOptions.currentPlatform,
       );
     }
   } catch (e, stackTrace) {
-    debugPrint(
-      'Firebase initialization error: $e',
-    );
+    debugPrint('Firebase initialization error: $e');
 
     debugPrintStack(
       stackTrace: stackTrace,
@@ -52,19 +49,19 @@ Future<void> main() async {
   }
 
   // ============================================================
-  // CENTRAL APP STATE SERVICE
+  // APP STATE INITIALIZATION
   // ============================================================
   //
-  // Firebase successfully initialized होने के बाद ही
-  // AppStateService start होगा.
-  //
-  // यह existing UI / ringtone / navigation को change नहीं करता.
+  // Firebase successfully initialize होने के बाद ही
+  // AppStateService initialize होगा.
   //
   // इसका काम:
-  // - current Firebase user recover करना
+  // - Firebase user recover करना
   // - active walk recover करना
   // - live walk state monitor करना
-  // - app restart के बाद Firebase state पकड़ना
+  // - app restart के बाद state restore करना
+  //
+  // AppStateService fail होने पर application बंद नहीं होगी.
   // ============================================================
 
   if (startupError == null) {
@@ -78,16 +75,11 @@ Future<void> main() async {
       debugPrintStack(
         stackTrace: stackTrace,
       );
-
-      // IMPORTANT:
-      // AppStateService fail होने पर भी app बंद नहीं होगा.
-      //
-      // Existing app flow वैसे ही start होगा.
     }
   }
 
   // ============================================================
-  // START APP
+  // START APPLICATION
   // ============================================================
 
   runApp(
