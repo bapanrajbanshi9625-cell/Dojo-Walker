@@ -47,18 +47,16 @@ class WalkerWalkService {
     }
 
     try {
-      // --------------------------------------------------------
-      // READ OWNER QR
-      // --------------------------------------------------------
+      /// ------------------------------------------------------
+      /// PARSE OWNER QR
+      /// ------------------------------------------------------
 
       final QRData qr =
-          QRService.dataFromPayload(
-        scannedData,
-      );
+          QRService.dataFromPayload(scannedData);
 
-      // --------------------------------------------------------
-      // WALKER AUTH
-      // --------------------------------------------------------
+      /// ------------------------------------------------------
+      /// VALIDATE WALKER LOGIN
+      /// ------------------------------------------------------
 
       final User? walker =
           _auth.currentUser;
@@ -75,23 +73,38 @@ class WalkerWalkService {
         );
       }
 
-      // --------------------------------------------------------
-      // RETURN EVERYTHING FROM QR
-      // --------------------------------------------------------
+      /// ------------------------------------------------------
+      /// VALIDATE QR DATA
+      /// ------------------------------------------------------
+
+      if (qr.ownerId.trim().isEmpty) {
+        throw Exception(
+          'Owner ID is missing from QR.',
+        );
+      }
+
+      if (qr.walkId.trim().isEmpty) {
+        throw Exception(
+          'Walk ID is missing from QR.',
+        );
+      }
+
+      /// ------------------------------------------------------
+      /// RETURN WALK DATA
+      ///
+      /// Dog information is NOT required from QR.
+      /// It can be loaded from Firestore later.
+      /// ------------------------------------------------------
 
       return WalkerWalkData(
-        ownerId: qr.ownerId,
-        ownerName:
-            qr.ownerName.isEmpty
-                ? 'Owner'
-                : qr.ownerName,
-        ownerPhone: qr.ownerPhone,
-        walkId: qr.walkId,
-        dogName:
-            qr.dogName.isEmpty
-                ? 'Dog'
-                : qr.dogName,
-        dogBreed: qr.dogBreed,
+        ownerId: qr.ownerId.trim(),
+        ownerName: qr.ownerName.trim().isEmpty
+            ? 'Owner'
+            : qr.ownerName.trim(),
+        ownerPhone: null,
+        walkId: qr.walkId.trim(),
+        dogName: 'Dog',
+        dogBreed: '',
       );
     } catch (e) {
       if (!context.mounted) {
@@ -155,6 +168,10 @@ class WalkerWalkService {
       );
     }
 
+    /// --------------------------------------------------------
+    /// ACTIVE WALK DOCUMENT
+    /// --------------------------------------------------------
+
     final DocumentReference<
             Map<String, dynamic>>
         activeRef =
@@ -162,9 +179,9 @@ class WalkerWalkService {
             .collection('active_walks')
             .doc(walk.walkId);
 
-    // --------------------------------------------------------
-    // CHECK EXISTING WALK
-    // --------------------------------------------------------
+    /// --------------------------------------------------------
+    /// CHECK EXISTING WALK
+    /// --------------------------------------------------------
 
     final DocumentSnapshot<
             Map<String, dynamic>>
@@ -177,23 +194,22 @@ class WalkerWalkService {
               <String, dynamic>{};
 
       final String status =
-          (data['status'] ?? '')
-              .toString();
+          (data['status'] ?? '').toString();
 
       final String existingWalker =
-          (data['walkerUid'] ?? '')
-              .toString();
+          (data['walkerUid'] ?? '').toString();
 
       final String existingOwner =
-          (data['ownerId'] ?? '')
-              .toString();
+          (data['ownerId'] ?? '').toString();
 
+      /// Same walker already connected.
       if (status == 'active' &&
           existingWalker == walkerUid &&
           existingOwner == walk.ownerId) {
         return walk.walkId;
       }
 
+      /// Another walker is already using this walk.
       if (status == 'active') {
         throw Exception(
           'This Walk is already active.',
@@ -201,9 +217,9 @@ class WalkerWalkService {
       }
     }
 
-    // --------------------------------------------------------
-    // WALKER INFO
-    // --------------------------------------------------------
+    /// --------------------------------------------------------
+    /// WALKER DETAILS
+    /// --------------------------------------------------------
 
     final String walkerName =
         walker.displayName?.trim().isNotEmpty ==
@@ -217,9 +233,9 @@ class WalkerWalkService {
             ? walker.phoneNumber!.trim()
             : '';
 
-    // --------------------------------------------------------
-    // CREATE ACTIVE WALK
-    // --------------------------------------------------------
+    /// --------------------------------------------------------
+    /// CREATE ACTIVE WALK
+    /// --------------------------------------------------------
 
     await activeRef.set(
       {
@@ -229,40 +245,41 @@ class WalkerWalkService {
         'connectionStatus': 'connected',
         'isLive': true,
 
-        // OWNER
+        /// OWNER
         'ownerId': walk.ownerId,
-        'ownerUid': walk.ownerId,
         'ownerName': walk.ownerName,
-        'ownerPhone':
-            walk.ownerPhone ?? '',
+        'ownerPhone': walk.ownerPhone ?? '',
 
-        // WALKER
+        /// WALKER
         'walkerUid': walkerUid,
         'walkerName': walkerName,
         'walkerPhone': walkerPhone,
 
-        // DOG
+        /// DOG
+        ///
+        /// QR से dog details नहीं ली जा रही हैं.
+        /// अगर बाद में Firestore से मिलेंगी तो update की जा सकती हैं.
         'dogName': walk.dogName,
         'dogBreed': walk.dogBreed,
 
-        // CONNECTION
+        /// CONNECTION
         'connectedBy': walkerUid,
         'connectedAt':
             FieldValue.serverTimestamp(),
 
-        // TIME
+        /// TIME
         'startedAt':
             FieldValue.serverTimestamp(),
         'endedAt': null,
 
-        // LOCATION
+        /// LOCATION
         'ownerLocation': null,
         'walkerLocation': null,
 
         'ownerLocationUpdatedAt': null,
         'walkerLocationUpdatedAt': null,
 
-        // SCAN
+        /// SCAN
         'ownerScanned': false,
         'walkerScanned': true,
 
@@ -277,45 +294,61 @@ class WalkerWalkService {
       ),
     );
 
-    // --------------------------------------------------------
-    // UPDATE OWNER QR CONNECTION
-    // --------------------------------------------------------
+    /// --------------------------------------------------------
+    /// UPDATE OWNER QR CONNECTION
+    ///
+    /// Current QRService stores:
+    /// qr_connections/{Firebase UID}
+    ///
+    /// इसलिए पहले ownerId से document खोजते हैं.
+    /// --------------------------------------------------------
 
-    await _firestore
-        .collection('qr_connections')
-        .doc(walk.ownerId)
-        .set(
-      {
-        'type': 'dojo_owner_qr',
-        'ownerId': walk.ownerId,
+    final QuerySnapshot<
+            Map<String, dynamic>>
+        qrResult =
+        await _firestore
+            .collection('qr_connections')
+            .where(
+              'ownerId',
+              isEqualTo: walk.ownerId,
+            )
+            .limit(1)
+            .get();
 
-        'scanned': true,
-        'connected': true,
+    if (qrResult.docs.isNotEmpty) {
+      await qrResult.docs.first.reference.set(
+        {
+          'ownerId': walk.ownerId,
 
-        'walkerId': walkerUid,
-        'walkerName': walkerName,
+          'walkerId': walkerUid,
+          'walkerName': walkerName,
 
-        'activeWalkId': walk.walkId,
+          'walkId': walk.walkId,
+          'activeWalkId': walk.walkId,
 
-        'connectedAt':
-            FieldValue.serverTimestamp(),
+          'scanned': true,
+          'connected': true,
 
-        'scannedAt':
-            FieldValue.serverTimestamp(),
+          'connectedAt':
+              FieldValue.serverTimestamp(),
 
-        'updatedAt':
-            FieldValue.serverTimestamp(),
-      },
-      SetOptions(
-        merge: true,
-      ),
-    );
+          'scannedAt':
+              FieldValue.serverTimestamp(),
+
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+        },
+        SetOptions(
+          merge: true,
+        ),
+      );
+    }
 
     return walk.walkId;
   }
 
   /// ==========================================================
-  /// SCAN + CONNECT + OPEN LIVE WALK
+  /// SCAN + CONNECT
   /// ==========================================================
 
   static Future<String?> scanAndConnect(
@@ -329,10 +362,6 @@ class WalkerWalkService {
     }
 
     try {
-      // ------------------------------------------------------
-      // CONNECT
-      // ------------------------------------------------------
-
       final String walkId =
           await connectWithOwner(walk);
 
@@ -340,14 +369,15 @@ class WalkerWalkService {
         return walkId;
       }
 
-      // ------------------------------------------------------
-      // DIRECTLY OPEN LIVE WALK
-      // ------------------------------------------------------
-
-      await openLiveWalk(
-        context,
-        walk,
-      );
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Owner connected successfully.',
+            ),
+          ),
+        );
 
       return walkId;
     } catch (e) {
@@ -376,6 +406,74 @@ class WalkerWalkService {
   }
 
   /// ==========================================================
+  /// SCAN + CONNECT + OPEN LIVE WALK
+  ///
+  /// यह पूरा Walker QR flow है:
+  ///
+  /// Scan
+  ///   ↓
+  /// Validate QR
+  ///   ↓
+  /// Create active_walks
+  ///   ↓
+  /// Update qr_connections
+  ///   ↓
+  /// Open Live Walk
+  /// ==========================================================
+
+  static Future<void> scanConnectAndOpenLiveWalk(
+    BuildContext context,
+  ) async {
+    final WalkerWalkData? walk =
+        await scanOwnerQr(context);
+
+    if (walk == null) {
+      return;
+    }
+
+    try {
+      /// ------------------------------------------------------
+      /// CONNECT
+      /// ------------------------------------------------------
+
+      await connectWithOwner(walk);
+
+      if (!context.mounted) {
+        return;
+      }
+
+      /// ------------------------------------------------------
+      /// OPEN LIVE WALK DIRECTLY
+      /// ------------------------------------------------------
+
+      await openLiveWalk(
+        context,
+        walk,
+      );
+    } catch (e) {
+      if (!context.mounted) {
+        return;
+      }
+
+      final String message =
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              );
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not start Live Walk: $message',
+            ),
+          ),
+        );
+    }
+  }
+
+  /// ==========================================================
   /// OPEN LIVE WALK
   /// ==========================================================
 
@@ -387,17 +485,66 @@ class WalkerWalkService {
         _auth.currentUser;
 
     if (walker == null) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Walker is not logged in.',
+            ),
+          ),
+        );
+
       return;
     }
 
-    if (walk.ownerId.trim().isEmpty ||
-        walk.walkId.trim().isEmpty) {
+    if (walk.ownerId.trim().isEmpty) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Owner ID is missing.',
+            ),
+          ),
+        );
+
+      return;
+    }
+
+    if (walk.walkId.trim().isEmpty) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Walk ID is missing.',
+            ),
+          ),
+        );
+
       return;
     }
 
     if (!context.mounted) {
       return;
     }
+
+    /// --------------------------------------------------------
+    /// LIVE WALK
+    /// --------------------------------------------------------
 
     await Navigator.push(
       context,
@@ -415,7 +562,7 @@ class WalkerWalkService {
   }
 
   /// ==========================================================
-  /// GET ACTIVE WALK
+  /// GET ACTIVE WALK FOR CURRENT WALKER
   /// ==========================================================
 
   static Future<
@@ -484,6 +631,12 @@ class WalkerWalkService {
       );
     }
 
+    if (walkId.trim().isEmpty) {
+      throw Exception(
+        'Walk ID is missing.',
+      );
+    }
+
     await _firestore
         .collection('active_walks')
         .doc(walkId)
@@ -522,6 +675,12 @@ class WalkerWalkService {
       );
     }
 
+    if (walkId.trim().isEmpty) {
+      throw Exception(
+        'Walk ID is missing.',
+      );
+    }
+
     final DocumentReference<
             Map<String, dynamic>>
         activeRef =
@@ -544,9 +703,9 @@ class WalkerWalkService {
         snapshot.data() ??
             <String, dynamic>{};
 
-    // --------------------------------------------------------
-    // SAVE HISTORY
-    // --------------------------------------------------------
+    /// --------------------------------------------------------
+    /// SAVE TO WALK HISTORY
+    /// --------------------------------------------------------
 
     await _firestore
         .collection('walk_history')
@@ -576,9 +735,9 @@ class WalkerWalkService {
       ),
     );
 
-    // --------------------------------------------------------
-    // COMPLETE ACTIVE WALK
-    // --------------------------------------------------------
+    /// --------------------------------------------------------
+    /// MARK ACTIVE WALK COMPLETED
+    /// --------------------------------------------------------
 
     await activeRef.update(
       {
@@ -600,9 +759,9 @@ class WalkerWalkService {
       },
     );
 
-    // --------------------------------------------------------
-    // RESET OWNER QR
-    // --------------------------------------------------------
+    /// --------------------------------------------------------
+    /// RESET OWNER QR
+    /// --------------------------------------------------------
 
     final String ownerId =
         (data['ownerId'] ?? '')
@@ -610,29 +769,40 @@ class WalkerWalkService {
             .trim();
 
     if (ownerId.isNotEmpty) {
-      await _firestore
-          .collection('qr_connections')
-          .doc(ownerId)
-          .set(
-        {
-          'scanned': false,
-          'connected': false,
+      final QuerySnapshot<
+              Map<String, dynamic>>
+          qrResult =
+          await _firestore
+              .collection('qr_connections')
+              .where(
+                'ownerId',
+                isEqualTo: ownerId,
+              )
+              .limit(1)
+              .get();
 
-          'walkerId': null,
-          'walkerName': null,
+      if (qrResult.docs.isNotEmpty) {
+        await qrResult.docs.first.reference.set(
+          {
+            'scanned': false,
+            'connected': false,
 
-          'activeWalkId': null,
+            'walkerId': null,
+            'walkerName': null,
 
-          'lastCompletedWalkId':
-              walkId,
+            'activeWalkId': null,
 
-          'updatedAt':
-              FieldValue.serverTimestamp(),
-        },
-        SetOptions(
-          merge: true,
-        ),
-      );
+            'lastCompletedWalkId':
+                walkId,
+
+            'updatedAt':
+                FieldValue.serverTimestamp(),
+          },
+          SetOptions(
+            merge: true,
+          ),
+        );
+      }
     }
   }
 }
@@ -645,9 +815,10 @@ class WalkerWalkData {
   final String ownerId;
   final String ownerName;
   final String? ownerPhone;
-
   final String walkId;
 
+  /// QR से अभी dog details नहीं आतीं.
+  /// बाद में Firestore से भर सकते हैं.
   final String dogName;
   final String dogBreed;
 
