@@ -18,7 +18,6 @@ class WalkerConnectionService {
 
   // =====================================================
   // CONNECT WALKER WITH OWNER
-  // Call this after Walker successfully scans Owner QR.
   // =====================================================
 
   Future<String> connectWithOwner({
@@ -28,8 +27,7 @@ class WalkerConnectionService {
     // CURRENT WALKER
     // ---------------------------------------------------
 
-    final User? walker =
-        _auth.currentUser;
+    final User? walker = _auth.currentUser;
 
     if (walker == null) {
       throw Exception(
@@ -37,8 +35,7 @@ class WalkerConnectionService {
       );
     }
 
-    final String walkerUid =
-        walker.uid.trim();
+    final String walkerUid = walker.uid.trim();
 
     if (walkerUid.isEmpty) {
       throw Exception(
@@ -47,36 +44,74 @@ class WalkerConnectionService {
     }
 
     // ---------------------------------------------------
-    // OWNER INFORMATION FROM QR
+    // OWNER UID FROM QR
+    //
+    // Accept both formats so old/new QR payloads
+    // do not break the scanner.
     // ---------------------------------------------------
 
     final String ownerUid =
-        (qrData['ownerUid'] ??
-                qrData['uid'] ??
-                qrData['userId'] ??
-                '')
+        (
+          qrData['ownerUid'] ??
+          qrData['ownerId'] ??
+          qrData['uid'] ??
+          qrData['userId'] ??
+          ''
+        )
             .toString()
             .trim();
 
     if (ownerUid.isEmpty) {
       throw Exception(
-        'Owner UID is missing from QR code.',
+        'Owner information is missing from QR code.',
       );
     }
 
-    final String ownerName =
-        (qrData['ownerName'] ??
-                qrData['name'] ??
-                'Owner')
+    // ---------------------------------------------------
+    // QR TYPE VALIDATION
+    // ---------------------------------------------------
+
+    final String qrType =
+        (qrData['type'] ?? '')
             .toString()
             .trim();
 
-    final String ownerPhone =
-        (qrData['ownerPhone'] ??
-                qrData['phoneNumber'] ??
-                '')
+    if (qrType.isNotEmpty &&
+        qrType != 'dojo_owner_qr') {
+      throw Exception(
+        'This is not a valid Owner QR Code.',
+      );
+    }
+
+    // ---------------------------------------------------
+    // OWNER NAME
+    // ---------------------------------------------------
+
+    final String ownerName =
+        (
+          qrData['ownerName'] ??
+          qrData['name'] ??
+          'Owner'
+        )
             .toString()
             .trim();
+
+    // ---------------------------------------------------
+    // OPTIONAL OWNER PHONE
+    // ---------------------------------------------------
+
+    final String ownerPhone =
+        (
+          qrData['ownerPhone'] ??
+          qrData['phoneNumber'] ??
+          ''
+        )
+            .toString()
+            .trim();
+
+    // ---------------------------------------------------
+    // WALK ID FROM QR
+    // ---------------------------------------------------
 
     final String qrWalkId =
         (qrData['walkId'] ?? '')
@@ -84,7 +119,7 @@ class WalkerConnectionService {
             .trim();
 
     // ---------------------------------------------------
-    // CREATE NEW WALK ID
+    // WALK ID
     // ---------------------------------------------------
 
     final String walkId =
@@ -97,125 +132,121 @@ class WalkerConnectionService {
     // ---------------------------------------------------
 
     final String walkerName =
-        walker.displayName
-                    ?.trim()
-                    .isNotEmpty ==
-                true
+        walker.displayName?.trim().isNotEmpty == true
             ? walker.displayName!.trim()
             : 'Walker';
 
     final String walkerPhone =
-        walker.phoneNumber
-                    ?.trim()
-                    .isNotEmpty ==
-                true
+        walker.phoneNumber?.trim().isNotEmpty == true
             ? walker.phoneNumber!.trim()
             : '';
 
-    // ---------------------------------------------------
-    // ACTIVE WALK DOCUMENT
-    // ---------------------------------------------------
+    // ===================================================
+    // ACTIVE WALK
+    // ===================================================
 
-    final DocumentReference<
-            Map<String, dynamic>>
-        walkRef =
+    final DocumentReference<Map<String, dynamic>> walkRef =
         _firestore
             .collection('active_walks')
             .doc(walkId);
 
     // ---------------------------------------------------
-    // CHECK WHETHER THIS WALK ALREADY EXISTS
+    // CHECK EXISTING WALK
     // ---------------------------------------------------
 
-    final DocumentSnapshot<
-            Map<String, dynamic>>
-        existing =
+    final DocumentSnapshot<Map<String, dynamic>> existing =
         await walkRef.get();
 
     if (existing.exists) {
       final Map<String, dynamic> existingData =
-          existing.data() ??
-              <String, dynamic>{};
+          existing.data() ?? <String, dynamic>{};
 
       final String existingStatus =
-          existingData['status']
-                  ?.toString() ??
-              '';
+          existingData['status']?.toString() ?? '';
 
-      // Same active walk is already connected.
-      if (existingStatus == 'active') {
+      final String existingWalkerUid =
+          existingData['walkerUid']?.toString() ?? '';
+
+      final String existingOwnerUid =
+          existingData['ownerUid']?.toString() ?? '';
+
+      if (existingStatus == 'active' &&
+          existingWalkerUid == walkerUid &&
+          existingOwnerUid == ownerUid) {
         return walkId;
+      }
+
+      if (existingStatus == 'active' &&
+          existingOwnerUid != ownerUid) {
+        throw Exception(
+          'This Walk ID is already active.',
+        );
       }
     }
 
-    // ---------------------------------------------------
+    // ===================================================
     // CREATE ACTIVE WALK
-    // ---------------------------------------------------
+    // ===================================================
 
     await walkRef.set(
       {
-        // ===============================================
+        // -----------------------------------------------
         // WALK
-        // ===============================================
+        // -----------------------------------------------
 
         'walkId': walkId,
         'status': 'active',
         'connectionStatus': 'connected',
 
-        // ===============================================
+        // -----------------------------------------------
         // OWNER
-        // ===============================================
+        // -----------------------------------------------
 
         'ownerUid': ownerUid,
+        'ownerId': ownerUid,
         'ownerName': ownerName,
         'ownerPhone': ownerPhone,
 
-        // ===============================================
+        // -----------------------------------------------
         // WALKER
-        // ===============================================
+        // -----------------------------------------------
 
         'walkerUid': walkerUid,
         'walkerName': walkerName,
         'walkerPhone': walkerPhone,
 
-        // ===============================================
-        // QR INFORMATION
-        // ===============================================
+        // -----------------------------------------------
+        // QR
+        // -----------------------------------------------
 
         'qrWalkId': qrWalkId,
         'connectedBy': walkerUid,
+
         'connectedAt':
             FieldValue.serverTimestamp(),
 
-        // ===============================================
+        // -----------------------------------------------
         // WALK TIME
-        // ===============================================
+        // -----------------------------------------------
 
         'startedAt':
             FieldValue.serverTimestamp(),
 
         'endedAt': null,
 
-        // ===============================================
+        // -----------------------------------------------
         // LOCATION
-        // ===============================================
-        //
-        // These fields will be updated by GPS service.
-        //
+        // -----------------------------------------------
 
         'ownerLocation': null,
         'walkerLocation': null,
 
-        // ===============================================
-        // LOCATION HISTORY
-        // ===============================================
-
         'ownerLocationUpdatedAt': null,
         'walkerLocationUpdatedAt': null,
 
-        // ===============================================
-        // SCAN INFORMATION
-        // ===============================================
+        // -----------------------------------------------
+        // SCAN
+        // -----------------------------------------------
 
         'ownerScanned': false,
         'walkerScanned': true,
@@ -223,11 +254,12 @@ class WalkerConnectionService {
         'scannedAt':
             FieldValue.serverTimestamp(),
 
-        // ===============================================
-        // SAFETY / CONNECTION
-        // ===============================================
+        // -----------------------------------------------
+        // LIVE
+        // -----------------------------------------------
 
         'isLive': true,
+
         'lastUpdatedAt':
             FieldValue.serverTimestamp(),
       },
@@ -236,28 +268,41 @@ class WalkerConnectionService {
       ),
     );
 
-    // ---------------------------------------------------
-    // ALSO UPDATE OWNER QR DOCUMENT
-    // ---------------------------------------------------
+    // ===================================================
+    // UPDATE OWNER QR CONNECTION
+    //
+    // IMPORTANT:
+    // Same collection used by QRService:
+    //
+    // qr_connections/{ownerUid}
+    // ===================================================
 
     await _firestore
-        .collection('qr_codes')
+        .collection('qr_connections')
         .doc(ownerUid)
         .set(
       {
+        'type': 'dojo_owner_qr',
+        'version': 1,
+
+        'ownerId': ownerUid,
+        'ownerUid': ownerUid,
+
+        'ownerName': ownerName,
+
+        'walkId': walkId,
+
         'scanned': true,
-        'scannedBy': walkerUid,
-        'scannedByName': walkerName,
-        'scannedAt':
+        'connected': true,
+
+        'walkerId': walkerUid,
+        'walkerName': walkerName,
+
+        'connectedAt':
             FieldValue.serverTimestamp(),
 
-        'activeWalkId': walkId,
-
-        'connectedWalkerUid':
-            walkerUid,
-
-        'connectedWalkerName':
-            walkerName,
+        'scannedAt':
+            FieldValue.serverTimestamp(),
 
         'updatedAt':
             FieldValue.serverTimestamp(),
@@ -274,18 +319,15 @@ class WalkerConnectionService {
   // GET ACTIVE WALK FOR CURRENT WALKER
   // =====================================================
 
-  Future<DocumentSnapshot<
-      Map<String, dynamic>>?> getMyActiveWalk() async {
-    final User? walker =
-        _auth.currentUser;
+  Future<DocumentSnapshot<Map<String, dynamic>>?>
+      getMyActiveWalk() async {
+    final User? walker = _auth.currentUser;
 
     if (walker == null) {
       return null;
     }
 
-    final QuerySnapshot<
-            Map<String, dynamic>>
-        result =
+    final QuerySnapshot<Map<String, dynamic>> result =
         await _firestore
             .collection('active_walks')
             .where(
@@ -310,8 +352,7 @@ class WalkerConnectionService {
   // LISTEN TO ACTIVE WALK
   // =====================================================
 
-  Stream<DocumentSnapshot<
-      Map<String, dynamic>>> watchWalk(
+  Stream<DocumentSnapshot<Map<String, dynamic>>> watchWalk(
     String walkId,
   ) {
     return _firestore
@@ -329,8 +370,7 @@ class WalkerConnectionService {
     required double latitude,
     required double longitude,
   }) async {
-    final User? walker =
-        _auth.currentUser;
+    final User? walker = _auth.currentUser;
 
     if (walker == null) {
       throw Exception(
@@ -367,8 +407,7 @@ class WalkerConnectionService {
   Future<void> completeWalk({
     required String walkId,
   }) async {
-    final User? walker =
-        _auth.currentUser;
+    final User? walker = _auth.currentUser;
 
     if (walker == null) {
       throw Exception(
@@ -376,16 +415,12 @@ class WalkerConnectionService {
       );
     }
 
-    final DocumentReference<
-            Map<String, dynamic>>
-        activeRef =
+    final DocumentReference<Map<String, dynamic>> activeRef =
         _firestore
             .collection('active_walks')
             .doc(walkId);
 
-    final DocumentSnapshot<
-            Map<String, dynamic>>
-        snapshot =
+    final DocumentSnapshot<Map<String, dynamic>> snapshot =
         await activeRef.get();
 
     if (!snapshot.exists) {
@@ -395,8 +430,7 @@ class WalkerConnectionService {
     }
 
     final Map<String, dynamic> data =
-        snapshot.data() ??
-            <String, dynamic>{};
+        snapshot.data() ?? <String, dynamic>{};
 
     // ---------------------------------------------------
     // SAVE COMPLETE WALK
@@ -416,8 +450,7 @@ class WalkerConnectionService {
         'endedAt':
             FieldValue.serverTimestamp(),
 
-        'completedBy':
-            walker.uid,
+        'completedBy': walker.uid,
 
         'completedAt':
             FieldValue.serverTimestamp(),
@@ -431,7 +464,7 @@ class WalkerConnectionService {
     );
 
     // ---------------------------------------------------
-    // MARK ACTIVE WALK AS COMPLETED
+    // MARK ACTIVE WALK COMPLETED
     // ---------------------------------------------------
 
     await activeRef.update(
@@ -443,8 +476,7 @@ class WalkerConnectionService {
         'endedAt':
             FieldValue.serverTimestamp(),
 
-        'completedBy':
-            walker.uid,
+        'completedBy': walker.uid,
 
         'completedAt':
             FieldValue.serverTimestamp(),
@@ -455,28 +487,35 @@ class WalkerConnectionService {
     );
 
     // ---------------------------------------------------
-    // UPDATE OWNER QR
+    // OWNER UID
     // ---------------------------------------------------
 
     final String ownerUid =
-        data['ownerUid']
-                ?.toString() ??
-            '';
+        (data['ownerUid'] ??
+                data['ownerId'] ??
+                '')
+            .toString()
+            .trim();
+
+    // ---------------------------------------------------
+    // RESET QR CONNECTION
+    // ---------------------------------------------------
 
     if (ownerUid.isNotEmpty) {
       await _firestore
-          .collection('qr_codes')
+          .collection('qr_connections')
           .doc(ownerUid)
           .set(
         {
           'scanned': false,
+          'connected': false,
+
+          'walkerId': null,
+          'walkerName': null,
+
           'activeWalkId': null,
 
-          'connectedWalkerUid': null,
-          'connectedWalkerName': null,
-
-          'lastCompletedWalkId':
-              walkId,
+          'lastCompletedWalkId': walkId,
 
           'updatedAt':
               FieldValue.serverTimestamp(),
