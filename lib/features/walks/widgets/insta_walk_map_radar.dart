@@ -37,7 +37,7 @@ class _InstaWalkMapRadarState
   bool _hasCenteredMap = false;
 
   // ============================================================
-  // LOCATION SERVICE
+  // LOCATION
   // ============================================================
 
   final WalkerLocationService _locationService =
@@ -46,6 +46,11 @@ class _InstaWalkMapRadarState
   Position? _position;
 
   StreamSubscription<Position>? _locationSubscription;
+
+  bool _locationLoading = true;
+  bool _locationError = false;
+
+  String _locationMessage = 'Getting current location...';
 
   // ============================================================
   // RADAR
@@ -70,7 +75,7 @@ class _InstaWalkMapRadarState
       _radarController.repeat();
     }
 
-    unawaited(_startLocation());
+    unawaited(_initializeLocation());
   }
 
   // ============================================================
@@ -96,13 +101,85 @@ class _InstaWalkMapRadarState
   }
 
   // ============================================================
-  // START LOCATION
+  // INITIALIZE LOCATION
   // ============================================================
 
-  Future<void> _startLocation() async {
+  Future<void> _initializeLocation() async {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _locationLoading = true;
+      _locationError = false;
+      _locationMessage = 'Checking GPS...';
+    });
+
     // ----------------------------------------------------------
-    // FIRST LOCATION
+    // 1. USE EXISTING/CACHED POSITION FIRST
     // ----------------------------------------------------------
+
+    final Position? cached =
+        _locationService.currentPosition;
+
+    if (cached != null &&
+        _isValidPosition(cached)) {
+      _setPosition(cached);
+    }
+
+    // ----------------------------------------------------------
+    // 2. CHECK LOCATION PERMISSION + GPS
+    // ----------------------------------------------------------
+
+    bool permissionAllowed = false;
+
+    try {
+      permissionAllowed =
+          await _locationService.ensurePermission();
+    } catch (e) {
+      debugPrint(
+        'Location permission check error: $e',
+      );
+    }
+
+    if (!permissionAllowed) {
+      if (!mounted) {
+        return;
+      }
+
+      final bool serviceEnabled =
+          await Geolocator.isLocationServiceEnabled();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _locationLoading = false;
+        _locationError = true;
+
+        if (!serviceEnabled) {
+          _locationMessage =
+              'GPS is OFF. Turn on Location.';
+        } else {
+          _locationMessage =
+              'Location permission required.';
+        }
+      });
+
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // 3. GET REAL CURRENT LOCATION
+    // ----------------------------------------------------------
+
+    if (mounted) {
+      setState(() {
+        _locationMessage =
+            'Getting current location...';
+      });
+    }
 
     try {
       final Position? position =
@@ -114,18 +191,16 @@ class _InstaWalkMapRadarState
 
       if (position != null &&
           _isValidPosition(position)) {
-        setState(() {
-          _position = position;
-        });
-
-        _centerMap(position);
+        _setPosition(position);
       }
-    } catch (_) {
-      // Continue with tracking.
+    } catch (e) {
+      debugPrint(
+        'Current location error: $e',
+      );
     }
 
     // ----------------------------------------------------------
-    // START LOCATION TRACKING
+    // 4. START CONTINUOUS GPS
     // ----------------------------------------------------------
 
     bool trackingStarted = false;
@@ -133,27 +208,42 @@ class _InstaWalkMapRadarState
     try {
       trackingStarted =
           await _locationService.startTracking();
-    } catch (_) {
-      trackingStarted = false;
+    } catch (e) {
+      debugPrint(
+        'GPS tracking error: $e',
+      );
     }
 
-    if (!trackingStarted || !mounted) {
+    if (!trackingStarted) {
+      if (!mounted) {
+        return;
+      }
+
+      // If we already have a valid position,
+      // keep showing the map.
+      if (_position != null) {
+        setState(() {
+          _locationLoading = false;
+          _locationError = false;
+          _locationMessage = 'Current Location';
+        });
+      } else {
+        setState(() {
+          _locationLoading = false;
+          _locationError = true;
+          _locationMessage =
+              'Unable to start GPS tracking.';
+        });
+      }
+
       return;
     }
 
     // ----------------------------------------------------------
-    // CANCEL OLD SUBSCRIPTION
+    // 5. LISTEN TO LOCATION SERVICE
     // ----------------------------------------------------------
 
     await _locationSubscription?.cancel();
-
-    // ----------------------------------------------------------
-    // LOCATION STREAM
-    //
-    // IMPORTANT:
-    // Installed Geolocator API accepts LocationSettings
-    // as a positional argument here.
-    // ----------------------------------------------------------
 
     _locationSubscription =
         _locationService.locationStream.listen(
@@ -166,17 +256,67 @@ class _InstaWalkMapRadarState
           return;
         }
 
-        setState(() {
-          _position = position;
-        });
-
-        _centerMap(position);
+        _setPosition(position);
       },
-      onError: (_) {
-        // GPS stream errors should not crash the map.
+      onError: (Object error) {
+        debugPrint(
+          'Walker GPS stream error: $error',
+        );
       },
       cancelOnError: false,
     );
+
+    // ----------------------------------------------------------
+    // 6. FINAL STATE
+    // ----------------------------------------------------------
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _locationLoading = false;
+
+      if (_position != null) {
+        _locationError = false;
+        _locationMessage =
+            widget.searching
+                ? 'Searching • 3.5 km'
+                : 'Current Location';
+      } else {
+        _locationError = true;
+        _locationMessage =
+            'Waiting for GPS signal...';
+      }
+    });
+  }
+
+  // ============================================================
+  // SET POSITION
+  // ============================================================
+
+  void _setPosition(Position position) {
+    if (!_isValidPosition(position)) {
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _position = position;
+      _locationLoading = false;
+      _locationError = false;
+      _locationMessage =
+          widget.searching
+              ? 'Searching • 3.5 km'
+              : 'Current Location';
+    });
+
+    // Map may not be ready yet.
+    // _centerMap() will safely wait.
+    _centerMap(position);
   }
 
   // ============================================================
@@ -216,8 +356,11 @@ class _InstaWalkMapRadarState
   void _centerMap(
     Position position,
   ) {
-    if (!mounted ||
-        !_mapReady) {
+    if (!mounted || !_mapReady) {
+      return;
+    }
+
+    if (!_isValidPosition(position)) {
       return;
     }
 
@@ -228,8 +371,7 @@ class _InstaWalkMapRadarState
       );
 
       // --------------------------------------------------------
-      // First valid location:
-      // Always center the map.
+      // FIRST LOCATION
       // --------------------------------------------------------
 
       if (!_hasCenteredMap) {
@@ -244,7 +386,7 @@ class _InstaWalkMapRadarState
       }
 
       // --------------------------------------------------------
-      // During active search keep walker visible.
+      // ONLY FOLLOW GPS DURING SEARCH
       // --------------------------------------------------------
 
       if (widget.searching) {
@@ -253,8 +395,10 @@ class _InstaWalkMapRadarState
           16.0,
         );
       }
-    } catch (_) {
-      // MapController may not be attached.
+    } catch (e) {
+      debugPrint(
+        'Map center error: $e',
+      );
     }
   }
 
@@ -267,36 +411,42 @@ class _InstaWalkMapRadarState
     BuildContext context,
   ) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
+      borderRadius:
+          BorderRadius.circular(22),
       child: SizedBox(
         width: double.infinity,
         height: 260,
         child: Stack(
           children: [
             // ==================================================
-            // OPEN STREET MAP
+            // MAP
             // ==================================================
 
             FlutterMap(
-              mapController: _mapController,
+              mapController:
+                  _mapController,
 
               options: MapOptions(
-                initialCenter: _position == null
-                    ? const LatLng(
-                        20.5937,
-                        78.9629,
-                      )
-                    : LatLng(
-                        _position!.latitude,
-                        _position!.longitude,
-                      ),
+                initialCenter:
+                    _position == null
+                        ? const LatLng(
+                            20.5937,
+                            78.9629,
+                          )
+                        : LatLng(
+                            _position!.latitude,
+                            _position!.longitude,
+                          ),
 
                 initialZoom:
-                    _position == null ? 5.0 : 16.0,
+                    _position == null
+                        ? 5.0
+                        : 16.0,
 
                 interactionOptions:
                     const InteractionOptions(
-                  flags: InteractiveFlag.all,
+                  flags:
+                      InteractiveFlag.all,
                 ),
 
                 onMapReady: () {
@@ -313,19 +463,21 @@ class _InstaWalkMapRadarState
 
               children: [
                 // ==================================================
-                // OPENSTREETMAP TILES
+                // OPEN STREET MAP
                 // ==================================================
 
                 TileLayer(
                   urlTemplate:
                       'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+
                   userAgentPackageName:
                       'com.doojowalker.app',
+
                   maxZoom: 19,
                 ),
 
                 // ==================================================
-                // 3.5 KM SEARCH AREA
+                // 3.5 KM SEARCH RADIUS
                 // ==================================================
 
                 if (_position != null)
@@ -338,17 +490,18 @@ class _InstaWalkMapRadarState
                         ),
                         radius: 3500,
                         useRadiusInMeter: true,
-                        color:
-                            Colors.blue.withOpacity(0.08),
+                        color: Colors.blue
+                            .withOpacity(0.08),
                         borderColor:
-                            Colors.blue.withOpacity(0.55),
+                            Colors.blue
+                                .withOpacity(0.55),
                         borderStrokeWidth: 2,
                       ),
                     ],
                   ),
 
                 // ==================================================
-                // WALKER CURRENT LOCATION
+                // WALKER LOCATION
                 // ==================================================
 
                 if (_position != null)
@@ -361,30 +514,36 @@ class _InstaWalkMapRadarState
                         ),
                         width: 52,
                         height: 52,
-                        child: _buildWalkerMarker(),
+                        child:
+                            _buildWalkerMarker(),
                       ),
                     ],
                   ),
               ],
             ),
 
-            // ====================================================
-            // RADAR ANIMATION
-            // ====================================================
+            // ==================================================
+            // RADAR
+            // ==================================================
 
-            if (widget.searching)
+            if (widget.searching &&
+                _position != null)
               Positioned.fill(
                 child: IgnorePointer(
                   child: AnimatedBuilder(
-                    animation: _radarController,
-                    builder: (
+                    animation:
+                        _radarController,
+                    builder:
+                        (
                       BuildContext context,
                       Widget? child,
                     ) {
                       return CustomPaint(
-                        painter: _MapRadarPainter(
+                        painter:
+                            _MapRadarPainter(
                           progress:
-                              _radarController.value,
+                              _radarController
+                                  .value,
                         ),
                       );
                     },
@@ -392,9 +551,9 @@ class _InstaWalkMapRadarState
                 ),
               ),
 
-            // ====================================================
+            // ==================================================
             // STATUS
-            // ====================================================
+            // ==================================================
 
             Positioned(
               left: 12,
@@ -402,57 +561,139 @@ class _InstaWalkMapRadarState
               child: _buildStatus(),
             ),
 
-            // ====================================================
-            // MY LOCATION BUTTON
-            // ====================================================
+            // ==================================================
+            // MY LOCATION
+            // ==================================================
 
             Positioned(
               right: 12,
               bottom: 12,
-              child: _buildLocationButton(),
+              child:
+                  _buildLocationButton(),
             ),
 
-            // ====================================================
-            // LOCATION LOADING
-            // ====================================================
+            // ==================================================
+            // LOADING / ERROR
+            // ==================================================
 
             if (_position == null)
               Positioned.fill(
                 child: Container(
-                  color:
-                      Colors.white.withOpacity(0.82),
-                  alignment: Alignment.center,
-                  child: const Column(
-                    mainAxisSize:
-                        MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: 24,
-                        height: 24,
-                        child:
-                            CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color:
-                              Color(0xFF238EAE),
-                        ),
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        'Getting current location...',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight:
-                              FontWeight.w700,
-                          color:
-                              Color(0xFF263746),
-                        ),
-                      ),
-                    ],
-                  ),
+                  color: Colors.white
+                      .withOpacity(0.82),
+                  alignment:
+                      Alignment.center,
+                  child:
+                      _buildLocationOverlay(),
                 ),
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // LOCATION OVERLAY
+  // ============================================================
+
+  Widget _buildLocationOverlay() {
+    return Padding(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 24,
+      ),
+      child: Column(
+        mainAxisSize:
+            MainAxisSize.min,
+        children: [
+          if (_locationLoading)
+            const SizedBox(
+              width: 25,
+              height: 25,
+              child:
+                  CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color:
+                    Color(0xFF238EAE),
+              ),
+            )
+          else
+            const Icon(
+              Icons.location_off_rounded,
+              size: 30,
+              color:
+                  Color(0xFF238EAE),
+            ),
+
+          const SizedBox(height: 10),
+
+          Text(
+            _locationMessage,
+            textAlign:
+                TextAlign.center,
+            style:
+                const TextStyle(
+              fontSize: 12,
+              fontWeight:
+                  FontWeight.w800,
+              color:
+                  Color(0xFF263746),
+            ),
+          ),
+
+          if (_locationError) ...[
+            const SizedBox(height: 10),
+
+            SizedBox(
+              height: 36,
+              child:
+                  ElevatedButton.icon(
+                onPressed:
+                    () {
+                  unawaited(
+                    _initializeLocation(),
+                  );
+                },
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  size: 17,
+                ),
+                label:
+                    const Text(
+                  'Retry',
+                  style: TextStyle(
+                    fontWeight:
+                        FontWeight.w800,
+                  ),
+                ),
+                style:
+                    ElevatedButton.styleFrom(
+                  backgroundColor:
+                      const Color(
+                    0xFF238EAE,
+                  ),
+                  foregroundColor:
+                      Colors.white,
+                  elevation: 0,
+                  padding:
+                      const EdgeInsets
+                          .symmetric(
+                    horizontal: 16,
+                  ),
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius
+                            .circular(
+                      12,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -468,44 +709,33 @@ class _InstaWalkMapRadarState
         borderRadius:
             BorderRadius.circular(14),
         onTap: () {
-          final Position? position =
-              _position;
-
-          if (position != null) {
-            _hasCenteredMap = true;
-
-            _mapController.move(
-              LatLng(
-                position.latitude,
-                position.longitude,
-              ),
-              16.0,
-            );
-          } else {
-            unawaited(
-              _refreshLocation(),
-            );
-          }
+          unawaited(
+            _refreshLocation(),
+          );
         },
         child: Container(
           width: 42,
           height: 42,
-          decoration: BoxDecoration(
-            color:
-                Colors.white.withOpacity(0.95),
+          decoration:
+              BoxDecoration(
+            color: Colors.white
+                .withOpacity(0.95),
             borderRadius:
-                BorderRadius.circular(14),
+                BorderRadius.circular(
+              14,
+            ),
             boxShadow: [
               BoxShadow(
-                color:
-                    Colors.black.withOpacity(0.16),
+                color: Colors.black
+                    .withOpacity(0.16),
                 blurRadius: 8,
                 offset:
                     const Offset(0, 2),
               ),
             ],
           ),
-          child: const Icon(
+          child:
+              const Icon(
             Icons.my_location_rounded,
             size: 21,
             color:
@@ -521,25 +751,87 @@ class _InstaWalkMapRadarState
   // ============================================================
 
   Future<void> _refreshLocation() async {
-    try {
-      final Position? position =
-          await _locationService.getCurrentLocation();
+    if (!mounted) {
+      return;
+    }
 
-      if (!mounted ||
-          position == null ||
-          !_isValidPosition(position)) {
+    setState(() {
+      _locationLoading = true;
+      _locationError = false;
+      _locationMessage =
+          'Getting current location...';
+    });
+
+    try {
+      final bool allowed =
+          await _locationService
+              .ensurePermission();
+
+      if (!allowed) {
+        if (!mounted) {
+          return;
+        }
+
+        final bool gpsEnabled =
+            await Geolocator
+                .isLocationServiceEnabled();
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _locationLoading = false;
+          _locationError = true;
+          _locationMessage =
+              gpsEnabled
+                  ? 'Location permission required.'
+                  : 'GPS is OFF. Turn on Location.';
+        });
+
         return;
       }
 
-      setState(() {
-        _position = position;
-      });
+      final Position? position =
+          await _locationService
+              .getCurrentLocation();
+
+      if (!mounted) {
+        return;
+      }
+
+      if (position == null ||
+          !_isValidPosition(position)) {
+        setState(() {
+          _locationLoading = false;
+          _locationError = true;
+          _locationMessage =
+              'Unable to get GPS location.';
+        });
+
+        return;
+      }
+
+      _setPosition(position);
 
       _hasCenteredMap = true;
 
       _centerMap(position);
-    } catch (_) {
-      // Ignore temporary GPS failures.
+    } catch (e) {
+      debugPrint(
+        'Refresh location error: $e',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _locationLoading = false;
+        _locationError = true;
+        _locationMessage =
+            'Unable to get current location.';
+      });
     }
   }
 
@@ -549,18 +841,10 @@ class _InstaWalkMapRadarState
 
   Widget _buildWalkerMarker() {
     return Container(
-      decoration: BoxDecoration(
+      decoration:
+          const BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color:
-                Colors.black.withOpacity(0.22),
-            blurRadius: 8,
-            offset:
-                const Offset(0, 2),
-          ),
-        ],
       ),
       padding:
           const EdgeInsets.all(5),
@@ -571,7 +855,8 @@ class _InstaWalkMapRadarState
           color:
               Color(0xFF238EAE),
         ),
-        child: const Icon(
+        child:
+            const Icon(
           Icons.person_pin_circle_rounded,
           color: Colors.white,
           size: 29,
@@ -594,15 +879,16 @@ class _InstaWalkMapRadarState
         horizontal: 10,
         vertical: 7,
       ),
-      decoration: BoxDecoration(
-        color:
-            Colors.white.withOpacity(0.94),
+      decoration:
+          BoxDecoration(
+        color: Colors.white
+            .withOpacity(0.94),
         borderRadius:
             BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color:
-                Colors.black.withOpacity(0.12),
+            color: Colors.black
+                .withOpacity(0.12),
             blurRadius: 8,
             offset:
                 const Offset(0, 2),
@@ -629,11 +915,11 @@ class _InstaWalkMapRadarState
           ),
           const SizedBox(width: 7),
           Text(
-            !hasLocation
-                ? 'Getting location...'
-                : widget.searching
+            hasLocation
+                ? widget.searching
                     ? 'Searching • 3.5 km'
-                    : 'Current Location',
+                    : 'Current Location'
+                : _locationMessage,
             style:
                 const TextStyle(
               fontSize: 10,
@@ -694,10 +980,6 @@ class _MapRadarPainter
         ) *
         0.48;
 
-    // ==========================================================
-    // RADAR SWEEP
-    // ==========================================================
-
     final double angle =
         progress *
         math.pi *
@@ -727,8 +1009,7 @@ class _MapRadarPainter
           ).createShader(
             Rect.fromCircle(
               center: center,
-              radius:
-                  maxRadius,
+              radius: maxRadius,
             ),
           );
 
@@ -737,10 +1018,6 @@ class _MapRadarPainter
       maxRadius,
       sweepPaint,
     );
-
-    // ==========================================================
-    // RADAR RINGS
-    // ==========================================================
 
     final Paint ringPaint =
         Paint()
@@ -760,10 +1037,6 @@ class _MapRadarPainter
         ringPaint,
       );
     }
-
-    // ==========================================================
-    // ROTATING LINE
-    // ==========================================================
 
     final Offset end =
         Offset(
@@ -798,10 +1071,6 @@ class _MapRadarPainter
       linePaint,
     );
 
-    // ==========================================================
-    // CENTER GLOW
-    // ==========================================================
-
     final Paint centerPaint =
         Paint()
           ..color = Colors.cyan
@@ -816,8 +1085,7 @@ class _MapRadarPainter
 
   @override
   bool shouldRepaint(
-    covariant _MapRadarPainter
-        oldDelegate,
+    covariant _MapRadarPainter oldDelegate,
   ) {
     return oldDelegate.progress !=
         progress;
