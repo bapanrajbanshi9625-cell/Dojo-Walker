@@ -17,6 +17,7 @@ import '../features/walks/widgets/insta_walk_container.dart';
 import '../features/walks/widgets/walk_request_card.dart';
 
 import 'active_walk_details_screen.dart';
+import 'qr_scanner_screen.dart';
 
 class WalksScreen extends StatefulWidget {
   const WalksScreen({super.key});
@@ -128,7 +129,8 @@ class _WalksScreenState extends State<WalksScreen>
       // ========================================================
 
       final DocumentSnapshot<Map<String, dynamic>>
-          accountSnapshot = await _firestore
+          accountSnapshot =
+          await _firestore
               .collection('phoneAccounts')
               .doc(uid)
               .get();
@@ -153,7 +155,8 @@ class _WalksScreenState extends State<WalksScreen>
       // ========================================================
 
       final DocumentSnapshot<Map<String, dynamic>>
-          userSnapshot = await _firestore
+          userSnapshot =
+          await _firestore
               .collection('users')
               .doc(uid)
               .get();
@@ -214,7 +217,8 @@ class _WalksScreenState extends State<WalksScreen>
       return _walkerId;
     }
 
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     if (user == null) {
       return null;
@@ -222,7 +226,8 @@ class _WalksScreenState extends State<WalksScreen>
 
     try {
       final DocumentSnapshot<Map<String, dynamic>>
-          snapshot = await _firestore
+          snapshot =
+          await _firestore
               .collection('phoneAccounts')
               .doc(user.uid)
               .get();
@@ -261,7 +266,8 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
 
   Future<void> _startSearch() async {
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     if (user == null) {
       _showMessage(
@@ -516,7 +522,8 @@ class _WalksScreenState extends State<WalksScreen>
   Future<void> _acceptRequest(
     WalkRequest request,
   ) async {
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     if (user == null) {
       _showMessage(
@@ -709,7 +716,8 @@ class _WalksScreenState extends State<WalksScreen>
   Future<void> _rejectRequest(
     WalkRequest request,
   ) async {
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     if (user == null) {
       _showMessage(
@@ -834,7 +842,8 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
 
   Future<void> _stopSearch() async {
-    final String? uid = _walkerUid;
+    final String? uid =
+        _walkerUid;
 
     if (uid == null) {
       return;
@@ -910,23 +919,29 @@ class _WalksScreenState extends State<WalksScreen>
           Colors.black.withOpacity(.48),
       builder: (dialogContext) {
         return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
+          backgroundColor:
+              Colors.white,
+          shape:
+              RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(26),
           ),
           title: const Text(
             'Stop Searching?',
-            textAlign: TextAlign.center,
+            textAlign:
+                TextAlign.center,
             style: TextStyle(
-              color: WalksConstants.darkText,
+              color:
+                  WalksConstants.darkText,
               fontSize: 20,
-              fontWeight: FontWeight.w800,
+              fontWeight:
+                  FontWeight.w800,
             ),
           ),
           content: const Text(
             'You will stop receiving nearby Insta Walk requests.',
-            textAlign: TextAlign.center,
+            textAlign:
+                TextAlign.center,
           ),
           actions: [
             TextButton(
@@ -947,7 +962,8 @@ class _WalksScreenState extends State<WalksScreen>
                   true,
                 );
               },
-              style: ElevatedButton.styleFrom(
+              style:
+                  ElevatedButton.styleFrom(
                 backgroundColor:
                     WalksConstants.buttonBlue,
                 foregroundColor:
@@ -962,7 +978,8 @@ class _WalksScreenState extends State<WalksScreen>
       },
     );
 
-    if (confirm == true && mounted) {
+    if (confirm == true &&
+        mounted) {
       await _stopSearch();
     }
   }
@@ -1010,7 +1027,9 @@ class _WalksScreenState extends State<WalksScreen>
   // MESSAGE
   // ============================================================
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message,
+  ) {
     if (!mounted) {
       return;
     }
@@ -1019,10 +1038,12 @@ class _WalksScreenState extends State<WalksScreen>
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content:
+              Text(message),
           behavior:
               SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
+          shape:
+              RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(12),
           ),
@@ -1031,19 +1052,41 @@ class _WalksScreenState extends State<WalksScreen>
   }
 
   // ============================================================
+  // QR SCAN
+  // ============================================================
+
+  Future<void> _openQrScanner() async {
+    if (!mounted) {
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            const QrScannerScreen(),
+      ),
+    );
+  }
+
+  // ============================================================
   // REQUEST LIST
   // ============================================================
 
-  Widget _buildRequests(BuildContext context) {
-  if (_requests.isEmpty) {
+  Widget _buildRequests(
+    BuildContext context,
+  ) {
+    if (_requests.isEmpty) {
       return Container(
-        width: double.infinity,
+        width:
+            double.infinity,
         padding:
             const EdgeInsets.symmetric(
           horizontal: 15,
           vertical: 14,
         ),
-        decoration: BoxDecoration(
+        decoration:
+            BoxDecoration(
           color:
               Colors.white.withOpacity(.52),
           borderRadius:
@@ -1089,7 +1132,8 @@ class _WalksScreenState extends State<WalksScreen>
           CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.only(
+          padding:
+              EdgeInsets.only(
             left: 3,
             bottom: 9,
           ),
@@ -1107,16 +1151,21 @@ class _WalksScreenState extends State<WalksScreen>
         ),
 
         ..._requests.map(
-          (request) => WalkRequestCard(
+          (request) =>
+              WalkRequestCard(
             request: request,
 
             // ACCEPT
             onAccept: () =>
-                _acceptRequest(request),
+                _acceptRequest(
+              request,
+            ),
 
             // REJECT
             onReject: () =>
-                _rejectRequest(request),
+                _rejectRequest(
+              request,
+            ),
           ),
         ),
       ],
@@ -1148,33 +1197,121 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       backgroundColor:
           const Color(0xFFF5F6F8),
+
+      // ========================================================
+      // PAYTM STYLE FLOATING QR BUTTON
+      // ========================================================
+
+      floatingActionButtonLocation:
+          FloatingActionButtonLocation.centerFloat,
+
+      floatingActionButton:
+          Padding(
+        padding:
+            const EdgeInsets.only(
+          bottom: 12,
+        ),
+        child: Material(
+          color:
+              Colors.transparent,
+          elevation: 8,
+          shadowColor:
+              Colors.black.withOpacity(.25),
+          borderRadius:
+              BorderRadius.circular(30),
+          child: InkWell(
+            onTap:
+                _openQrScanner,
+            borderRadius:
+                BorderRadius.circular(30),
+            child: Container(
+              height: 58,
+              padding:
+                  const EdgeInsets.symmetric(
+                horizontal: 24,
+              ),
+              decoration:
+                  BoxDecoration(
+                color:
+                    const Color(0xFFF4511E),
+                borderRadius:
+                    BorderRadius.circular(30),
+              ),
+              child: const Row(
+                mainAxisSize:
+                    MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons
+                        .qr_code_scanner_rounded,
+                    color:
+                        Colors.white,
+                    size: 27,
+                  ),
+                  SizedBox(
+                    width: 10,
+                  ),
+                  Text(
+                    'Scan Owner QR',
+                    style:
+                        TextStyle(
+                      color:
+                          Colors.white,
+                      fontSize: 15,
+                      fontWeight:
+                          FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+
+      // ========================================================
+      // BODY
+      // ========================================================
+
       body: Column(
         children: [
           const WalkerHomeHeader(),
 
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.only(
-                bottom: 30,
+              padding:
+                  const EdgeInsets.only(
+                // Extra bottom space so the
+                // floating button does not
+                // cover the last content.
+                bottom: 105,
               ),
               children: [
                 // ==================================================
-                // DIVIDED INSTA WALK CONTAINER
+                // INSTA WALK CONTAINER
                 // ==================================================
 
                 InstaWalkContainer(
-                  searching: _searching,
-                  loading: _loading,
+                  searching:
+                      _searching,
+                  loading:
+                      _loading,
                   radarAnimation:
                       _radarController,
-                  dotVisible: _dotVisible,
-                  dotX: _dotX,
-                  dotY: _dotY,
-                  requests: _requests,
+                  dotVisible:
+                      _dotVisible,
+                  dotX:
+                      _dotX,
+                  dotY:
+                      _dotY,
+                  requests:
+                      _requests,
 
                   // SEARCH / STOP
                   onSearchPressed:
