@@ -101,9 +101,7 @@ class LiveWalkBackgroundService {
       <Map<String, double>>[];
 
   List<Map<String, double>> get routeCoordinates =>
-      List<Map<String, double>>.unmodifiable(
-        _routeCoordinates,
-      );
+      List.unmodifiable(_routeCoordinates);
 
   // ============================================================
   // DISTANCE
@@ -111,8 +109,7 @@ class LiveWalkBackgroundService {
 
   double _totalDistanceKm = 0.0;
 
-  double get totalDistanceKm =>
-      _totalDistanceKm;
+  double get totalDistanceKm => _totalDistanceKm;
 
   double get totalDistanceMeters =>
       _totalDistanceKm * 1000.0;
@@ -123,29 +120,23 @@ class LiveWalkBackgroundService {
 
   DateTime? _startedAt;
 
-  DateTime? get startedAt =>
-      _startedAt;
+  DateTime? get startedAt => _startedAt;
 
   // ============================================================
   // DURATION
   // ============================================================
 
   int get durationSeconds {
-    final DateTime? started =
-        _startedAt;
+    final DateTime? started = _startedAt;
 
     if (started == null) {
       return 0;
     }
 
     final int seconds =
-        DateTime.now()
-            .difference(started)
-            .inSeconds;
+        DateTime.now().difference(started).inSeconds;
 
-    return seconds < 0
-        ? 0
-        : seconds;
+    return seconds < 0 ? 0 : seconds;
   }
 
   // ============================================================
@@ -154,12 +145,9 @@ class LiveWalkBackgroundService {
 
   int _steps = 0;
 
-  int get steps =>
-      _steps;
+  int get steps => _steps;
 
-  void updateSteps(
-    int value,
-  ) {
+  void updateSteps(int value) {
     if (value < 0) {
       return;
     }
@@ -179,26 +167,20 @@ class LiveWalkBackgroundService {
 
   int _poopCount = 0;
 
-  int get peeCount =>
-      _peeCount;
+  int get peeCount => _peeCount;
 
-  int get poopCount =>
-      _poopCount;
+  int get poopCount => _poopCount;
 
   void updateActivities({
     int? peeCount,
     int? poopCount,
   }) {
-    if (peeCount != null &&
-        peeCount >= 0) {
-      _peeCount =
-          peeCount;
+    if (peeCount != null && peeCount >= 0) {
+      _peeCount = peeCount;
     }
 
-    if (poopCount != null &&
-        poopCount >= 0) {
-      _poopCount =
-          poopCount;
+    if (poopCount != null && poopCount >= 0) {
+      _poopCount = poopCount;
     }
 
     unawaited(
@@ -221,7 +203,7 @@ class LiveWalkBackgroundService {
     List<Map<String, dynamic>>? initialRoute,
   }) async {
     // ----------------------------------------------------------
-    // ALREADY RUNNING SAME WALK
+    // ALREADY RUNNING
     // ----------------------------------------------------------
 
     if (_running) {
@@ -259,11 +241,9 @@ class LiveWalkBackgroundService {
     // INITIAL STATE
     // ----------------------------------------------------------
 
-    _walkId =
-        walkId;
+    _walkId = walkId;
 
-    _sessionId =
-        sessionId;
+    _sessionId = sessionId;
 
     _totalDistanceKm =
         initialDistanceKm < 0
@@ -285,13 +265,11 @@ class LiveWalkBackgroundService {
             ? 0
             : initialPoopCount;
 
-    // Recovered walk keeps original start time.
     _startedAt =
         initialStartedAt ??
             DateTime.now();
 
-    _lastPosition =
-        null;
+    _lastPosition = null;
 
     _routeCoordinates.clear();
 
@@ -335,53 +313,37 @@ class LiveWalkBackgroundService {
       }
     }
 
-    _running =
-        true;
+    _running = true;
 
     // ==========================================================
-    // GPS SETTINGS
+    // START GPS STREAM
     //
     // IMPORTANT:
-    // Use LocationSettings.
-    // Do NOT use LocationOptions.
+    // No LocationSettings.
+    // No LocationOptions.
+    //
+    // This keeps the code compatible with the Geolocator API
+    // currently installed in this project.
     // ==========================================================
 
-    const LocationSettings settings =
-        LocationSettings(
-      accuracy:
-          LocationAccuracy.high,
-      distanceFilter:
-          10,
-    );
-
     try {
-      // --------------------------------------------------------
-      // CANCEL OLD GPS STREAM
-      // --------------------------------------------------------
-
       await _positionSubscription?.cancel();
 
       _positionSubscription =
-          Geolocator.getPositionStream(
-        locationSettings:
-            settings,
-      ).listen(
+          Geolocator.getPositionStream().listen(
         (Position position) {
           if (!_running) {
             return;
           }
 
           unawaited(
-            _processPosition(
-              position,
-            ),
+            _processPosition(position),
           );
         },
         onError: (Object error) {
-          // GPS stream error must not stop the walk.
+          // GPS stream error must not end the walk.
         },
-        cancelOnError:
-            false,
+        cancelOnError: false,
       );
 
       // ========================================================
@@ -390,13 +352,7 @@ class LiveWalkBackgroundService {
 
       try {
         final Position position =
-            await Geolocator.getCurrentPosition(
-          locationSettings:
-              const LocationSettings(
-            accuracy:
-                LocationAccuracy.high,
-          ),
-        );
+            await Geolocator.getCurrentPosition();
 
         if (_running) {
           await _processPosition(
@@ -408,16 +364,13 @@ class LiveWalkBackgroundService {
       }
 
       // ========================================================
-      // PERIODIC FIREBASE SYNC
+      // PERIODIC FIRESTORE SYNC
       // ========================================================
 
       _syncTimer?.cancel();
 
-      _syncTimer =
-          Timer.periodic(
-        const Duration(
-          seconds: 15,
-        ),
+      _syncTimer = Timer.periodic(
+        const Duration(seconds: 15),
         (_) {
           if (!_running) {
             return;
@@ -430,7 +383,7 @@ class LiveWalkBackgroundService {
       );
 
       // ========================================================
-      // INITIAL FIREBASE SYNC
+      // INITIAL FIRESTORE SYNC
       // ========================================================
 
       unawaited(
@@ -439,13 +392,11 @@ class LiveWalkBackgroundService {
 
       return true;
     } catch (_) {
-      _running =
-          false;
+      _running = false;
 
       await _positionSubscription?.cancel();
 
-      _positionSubscription =
-          null;
+      _positionSubscription = null;
 
       return false;
     }
@@ -544,16 +495,13 @@ class LiveWalkBackgroundService {
     // SAVE LAST POSITION
     // ----------------------------------------------------------
 
-    _lastPosition =
-        position;
+    _lastPosition = position;
 
     // ----------------------------------------------------------
     // ADD ROUTE POINT
     // ----------------------------------------------------------
 
-    _addRoutePoint(
-      position,
-    );
+    _addRoutePoint(position);
 
     // ----------------------------------------------------------
     // NOTIFY UI
@@ -566,12 +514,10 @@ class LiveWalkBackgroundService {
     }
 
     // ----------------------------------------------------------
-    // FIREBASE
+    // FIRESTORE
     // ----------------------------------------------------------
 
-    await _writeLocation(
-      position,
-    );
+    await _writeLocation(position);
   }
 
   // ============================================================
@@ -583,10 +529,8 @@ class LiveWalkBackgroundService {
   ) {
     final Map<String, double> point =
         <String, double>{
-      'lat':
-          position.latitude,
-      'lng':
-          position.longitude,
+      'lat': position.latitude,
+      'lng': position.longitude,
     };
 
     // ----------------------------------------------------------
@@ -618,8 +562,7 @@ class LiveWalkBackgroundService {
     // MEMORY LIMIT
     // ----------------------------------------------------------
 
-    if (_routeCoordinates.length >
-        3000) {
+    if (_routeCoordinates.length > 3000) {
       _routeCoordinates.removeRange(
         0,
         _routeCoordinates.length - 3000,
@@ -680,20 +623,8 @@ class LiveWalkBackgroundService {
     // DURATION
     // ==========================================================
 
-    final DateTime? started =
-        _startedAt;
-
-    final int currentDurationSeconds =
-        started == null
-            ? 0
-            : DateTime.now()
-                .difference(started)
-                .inSeconds;
-
     final int safeDurationSeconds =
-        currentDurationSeconds < 0
-            ? 0
-            : currentDurationSeconds;
+        durationSeconds;
 
     // ==========================================================
     // ACTIVE WALK DATA
@@ -705,6 +636,12 @@ class LiveWalkBackgroundService {
       'walkerUid':
           user.uid,
 
+      'walkId':
+          walkId,
+
+      'sessionId':
+          sessionId,
+
       'currentLat':
           position.latitude,
 
@@ -714,7 +651,10 @@ class LiveWalkBackgroundService {
       'currentLocation':
           currentLocation,
 
+      // --------------------------------------------------------
       // DISTANCE
+      // --------------------------------------------------------
+
       'distance':
           '${_totalDistanceKm.toStringAsFixed(2)} km',
 
@@ -724,11 +664,17 @@ class LiveWalkBackgroundService {
       'distanceMeters':
           totalDistanceMeters,
 
+      // --------------------------------------------------------
       // DURATION
+      // --------------------------------------------------------
+
       'durationSeconds':
           safeDurationSeconds,
 
+      // --------------------------------------------------------
       // ACTIVITY
+      // --------------------------------------------------------
+
       'steps':
           _steps,
 
@@ -738,7 +684,10 @@ class LiveWalkBackgroundService {
       'poopCount':
           _poopCount,
 
+      // --------------------------------------------------------
       // ROUTE
+      // --------------------------------------------------------
+
       'routeCoordinates':
           route,
 
@@ -747,7 +696,21 @@ class LiveWalkBackgroundService {
               ? route.first
               : currentLocation,
 
+      // --------------------------------------------------------
+      // START TIME
+      // --------------------------------------------------------
+
+      'startedAt':
+          _startedAt == null
+              ? FieldValue.serverTimestamp()
+              : Timestamp.fromDate(
+                  _startedAt!,
+                ),
+
+      // --------------------------------------------------------
       // GPS
+      // --------------------------------------------------------
+
       'gpsAccuracy':
           position.accuracy,
 
@@ -762,14 +725,6 @@ class LiveWalkBackgroundService {
 
       'updatedAt':
           FieldValue.serverTimestamp(),
-
-      // START TIME
-      'startedAt':
-          started == null
-              ? FieldValue.serverTimestamp()
-              : Timestamp.fromDate(
-                  started,
-                ),
 
       'status':
           'active',
@@ -791,7 +746,10 @@ class LiveWalkBackgroundService {
       'sessionId':
           sessionId,
 
+      // --------------------------------------------------------
       // LOCATION
+      // --------------------------------------------------------
+
       'currentLocation':
           currentLocation,
 
@@ -801,18 +759,27 @@ class LiveWalkBackgroundService {
       'currentLng':
           position.longitude,
 
+      // --------------------------------------------------------
       // DISTANCE
+      // --------------------------------------------------------
+
       'distanceKm':
           _totalDistanceKm,
 
       'distanceMeters':
           totalDistanceMeters,
 
+      // --------------------------------------------------------
       // DURATION
+      // --------------------------------------------------------
+
       'durationSeconds':
           safeDurationSeconds,
 
+      // --------------------------------------------------------
       // ACTIVITY
+      // --------------------------------------------------------
+
       'steps':
           _steps,
 
@@ -822,7 +789,10 @@ class LiveWalkBackgroundService {
       'poopCount':
           _poopCount,
 
+      // --------------------------------------------------------
       // ROUTE
+      // --------------------------------------------------------
+
       'routeCoordinates':
           route,
 
@@ -831,15 +801,21 @@ class LiveWalkBackgroundService {
               ? route.first
               : currentLocation,
 
+      // --------------------------------------------------------
       // START TIME
+      // --------------------------------------------------------
+
       'startedAt':
-          started == null
+          _startedAt == null
               ? FieldValue.serverTimestamp()
               : Timestamp.fromDate(
-                  started,
+                  _startedAt!,
                 ),
 
+      // --------------------------------------------------------
       // GPS
+      // --------------------------------------------------------
+
       'gpsAccuracy':
           position.accuracy,
 
@@ -867,20 +843,24 @@ class LiveWalkBackgroundService {
       final WriteBatch batch =
           _firestore.batch();
 
+      // --------------------------------------------------------
+      // ACTIVE WALK
+      // --------------------------------------------------------
+
       batch.set(
-        _activeWalks.doc(
-          walkId,
-        ),
+        _activeWalks.doc(walkId),
         activeData,
         SetOptions(
           merge: true,
         ),
       );
 
+      // --------------------------------------------------------
+      // LIVE SESSION
+      // --------------------------------------------------------
+
       batch.set(
-        _liveWalkSessions.doc(
-          sessionId,
-        ),
+        _liveWalkSessions.doc(sessionId),
         sessionData,
         SetOptions(
           merge: true,
@@ -889,7 +869,11 @@ class LiveWalkBackgroundService {
 
       await batch.commit();
     } catch (_) {
-      // GPS continues even when Firebase/network fails.
+      // --------------------------------------------------------
+      // IMPORTANT
+      //
+      // Firebase/network failure must NOT stop GPS tracking.
+      // --------------------------------------------------------
     }
   }
 
@@ -932,10 +916,18 @@ class LiveWalkBackgroundService {
               ? null
               : <String, double>{
                   'lat':
-                      _lastPosition!.latitude,
+                      _lastPosition!
+                          .latitude,
                   'lng':
-                      _lastPosition!.longitude,
+                      _lastPosition!
+                          .longitude,
                 },
+
+      'currentLat':
+          _lastPosition?.latitude,
+
+      'currentLng':
+          _lastPosition?.longitude,
 
       'distanceKm':
           _totalDistanceKm,
@@ -975,42 +967,31 @@ class LiveWalkBackgroundService {
   // ============================================================
 
   Future<void> stop() async {
-    _running =
-        false;
+    _running = false;
 
     _syncTimer?.cancel();
 
-    _syncTimer =
-        null;
+    _syncTimer = null;
 
     await _positionSubscription?.cancel();
 
-    _positionSubscription =
-        null;
+    _positionSubscription = null;
 
-    _lastPosition =
-        null;
+    _lastPosition = null;
 
-    _walkId =
-        null;
+    _walkId = null;
 
-    _sessionId =
-        null;
+    _sessionId = null;
 
-    _startedAt =
-        null;
+    _startedAt = null;
 
-    _totalDistanceKm =
-        0.0;
+    _totalDistanceKm = 0.0;
 
-    _steps =
-        0;
+    _steps = 0;
 
-    _peeCount =
-        0;
+    _peeCount = 0;
 
-    _poopCount =
-        0;
+    _poopCount = 0;
 
     _routeCoordinates.clear();
   }
@@ -1029,7 +1010,8 @@ class LiveWalkBackgroundService {
 
     try {
       final QuerySnapshot<
-          Map<String, dynamic>> snapshot =
+              Map<String, dynamic>>
+          snapshot =
           await _walkRequests
               .where(
                 'walkerUid',
@@ -1049,15 +1031,16 @@ class LiveWalkBackgroundService {
       }
 
       // --------------------------------------------------------
-      // DEFAULT FIRST WALK
+      // SELECT FIRST WALK
       // --------------------------------------------------------
 
       DocumentSnapshot<
-          Map<String, dynamic>> selected =
+              Map<String, dynamic>>
+          selected =
           snapshot.docs.first;
 
       // --------------------------------------------------------
-      // PREFER ACTIVE WALK
+      // PREFER ACTIVE
       // --------------------------------------------------------
 
       for (final DocumentSnapshot<
@@ -1070,14 +1053,13 @@ class LiveWalkBackgroundService {
         if (docData != null &&
             docData['status'] ==
                 'active') {
-          selected =
-              doc;
+          selected = doc;
           break;
         }
       }
 
       // --------------------------------------------------------
-      // SELECTED DATA
+      // DATA
       // --------------------------------------------------------
 
       final Map<String, dynamic>?
@@ -1105,20 +1087,23 @@ class LiveWalkBackgroundService {
       // SESSION ID
       // --------------------------------------------------------
 
-      final String? storedSession =
-          data['liveWalkSessionId']
-              ?.toString()
-              .trim();
+      final dynamic rawSessionId =
+          data['liveWalkSessionId'];
+
+      final String sessionFromData =
+          rawSessionId
+                  ?.toString()
+                  .trim() ??
+              '';
 
       final String resolvedSessionId =
-          storedSession != null &&
-                  storedSession.isNotEmpty
-              ? storedSession
+          sessionFromData.isNotEmpty
+              ? sessionFromData
               : 'session-$resolvedWalkId';
 
-      // ========================================================
+      // --------------------------------------------------------
       // DISTANCE
-      // ========================================================
+      // --------------------------------------------------------
 
       final double initialDistance =
           _toDouble(
@@ -1126,9 +1111,9 @@ class LiveWalkBackgroundService {
               ) ??
               0.0;
 
-      // ========================================================
+      // --------------------------------------------------------
       // STEPS
-      // ========================================================
+      // --------------------------------------------------------
 
       final int initialSteps =
           _toInt(
@@ -1136,9 +1121,9 @@ class LiveWalkBackgroundService {
               ) ??
               0;
 
-      // ========================================================
+      // --------------------------------------------------------
       // PEE
-      // ========================================================
+      // --------------------------------------------------------
 
       final int initialPee =
           _toInt(
@@ -1146,9 +1131,9 @@ class LiveWalkBackgroundService {
               ) ??
               0;
 
-      // ========================================================
+      // --------------------------------------------------------
       // POOP
-      // ========================================================
+      // --------------------------------------------------------
 
       final int initialPoop =
           _toInt(
@@ -1156,9 +1141,9 @@ class LiveWalkBackgroundService {
               ) ??
               0;
 
-      // ========================================================
+      // --------------------------------------------------------
       // START TIME
-      // ========================================================
+      // --------------------------------------------------------
 
       DateTime? initialStartedAt;
 
@@ -1178,9 +1163,9 @@ class LiveWalkBackgroundService {
         );
       }
 
-      // ========================================================
+      // --------------------------------------------------------
       // ROUTE
-      // ========================================================
+      // --------------------------------------------------------
 
       final List<Map<String, dynamic>>
           initialRoute =
@@ -1202,32 +1187,25 @@ class LiveWalkBackgroundService {
         }
       }
 
-      // ========================================================
+      // --------------------------------------------------------
       // START RECOVERED WALK
-      // ========================================================
+      // --------------------------------------------------------
 
       return await start(
         walkId:
             resolvedWalkId,
-
         sessionId:
             resolvedSessionId,
-
         initialDistanceKm:
             initialDistance,
-
         initialSteps:
             initialSteps,
-
         initialPeeCount:
             initialPee,
-
         initialPoopCount:
             initialPoop,
-
         initialStartedAt:
             initialStartedAt,
-
         initialRoute:
             initialRoute,
       );
@@ -1299,16 +1277,3 @@ class LiveWalkBackgroundService {
     }
   }
 }
-
-अब इसे पूरी तरह replace करके पहले यही चलाओ:
-
-flutter analyze
-
-इस version में तुम्हारा current error वाला:
-
-- "LocationOptions"
-- "locationOptions:"
-
-दोनों हटा दिए गए हैं और "LocationSettings" + "locationSettings:" रखा गया है।
-
-Analyze pass होने के बाद ही APK build करना।
