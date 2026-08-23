@@ -8,7 +8,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../screens/qr_scanner_screen.dart';
-import '../services/qr_service.dart';
 import '../features/walks/screens/live_walk_screen.dart';
 
 /// ============================================================
