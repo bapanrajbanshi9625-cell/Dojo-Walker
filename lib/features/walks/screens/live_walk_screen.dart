@@ -1,3 +1,6 @@
+// File location:
+// lib/features/walks/screens/live_walk_screen.dart
+
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -39,6 +42,8 @@ class LiveWalkScreen extends StatefulWidget {
 class _LiveWalkScreenState extends State<LiveWalkScreen> {
   static const Color orange = Color(0xFFFF6600);
   static const Color dark = Color(0xFF263746);
+  static const Color muted = Color(0xFF7A8289);
+  static const Color green = Color(0xFF16A34A);
   static const Color red = Color(0xFFE53935);
 
   final WalkRequestService _service =
@@ -52,24 +57,22 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   StreamSubscription<Position>? _locationSubscription;
 
-bool _ending = false;
-bool _gpsStarting = false;
-bool _gpsActive = false;
+  bool _ending = false;
+  bool _gpsStarting = false;
+  bool _gpsActive = false;
+  bool _routeLoaded = false;
 
-double _totalDistanceKm = 0.0;
+  double _totalDistanceKm = 0.0;
 
-final List<Map<String, dynamic>> _routeCoordinates =
-    <Map<String, dynamic>>[];
-
-bool _routeLoaded = false;
+  final List<Map<String, dynamic>> _routeCoordinates =
+      <Map<String, dynamic>>[];
 
   // ============================================================
   // SESSION ID
   // ============================================================
 
   String get sessionId {
-    final String? value =
-        widget.sessionId?.trim();
+    final String? value = widget.sessionId?.trim();
 
     if (value != null && value.isNotEmpty) {
       return value;
@@ -79,7 +82,7 @@ bool _routeLoaded = false;
   }
 
   // ============================================================
-  // FIRESTORE SESSION
+  // SESSION REF
   // ============================================================
 
   DocumentReference<Map<String, dynamic>> get _sessionRef {
@@ -101,11 +104,11 @@ bool _routeLoaded = false;
   void initState() {
     super.initState();
 
-    _startGpsTracking();
+    unawaited(_startGpsTracking());
   }
 
   // ============================================================
-  // START GPS / BACKGROUND TRACKING
+  // START GPS
   // ============================================================
 
   Future<void> _startGpsTracking() async {
@@ -133,30 +136,99 @@ bool _routeLoaded = false;
         return;
       }
 
-      if (_ending || !mounted) {
+      if (_ending) {
         return;
       }
 
       // --------------------------------------------------------
-      // START CENTRAL BACKGROUND GPS SERVICE
+      // READ EXISTING SESSION
+      //
+      // This is important when:
+      // - screen reopened
+      // - network recovered
+      // - GPS service restarted
       // --------------------------------------------------------
-      //
-      // IMPORTANT:
-      // अब LiveWalkScreen अपना अलग GPS stream नहीं चलाएगा।
-      //
-      // एक ही GPS service:
-      //
-      // LiveWalkBackgroundService
-      //
-      // location + distance + Firebase sync संभालेगी।
+
+      double initialDistance = _totalDistanceKm;
+
+      int initialSteps = 0;
+      int initialPee = 0;
+      int initialPoop = 0;
+
+      DateTime? initialStartedAt;
+
+      final List<Map<String, dynamic>> initialRoute =
+          <Map<String, dynamic>>[];
+
+      try {
+        final DocumentSnapshot<Map<String, dynamic>>
+            snapshot = await _sessionRef.get();
+
+        final Map<String, dynamic>? data =
+            snapshot.data();
+
+        if (data != null) {
+          _loadExistingRoute(data);
+
+          final double? distance =
+              _toDouble(data['distanceKm']);
+
+          if (distance != null && distance >= 0) {
+            initialDistance = distance;
+          }
+
+          initialSteps =
+              _toInt(data['steps']) ?? 0;
+
+          initialPee =
+              _toInt(data['peeCount']) ?? 0;
+
+          initialPoop =
+              _toInt(data['poopCount']) ?? 0;
+
+          final dynamic startedAt =
+              data['startedAt'];
+
+          if (startedAt is Timestamp) {
+            initialStartedAt =
+                startedAt.toDate();
+          } else if (startedAt is DateTime) {
+            initialStartedAt = startedAt;
+          }
+
+          final dynamic rawRoute =
+              data['routeCoordinates'];
+
+          if (rawRoute is List) {
+            for (final dynamic item in rawRoute) {
+              if (item is Map) {
+                initialRoute.add(
+                  Map<String, dynamic>.from(item),
+                );
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint(
+          'Existing session read failed: $e',
+        );
+      }
+
+      // --------------------------------------------------------
+      // START CENTRAL GPS SERVICE
       // --------------------------------------------------------
 
       final bool started =
           await _backgroundService.start(
         walkId: widget.walkId,
         sessionId: sessionId,
-        initialDistanceKm:
-            _totalDistanceKm,
+        initialDistanceKm: initialDistance,
+        initialSteps: initialSteps,
+        initialPeeCount: initialPee,
+        initialPoopCount: initialPoop,
+        initialStartedAt: initialStartedAt,
+        initialRoute: initialRoute,
       );
 
       if (!started) {
@@ -170,7 +242,7 @@ bool _routeLoaded = false;
       }
 
       // --------------------------------------------------------
-      // LISTEN TO CENTRAL GPS SERVICE
+      // LISTEN TO CENTRAL GPS
       // --------------------------------------------------------
 
       await _locationSubscription?.cancel();
@@ -182,21 +254,20 @@ bool _routeLoaded = false;
             return;
           }
 
-          unawaited(
-            _handlePosition(position),
-          );
+          _handlePosition(position);
         },
         onError: (Object error) {
           debugPrint(
-            'Walker background GPS stream error: $error',
+            'Live GPS stream error: $error',
           );
         },
+        cancelOnError: false,
       );
 
       _gpsActive = true;
 
       // --------------------------------------------------------
-      // USE CURRENT LOCATION IF AVAILABLE
+      // CURRENT POSITION
       // --------------------------------------------------------
 
       final Position? current =
@@ -205,10 +276,7 @@ bool _routeLoaded = false;
       if (current != null &&
           mounted &&
           !_ending) {
-        await _handlePosition(
-          current,
-          writeToFirebase: false,
-        );
+        _handlePosition(current);
       }
 
       if (mounted) {
@@ -230,119 +298,25 @@ bool _routeLoaded = false;
   }
 
   // ============================================================
-  // HANDLE GPS POSITION
+  // HANDLE POSITION
   // ============================================================
 
-  Future<void> _handlePosition(
-    Position position, {
-    bool writeToFirebase = false,
-  }) async {
+  void _handlePosition(
+    Position position,
+  ) {
     if (!mounted || _ending) {
       return;
     }
 
-    // ----------------------------------------------------------
-    // DISTANCE
-    //
-    // Background service already calculates the official
-    // distance. इसलिए screen केवल service की value use करेगी।
-    // इससे double counting नहीं होगी।
-    // ----------------------------------------------------------
-
     final double serviceDistance =
-    _backgroundService.totalDistanceKm;
+        _backgroundService.totalDistanceKm;
 
-if (serviceDistance >= 0) {
-  _totalDistanceKm =
-      serviceDistance;
-}
-
-    // ----------------------------------------------------------
-    // ROUTE POINT
-    // ----------------------------------------------------------
-
-    final Map<String, dynamic> routePoint =
-        <String, dynamic>{
-      'lat': position.latitude,
-      'lng': position.longitude,
-      'timestamp':
-          DateTime.now().millisecondsSinceEpoch,
-    };
-
-    bool shouldAddPoint = true;
-
-    if (_routeCoordinates.isNotEmpty) {
-      final Map<String, dynamic> last =
-          _routeCoordinates.last;
-
-      final double? lastLat =
-          double.tryParse(
-        last['lat']?.toString() ?? '',
-      );
-
-      final double? lastLng =
-          double.tryParse(
-        last['lng']?.toString() ?? '',
-      );
-
-      if (lastLat != null &&
-          lastLng != null) {
-        final double distanceMeters =
-            Geolocator.distanceBetween(
-          lastLat,
-          lastLng,
-          position.latitude,
-          position.longitude,
-        );
-
-        if (distanceMeters < 5) {
-          shouldAddPoint = false;
-        }
-      }
+    if (serviceDistance >= 0) {
+      _totalDistanceKm = serviceDistance;
     }
-
-    if (shouldAddPoint) {
-      _routeCoordinates.add(
-        routePoint,
-      );
-    }
-
-    // ----------------------------------------------------------
-    // SCREEN STATE
-    // ----------------------------------------------------------
 
     if (mounted) {
       setState(() {});
-    }
-
-    // ----------------------------------------------------------
-    // IMPORTANT
-    //
-    // Background service already writes:
-    //
-    // active_walk
-    // liveWalkSessions
-    //
-    // इसलिए normal GPS callback में duplicate Firestore write
-    // नहीं करेंगे।
-    //
-    // यह parameter केवल compatibility के लिए रखा गया है।
-    // ----------------------------------------------------------
-
-    if (writeToFirebase) {
-      try {
-        await _service.updateLiveLocation(
-          walkId: widget.walkId,
-          sessionId: sessionId,
-          latitude: position.latitude,
-          longitude: position.longitude,
-          distanceKm: _totalDistanceKm,
-        );
-      } catch (e) {
-        debugPrint(
-          'Live GPS Firestore update error: $e',
-        );
-      }
     }
   }
 
@@ -357,64 +331,55 @@ if (serviceDistance >= 0) {
       return;
     }
 
-    final dynamic raw =
+    final dynamic rawRoute =
         data['routeCoordinates'];
 
-    if (raw is List) {
-      for (final dynamic item in raw) {
-        if (item is Map) {
-          final dynamic lat =
-              item['lat'] ??
-                  item['latitude'];
-
-          final dynamic lng =
-              item['lng'] ??
-                  item['longitude'];
-
-          final double? latitude =
-              double.tryParse(
-            lat?.toString() ?? '',
-          );
-
-          final double? longitude =
-              double.tryParse(
-            lng?.toString() ?? '',
-          );
-
-          if (latitude != null &&
-              longitude != null &&
-              latitude != 0 &&
-              longitude != 0) {
-            _routeCoordinates.add(
-              <String, dynamic>{
-                'lat': latitude,
-                'lng': longitude,
-                if (item['timestamp'] != null)
-                  'timestamp':
-                      item['timestamp'],
-              },
-            );
-          }
+    if (rawRoute is List) {
+      for (final dynamic item in rawRoute) {
+        if (item is! Map) {
+          continue;
         }
+
+        final double? latitude =
+            _toDouble(
+          item['lat'] ??
+              item['latitude'],
+        );
+
+        final double? longitude =
+            _toDouble(
+          item['lng'] ??
+              item['longitude'],
+        );
+
+        if (latitude == null ||
+            longitude == null) {
+          continue;
+        }
+
+        if (!_validCoordinate(
+          latitude,
+          longitude,
+        )) {
+          continue;
+        }
+
+        _routeCoordinates.add(
+          <String, dynamic>{
+            'lat': latitude,
+            'lng': longitude,
+            if (item['timestamp'] != null)
+              'timestamp': item['timestamp'],
+          },
+        );
       }
     }
 
-    // ----------------------------------------------------------
-    // EXISTING DISTANCE
-    // ----------------------------------------------------------
+    final double? distance =
+        _toDouble(data['distanceKm']);
 
-    final dynamic existingDistance =
-        data['distanceKm'];
-
-    final double? parsedDistance =
-        double.tryParse(
-      existingDistance?.toString() ?? '',
-    );
-
-    if (parsedDistance != null &&
-        parsedDistance >= 0) {
-      _totalDistanceKm =
-          parsedDistance;
+    if (distance != null && distance >= 0) {
+      _totalDistanceKm = distance;
     }
 
     _routeLoaded = true;
@@ -443,19 +408,23 @@ if (serviceDistance >= 0) {
       return;
     }
 
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       _ending = true;
     });
 
     try {
       // --------------------------------------------------------
-      // STOP CENTRAL GPS SERVICE FIRST
+      // STOP GPS FIRST
       // --------------------------------------------------------
 
       await _stopGpsTracking();
 
       // --------------------------------------------------------
-      // COMPLETE FIRESTORE WALK
+      // COMPLETE WALK
       // --------------------------------------------------------
 
       await _service.endLiveWalk(
@@ -467,11 +436,16 @@ if (serviceDistance >= 0) {
         return;
       }
 
-      Navigator.pop(
-        context,
-        true,
-      );
+      // --------------------------------------------------------
+      // GO BACK
+      // --------------------------------------------------------
+
+      Navigator.of(context).pop(true);
     } catch (e) {
+      debugPrint(
+        'End walk error: $e',
+      );
+
       if (!mounted) {
         return;
       }
@@ -490,23 +464,28 @@ if (serviceDistance >= 0) {
                     '',
                   ),
             ),
+            backgroundColor: red,
+            behavior:
+                SnackBarBehavior.floating,
           ),
         );
 
       // --------------------------------------------------------
-      // FIRESTORE END FAILED
+      // END FAILED
       //
-      // Resume GPS.
+      // Resume tracking and restore Firestore state.
       // --------------------------------------------------------
 
       if (!_gpsActive) {
-        await _startGpsTracking();
+        unawaited(
+          _startGpsTracking(),
+        );
       }
     }
   }
 
   // ============================================================
-  // END WALK CONFIRMATION
+  // CONFIRM END
   // ============================================================
 
   void _confirmEndWalk() {
@@ -516,9 +495,10 @@ if (serviceDistance >= 0) {
 
     showDialog<void>(
       context: context,
-      builder: (dialogContext) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
+          shape:
+              RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(20),
           ),
@@ -532,16 +512,16 @@ if (serviceDistance >= 0) {
           content: const Text(
             'Are you sure you want to end this walk?',
             style: TextStyle(
-              color: Color(0xFF7A8289),
+              color: muted,
               height: 1.4,
             ),
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
+                Navigator.of(
                   dialogContext,
-                );
+                ).pop();
               },
               child: const Text(
                 'Keep Walking',
@@ -553,11 +533,13 @@ if (serviceDistance >= 0) {
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.pop(
+                Navigator.of(
                   dialogContext,
-                );
+                ).pop();
 
-                _endWalk();
+                unawaited(
+                  _endWalk(),
+                );
               },
               style:
                   ElevatedButton.styleFrom(
@@ -619,9 +601,7 @@ if (serviceDistance >= 0) {
                       0xFFD7DCE0,
                     ),
                     borderRadius:
-                        BorderRadius.circular(
-                      10,
-                    ),
+                        BorderRadius.circular(10),
                   ),
                 ),
                 const SizedBox(
@@ -652,8 +632,7 @@ if (serviceDistance >= 0) {
                   textAlign:
                       TextAlign.center,
                   style: TextStyle(
-                    color:
-                        Color(0xFF7A8289),
+                    color: muted,
                     fontSize: 12,
                   ),
                 ),
@@ -661,19 +640,17 @@ if (serviceDistance >= 0) {
                   height: 18,
                 ),
                 SizedBox(
-                  width:
-                      double.infinity,
+                  width: double.infinity,
                   height: 50,
                   child:
                       ElevatedButton.icon(
                     onPressed: () {
-                      Navigator.pop(
+                      Navigator.of(
                         context,
-                      );
+                      ).pop();
                     },
                     icon: const Icon(
-                      Icons
-                          .support_agent_rounded,
+                      Icons.support_agent_rounded,
                     ),
                     label: const Text(
                       'Contact Support',
@@ -754,22 +731,47 @@ if (serviceDistance >= 0) {
         DocumentSnapshot<Map<String, dynamic>>>(
       stream: _sessionStream,
       builder: (
-        context,
-        snapshot,
+        BuildContext context,
+        AsyncSnapshot<
+                DocumentSnapshot<
+                    Map<String, dynamic>>>
+            snapshot,
       ) {
         final Map<String, dynamic> data =
             snapshot.data?.data() ??
                 <String, dynamic>{};
 
         // ------------------------------------------------------
-        // LOAD EXISTING ROUTE
+        // DO NOT mutate route during every build.
         // ------------------------------------------------------
 
-        _loadExistingRoute(data);
+        if (!_routeLoaded &&
+            data.isNotEmpty) {
+          WidgetsBinding.instance
+              .addPostFrameCallback(
+            (_) {
+              if (!mounted ||
+                  _routeLoaded) {
+                return;
+              }
 
-        // ------------------------------------------------------
-        // STATUS
-        // ------------------------------------------------------
+              _loadExistingRoute(data);
+
+              final double? distance =
+                  _toDouble(
+                data['distanceKm'],
+              );
+
+              if (distance != null &&
+                  distance >= 0) {
+                _totalDistanceKm =
+                    distance;
+              }
+
+              setState(() {});
+            },
+          );
+        }
 
         final String status =
             data['status']
@@ -778,7 +780,7 @@ if (serviceDistance >= 0) {
                 'live';
 
         // ------------------------------------------------------
-        // SESSION COMPLETED
+        // COMPLETED
         // ------------------------------------------------------
 
         if (status == 'completed' ||
@@ -795,15 +797,14 @@ if (serviceDistance >= 0) {
         }
 
         // ------------------------------------------------------
-        // LIVE SCREEN
+        // LIVE
         // ------------------------------------------------------
 
         return Scaffold(
           backgroundColor:
               Colors.white,
           extendBodyBehindAppBar:
-              true,
-
+              false,
           appBar: AppBar(
             backgroundColor: orange,
             surfaceTintColor: orange,
@@ -811,7 +812,6 @@ if (serviceDistance >= 0) {
             centerTitle: true,
             automaticallyImplyLeading:
                 false,
-
             title: const Text(
               'LIVE WALK',
               style: TextStyle(
@@ -822,7 +822,6 @@ if (serviceDistance >= 0) {
                 letterSpacing: .4,
               ),
             ),
-
             actions: [
               IconButton(
                 tooltip: 'SOS',
@@ -831,59 +830,41 @@ if (serviceDistance >= 0) {
                     : _openSos,
                 icon: const Icon(
                   Icons.sos_rounded,
-                  color:
-                      Colors.white,
+                  color: Colors.white,
                   size: 27,
                 ),
               ),
-
               IconButton(
                 tooltip: 'Support',
                 onPressed: _ending
                     ? null
                     : _openSupport,
                 icon: const Icon(
-                  Icons
-                      .support_agent_rounded,
-                  color:
-                      Colors.white,
+                  Icons.support_agent_rounded,
+                  color: Colors.white,
                   size: 24,
                 ),
               ),
             ],
           ),
-
           body: Stack(
             children: [
               Positioned.fill(
                 child: LiveWalkMap(
-                  sessionData:
-                      data,
+                  sessionData: data,
                 ),
               ),
 
               Positioned(
-                top: MediaQuery.of(
-                          context,
-                        )
-                            .padding
-                            .top +
-                    62,
+                top: 14,
                 left: 16,
-                child:
-                    _liveBadge(),
+                child: _liveBadge(),
               ),
 
               Positioned(
-                top: MediaQuery.of(
-                          context,
-                        )
-                            .padding
-                            .top +
-                    62,
+                top: 14,
                 right: 16,
-                child:
-                    _gpsBadge(data),
+                child: _gpsBadge(data),
               ),
 
               Align(
@@ -930,13 +911,12 @@ if (serviceDistance >= 0) {
         color: Colors.white,
         borderRadius:
             BorderRadius.circular(12),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.black
-                .withOpacity(.15),
+            color: Color(0x26000000),
             blurRadius: 10,
             offset:
-                const Offset(0, 4),
+                Offset(0, 4),
           ),
         ],
       ),
@@ -946,8 +926,7 @@ if (serviceDistance >= 0) {
         children: [
           Icon(
             Icons.circle,
-            color:
-                Color(0xFF16A34A),
+            color: green,
             size: 9,
           ),
           SizedBox(width: 7),
@@ -972,31 +951,23 @@ if (serviceDistance >= 0) {
   Widget _gpsBadge(
     Map<String, dynamic> data,
   ) {
-    final dynamic lat =
-        data['currentLat'];
+    final double? lat =
+        _toDouble(data['currentLat']);
 
-    final dynamic lng =
-        data['currentLng'];
-
-    final double? parsedLat =
-        double.tryParse(
-      lat?.toString() ?? '',
-    );
-
-    final double? parsedLng =
-        double.tryParse(
-      lng?.toString() ?? '',
-    );
+    final double? lng =
+        _toDouble(data['currentLng']);
 
     final bool hasLocation =
-        parsedLat != null &&
-            parsedLng != null &&
-            parsedLat != 0 &&
-            parsedLng != 0;
+        lat != null &&
+            lng != null &&
+            _validCoordinate(
+              lat,
+              lng,
+            );
 
     final Color color =
         hasLocation
-            ? const Color(0xFF16A34A)
+            ? green
             : orange;
 
     return Container(
@@ -1010,13 +981,12 @@ if (serviceDistance >= 0) {
         color: Colors.white,
         borderRadius:
             BorderRadius.circular(12),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.black
-                .withOpacity(.15),
+            color: Color(0x26000000),
             blurRadius: 10,
             offset:
-                const Offset(0, 4),
+                Offset(0, 4),
           ),
         ],
       ),
@@ -1029,9 +999,7 @@ if (serviceDistance >= 0) {
             color: color,
             size: 14,
           ),
-          const SizedBox(
-            width: 5,
-          ),
+          const SizedBox(width: 5),
           Text(
             hasLocation
                 ? 'GPS'
@@ -1049,16 +1017,21 @@ if (serviceDistance >= 0) {
   }
 
   // ============================================================
-  // COMPLETED SCREEN
+  // COMPLETED
   // ============================================================
 
   Widget _completedScreen(
     Map<String, dynamic> data,
   ) {
+    final double distance =
+        _toDouble(
+              data['distanceKm'],
+            ) ??
+            _totalDistanceKm;
+
     return Scaffold(
       backgroundColor:
           const Color(0xFFF5F6F8),
-
       appBar: AppBar(
         automaticallyImplyLeading:
             false,
@@ -1074,7 +1047,6 @@ if (serviceDistance >= 0) {
           ),
         ),
       ),
-
       body: Center(
         child: Padding(
           padding:
@@ -1084,17 +1056,13 @@ if (serviceDistance >= 0) {
                 MainAxisAlignment.center,
             children: [
               const Icon(
-                Icons
-                    .check_circle_rounded,
-                color:
-                    Color(0xFF16A34A),
+                Icons.check_circle_rounded,
+                color: green,
                 size: 80,
               ),
-
               const SizedBox(
                 height: 18,
               ),
-
               const Text(
                 'Walk Completed',
                 style: TextStyle(
@@ -1104,28 +1072,22 @@ if (serviceDistance >= 0) {
                       FontWeight.w900,
                 ),
               ),
-
               const SizedBox(
                 height: 12,
               ),
-
               Text(
                 'Distance: '
-                '${_totalDistanceKm.toStringAsFixed(2)} km',
-                style:
-                    const TextStyle(
-                  color:
-                      Color(0xFF7A8289),
+                '${distance.toStringAsFixed(2)} km',
+                style: const TextStyle(
+                  color: muted,
                   fontSize: 13,
                   fontWeight:
                       FontWeight.w700,
                 ),
               ),
-
               const SizedBox(
                 height: 25,
               ),
-
               SizedBox(
                 width:
                     double.infinity,
@@ -1133,10 +1095,9 @@ if (serviceDistance >= 0) {
                 child:
                     ElevatedButton(
                   onPressed: () {
-                    Navigator.pop(
+                    Navigator.of(
                       context,
-                      true,
-                    );
+                    ).pop(true);
                   },
                   style:
                       ElevatedButton.styleFrom(
@@ -1153,8 +1114,7 @@ if (serviceDistance >= 0) {
                       ),
                     ),
                   ),
-                  child:
-                      const Text(
+                  child: const Text(
                     'Back to Walker Home',
                     style: TextStyle(
                       fontWeight:
@@ -1171,6 +1131,57 @@ if (serviceDistance >= 0) {
   }
 
   // ============================================================
+  // HELPERS
+  // ============================================================
+
+  double? _toDouble(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(
+      value.toString().trim(),
+    );
+  }
+
+  int? _toInt(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+      value.toString().trim(),
+    );
+  }
+
+  bool _validCoordinate(
+    double lat,
+    double lng,
+  ) {
+    return lat >= -90 &&
+        lat <= 90 &&
+        lng >= -180 &&
+        lng <= 180 &&
+        !(lat == 0 && lng == 0);
+  }
+
+  // ============================================================
   // DISPOSE
   // ============================================================
 
@@ -1179,14 +1190,13 @@ if (serviceDistance >= 0) {
     _locationSubscription?.cancel();
 
     // IMPORTANT:
-    // यहां background service को stop नहीं कर रहे।
     //
-    // इसका मतलब:
-    // LiveWalkScreen बंद/minimize होने पर भी
-    // tracking चल सकती है।
+    // Do NOT stop LiveWalkBackgroundService here.
     //
-    // केवल End Walk पर _stopGpsTracking() चलेगा।
+    // Screen close/rebuild/minimize होने पर active walk
+    // tracking को unnecessarily stop नहीं करना है.
     //
+    // Actual stop केवल End Walk flow से होगा.
 
     super.dispose();
   }
