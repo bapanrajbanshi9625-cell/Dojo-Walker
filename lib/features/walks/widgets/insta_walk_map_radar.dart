@@ -1,3 +1,6 @@
+// File location:
+// lib/features/walks/widgets/insta_walk_map_radar.dart
+
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -21,7 +24,8 @@ class InstaWalkMapRadar extends StatefulWidget {
       _InstaWalkMapRadarState();
 }
 
-class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
+class _InstaWalkMapRadarState
+    extends State<InstaWalkMapRadar>
     with SingleTickerProviderStateMixin {
   // ============================================================
   // MAP
@@ -30,10 +34,10 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
   final MapController _mapController = MapController();
 
   bool _mapReady = false;
-  bool _hasCenteredInitially = false;
+  bool _hasCenteredMap = false;
 
   // ============================================================
-  // GPS
+  // LOCATION SERVICE
   // ============================================================
 
   final WalkerLocationService _locationService =
@@ -42,9 +46,6 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
   Position? _position;
 
   StreamSubscription<Position>? _locationSubscription;
-
-  bool _locationLoading = true;
-  String? _locationError;
 
   // ============================================================
   // RADAR
@@ -69,7 +70,7 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
       _radarController.repeat();
     }
 
-    _startLocation();
+    unawaited(_startLocation());
   }
 
   // ============================================================
@@ -95,136 +96,36 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
   }
 
   // ============================================================
-  // LOCATION
+  // START LOCATION
   // ============================================================
 
   Future<void> _startLocation() async {
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _locationLoading = true;
-      _locationError = null;
-    });
-
     // ----------------------------------------------------------
-    // CHECK LOCATION SERVICE
+    // FIRST LOCATION
     // ----------------------------------------------------------
 
-    final bool serviceEnabled =
-        await Geolocator.isLocationServiceEnabled();
-
-    if (!serviceEnabled) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _locationLoading = false;
-        _locationError =
-            'Location service is turned off.';
-      });
-
-      return;
-    }
-
-    // ----------------------------------------------------------
-    // CHECK / REQUEST PERMISSION
-    // ----------------------------------------------------------
-
-    LocationPermission permission =
-        await Geolocator.checkPermission();
-
-    if (permission == LocationPermission.denied) {
-      permission =
-          await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.denied) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _locationLoading = false;
-        _locationError =
-            'Location permission denied.';
-      });
-
-      return;
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _locationLoading = false;
-        _locationError =
-            'Location permission is permanently denied.';
-      });
-
-      return;
-    }
-
-    // ----------------------------------------------------------
-    // FIRST POSITION
-    // ----------------------------------------------------------
-
-    Position? position;
-
-    // First use your existing location service.
     try {
-      position =
+      final Position? position =
           await _locationService.getCurrentLocation();
-    } catch (_) {
-      position = null;
-    }
 
-    // ----------------------------------------------------------
-    // FALLBACK DIRECT GEOLOCATOR
-    // ----------------------------------------------------------
-
-    if (position == null) {
-      try {
-        position =
-            await Geolocator.getCurrentPosition(
-          locationSettings:
-              const LocationSettings(
-            accuracy: LocationAccuracy.high,
-          ),
-        );
-      } catch (_) {
-        position = null;
-      }
-    }
-
-    // ----------------------------------------------------------
-    // POSITION RESULT
-    // ----------------------------------------------------------
-
-    if (position != null &&
-        _isValidPosition(position)) {
-      _setPosition(
-        position,
-        centerMap: true,
-      );
-    } else {
       if (!mounted) {
         return;
       }
 
-      setState(() {
-        _locationLoading = false;
-        _locationError =
-            'Unable to get your current location.';
-      });
+      if (position != null &&
+          _isValidPosition(position)) {
+        setState(() {
+          _position = position;
+        });
+
+        _centerMap(position);
+      }
+    } catch (_) {
+      // Continue with tracking.
     }
 
     // ----------------------------------------------------------
-    // START CONTINUOUS TRACKING
+    // START LOCATION TRACKING
     // ----------------------------------------------------------
 
     bool trackingStarted = false;
@@ -236,62 +137,43 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
       trackingStarted = false;
     }
 
-    // ----------------------------------------------------------
-    // USE SERVICE STREAM
-    // ----------------------------------------------------------
-
-    if (trackingStarted) {
-      await _locationSubscription?.cancel();
-
-      _locationSubscription =
-          _locationService.locationStream.listen(
-        (Position position) {
-          if (!_isValidPosition(position)) {
-            return;
-          }
-
-          _setPosition(
-            position,
-            centerMap: !_hasCenteredInitially,
-          );
-        },
-        onError: (_) {
-          // Keep map alive if stream temporarily fails.
-        },
-        cancelOnError: false,
-      );
-
+    if (!trackingStarted || !mounted) {
       return;
     }
 
     // ----------------------------------------------------------
-    // FALLBACK DIRECT GEOLOCATOR STREAM
+    // CANCEL OLD SUBSCRIPTION
     // ----------------------------------------------------------
 
     await _locationSubscription?.cancel();
 
-    const LocationSettings settings =
-        LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 10,
-    );
+    // ----------------------------------------------------------
+    // LOCATION STREAM
+    //
+    // IMPORTANT:
+    // Installed Geolocator API accepts LocationSettings
+    // as a positional argument here.
+    // ----------------------------------------------------------
 
     _locationSubscription =
-        Geolocator.getPositionStream(
-      locationSettings: settings,
-    ).listen(
+        _locationService.locationStream.listen(
       (Position position) {
+        if (!mounted) {
+          return;
+        }
+
         if (!_isValidPosition(position)) {
           return;
         }
 
-        _setPosition(
-          position,
-          centerMap: !_hasCenteredInitially,
-        );
+        setState(() {
+          _position = position;
+        });
+
+        _centerMap(position);
       },
       onError: (_) {
-        // GPS stream failure must not crash the map.
+        // GPS stream errors should not crash the map.
       },
       cancelOnError: false,
     );
@@ -304,27 +186,23 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
   bool _isValidPosition(
     Position position,
   ) {
-    final double lat = position.latitude;
-    final double lng = position.longitude;
-
-    if (!lat.isFinite || !lng.isFinite) {
+    if (!position.latitude.isFinite ||
+        !position.longitude.isFinite) {
       return false;
     }
 
-    if (lat < -90 || lat > 90) {
+    if (position.latitude < -90 ||
+        position.latitude > 90) {
       return false;
     }
 
-    if (lng < -180 || lng > 180) {
+    if (position.longitude < -180 ||
+        position.longitude > 180) {
       return false;
     }
 
-    if (lat == 0 && lng == 0) {
-      return false;
-    }
-
-    // Ignore extremely inaccurate fixes.
-    if (position.accuracy > 150) {
+    if (position.latitude == 0 &&
+        position.longitude == 0) {
       return false;
     }
 
@@ -332,73 +210,52 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
   }
 
   // ============================================================
-  // SET POSITION
-  // ============================================================
-
-  void _setPosition(
-    Position position, {
-    required bool centerMap,
-  }) {
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _position = position;
-      _locationLoading = false;
-      _locationError = null;
-    });
-
-    if (centerMap) {
-      _centerOnPosition(position);
-    }
-  }
-
-  // ============================================================
   // CENTER MAP
   // ============================================================
 
-  void _centerOnPosition(
+  void _centerMap(
     Position position,
   ) {
-    if (!_mapReady) {
-      // Map is not attached yet.
-      // build/mapReady callback will center it.
-      return;
-    }
-
-    if (!mounted) {
+    if (!mounted ||
+        !_mapReady) {
       return;
     }
 
     try {
-      _mapController.move(
-        LatLng(
-          position.latitude,
-          position.longitude,
-        ),
-        15.5,
+      final LatLng point = LatLng(
+        position.latitude,
+        position.longitude,
       );
 
-      _hasCenteredInitially = true;
+      // --------------------------------------------------------
+      // First valid location:
+      // Always center the map.
+      // --------------------------------------------------------
+
+      if (!_hasCenteredMap) {
+        _hasCenteredMap = true;
+
+        _mapController.move(
+          point,
+          16.0,
+        );
+
+        return;
+      }
+
+      // --------------------------------------------------------
+      // During active search keep walker visible.
+      // --------------------------------------------------------
+
+      if (widget.searching) {
+        _mapController.move(
+          point,
+          16.0,
+        );
+      }
     } catch (_) {
-      // Map controller may temporarily be unavailable.
+      // MapController may not be attached.
     }
-  }
-
-  // ============================================================
-  // MANUAL RECENTER
-  // ============================================================
-
-  void _recenter() {
-    final Position? position = _position;
-
-    if (position == null) {
-      _startLocation();
-      return;
-    }
-
-    _centerOnPosition(position);
   }
 
   // ============================================================
@@ -417,17 +274,25 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
         child: Stack(
           children: [
             // ==================================================
-            // OPENSTREETMAP
+            // OPEN STREET MAP
             // ==================================================
 
             FlutterMap(
               mapController: _mapController,
+
               options: MapOptions(
-                initialCenter: const LatLng(
-                  20.5937,
-                  78.9629,
-                ),
-                initialZoom: 5,
+                initialCenter: _position == null
+                    ? const LatLng(
+                        20.5937,
+                        78.9629,
+                      )
+                    : LatLng(
+                        _position!.latitude,
+                        _position!.longitude,
+                      ),
+
+                initialZoom:
+                    _position == null ? 5.0 : 16.0,
 
                 interactionOptions:
                     const InteractionOptions(
@@ -441,13 +306,14 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
                       _position;
 
                   if (position != null) {
-                    _centerOnPosition(position);
+                    _centerMap(position);
                   }
                 },
               ),
+
               children: [
                 // ==================================================
-                // OSM TILES
+                // OPENSTREETMAP TILES
                 // ==================================================
 
                 TileLayer(
@@ -459,7 +325,7 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
                 ),
 
                 // ==================================================
-                // 3.5 KM SEARCH RANGE
+                // 3.5 KM SEARCH AREA
                 // ==================================================
 
                 if (_position != null)
@@ -473,20 +339,16 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
                         radius: 3500,
                         useRadiusInMeter: true,
                         color:
-                            const Color(
-                          0xFF238EAE,
-                        ).withOpacity(.08),
+                            Colors.blue.withOpacity(0.08),
                         borderColor:
-                            const Color(
-                          0xFF238EAE,
-                        ).withOpacity(.55),
+                            Colors.blue.withOpacity(0.55),
                         borderStrokeWidth: 2,
                       ),
                     ],
                   ),
 
                 // ==================================================
-                // CURRENT WALKER LOCATION
+                // WALKER CURRENT LOCATION
                 // ==================================================
 
                 if (_position != null)
@@ -507,7 +369,7 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
             ),
 
             // ====================================================
-            // RADAR OVERLAY
+            // RADAR ANIMATION
             // ====================================================
 
             if (widget.searching)
@@ -531,7 +393,7 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
               ),
 
             // ====================================================
-            // TOP STATUS
+            // STATUS
             // ====================================================
 
             Positioned(
@@ -541,61 +403,53 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
             ),
 
             // ====================================================
-            // RECENTER BUTTON
+            // MY LOCATION BUTTON
             // ====================================================
 
             Positioned(
               right: 12,
               bottom: 12,
-              child: Material(
-                color: Colors.white,
-                elevation: 4,
-                shadowColor:
-                    Colors.black.withOpacity(.20),
-                shape: const CircleBorder(),
-                child: InkWell(
-                  onTap: _recenter,
-                  customBorder:
-                      const CircleBorder(),
-                  child: const SizedBox(
-                    width: 42,
-                    height: 42,
-                    child: Icon(
-                      Icons.my_location_rounded,
-                      color: Color(0xFF238EAE),
-                      size: 21,
-                    ),
-                  ),
-                ),
-              ),
+              child: _buildLocationButton(),
             ),
 
             // ====================================================
-            // LOCATION ERROR
+            // LOCATION LOADING
             // ====================================================
 
-            if (_position == null &&
-                !_locationLoading)
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 12,
-                child: _buildLocationError(),
-              ),
-
-            // ====================================================
-            // SMALL LOADING INDICATOR
-            //
-            // IMPORTANT:
-            // Do NOT cover the whole map.
-            // ====================================================
-
-            if (_position == null &&
-                _locationLoading)
-              Positioned(
-                right: 12,
-                top: 58,
-                child: _buildLoadingIndicator(),
+            if (_position == null)
+              Positioned.fill(
+                child: Container(
+                  color:
+                      Colors.white.withOpacity(0.82),
+                  alignment: Alignment.center,
+                  child: const Column(
+                    mainAxisSize:
+                        MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child:
+                            CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color:
+                              Color(0xFF238EAE),
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        'Getting current location...',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight:
+                              FontWeight.w700,
+                          color:
+                              Color(0xFF263746),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
           ],
         ),
@@ -604,53 +458,125 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
   }
 
   // ============================================================
+  // LOCATION BUTTON
+  // ============================================================
+
+  Widget _buildLocationButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius:
+            BorderRadius.circular(14),
+        onTap: () {
+          final Position? position =
+              _position;
+
+          if (position != null) {
+            _hasCenteredMap = true;
+
+            _mapController.move(
+              LatLng(
+                position.latitude,
+                position.longitude,
+              ),
+              16.0,
+            );
+          } else {
+            unawaited(
+              _refreshLocation(),
+            );
+          }
+        },
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color:
+                Colors.white.withOpacity(0.95),
+            borderRadius:
+                BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color:
+                    Colors.black.withOpacity(0.16),
+                blurRadius: 8,
+                offset:
+                    const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.my_location_rounded,
+            size: 21,
+            color:
+                Color(0xFF238EAE),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // REFRESH LOCATION
+  // ============================================================
+
+  Future<void> _refreshLocation() async {
+    try {
+      final Position? position =
+          await _locationService.getCurrentLocation();
+
+      if (!mounted ||
+          position == null ||
+          !_isValidPosition(position)) {
+        return;
+      }
+
+      setState(() {
+        _position = position;
+      });
+
+      _hasCenteredMap = true;
+
+      _centerMap(position);
+    } catch (_) {
+      // Ignore temporary GPS failures.
+    }
+  }
+
+  // ============================================================
   // WALKER MARKER
   // ============================================================
 
   Widget _buildWalkerMarker() {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // ------------------------------------------------------
-        // OUTER GLOW
-        // ------------------------------------------------------
-
-        Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
             color:
-                const Color(0xFF238EAE)
-                    .withOpacity(.16),
+                Colors.black.withOpacity(0.22),
+            blurRadius: 8,
+            offset:
+                const Offset(0, 2),
           ),
+        ],
+      ),
+      padding:
+          const EdgeInsets.all(5),
+      child: Container(
+        decoration:
+            const BoxDecoration(
+          shape: BoxShape.circle,
+          color:
+              Color(0xFF238EAE),
         ),
-
-        // ------------------------------------------------------
-        // WHITE BORDER
-        // ------------------------------------------------------
-
-        Container(
-          width: 36,
-          height: 36,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-          ),
-          padding: const EdgeInsets.all(3),
-          child: Container(
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0xFF238EAE),
-            ),
-            child: const Icon(
-              Icons.person_rounded,
-              color: Colors.white,
-              size: 19,
-            ),
-          ),
+        child: const Icon(
+          Icons.person_pin_circle_rounded,
+          color: Colors.white,
+          size: 29,
         ),
-      ],
+      ),
     );
   }
 
@@ -663,138 +589,61 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
         _position != null;
 
     return Container(
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         horizontal: 10,
         vertical: 7,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.94),
+        color:
+            Colors.white.withOpacity(0.94),
         borderRadius:
             BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color:
-                Colors.black.withOpacity(.12),
+                Colors.black.withOpacity(0.12),
             blurRadius: 8,
+            offset:
+                const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize:
+            MainAxisSize.min,
         children: [
           Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
+            decoration:
+                BoxDecoration(
+              shape:
+                  BoxShape.circle,
               color: hasLocation
-                  ? const Color(0xFF20A45A)
-                  : const Color(0xFFFFA000),
+                  ? const Color(
+                      0xFF20A45A,
+                    )
+                  : Colors.orange,
             ),
           ),
           const SizedBox(width: 7),
           Text(
-            hasLocation
-                ? widget.searching
+            !hasLocation
+                ? 'Getting location...'
+                : widget.searching
                     ? 'Searching • 3.5 km'
-                    : 'Current Location'
-                : 'Locating...',
-            style: const TextStyle(
+                    : 'Current Location',
+            style:
+                const TextStyle(
               fontSize: 10,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF263746),
+              fontWeight:
+                  FontWeight.w800,
+              color:
+                  Color(0xFF263746),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // LOADING INDICATOR
-  // ============================================================
-
-  Widget _buildLoadingIndicator() {
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.94),
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color:
-                Colors.black.withOpacity(.12),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(9),
-      child: const CircularProgressIndicator(
-        strokeWidth: 2,
-        valueColor:
-            AlwaysStoppedAnimation<Color>(
-          Color(0xFF238EAE),
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // LOCATION ERROR
-  // ============================================================
-
-  Widget _buildLocationError() {
-    return Material(
-      color: Colors.white.withOpacity(.95),
-      borderRadius:
-          BorderRadius.circular(12),
-      child: InkWell(
-        onTap: _startLocation,
-        borderRadius:
-            BorderRadius.circular(12),
-        child: Padding(
-          padding:
-              const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 9,
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.location_off_rounded,
-                size: 18,
-                color: Color(0xFFE53935),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  _locationError ??
-                      'Unable to get location',
-                  maxLines: 2,
-                  overflow:
-                      TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight:
-                        FontWeight.w700,
-                    color: Color(0xFF263746),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              const Text(
-                'Retry',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight:
-                      FontWeight.w900,
-                  color: Color(0xFF238EAE),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -805,7 +654,10 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
 
   @override
   void dispose() {
-    _locationSubscription?.cancel();
+    unawaited(
+      _locationSubscription?.cancel(),
+    );
+
     _radarController.dispose();
 
     super.dispose();
@@ -816,7 +668,8 @@ class _InstaWalkMapRadarState extends State<InstaWalkMapRadar>
 // MAP RADAR PAINTER
 // ================================================================
 
-class _MapRadarPainter extends CustomPainter {
+class _MapRadarPainter
+    extends CustomPainter {
   final double progress;
 
   const _MapRadarPainter({
@@ -828,7 +681,8 @@ class _MapRadarPainter extends CustomPainter {
     Canvas canvas,
     Size size,
   ) {
-    final Offset center = Offset(
+    final Offset center =
+        Offset(
       size.width / 2,
       size.height / 2,
     );
@@ -838,35 +692,45 @@ class _MapRadarPainter extends CustomPainter {
           size.width,
           size.height,
         ) *
-        .48;
+        0.48;
 
     // ==========================================================
     // RADAR SWEEP
     // ==========================================================
 
     final double angle =
-        progress * math.pi * 2;
+        progress *
+        math.pi *
+        2;
 
     const double sweepWidth =
         math.pi / 3;
 
-    final Paint sweepPaint = Paint()
-      ..shader = SweepGradient(
-        startAngle:
-            angle - sweepWidth,
-        endAngle: angle,
-        colors: [
-          Colors.transparent,
-          Colors.cyan.withOpacity(.04),
-          Colors.cyan.withOpacity(.18),
-          Colors.cyan.withOpacity(.32),
-        ],
-      ).createShader(
-        Rect.fromCircle(
-          center: center,
-          radius: maxRadius,
-        ),
-      );
+    final Paint sweepPaint =
+        Paint()
+          ..shader =
+              SweepGradient(
+            startAngle:
+                angle -
+                    sweepWidth,
+            endAngle:
+                angle,
+            colors: [
+              Colors.transparent,
+              Colors.cyan
+                  .withOpacity(0.04),
+              Colors.cyan
+                  .withOpacity(0.18),
+              Colors.cyan
+                  .withOpacity(0.32),
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: center,
+              radius:
+                  maxRadius,
+            ),
+          );
 
     canvas.drawCircle(
       center,
@@ -878,15 +742,21 @@ class _MapRadarPainter extends CustomPainter {
     // RADAR RINGS
     // ==========================================================
 
-    final Paint ringPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = Colors.cyan.withOpacity(.20);
+    final Paint ringPaint =
+        Paint()
+          ..style =
+              PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = Colors.cyan
+              .withOpacity(0.20);
 
-    for (int i = 1; i <= 3; i++) {
+    for (int i = 1;
+        i <= 3;
+        i++) {
       canvas.drawCircle(
         center,
-        maxRadius * (i / 3),
+        maxRadius *
+            (i / 3),
         ringPaint,
       );
     }
@@ -895,26 +765,32 @@ class _MapRadarPainter extends CustomPainter {
     // ROTATING LINE
     // ==========================================================
 
-    final Offset end = Offset(
+    final Offset end =
+        Offset(
       center.dx +
-          math.cos(angle) * maxRadius,
+          math.cos(angle) *
+              maxRadius,
       center.dy +
-          math.sin(angle) * maxRadius,
+          math.sin(angle) *
+              maxRadius,
     );
 
-    final Paint linePaint = Paint()
-      ..strokeWidth = 2
-      ..shader = LinearGradient(
-        colors: [
-          Colors.transparent,
-          Colors.cyan.withOpacity(.75),
-        ],
-      ).createShader(
-        Rect.fromPoints(
-          center,
-          end,
-        ),
-      );
+    final Paint linePaint =
+        Paint()
+          ..strokeWidth = 2
+          ..shader =
+              LinearGradient(
+            colors: [
+              Colors.transparent,
+              Colors.cyan
+                  .withOpacity(0.75),
+            ],
+          ).createShader(
+            Rect.fromPoints(
+              center,
+              end,
+            ),
+          );
 
     canvas.drawLine(
       center,
@@ -926,8 +802,10 @@ class _MapRadarPainter extends CustomPainter {
     // CENTER GLOW
     // ==========================================================
 
-    final Paint centerPaint = Paint()
-      ..color = Colors.cyan.withOpacity(.80);
+    final Paint centerPaint =
+        Paint()
+          ..color = Colors.cyan
+              .withOpacity(0.80);
 
     canvas.drawCircle(
       center,
@@ -938,8 +816,10 @@ class _MapRadarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(
-    covariant _MapRadarPainter oldDelegate,
+    covariant _MapRadarPainter
+        oldDelegate,
   ) {
-    return oldDelegate.progress != progress;
+    return oldDelegate.progress !=
+        progress;
   }
 }
