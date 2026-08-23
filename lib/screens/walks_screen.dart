@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -23,7 +24,8 @@ class WalksScreen extends StatefulWidget {
   const WalksScreen({super.key});
 
   @override
-  State<WalksScreen> createState() => _WalksScreenState();
+  State<WalksScreen> createState() =>
+      _WalksScreenState();
 }
 
 class _WalksScreenState extends State<WalksScreen>
@@ -59,6 +61,12 @@ class _WalksScreenState extends State<WalksScreen>
 
   bool _searching = false;
   bool _loading = false;
+
+  // ============================================================
+  // QR SCANNER STATE
+  // ============================================================
+
+  bool _openingQrScanner = false;
 
   // ============================================================
   // WALK REQUESTS
@@ -262,6 +270,268 @@ class _WalksScreenState extends State<WalksScreen>
   }
 
   // ============================================================
+  // OPEN OWNER QR SCANNER
+  // ============================================================
+
+  Future<void> _openQrScanner() async {
+    if (_openingQrScanner) {
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final User? user =
+        _auth.currentUser;
+
+    if (user == null) {
+      _showMessage(
+        'Please login first.',
+      );
+      return;
+    }
+
+    final String? walkerId =
+        await _getWalkerId();
+
+    if (walkerId == null ||
+        walkerId.trim().isEmpty) {
+      _showMessage(
+        'Walker ID is not available. Please complete your Walker profile.',
+      );
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _openingQrScanner = true;
+    });
+
+    try {
+      // ========================================================
+      // OPEN QR SCANNER
+      // ========================================================
+
+      final dynamic result =
+          await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              const QrScannerScreen(),
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      // ========================================================
+      // QR RESULT
+      // ========================================================
+
+      if (result != null) {
+        await _handleQrResult(
+          result,
+        );
+      }
+    } catch (e) {
+      debugPrint(
+        'Open QR Scanner Error: $e',
+      );
+
+      if (mounted) {
+        _showMessage(
+          'Unable to open QR scanner.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _openingQrScanner = false;
+        });
+      }
+    }
+  }
+
+  // ============================================================
+  // HANDLE QR RESULT
+  // ============================================================
+
+  Future<void> _handleQrResult(
+    dynamic result,
+  ) async {
+    try {
+      Map<String, dynamic> data =
+          <String, dynamic>{};
+
+      // ========================================================
+      // RESULT CAN BE JSON STRING
+      // ========================================================
+
+      if (result is String) {
+        final dynamic decoded =
+            jsonDecode(result);
+
+        if (decoded is Map) {
+          data = Map<String, dynamic>.from(
+            decoded,
+          );
+        }
+      }
+
+      // ========================================================
+      // RESULT CAN BE MAP
+      // ========================================================
+
+      if (result is Map) {
+        data = Map<String, dynamic>.from(
+          result,
+        );
+      }
+
+      if (data.isEmpty) {
+        return;
+      }
+
+      // ========================================================
+      // READ BUSINESS IDS
+      // ========================================================
+
+      final String ownerId =
+          data['ownerId']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      final String walkerId =
+          data['walkerId']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      final String sessionId =
+          data['sessionId']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      final String walkId =
+          data['walkId']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      final String ownerName =
+          data['ownerName']
+                  ?.toString()
+                  .trim() ??
+              'Owner';
+
+      // ========================================================
+      // VALIDATE SESSION
+      // ========================================================
+
+      if (sessionId.isEmpty &&
+          walkId.isEmpty) {
+        _showMessage(
+          'QR connection was not completed.',
+        );
+        return;
+      }
+
+      // ========================================================
+      // VERIFY WALKER ID
+      // ========================================================
+
+      final String? currentWalkerId =
+          await _getWalkerId();
+
+      if (currentWalkerId != null &&
+          walkerId.isNotEmpty &&
+          walkerId != currentWalkerId) {
+        _showMessage(
+          'This QR connection belongs to another walker.',
+        );
+        return;
+      }
+
+      // ========================================================
+      // STOP INSTA WALK SEARCH
+      // ========================================================
+
+      final User? user =
+          _auth.currentUser;
+
+      if (user != null) {
+        await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .set(
+          {
+            'walkerId':
+                currentWalkerId,
+            'instaWalkSearching':
+                false,
+            'instaWalkSearchUpdatedAt':
+                FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      }
+
+      // ========================================================
+      // STOP REQUEST LISTENER
+      // ========================================================
+
+      await _requestSubscription?.cancel();
+
+      _requestSubscription = null;
+
+      // ========================================================
+      // STOP REQUEST SOUNDS
+      // ========================================================
+
+      await WalkRequestSoundService
+          .instance
+          .stopAll();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _searching = false;
+        _requests.clear();
+        _dotVisible = false;
+      });
+
+      // ========================================================
+      // SHOW CONNECTION SUCCESS
+      // ========================================================
+
+      _showMessage(
+        ownerId.isNotEmpty
+            ? 'Connected with $ownerName.'
+            : 'Live Walk connected successfully.',
+      );
+    } catch (e) {
+      debugPrint(
+        'QR Result Error: $e',
+      );
+
+      if (mounted) {
+        _showMessage(
+          'Invalid QR connection result.',
+        );
+      }
+    }
+  }
+
+  // ============================================================
   // START INSTA WALK SEARCH
   // ============================================================
 
@@ -309,8 +579,10 @@ class _WalksScreenState extends State<WalksScreen>
           .doc(user.uid)
           .set(
         {
-          'walkerId': walkerId,
-          'instaWalkSearching': true,
+          'walkerId':
+              walkerId,
+          'instaWalkSearching':
+              true,
           'instaWalkSearchRadiusKm':
               WalksConstants.searchRadiusKm,
           'instaWalkSearchUpdatedAt':
@@ -330,14 +602,12 @@ class _WalksScreenState extends State<WalksScreen>
         _requests.clear();
       });
 
-      // Stop any old request sound.
-      await WalkRequestSoundService.instance
+      await WalkRequestSoundService
+          .instance
           .stopAll();
 
-      // Start request listener.
       _startRequestListener();
 
-      // Show radar dot.
       _moveRadarDot();
     } catch (e) {
       debugPrint(
@@ -365,29 +635,35 @@ class _WalksScreenState extends State<WalksScreen>
   void _startRequestListener() {
     _requestSubscription?.cancel();
 
-    _requestSubscription = _firestore
-        .collection('walk_requests')
-        .where(
-          'status',
-          isEqualTo: 'searching',
-        )
-        .snapshots()
-        .listen(
+    _requestSubscription =
+        _firestore
+            .collection('walk_requests')
+            .where(
+              'status',
+              isEqualTo: 'searching',
+            )
+            .snapshots()
+            .listen(
       (snapshot) {
         if (!mounted) {
           return;
         }
 
-        final List<WalkRequest> incoming = [];
+        final List<WalkRequest>
+            incoming = [];
 
         // ======================================================
         // READ REQUESTS
         // ======================================================
 
-        for (final QueryDocumentSnapshot<
-                Map<String, dynamic>> document
-            in snapshot.docs) {
-          final Map<String, dynamic> data =
+        for (
+          final QueryDocumentSnapshot<
+                  Map<String, dynamic>>
+              document
+              in snapshot.docs
+        ) {
+          final Map<String, dynamic>
+              data =
               document.data();
 
           // ====================================================
@@ -400,12 +676,13 @@ class _WalksScreenState extends State<WalksScreen>
           );
 
           if (distance >
-              WalksConstants.searchRadiusKm) {
+              WalksConstants
+                  .searchRadiusKm) {
             continue;
           }
 
           // ====================================================
-          // CONVERT FIRESTORE DOCUMENT
+          // CONVERT FIRESTORE
           // ====================================================
 
           final WalkRequest request =
@@ -417,12 +694,13 @@ class _WalksScreenState extends State<WalksScreen>
         }
 
         // ======================================================
-        // SORT NEAREST REQUEST FIRST
+        // SORT
         // ======================================================
 
         incoming.sort(
           (a, b) =>
-              a.distanceKm.compareTo(
+              a.distanceKm
+                  .compareTo(
             b.distanceKm,
           ),
         );
@@ -431,27 +709,33 @@ class _WalksScreenState extends State<WalksScreen>
         // SOUND MANAGEMENT
         // ======================================================
 
-        final Set<String> incomingIds =
+        final Set<String>
+            incomingIds =
             incoming
                 .map(
-                  (request) => request.id,
+                  (request) =>
+                      request.id,
                 )
                 .toSet();
 
         // ======================================================
-        // PLAY SOUND FOR NEW REQUEST
+        // NEW REQUEST SOUND
         // ======================================================
 
-        for (final WalkRequest request
-            in incoming) {
+        for (
+          final WalkRequest request
+              in incoming
+        ) {
           final bool alreadyExists =
               _requests.any(
             (oldRequest) =>
-                oldRequest.id == request.id,
+                oldRequest.id ==
+                request.id,
           );
 
           if (!alreadyExists) {
-            WalkRequestSoundService.instance
+            WalkRequestSoundService
+                .instance
                 .playForRequest(
               request.id,
             );
@@ -459,15 +743,21 @@ class _WalksScreenState extends State<WalksScreen>
         }
 
         // ======================================================
-        // STOP SOUND FOR REMOVED REQUEST
+        // REMOVED REQUEST SOUND
         // ======================================================
 
-        for (final WalkRequest oldRequest
-            in List<WalkRequest>.from(_requests)) {
-          if (!incomingIds.contains(
+        for (
+          final WalkRequest oldRequest
+              in List<WalkRequest>.from(
+            _requests,
+          )
+        ) {
+          if (!incomingIds
+              .contains(
             oldRequest.id,
           )) {
-            WalkRequestSoundService.instance
+            WalkRequestSoundService
+                .instance
                 .stopRequest(
               oldRequest.id,
             );
@@ -504,7 +794,9 @@ class _WalksScreenState extends State<WalksScreen>
   // READ DISTANCE
   // ============================================================
 
-  double _readDistance(dynamic value) {
+  double _readDistance(
+    dynamic value,
+  ) {
     if (value is num) {
       return value.toDouble();
     }
@@ -545,19 +837,17 @@ class _WalksScreenState extends State<WalksScreen>
 
     try {
       final DocumentReference<
-          Map<String, dynamic>> requestRef =
+              Map<String, dynamic>>
+          requestRef =
           _firestore
               .collection('walk_requests')
               .doc(request.id);
 
-      // ========================================================
-      // TRANSACTION
-      // ========================================================
-
       await _firestore.runTransaction(
         (transaction) async {
           final DocumentSnapshot<
-              Map<String, dynamic>> snapshot =
+                  Map<String, dynamic>>
+              snapshot =
               await transaction.get(
             requestRef,
           );
@@ -568,7 +858,8 @@ class _WalksScreenState extends State<WalksScreen>
             );
           }
 
-          final Map<String, dynamic>? data =
+          final Map<String, dynamic>?
+              data =
               snapshot.data();
 
           if (data == null) {
@@ -578,7 +869,9 @@ class _WalksScreenState extends State<WalksScreen>
           }
 
           final String status =
-              data['status']?.toString() ?? '';
+              data['status']
+                      ?.toString() ??
+                  '';
 
           if (status != 'searching') {
             throw Exception(
@@ -589,65 +882,58 @@ class _WalksScreenState extends State<WalksScreen>
           transaction.update(
             requestRef,
             {
-              'status': 'accepted',
-              'walkerId': walkerId,
-              'walkerUid': user.uid,
-              'acceptedBy': walkerId,
+              'status':
+                  'accepted',
+              'walkerId':
+                  walkerId,
+              'walkerUid':
+                  user.uid,
+              'acceptedBy':
+                  walkerId,
               'acceptedAt':
-                  FieldValue.serverTimestamp(),
+                  FieldValue
+                      .serverTimestamp(),
               'updatedAt':
-                  FieldValue.serverTimestamp(),
+                  FieldValue
+                      .serverTimestamp(),
             },
           );
         },
       );
 
-      // ========================================================
-      // STOP SOUND
-      // ========================================================
-
-      await WalkRequestSoundService.instance
+      await WalkRequestSoundService
+          .instance
           .stopRequest(
         request.id,
       );
-
-      // ========================================================
-      // STOP WALKER SEARCH
-      // ========================================================
 
       await _firestore
           .collection('users')
           .doc(user.uid)
           .set(
         {
-          'walkerId': walkerId,
-          'instaWalkSearching': false,
+          'walkerId':
+              walkerId,
+          'instaWalkSearching':
+              false,
           'instaWalkSearchUpdatedAt':
-              FieldValue.serverTimestamp(),
+              FieldValue
+                  .serverTimestamp(),
         },
         SetOptions(merge: true),
       );
 
-      // ========================================================
-      // CANCEL REQUEST LISTENER
-      // ========================================================
-
-      await _requestSubscription?.cancel();
+      await _requestSubscription
+          ?.cancel();
 
       _requestSubscription = null;
 
-      // ========================================================
-      // STOP ALL REMAINING SOUNDS
-      // ========================================================
-
-      await WalkRequestSoundService.instance
+      await WalkRequestSoundService
+          .instance
           .stopAll();
 
-      // ========================================================
-      // READ UPDATED REQUEST
-      // ========================================================
-
-      final DocumentSnapshot<Map<String, dynamic>>
+      final DocumentSnapshot<
+              Map<String, dynamic>>
           acceptedSnapshot =
           await requestRef.get();
 
@@ -657,7 +943,8 @@ class _WalksScreenState extends State<WalksScreen>
         );
       }
 
-      final WalkRequest acceptedRequest =
+      final WalkRequest
+          acceptedRequest =
           WalkRequest.fromFirestore(
         acceptedSnapshot,
       );
@@ -670,22 +957,21 @@ class _WalksScreenState extends State<WalksScreen>
         _searching = false;
 
         _requests.removeWhere(
-          (item) => item.id == request.id,
+          (item) =>
+              item.id ==
+              request.id,
         );
 
         _dotVisible = false;
       });
-
-      // ========================================================
-      // OPEN ACTIVE WALK
-      // ========================================================
 
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) =>
               ActiveWalkDetailsScreen(
-            request: acceptedRequest,
+            request:
+                acceptedRequest,
           ),
         ),
       );
@@ -694,7 +980,8 @@ class _WalksScreenState extends State<WalksScreen>
         'Accept Walk Request Error: $e',
       );
 
-      await WalkRequestSoundService.instance
+      await WalkRequestSoundService
+          .instance
           .stopRequest(
         request.id,
       );
@@ -739,19 +1026,17 @@ class _WalksScreenState extends State<WalksScreen>
 
     try {
       final DocumentReference<
-          Map<String, dynamic>> requestRef =
+              Map<String, dynamic>>
+          requestRef =
           _firestore
               .collection('walk_requests')
               .doc(request.id);
 
-      // ========================================================
-      // TRANSACTION
-      // ========================================================
-
       await _firestore.runTransaction(
         (transaction) async {
           final DocumentSnapshot<
-              Map<String, dynamic>> snapshot =
+                  Map<String, dynamic>>
+              snapshot =
               await transaction.get(
             requestRef,
           );
@@ -762,7 +1047,8 @@ class _WalksScreenState extends State<WalksScreen>
             );
           }
 
-          final Map<String, dynamic>? data =
+          final Map<String, dynamic>?
+              data =
               snapshot.data();
 
           if (data == null) {
@@ -772,7 +1058,9 @@ class _WalksScreenState extends State<WalksScreen>
           }
 
           final String status =
-              data['status']?.toString() ?? '';
+              data['status']
+                      ?.toString() ??
+                  '';
 
           if (status != 'searching') {
             throw Exception(
@@ -783,30 +1071,28 @@ class _WalksScreenState extends State<WalksScreen>
           transaction.update(
             requestRef,
             {
-              'status': 'rejected',
-              'rejectedBy': walkerId,
-              'rejectedWalkerUid': user.uid,
+              'status':
+                  'rejected',
+              'rejectedBy':
+                  walkerId,
+              'rejectedWalkerUid':
+                  user.uid,
               'rejectedAt':
-                  FieldValue.serverTimestamp(),
+                  FieldValue
+                      .serverTimestamp(),
               'updatedAt':
-                  FieldValue.serverTimestamp(),
+                  FieldValue
+                      .serverTimestamp(),
             },
           );
         },
       );
 
-      // ========================================================
-      // STOP ONLY THIS REQUEST SOUND
-      // ========================================================
-
-      await WalkRequestSoundService.instance
+      await WalkRequestSoundService
+          .instance
           .stopRequest(
         request.id,
       );
-
-      // ========================================================
-      // REMOVE FROM LOCAL LIST
-      // ========================================================
 
       if (!mounted) {
         return;
@@ -814,7 +1100,9 @@ class _WalksScreenState extends State<WalksScreen>
 
       setState(() {
         _requests.removeWhere(
-          (item) => item.id == request.id,
+          (item) =>
+              item.id ==
+              request.id,
         );
       });
     } catch (e) {
@@ -822,7 +1110,8 @@ class _WalksScreenState extends State<WalksScreen>
         'Reject Walk Request Error: $e',
       );
 
-      await WalkRequestSoundService.instance
+      await WalkRequestSoundService
+          .instance
           .stopRequest(
         request.id,
       );
@@ -849,8 +1138,8 @@ class _WalksScreenState extends State<WalksScreen>
       return;
     }
 
-    // Stop sounds immediately.
-    await WalkRequestSoundService.instance
+    await WalkRequestSoundService
+        .instance
         .stopAll();
 
     try {
@@ -859,16 +1148,20 @@ class _WalksScreenState extends State<WalksScreen>
           .doc(uid)
           .set(
         {
-          'instaWalkSearching': false,
+          'instaWalkSearching':
+              false,
           'instaWalkSearchUpdatedAt':
-              FieldValue.serverTimestamp(),
+              FieldValue
+                  .serverTimestamp(),
         },
         SetOptions(merge: true),
       );
 
-      await _requestSubscription?.cancel();
+      await _requestSubscription
+          ?.cancel();
 
-      _requestSubscription = null;
+      _requestSubscription =
+          null;
 
       if (!mounted) {
         return;
@@ -917,16 +1210,20 @@ class _WalksScreenState extends State<WalksScreen>
       barrierDismissible: true,
       barrierColor:
           Colors.black.withOpacity(.48),
-      builder: (dialogContext) {
+      builder:
+          (dialogContext) {
         return AlertDialog(
           backgroundColor:
               Colors.white,
           shape:
               RoundedRectangleBorder(
             borderRadius:
-                BorderRadius.circular(26),
+                BorderRadius.circular(
+              26,
+            ),
           ),
-          title: const Text(
+          title:
+              const Text(
             'Stop Searching?',
             textAlign:
                 TextAlign.center,
@@ -938,7 +1235,8 @@ class _WalksScreenState extends State<WalksScreen>
                   FontWeight.w800,
             ),
           ),
-          content: const Text(
+          content:
+              const Text(
             'You will stop receiving nearby Insta Walk requests.',
             textAlign:
                 TextAlign.center,
@@ -951,7 +1249,8 @@ class _WalksScreenState extends State<WalksScreen>
                   false,
                 );
               },
-              child: const Text(
+              child:
+                  const Text(
                 'Cancel',
               ),
             ),
@@ -965,11 +1264,13 @@ class _WalksScreenState extends State<WalksScreen>
               style:
                   ElevatedButton.styleFrom(
                 backgroundColor:
-                    WalksConstants.buttonBlue,
+                    WalksConstants
+                        .buttonBlue,
                 foregroundColor:
                     Colors.white,
               ),
-              child: const Text(
+              child:
+                  const Text(
                 'Confirm',
               ),
             ),
@@ -998,16 +1299,19 @@ class _WalksScreenState extends State<WalksScreen>
     setState(() {
       _dotX =
           -.78 +
-          _random.nextDouble() * 1.56;
+          _random.nextDouble() *
+              1.56;
 
       _dotY =
           -.65 +
-          _random.nextDouble() * 1.30;
+          _random.nextDouble() *
+              1.30;
 
       _dotVisible = true;
     });
 
-    _dotGlowTimer = Timer(
+    _dotGlowTimer =
+        Timer(
       const Duration(
         milliseconds: 1200,
       ),
@@ -1045,28 +1349,12 @@ class _WalksScreenState extends State<WalksScreen>
           shape:
               RoundedRectangleBorder(
             borderRadius:
-                BorderRadius.circular(12),
+                BorderRadius.circular(
+              12,
+            ),
           ),
         ),
       );
-  }
-
-  // ============================================================
-  // QR SCAN
-  // ============================================================
-
-  Future<void> _openQrScanner() async {
-    if (!mounted) {
-      return;
-    }
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            const QrScannerScreen(),
-      ),
-    );
   }
 
   // ============================================================
@@ -1081,18 +1369,23 @@ class _WalksScreenState extends State<WalksScreen>
         width:
             double.infinity,
         padding:
-            const EdgeInsets.symmetric(
+            const EdgeInsets
+                .symmetric(
           horizontal: 15,
           vertical: 14,
         ),
         decoration:
             BoxDecoration(
           color:
-              Colors.white.withOpacity(.52),
+              Colors.white
+                  .withOpacity(.52),
           borderRadius:
-              BorderRadius.circular(16),
+              BorderRadius.circular(
+            16,
+          ),
         ),
-        child: const Row(
+        child:
+            const Row(
           children: [
             SizedBox(
               width: 18,
@@ -1103,7 +1396,8 @@ class _WalksScreenState extends State<WalksScreen>
                 valueColor:
                     AlwaysStoppedAnimation<
                         Color>(
-                  WalksConstants.radarGreen,
+                  WalksConstants
+                      .radarGreen,
                 ),
               ),
             ),
@@ -1111,12 +1405,17 @@ class _WalksScreenState extends State<WalksScreen>
               width: 10,
             ),
             Expanded(
-              child: Text(
+              child:
+                  Text(
                 'Waiting for nearby walk requests...',
-                style: TextStyle(
+                style:
+                    TextStyle(
                   color:
-                      Color(0xFF35443A),
-                  fontSize: 12,
+                      Color(
+                    0xFF35443A,
+                  ),
+                  fontSize:
+                      12,
                   fontWeight:
                       FontWeight.w600,
                 ),
@@ -1137,31 +1436,33 @@ class _WalksScreenState extends State<WalksScreen>
             left: 3,
             bottom: 9,
           ),
-          child: Text(
+          child:
+              Text(
             'AVAILABLE WALK REQUESTS',
-            style: TextStyle(
+            style:
+                TextStyle(
               color:
-                  Color(0xFF26352A),
-              fontSize: 10,
+                  Color(
+                0xFF26352A,
+              ),
+              fontSize:
+                  10,
               fontWeight:
                   FontWeight.w900,
-              letterSpacing: 1.1,
+              letterSpacing:
+                  1.1,
             ),
           ),
         ),
-
         ..._requests.map(
           (request) =>
               WalkRequestCard(
-            request: request,
-
-            // ACCEPT
+            request:
+                request,
             onAccept: () =>
                 _acceptRequest(
               request,
             ),
-
-            // REJECT
             onReject: () =>
                 _rejectRequest(
               request,
@@ -1169,6 +1470,103 @@ class _WalksScreenState extends State<WalksScreen>
           ),
         ),
       ],
+    );
+  }
+
+  // ============================================================
+  // FLOATING QR / PAYTM SCAN BUTTON
+  // ============================================================
+
+  Widget _buildFloatingQrButton() {
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 22,
+      child: Center(
+        child: GestureDetector(
+          onTap:
+              _openingQrScanner
+                  ? null
+                  : _openQrScanner,
+          child: AnimatedContainer(
+            duration:
+                const Duration(
+              milliseconds: 180,
+            ),
+            width: 76,
+            height: 76,
+            decoration:
+                BoxDecoration(
+              color:
+                  const Color(
+                0xFFF4511E,
+              ),
+              shape:
+                  BoxShape.circle,
+              boxShadow: const [
+                BoxShadow(
+                  color:
+                      Colors.black26,
+                  blurRadius:
+                      16,
+                  offset:
+                      Offset(
+                    0,
+                    7,
+                  ),
+                ),
+              ],
+            ),
+            child:
+                _openingQrScanner
+                    ? const SizedBox(
+                        width: 28,
+                        height: 28,
+                        child:
+                            CircularProgressIndicator(
+                          strokeWidth:
+                              3,
+                          valueColor:
+                              AlwaysStoppedAnimation<
+                                  Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : const Column(
+                        mainAxisAlignment:
+                            MainAxisAlignment
+                                .center,
+                        children: [
+                          Icon(
+                            Icons
+                                .qr_code_scanner_rounded,
+                            color:
+                                Colors.white,
+                            size: 29,
+                          ),
+                          SizedBox(
+                            height: 2,
+                          ),
+                          Text(
+                            'SCAN',
+                            style:
+                                TextStyle(
+                              color:
+                                  Colors.white,
+                              fontSize:
+                                  9,
+                              fontWeight:
+                                  FontWeight.w900,
+                              letterSpacing:
+                                  .8,
+                            ),
+                          ),
+                        ],
+                      ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1184,7 +1582,8 @@ class _WalksScreenState extends State<WalksScreen>
 
     _dotGlowTimer?.cancel();
 
-    WalkRequestSoundService.instance
+    WalkRequestSoundService
+        .instance
         .stopAll();
 
     _radarController.dispose();
@@ -1202,128 +1601,66 @@ class _WalksScreenState extends State<WalksScreen>
   ) {
     return Scaffold(
       backgroundColor:
-          const Color(0xFFF5F6F8),
-
-      // ========================================================
-      // PAYTM STYLE FLOATING QR BUTTON
-      // ========================================================
-
-      floatingActionButtonLocation:
-          FloatingActionButtonLocation.centerFloat,
-
-      floatingActionButton:
-          Padding(
-        padding:
-            const EdgeInsets.only(
-          bottom: 12,
-        ),
-        child: Material(
-          color:
-              Colors.transparent,
-          elevation: 8,
-          shadowColor:
-              Colors.black.withOpacity(.25),
-          borderRadius:
-              BorderRadius.circular(30),
-          child: InkWell(
-            onTap:
-                _openQrScanner,
-            borderRadius:
-                BorderRadius.circular(30),
-            child: Container(
-              height: 58,
-              padding:
-                  const EdgeInsets.symmetric(
-                horizontal: 24,
-              ),
-              decoration:
-                  BoxDecoration(
-                color:
-                    const Color(0xFFF4511E),
-                borderRadius:
-                    BorderRadius.circular(30),
-              ),
-              child: const Row(
-                mainAxisSize:
-                    MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons
-                        .qr_code_scanner_rounded,
-                    color:
-                        Colors.white,
-                    size: 27,
-                  ),
-                  SizedBox(
-                    width: 10,
-                  ),
-                  Text(
-                    'Scan Owner QR',
-                    style:
-                        TextStyle(
-                      color:
-                          Colors.white,
-                      fontSize: 15,
-                      fontWeight:
-                          FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+          const Color(
+        0xFFF5F6F8,
       ),
-
-      // ========================================================
-      // BODY
-      // ========================================================
-
-      body: Column(
+      body: Stack(
         children: [
-          const WalkerHomeHeader(),
+          // ======================================================
+          // MAIN WALKS SCREEN
+          // ======================================================
 
-          Expanded(
-            child: ListView(
-              padding:
-                  const EdgeInsets.only(
-                // Extra bottom space so the
-                // floating button does not
-                // cover the last content.
-                bottom: 105,
-              ),
-              children: [
-                // ==================================================
-                // INSTA WALK CONTAINER
-                // ==================================================
+          Column(
+            children: [
+              const WalkerHomeHeader(),
 
-                InstaWalkContainer(
-                  searching:
-                      _searching,
-                  loading:
-                      _loading,
-                  radarAnimation:
-                      _radarController,
-                  dotVisible:
-                      _dotVisible,
-                  dotX:
-                      _dotX,
-                  dotY:
-                      _dotY,
-                  requests:
-                      _requests,
+              Expanded(
+                child:
+                    ListView(
+                  padding:
+                      const EdgeInsets.only(
+                    bottom: 120,
+                  ),
+                  children: [
+                    // ==========================================
+                    // INSTA WALK
+                    // ==========================================
 
-                  // SEARCH / STOP
-                  onSearchPressed:
-                      _searchButtonPressed,
+                    InstaWalkContainer(
+                      searching:
+                          _searching,
+                      loading:
+                          _loading,
+                      radarAnimation:
+                          _radarController,
+                      dotVisible:
+                          _dotVisible,
+                      dotX:
+                          _dotX,
+                      dotY:
+                          _dotY,
+                      requests:
+                          _requests,
 
-                  // REQUEST LIST
-                  requestListBuilder:
-                      _buildRequests,
+                      // SEARCH / STOP
+                      onSearchPressed:
+                          _searchButtonPressed,
+
+                      // REQUEST LIST
+                      requestListBuilder:
+                          _buildRequests,
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+
+          // ======================================================
+          // CENTER FLOATING QR SCAN BUTTON
+          // ======================================================
+
+          _buildFloatingQrButton(),
         ],
       ),
     );
