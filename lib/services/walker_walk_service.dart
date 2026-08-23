@@ -51,8 +51,8 @@ class WalkerWalkService {
       /// PARSE OWNER QR
       /// ------------------------------------------------------
 
-      final QRData qr =
-          QRService.dataFromPayload(scannedData);
+      final Map<String, dynamic> qr =
+    QRService.parsePayload(scannedData);
 
       /// ------------------------------------------------------
       /// VALIDATE WALKER LOGIN
