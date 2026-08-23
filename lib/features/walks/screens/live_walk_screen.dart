@@ -1,6 +1,3 @@
-// File location:
-// lib/features/walks/screens/live_walk_screen.dart
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -39,12 +36,22 @@ class LiveWalkScreen extends StatefulWidget {
       _LiveWalkScreenState();
 }
 
-class _LiveWalkScreenState extends State<LiveWalkScreen> {
-  static const Color orange = Color(0xFFFF6600);
-  static const Color dark = Color(0xFF263746);
-  static const Color muted = Color(0xFF7A8289);
-  static const Color green = Color(0xFF16A34A);
-  static const Color red = Color(0xFFE53935);
+class _LiveWalkScreenState
+    extends State<LiveWalkScreen> {
+  static const Color orange =
+      Color(0xFFFF6600);
+
+  static const Color dark =
+      Color(0xFF263746);
+
+  static const Color muted =
+      Color(0xFF7A8289);
+
+  static const Color green =
+      Color(0xFF16A34A);
+
+  static const Color red =
+      Color(0xFFE53935);
 
   final WalkRequestService _service =
       WalkRequestService.instance;
@@ -55,7 +62,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   final LiveWalkBackgroundService _backgroundService =
       LiveWalkBackgroundService.instance;
 
-  StreamSubscription<Position>? _locationSubscription;
+  StreamSubscription<Position>?
+      _locationSubscription;
 
   bool _ending = false;
   bool _gpsStarting = false;
@@ -64,17 +72,20 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   double _totalDistanceKm = 0.0;
 
-  final List<Map<String, dynamic>> _routeCoordinates =
-      <Map<String, dynamic>>[];
+  final List<Map<String, dynamic>>
+      _routeCoordinates =
+          <Map<String, dynamic>>[];
 
   // ============================================================
   // SESSION ID
   // ============================================================
 
   String get sessionId {
-    final String? value = widget.sessionId?.trim();
+    final String? value =
+        widget.sessionId?.trim();
 
-    if (value != null && value.isNotEmpty) {
+    if (value != null &&
+        value.isNotEmpty) {
       return value;
     }
 
@@ -82,10 +93,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   }
 
   // ============================================================
-  // SESSION REF
+  // FIRESTORE SESSION
   // ============================================================
 
-  DocumentReference<Map<String, dynamic>> get _sessionRef {
+  DocumentReference<Map<String, dynamic>>
+      get _sessionRef {
     return FirebaseFirestore.instance
         .collection('liveWalkSessions')
         .doc(sessionId);
@@ -104,7 +116,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   void initState() {
     super.initState();
 
-    unawaited(_startGpsTracking());
+    unawaited(
+      _startGpsTracking(),
+    );
   }
 
   // ============================================================
@@ -112,19 +126,18 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ============================================================
 
   Future<void> _startGpsTracking() async {
-    if (_gpsStarting || _gpsActive || _ending) {
+    if (_gpsStarting ||
+        _gpsActive ||
+        _ending) {
       return;
     }
 
     _gpsStarting = true;
 
     try {
-      // --------------------------------------------------------
-      // LOCATION PERMISSION
-      // --------------------------------------------------------
-
       final bool allowed =
-          await _locationService.ensurePermission();
+          await _locationService
+              .ensurePermission();
 
       if (!allowed) {
         if (mounted) {
@@ -141,15 +154,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       }
 
       // --------------------------------------------------------
-      // READ EXISTING SESSION
-      //
-      // This is important when:
-      // - screen reopened
-      // - network recovered
-      // - GPS service restarted
+      // RESTORE SESSION
       // --------------------------------------------------------
 
-      double initialDistance = _totalDistanceKm;
+      double initialDistance =
+          _totalDistanceKm;
 
       int initialSteps = 0;
       int initialPee = 0;
@@ -157,12 +166,15 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
       DateTime? initialStartedAt;
 
-      final List<Map<String, dynamic>> initialRoute =
+      final List<Map<String, dynamic>>
+          initialRoute =
           <Map<String, dynamic>>[];
 
       try {
-        final DocumentSnapshot<Map<String, dynamic>>
-            snapshot = await _sessionRef.get();
+        final DocumentSnapshot<
+                Map<String, dynamic>>
+            snapshot =
+            await _sessionRef.get();
 
         final Map<String, dynamic>? data =
             snapshot.data();
@@ -171,9 +183,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           _loadExistingRoute(data);
 
           final double? distance =
-              _toDouble(data['distanceKm']);
+              _toDouble(
+            data['distanceKm'],
+          );
 
-          if (distance != null && distance >= 0) {
+          if (distance != null &&
+              distance >= 0) {
             initialDistance = distance;
           }
 
@@ -193,17 +208,21 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             initialStartedAt =
                 startedAt.toDate();
           } else if (startedAt is DateTime) {
-            initialStartedAt = startedAt;
+            initialStartedAt =
+                startedAt;
           }
 
           final dynamic rawRoute =
               data['routeCoordinates'];
 
           if (rawRoute is List) {
-            for (final dynamic item in rawRoute) {
+            for (final dynamic item
+                in rawRoute) {
               if (item is Map) {
                 initialRoute.add(
-                  Map<String, dynamic>.from(item),
+                  Map<String, dynamic>.from(
+                    item,
+                  ),
                 );
               }
             }
@@ -216,19 +235,24 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       }
 
       // --------------------------------------------------------
-      // START CENTRAL GPS SERVICE
+      // START BACKGROUND GPS
       // --------------------------------------------------------
 
       final bool started =
           await _backgroundService.start(
         walkId: widget.walkId,
         sessionId: sessionId,
-        initialDistanceKm: initialDistance,
+        initialDistanceKm:
+            initialDistance,
         initialSteps: initialSteps,
-        initialPeeCount: initialPee,
-        initialPoopCount: initialPoop,
-        initialStartedAt: initialStartedAt,
-        initialRoute: initialRoute,
+        initialPeeCount:
+            initialPee,
+        initialPoopCount:
+            initialPoop,
+        initialStartedAt:
+            initialStartedAt,
+        initialRoute:
+            initialRoute,
       );
 
       if (!started) {
@@ -242,15 +266,18 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       }
 
       // --------------------------------------------------------
-      // LISTEN TO CENTRAL GPS
+      // CENTRAL GPS STREAM
       // --------------------------------------------------------
 
       await _locationSubscription?.cancel();
 
       _locationSubscription =
-          _backgroundService.locationStream.listen(
+          _backgroundService
+              .locationStream
+              .listen(
         (Position position) {
-          if (!mounted || _ending) {
+          if (!mounted ||
+              _ending) {
             return;
           }
 
@@ -267,7 +294,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       _gpsActive = true;
 
       // --------------------------------------------------------
-      // CURRENT POSITION
+      // LAST POSITION
       // --------------------------------------------------------
 
       final Position? current =
@@ -298,30 +325,30 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   }
 
   // ============================================================
-  // HANDLE POSITION
+  // POSITION
   // ============================================================
 
   void _handlePosition(
     Position position,
   ) {
-    if (!mounted || _ending) {
+    if (!mounted ||
+        _ending) {
       return;
     }
 
-    final double serviceDistance =
-        _backgroundService.totalDistanceKm;
+    final double distance =
+        _backgroundService
+            .totalDistanceKm;
 
-    if (serviceDistance >= 0) {
-      _totalDistanceKm = serviceDistance;
+    if (distance >= 0) {
+      _totalDistanceKm = distance;
     }
 
-    if (mounted) {
-      setState(() {});
-    }
+    setState(() {});
   }
 
   // ============================================================
-  // LOAD EXISTING ROUTE
+  // LOAD ROUTE
   // ============================================================
 
   void _loadExistingRoute(
@@ -335,7 +362,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         data['routeCoordinates'];
 
     if (rawRoute is List) {
-      for (final dynamic item in rawRoute) {
+      for (final dynamic item
+          in rawRoute) {
         if (item is! Map) {
           continue;
         }
@@ -369,17 +397,22 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             'lat': latitude,
             'lng': longitude,
             if (item['timestamp'] != null)
-              'timestamp': item['timestamp'],
+              'timestamp':
+                  item['timestamp'],
           },
         );
       }
     }
 
     final double? distance =
-        _toDouble(data['distanceKm']);
+        _toDouble(
+      data['distanceKm'],
+    );
 
-    if (distance != null && distance >= 0) {
-      _totalDistanceKm = distance;
+    if (distance != null &&
+        distance >= 0) {
+      _totalDistanceKm =
+          distance;
     }
 
     _routeLoaded = true;
@@ -390,7 +423,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ============================================================
 
   Future<void> _stopGpsTracking() async {
-    await _locationSubscription?.cancel();
+    await _locationSubscription
+        ?.cancel();
 
     _locationSubscription = null;
 
@@ -404,11 +438,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ============================================================
 
   Future<void> _endWalk() async {
-    if (_ending) {
-      return;
-    }
-
-    if (!mounted) {
+    if (_ending ||
+        !mounted) {
       return;
     }
 
@@ -417,15 +448,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     });
 
     try {
-      // --------------------------------------------------------
-      // STOP GPS FIRST
-      // --------------------------------------------------------
-
       await _stopGpsTracking();
-
-      // --------------------------------------------------------
-      // COMPLETE WALK
-      // --------------------------------------------------------
 
       await _service.endLiveWalk(
         widget.walkId,
@@ -435,10 +458,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       if (!mounted) {
         return;
       }
-
-      // --------------------------------------------------------
-      // GO BACK
-      // --------------------------------------------------------
 
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -470,12 +489,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           ),
         );
 
-      // --------------------------------------------------------
-      // END FAILED
-      //
-      // Resume tracking and restore Firestore state.
-      // --------------------------------------------------------
-
       if (!_gpsActive) {
         unawaited(
           _startGpsTracking(),
@@ -495,7 +508,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     showDialog<void>(
       context: context,
-      builder: (BuildContext dialogContext) {
+      builder: (
+        BuildContext dialogContext,
+      ) {
         return AlertDialog(
           shape:
               RoundedRectangleBorder(
@@ -506,7 +521,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             'End Walk?',
             style: TextStyle(
               color: dark,
-              fontWeight: FontWeight.w900,
+              fontWeight:
+                  FontWeight.w900,
             ),
           ),
           content: const Text(
@@ -527,7 +543,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 'Keep Walking',
                 style: TextStyle(
                   color: dark,
-                  fontWeight: FontWeight.w700,
+                  fontWeight:
+                      FontWeight.w700,
                 ),
               ),
             ),
@@ -551,7 +568,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               child: const Text(
                 'End Walk',
                 style: TextStyle(
-                  fontWeight: FontWeight.w800,
+                  fontWeight:
+                      FontWeight.w800,
                 ),
               ),
             ),
@@ -601,14 +619,17 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                       0xFFD7DCE0,
                     ),
                     borderRadius:
-                        BorderRadius.circular(10),
+                        BorderRadius.circular(
+                      10,
+                    ),
                   ),
                 ),
                 const SizedBox(
                   height: 18,
                 ),
                 const Icon(
-                  Icons.support_agent_rounded,
+                  Icons
+                      .support_agent_rounded,
                   color: orange,
                   size: 38,
                 ),
@@ -640,7 +661,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                   height: 18,
                 ),
                 SizedBox(
-                  width: double.infinity,
+                  width:
+                      double.infinity,
                   height: 50,
                   child:
                       ElevatedButton.icon(
@@ -650,7 +672,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                       ).pop();
                     },
                     icon: const Icon(
-                      Icons.support_agent_rounded,
+                      Icons
+                          .support_agent_rounded,
                     ),
                     label: const Text(
                       'Contact Support',
@@ -728,7 +751,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     BuildContext context,
   ) {
     return StreamBuilder<
-        DocumentSnapshot<Map<String, dynamic>>>(
+        DocumentSnapshot<
+            Map<String, dynamic>>>(
       stream: _sessionStream,
       builder: (
         BuildContext context,
@@ -742,7 +766,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 <String, dynamic>{};
 
         // ------------------------------------------------------
-        // DO NOT mutate route during every build.
+        // LOAD ROUTE ONCE
         // ------------------------------------------------------
 
         if (!_routeLoaded &&
@@ -757,18 +781,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
               _loadExistingRoute(data);
 
-              final double? distance =
-                  _toDouble(
-                data['distanceKm'],
-              );
-
-              if (distance != null &&
-                  distance >= 0) {
-                _totalDistanceKm =
-                    distance;
+              if (mounted) {
+                setState(() {});
               }
-
-              setState(() {});
             },
           );
         }
@@ -803,8 +818,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         return Scaffold(
           backgroundColor:
               Colors.white,
-          extendBodyBehindAppBar:
-              false,
           appBar: AppBar(
             backgroundColor: orange,
             surfaceTintColor: orange,
@@ -840,7 +853,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                     ? null
                     : _openSupport,
                 icon: const Icon(
-                  Icons.support_agent_rounded,
+                  Icons
+                      .support_agent_rounded,
                   color: Colors.white,
                   size: 24,
                 ),
@@ -913,7 +927,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             BorderRadius.circular(12),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x26000000),
+            color:
+                Color(0x26000000),
             blurRadius: 10,
             offset:
                 Offset(0, 4),
@@ -952,10 +967,18 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     Map<String, dynamic> data,
   ) {
     final double? lat =
-        _toDouble(data['currentLat']);
+        _toDouble(
+      data['currentLocation'] is Map
+          ? data['currentLocation']['lat']
+          : data['currentLat'],
+    );
 
     final double? lng =
-        _toDouble(data['currentLng']);
+        _toDouble(
+      data['currentLocation'] is Map
+          ? data['currentLocation']['lng']
+          : data['currentLng'],
+    );
 
     final bool hasLocation =
         lat != null &&
@@ -983,7 +1006,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             BorderRadius.circular(12),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x26000000),
+            color:
+                Color(0x26000000),
             blurRadius: 10,
             offset:
                 Offset(0, 4),
@@ -1017,7 +1041,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   }
 
   // ============================================================
-  // COMPLETED
+  // COMPLETED SCREEN
   // ============================================================
 
   Widget _completedScreen(
@@ -1056,7 +1080,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 MainAxisAlignment.center,
             children: [
               const Icon(
-                Icons.check_circle_rounded,
+                Icons
+                    .check_circle_rounded,
                 color: green,
                 size: 80,
               ),
@@ -1178,7 +1203,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         lat <= 90 &&
         lng >= -180 &&
         lng <= 180 &&
-        !(lat == 0 && lng == 0);
+        !(lat == 0 &&
+            lng == 0);
   }
 
   // ============================================================
@@ -1189,14 +1215,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   void dispose() {
     _locationSubscription?.cancel();
 
-    // IMPORTANT:
-    //
-    // Do NOT stop LiveWalkBackgroundService here.
-    //
-    // Screen close/rebuild/minimize होने पर active walk
-    // tracking को unnecessarily stop नहीं करना है.
-    //
-    // Actual stop केवल End Walk flow से होगा.
+    // Background GPS को यहाँ stop नहीं करना है.
+    // Actual stop केवल End Walk flow में होगा.
 
     super.dispose();
   }
