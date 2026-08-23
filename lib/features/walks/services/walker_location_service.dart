@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 class WalkerLocationService {
@@ -8,52 +9,228 @@ class WalkerLocationService {
   static final WalkerLocationService instance =
       WalkerLocationService._();
 
+  // ============================================================
+  // INTERNAL
+  // ============================================================
+
   StreamSubscription<Position>? _positionSubscription;
 
   final StreamController<Position> _locationController =
       StreamController<Position>.broadcast();
 
+  Position? _currentPosition;
+
+  bool _tracking = false;
+  bool _startingTracking = false;
+
+  String? _lastError;
+
+  // ============================================================
+  // GETTERS
+  // ============================================================
+
   Stream<Position> get locationStream =>
       _locationController.stream;
 
-  Position? _currentPosition;
+  Position? get currentPosition => _currentPosition;
 
-  Position? get currentPosition =>
-      _currentPosition;
+  bool get isTracking => _tracking;
+
+  String? get lastError => _lastError;
+
+  bool get hasCurrentLocation =>
+      _currentPosition != null;
+
+  // ============================================================
+  // LOCATION SERVICE STATUS
+  // ============================================================
+
+  Future<bool> isLocationServiceEnabled() async {
+    try {
+      return await Geolocator.isLocationServiceEnabled();
+    } catch (e) {
+      _setError(
+        'Unable to check GPS status: $e',
+      );
+      return false;
+    }
+  }
+
+  // ============================================================
+  // PERMISSION STATUS
+  // ============================================================
+
+  Future<LocationPermission> permissionStatus() async {
+    try {
+      return await Geolocator.checkPermission();
+    } catch (e) {
+      _setError(
+        'Unable to check location permission: $e',
+      );
+
+      return LocationPermission.denied;
+    }
+  }
 
   // ============================================================
   // CHECK LOCATION + PERMISSION
+  //
+  // This is the main gate for the entire Walker location system.
   // ============================================================
 
   Future<bool> ensurePermission() async {
+    _clearError();
+
+    // ----------------------------------------------------------
+    // 1. CHECK GPS / LOCATION SERVICE
+    // ----------------------------------------------------------
+
     final bool serviceEnabled =
         await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
+      _setError(
+        'Location services are disabled. '
+        'Please turn on GPS.',
+      );
+
+      debugPrint(
+        'Walker Location: GPS is disabled.',
+      );
+
       return false;
     }
+
+    // ----------------------------------------------------------
+    // 2. CHECK CURRENT PERMISSION
+    // ----------------------------------------------------------
 
     LocationPermission permission =
         await Geolocator.checkPermission();
 
+    debugPrint(
+      'Walker Location Permission: $permission',
+    );
+
+    // ----------------------------------------------------------
+    // 3. REQUEST PERMISSION
+    // ----------------------------------------------------------
+
     if (permission == LocationPermission.denied) {
       permission =
           await Geolocator.requestPermission();
+
+      debugPrint(
+        'Walker Location Permission After Request: '
+        '$permission',
+      );
     }
 
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
+    // ----------------------------------------------------------
+    // 4. PERMANENTLY DENIED
+    // ----------------------------------------------------------
+
+    if (permission ==
+        LocationPermission.deniedForever) {
+      _setError(
+        'Location permission is permanently denied. '
+        'Please allow location permission from Settings.',
+      );
+
+      debugPrint(
+        'Walker Location: Permission permanently denied.',
+      );
+
       return false;
     }
 
-    return true;
+    // ----------------------------------------------------------
+    // 5. NORMAL DENIED
+    // ----------------------------------------------------------
+
+    if (permission ==
+        LocationPermission.denied) {
+      _setError(
+        'Location permission was denied.',
+      );
+
+      debugPrint(
+        'Walker Location: Permission denied.',
+      );
+
+      return false;
+    }
+
+    // ----------------------------------------------------------
+    // 6. VALID PERMISSION
+    // ----------------------------------------------------------
+
+    if (permission ==
+            LocationPermission.whileInUse ||
+        permission ==
+            LocationPermission.always) {
+      debugPrint(
+        'Walker Location: Permission granted.',
+      );
+
+      return true;
+    }
+
+    _setError(
+      'Location permission is unavailable.',
+    );
+
+    return false;
+  }
+
+  // ============================================================
+  // OPEN LOCATION SETTINGS
+  // ============================================================
+
+  Future<bool> openLocationSettings() async {
+    try {
+      return await Geolocator.openLocationSettings();
+    } catch (e) {
+      _setError(
+        'Unable to open location settings: $e',
+      );
+
+      return false;
+    }
+  }
+
+  // ============================================================
+  // OPEN APP SETTINGS
+  //
+  // Useful when permission is deniedForever.
+  // ============================================================
+
+  Future<bool> openAppSettings() async {
+    try {
+      return await Geolocator.openAppSettings();
+    } catch (e) {
+      _setError(
+        'Unable to open app settings: $e',
+      );
+
+      return false;
+    }
   }
 
   // ============================================================
   // GET CURRENT LOCATION
   // ============================================================
 
-  Future<Position?> getCurrentLocation() async {
+  Future<Position?> getCurrentLocation({
+    Duration timeout =
+        const Duration(seconds: 15),
+  }) async {
+    _clearError();
+
+    // ----------------------------------------------------------
+    // PERMISSION + GPS
+    // ----------------------------------------------------------
+
     final bool allowed =
         await ensurePermission();
 
@@ -61,61 +238,209 @@ class WalkerLocationService {
       return null;
     }
 
+    // ----------------------------------------------------------
+    // GET GPS POSITION
+    // ----------------------------------------------------------
+
     try {
-      final Position position =
-          await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+      debugPrint(
+        'Walker Location: Requesting current GPS position...',
       );
 
-      _currentPosition = position;
+      final Position position =
+          await Geolocator.getCurrentPosition(
+        locationSettings:
+            const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      ).timeout(
+        timeout,
+      );
 
-      if (!_locationController.isClosed) {
-        _locationController.add(position);
-      }
+      _updatePosition(position);
+
+      debugPrint(
+        'Walker Location: '
+        '${position.latitude}, '
+        '${position.longitude}',
+      );
 
       return position;
-    } catch (_) {
+    } on TimeoutException {
+      _setError(
+        'GPS location request timed out.',
+      );
+
+      debugPrint(
+        'Walker Location: GPS timeout.',
+      );
+
+      return null;
+    } on LocationServiceDisabledException {
+      _setError(
+        'Location services are disabled.',
+      );
+
+      debugPrint(
+        'Walker Location: Location service disabled.',
+      );
+
+      return null;
+    } on PermissionDeniedException {
+      _setError(
+        'Location permission was denied.',
+      );
+
+      debugPrint(
+        'Walker Location: Permission denied.',
+      );
+
+      return null;
+    } catch (e, stackTrace) {
+      _setError(
+        'Unable to get current location: $e',
+      );
+
+      debugPrint(
+        'Walker Location Error: $e',
+      );
+
+      debugPrint(
+        '$stackTrace',
+      );
+
       return null;
     }
   }
 
   // ============================================================
-  // START CONTINUOUS GPS
+  // START CONTINUOUS GPS TRACKING
   // ============================================================
 
   Future<bool> startTracking() async {
-    final bool allowed =
-        await ensurePermission();
+    _clearError();
 
-    if (!allowed) {
+    // ----------------------------------------------------------
+    // ALREADY TRACKING
+    // ----------------------------------------------------------
+
+    if (_tracking) {
+      debugPrint(
+        'Walker Location: Tracking already active.',
+      );
+
+      return true;
+    }
+
+    // ----------------------------------------------------------
+    // PREVENT DOUBLE START
+    // ----------------------------------------------------------
+
+    if (_startingTracking) {
       return false;
     }
 
-    await _positionSubscription?.cancel();
+    _startingTracking = true;
 
-    const LocationSettings settings =
-        LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 10,
-    );
+    try {
+      // --------------------------------------------------------
+      // PERMISSION + GPS
+      // --------------------------------------------------------
 
-    _positionSubscription =
-        Geolocator.getPositionStream(
-      locationSettings: settings,
-    ).listen(
-      (Position position) {
-        _currentPosition = position;
+      final bool allowed =
+          await ensurePermission();
 
-        if (!_locationController.isClosed) {
-          _locationController.add(position);
-        }
-      },
-      onError: (Object error) {
-        // Keep the GPS stream alive.
-      },
-    );
+      if (!allowed) {
+        return false;
+      }
 
-    return true;
+      // --------------------------------------------------------
+      // CANCEL OLD SUBSCRIPTION SAFELY
+      // --------------------------------------------------------
+
+      await _positionSubscription?.cancel();
+
+      _positionSubscription = null;
+
+      // --------------------------------------------------------
+      // LOCATION SETTINGS
+      // --------------------------------------------------------
+
+      const LocationSettings settings =
+          LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+      );
+
+      debugPrint(
+        'Walker Location: Starting continuous GPS...',
+      );
+
+      // --------------------------------------------------------
+      // START STREAM
+      // --------------------------------------------------------
+
+      _positionSubscription =
+          Geolocator.getPositionStream(
+        locationSettings: settings,
+      ).listen(
+        (Position position) {
+          _updatePosition(position);
+
+          debugPrint(
+            'Walker GPS Update: '
+            '${position.latitude}, '
+            '${position.longitude}',
+          );
+        },
+        onError: (Object error) {
+          _setError(
+            'GPS stream error: $error',
+          );
+
+          debugPrint(
+            'Walker GPS Stream Error: $error',
+          );
+        },
+        cancelOnError: false,
+      );
+
+      _tracking = true;
+
+      debugPrint(
+        'Walker Location: Continuous GPS started.',
+      );
+
+      return true;
+    } on LocationServiceDisabledException {
+      _setError(
+        'Location services are disabled.',
+      );
+
+      return false;
+    } on PermissionDeniedException {
+      _setError(
+        'Location permission was denied.',
+      );
+
+      return false;
+    } catch (e, stackTrace) {
+      _setError(
+        'Unable to start GPS tracking: $e',
+      );
+
+      debugPrint(
+        'Walker Start GPS Error: $e',
+      );
+
+      debugPrint(
+        '$stackTrace',
+      );
+
+      return false;
+    } finally {
+      _startingTracking = false;
+    }
   }
 
   // ============================================================
@@ -123,9 +448,40 @@ class WalkerLocationService {
   // ============================================================
 
   Future<void> stopTracking() async {
-    await _positionSubscription?.cancel();
+    try {
+      await _positionSubscription?.cancel();
+    } catch (e) {
+      debugPrint(
+        'Walker Location Stop Error: $e',
+      );
+    }
 
     _positionSubscription = null;
+    _tracking = false;
+
+    debugPrint(
+      'Walker Location: GPS tracking stopped.',
+    );
+  }
+
+  // ============================================================
+  // FORCE REFRESH CURRENT LOCATION
+  // ============================================================
+
+  Future<Position?> refreshLocation() async {
+    return getCurrentLocation();
+  }
+
+  // ============================================================
+  // UPDATE CURRENT POSITION
+  // ============================================================
+
+  void _updatePosition(Position position) {
+    _currentPosition = position;
+
+    if (!_locationController.isClosed) {
+      _locationController.add(position);
+    }
   }
 
   // ============================================================
@@ -150,6 +506,22 @@ class WalkerLocationService {
   }
 
   // ============================================================
+  // ERROR CONTROL
+  // ============================================================
+
+  void _setError(String message) {
+    _lastError = message;
+
+    debugPrint(
+      'Walker Location Status: $message',
+    );
+  }
+
+  void _clearError() {
+    _lastError = null;
+  }
+
+  // ============================================================
   // DISPOSE
   // ============================================================
 
@@ -159,5 +531,7 @@ class WalkerLocationService {
     if (!_locationController.isClosed) {
       await _locationController.close();
     }
+
+    _currentPosition = null;
   }
 }
