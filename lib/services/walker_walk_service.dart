@@ -51,8 +51,33 @@ class WalkerWalkService {
       /// PARSE OWNER QR
       /// ------------------------------------------------------
 
+      final String rawQr = scannedData.trim();
+
+      if (rawQr.isEmpty) {
+        throw Exception(
+          'QR code is empty.',
+        );
+      }
+
+      final dynamic decoded;
+
+      try {
+        decoded = jsonDecode(rawQr);
+      } catch (_) {
+        throw Exception(
+          'Invalid Owner QR Code.',
+        );
+      }
+
+      if (decoded is! Map) {
+        throw Exception(
+          'Invalid Owner QR Code.',
+        );
+      }
+
       final Map<String, dynamic> qr =
-    QRService.parsePayload(scannedData);
+          Map<String, dynamic>.from(decoded);
+      
 
       /// ------------------------------------------------------
       /// VALIDATE WALKER LOGIN
