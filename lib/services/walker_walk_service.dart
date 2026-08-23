@@ -78,7 +78,6 @@ class WalkerWalkService {
 
       final Map<String, dynamic> qr =
           Map<String, dynamic>.from(decoded);
-      
 
       /// ------------------------------------------------------
       /// VALIDATE WALKER LOGIN
@@ -100,16 +99,29 @@ class WalkerWalkService {
       }
 
       /// ------------------------------------------------------
+      /// READ QR FIELDS
+      /// ------------------------------------------------------
+
+      final String ownerId =
+          (qr['ownerId'] ?? '').toString().trim();
+
+      final String ownerName =
+          (qr['ownerName'] ?? '').toString().trim();
+
+      final String walkId =
+          (qr['walkId'] ?? '').toString().trim();
+
+      /// ------------------------------------------------------
       /// VALIDATE QR DATA
       /// ------------------------------------------------------
 
-      if (qr.ownerId.trim().isEmpty) {
+      if (ownerId.isEmpty) {
         throw Exception(
           'Owner ID is missing from QR.',
         );
       }
 
-      if (qr.walkId.trim().isEmpty) {
+      if (walkId.isEmpty) {
         throw Exception(
           'Walk ID is missing from QR.',
         );
@@ -123,12 +135,12 @@ class WalkerWalkService {
       /// ------------------------------------------------------
 
       return WalkerWalkData(
-        ownerId: qr.ownerId.trim(),
-        ownerName: qr.ownerName.trim().isEmpty
+        ownerId: ownerId,
+        ownerName: ownerName.isEmpty
             ? 'Owner'
-            : qr.ownerName.trim(),
+            : ownerName,
         ownerPhone: null,
-        walkId: qr.walkId.trim(),
+        walkId: walkId,
         dogName: 'Dog',
         dogBreed: '',
       );
@@ -282,9 +294,6 @@ class WalkerWalkService {
         'walkerPhone': walkerPhone,
 
         /// DOG
-        ///
-        /// QR से dog details नहीं ली जा रही हैं.
-        /// अगर बाद में Firestore से मिलेंगी तो update की जा सकती हैं.
         'dogName': walk.dogName,
         'dogBreed': walk.dogBreed,
 
@@ -326,7 +335,7 @@ class WalkerWalkService {
     /// Current QRService stores:
     /// qr_connections/{Firebase UID}
     ///
-    /// इसलिए पहले ownerId से document खोजते हैं.
+    /// इसलिए ownerId से document खोजते हैं.
     /// --------------------------------------------------------
 
     final QuerySnapshot<
@@ -433,18 +442,6 @@ class WalkerWalkService {
 
   /// ==========================================================
   /// SCAN + CONNECT + OPEN LIVE WALK
-  ///
-  /// यह पूरा Walker QR flow है:
-  ///
-  /// Scan
-  ///   ↓
-  /// Validate QR
-  ///   ↓
-  /// Create active_walks
-  ///   ↓
-  /// Update qr_connections
-  ///   ↓
-  /// Open Live Walk
   /// ==========================================================
 
   static Future<void> scanConnectAndOpenLiveWalk(
