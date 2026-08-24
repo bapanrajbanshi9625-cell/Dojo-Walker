@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../models/walk_request.dart';
+import '../../walks/models/walk_request.dart';
 import 'insta_walk_map_radar.dart';
 
 class InstaWalkContainer extends StatelessWidget {
