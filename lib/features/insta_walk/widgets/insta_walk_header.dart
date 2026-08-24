@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../constants/walks_constants.dart';
+import '../../walks/constants/walks_constants.dart';
 
 class InstaWalkHeader extends StatelessWidget {
   final bool searching;
