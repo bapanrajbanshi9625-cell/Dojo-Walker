@@ -9,7 +9,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../features/walks/models/walk_request.dart';
-import '../services/walk_request_service.dart';
+import '../features/walks/services/walk_request_service.dart';
 
 class ActiveWalkDetailsScreen extends StatefulWidget {
   final WalkRequest request;
