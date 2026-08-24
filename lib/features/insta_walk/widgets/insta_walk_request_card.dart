@@ -65,8 +65,7 @@ class InstaWalkRequestCard extends StatelessWidget {
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'INSTA WALK REQUEST',
@@ -77,9 +76,7 @@ class InstaWalkRequestCard extends StatelessWidget {
                         letterSpacing: .5,
                       ),
                     ),
-
                     const SizedBox(height: 3),
-
                     Text(
                       _title(),
                       maxLines: 1,
@@ -138,9 +135,7 @@ class InstaWalkRequestCard extends StatelessWidget {
                   color: AppColors.success,
                   size: 18,
                 ),
-
                 const SizedBox(width: 7),
-
                 Expanded(
                   child: Text(
                     _pickupAddress(),
@@ -205,8 +200,7 @@ class InstaWalkRequestCard extends StatelessWidget {
                       ),
                       backgroundColor: AppColors.errorSoft,
                       shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     child: Text(
@@ -234,13 +228,11 @@ class InstaWalkRequestCard extends StatelessWidget {
                       foregroundColor: AppColors.buttonText,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     child: Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.check_circle_rounded,
@@ -310,13 +302,17 @@ class InstaWalkRequestCard extends StatelessWidget {
   // ============================================================
 
   String _estimatedTime() {
-    final String value = request.estimatedTime.trim();
+    final int minutes = request.durationMinutes;
 
-    if (value.isEmpty) {
+    if (minutes <= 0) {
       return '--';
     }
 
-    return value;
+    if (minutes == 1) {
+      return '1 min';
+    }
+
+    return '$minutes min';
   }
 
   // ============================================================
@@ -347,13 +343,10 @@ class InstaWalkRequestCard extends StatelessWidget {
             color: AppColors.info,
             size: 16,
           ),
-
           const SizedBox(width: 6),
-
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   value,
@@ -365,7 +358,6 @@ class InstaWalkRequestCard extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-
                 Text(
                   label,
                   style: TextStyle(
