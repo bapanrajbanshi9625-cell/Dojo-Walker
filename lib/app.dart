@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'core/network/network_monitor.dart';
 import 'core/services/app_state_service.dart';
-import 'core/theme/app_theme.dart';
+import 'core/theme/dojo_walker_theme.dart';
 import 'screens/no_network_screen.dart';
 import 'screens/splash_screen.dart';
 
@@ -31,12 +31,6 @@ class _DojoWalkerAppState
     // ==========================================================
     // APP LIFECYCLE
     // ==========================================================
-    //
-    // App foreground/background होने पर central state service
-    // Firebase से state refresh कर सकती है.
-    //
-    // Existing UI / ringtone / navigation को change नहीं करता.
-    // ==========================================================
 
     WidgetsBinding.instance.addObserver(this);
   }
@@ -57,10 +51,6 @@ class _DojoWalkerAppState
     AppLifecycleState state,
   ) {
     super.didChangeAppLifecycleState(state);
-
-    // ----------------------------------------------------------
-    // जब app वापस foreground में आए
-    // ----------------------------------------------------------
 
     if (state == AppLifecycleState.resumed) {
       AppStateService.instance.refresh();
@@ -91,7 +81,16 @@ class _DojoWalkerAppState
     return MaterialApp(
       title: 'Dojo Walker - Buddy',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+
+      // ========================================================
+      // DOJO WALKER GLOBAL THEME
+      // ========================================================
+
+      theme: DojoWalkerTheme.light(),
+
+      // ========================================================
+      // START SCREEN
+      // ========================================================
 
       home: NetworkMonitor(
         child: startScreen,
@@ -110,7 +109,7 @@ class _DojoWalkerAppState
       return false;
     }
 
-    final text =
+    final String text =
         error.toLowerCase();
 
     return text.contains('no_network') ||
@@ -129,8 +128,7 @@ class _DojoWalkerAppState
 // STARTUP ERROR SCREEN
 // ================================================================
 
-class StartupErrorScreen
-    extends StatelessWidget {
+class StartupErrorScreen extends StatelessWidget {
   final String error;
 
   const StartupErrorScreen({
@@ -144,7 +142,8 @@ class StartupErrorScreen
   ) {
     return Scaffold(
       backgroundColor:
-          const Color(0xFFF8FAFC),
+          DojoWalkerColors.background,
+
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -157,6 +156,7 @@ class StartupErrorScreen
                 const Icon(
                   Icons.error_outline_rounded,
                   size: 64,
+                  color: DojoWalkerColors.error,
                 ),
 
                 const SizedBox(
@@ -169,6 +169,8 @@ class StartupErrorScreen
                     fontSize: 24,
                     fontWeight:
                         FontWeight.bold,
+                    color:
+                        DojoWalkerColors.textPrimary,
                   ),
                 ),
 
@@ -182,6 +184,8 @@ class StartupErrorScreen
                     fontSize: 18,
                     fontWeight:
                         FontWeight.w600,
+                    color:
+                        DojoWalkerColors.textPrimary,
                   ),
                 ),
 
@@ -193,6 +197,10 @@ class StartupErrorScreen
                   error,
                   textAlign:
                       TextAlign.center,
+                  style: const TextStyle(
+                    color:
+                        DojoWalkerColors.textSecondary,
+                  ),
                 ),
               ],
             ),
