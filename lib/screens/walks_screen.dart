@@ -8,12 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../features/walker_home/containers/walker_home_header.dart';
-import '../features/walks/constants/walks_constants.dart';
-import '../features/walks/models/walk_request.dart';
-import '../features/walks/services/walk_request_sound_service.dart';
-import '../features/insta_walk/widgets/insta_walk_container.dart';
-import '../features/walks/widgets/walk_request_card.dart';
+import '../features/insta_walk/models/insta_walk_request.dart';
 
 import 'active_walk_details_screen.dart';
 import 'qr_scanner_screen.dart';
