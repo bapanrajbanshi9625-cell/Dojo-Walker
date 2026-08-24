@@ -1,5 +1,5 @@
 // File:
-// lib/features/walks/services/insta_walk_service.dart
+// lib/features/insta_walk/services/insta_walk_service.dart
 
 import 'dart:async';
 
@@ -8,15 +8,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../models/insta_walk_request.dart';
 import '../../walks/constants/walks_constants.dart';
-import '../../walks/models/walk_request.dart';
 import '../../walks/services/walk_request_sound_service.dart';
 import '../../walks/services/walker_location_service.dart';
 
 class InstaWalkService {
   InstaWalkService._();
 
-  static final InstaWalkService instance = InstaWalkService._();
+  static final InstaWalkService instance =
+      InstaWalkService._();
 
   // ============================================================
   // FIREBASE
@@ -58,7 +59,8 @@ class InstaWalkService {
 
   Position? _currentPosition;
 
-  final List<WalkRequest> _requests = [];
+  final List<InstaWalkRequest> _requests =
+      <InstaWalkRequest>[];
 
   // ============================================================
   // GETTERS
@@ -70,9 +72,10 @@ class InstaWalkService {
 
   String? get walkerId => _walkerId;
 
-  Position? get currentPosition => _currentPosition;
+  Position? get currentPosition =>
+      _currentPosition;
 
-  List<WalkRequest> get requests =>
+  List<InstaWalkRequest> get requests =>
       List.unmodifiable(_requests);
 
   // ============================================================
@@ -95,7 +98,8 @@ class InstaWalkService {
       return true;
     }
 
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     if (user == null) {
       debugPrint(
@@ -127,7 +131,8 @@ class InstaWalkService {
       // ========================================================
 
       final Position? position =
-          await _locationService.getCurrentLocation();
+          await _locationService
+              .getCurrentLocation();
 
       if (position == null) {
         debugPrint(
@@ -140,7 +145,8 @@ class InstaWalkService {
 
       debugPrint(
         'INSTA WALK: Walker location '
-        '${position.latitude}, ${position.longitude}',
+        '${position.latitude}, '
+        '${position.longitude}',
       );
 
       // ========================================================
@@ -199,7 +205,7 @@ class InstaWalkService {
           .collection('users')
           .doc(user.uid)
           .set(
-        {
+        <String, dynamic>{
           'walkerId': walkerId,
           'walkerUid': user.uid,
           'instaWalkSearching': true,
@@ -253,7 +259,8 @@ class InstaWalkService {
 
       debugPrint(
         'INSTA WALK: SEARCH STARTED '
-        'radius=${WalksConstants.searchRadiusKm}km',
+        'radius='
+        '${WalksConstants.searchRadiusKm}km',
       );
 
       return true;
@@ -291,8 +298,8 @@ class InstaWalkService {
     }
 
     try {
-      final DocumentSnapshot<Map<String, dynamic>>
-          snapshot =
+      final DocumentSnapshot<
+          Map<String, dynamic>> snapshot =
           await _firestore
               .collection('users')
               .doc(user.uid)
@@ -333,7 +340,9 @@ class InstaWalkService {
       }
 
       if (expiresAt == null ||
-          !expiresAt.isAfter(DateTime.now())) {
+          !expiresAt.isAfter(
+            DateTime.now(),
+          )) {
         debugPrint(
           'INSTA WALK RESTORE: Search expired.',
         );
@@ -366,7 +375,8 @@ class InstaWalkService {
         if (loadedWalkerId == null ||
             loadedWalkerId.trim().isEmpty) {
           debugPrint(
-            'INSTA WALK RESTORE: Walker ID missing.',
+            'INSTA WALK RESTORE: '
+            'Walker ID missing.',
           );
 
           await stopSearch();
@@ -415,7 +425,8 @@ class InstaWalkService {
         },
         onError: (Object error) {
           debugPrint(
-            'INSTA WALK RESTORE LOCATION ERROR: $error',
+            'INSTA WALK RESTORE LOCATION ERROR: '
+            '$error',
           );
         },
       );
@@ -474,17 +485,22 @@ class InstaWalkService {
             )
             .snapshots()
             .listen(
-      (QuerySnapshot<Map<String, dynamic>> snapshot) {
+      (
+        QuerySnapshot<Map<String, dynamic>>
+            snapshot,
+      ) {
         debugPrint(
           'INSTA WALK: Firestore returned '
-          '${snapshot.docs.length} searching request(s).',
+          '${snapshot.docs.length} '
+          'searching request(s).',
         );
 
         _handleRequests(snapshot);
       },
       onError: (Object error) {
         debugPrint(
-          'INSTA WALK REQUEST LISTENER ERROR: $error',
+          'INSTA WALK REQUEST LISTENER ERROR: '
+          '$error',
         );
       },
     );
@@ -495,17 +511,19 @@ class InstaWalkService {
   // ============================================================
 
   void _handleRequests(
-    QuerySnapshot<Map<String, dynamic>> snapshot,
+    QuerySnapshot<Map<String, dynamic>>
+        snapshot,
   ) {
     if (!_searching) {
       debugPrint(
-        'INSTA WALK: Request received but search is OFF.',
+        'INSTA WALK: Request received '
+        'but search is OFF.',
       );
       return;
     }
 
-    final List<WalkRequest> incoming =
-        <WalkRequest>[];
+    final List<InstaWalkRequest> incoming =
+        <InstaWalkRequest>[];
 
     final Position? position =
         _currentPosition;
@@ -514,8 +532,9 @@ class InstaWalkService {
     // READ REQUESTS
     // ==========================================================
 
-    for (final QueryDocumentSnapshot<Map<String, dynamic>>
-        document in snapshot.docs) {
+    for (final QueryDocumentSnapshot<
+            Map<String, dynamic>> document
+        in snapshot.docs) {
       final Map<String, dynamic> data =
           document.data();
 
@@ -523,14 +542,21 @@ class InstaWalkService {
         'INSTA WALK REQUEST FOUND: '
         '${document.id} '
         'status=${data['status']} '
-        'pickupLat=${data['pickupLat'] ?? data['pickuplatitude']} '
-        'pickupLng=${data['pickupLng'] ?? data['pickuplongitude']} '
-        'distance=${data['distanceKm'] ?? data['distance']}',
+        'pickupLat='
+        '${data['pickupLat'] ?? data['pickuplatitude']} '
+        'pickupLng='
+        '${data['pickupLng'] ?? data['pickuplongitude']} '
+        'distance='
+        '${data['distanceKm'] ?? data['distance']}',
       );
 
       try {
-        final WalkRequest request =
-            WalkRequest.fromFirestore(
+        // ======================================================
+        // USE EXISTING INSTA WALK MODEL
+        // ======================================================
+
+        final InstaWalkRequest request =
+            InstaWalkRequest.fromFirestore(
           document,
         );
 
@@ -581,8 +607,9 @@ class InstaWalkService {
         if (distance >
             WalksConstants.searchRadiusKm) {
           debugPrint(
-            'INSTA WALK: Request ${document.id} '
-            'REJECTED - outside '
+            'INSTA WALK: Request '
+            '${document.id} REJECTED - '
+            'outside '
             '${WalksConstants.searchRadiusKm} km.',
           );
 
@@ -593,7 +620,7 @@ class InstaWalkService {
         // UPDATE DISTANCE
         // ======================================================
 
-        final WalkRequest updatedRequest =
+        final InstaWalkRequest updatedRequest =
             request.copyWith(
           distanceKm: distance,
         );
@@ -603,8 +630,9 @@ class InstaWalkService {
         );
 
         debugPrint(
-          'INSTA WALK: Request ${document.id} '
-          'ADDED to Walker list.',
+          'INSTA WALK: Request '
+          '${document.id} ADDED '
+          'to Walker list.',
         );
       } catch (e, stackTrace) {
         debugPrint(
@@ -623,7 +651,10 @@ class InstaWalkService {
     // ==========================================================
 
     incoming.sort(
-      (WalkRequest a, WalkRequest b) {
+      (
+        InstaWalkRequest a,
+        InstaWalkRequest b,
+      ) {
         return a.distanceKm.compareTo(
           b.distanceKm,
         );
@@ -637,7 +668,7 @@ class InstaWalkService {
     final Set<String> incomingIds =
         incoming
             .map(
-              (WalkRequest request) =>
+              (InstaWalkRequest request) =>
                   request.id,
             )
             .toSet();
@@ -646,11 +677,11 @@ class InstaWalkService {
     // NEW REQUEST SOUND
     // ==========================================================
 
-    for (final WalkRequest request
+    for (final InstaWalkRequest request
         in incoming) {
       final bool alreadyExists =
           _requests.any(
-        (WalkRequest oldRequest) =>
+        (InstaWalkRequest oldRequest) =>
             oldRequest.id == request.id,
       );
 
@@ -669,8 +700,10 @@ class InstaWalkService {
     // REMOVED REQUEST SOUND
     // ==========================================================
 
-    for (final WalkRequest oldRequest
-        in List<WalkRequest>.from(_requests)) {
+    for (final InstaWalkRequest oldRequest
+        in List<InstaWalkRequest>.from(
+      _requests,
+    )) {
       if (!incomingIds.contains(
         oldRequest.id,
       )) {
@@ -715,16 +748,14 @@ class InstaWalkService {
       return;
     }
 
-    final List<WalkRequest>
+    final List<InstaWalkRequest>
         updatedRequests =
-        <WalkRequest>[];
+        <InstaWalkRequest>[];
 
-    for (final WalkRequest request
+    for (final InstaWalkRequest request
         in _requests) {
       // --------------------------------------------------------
       // No coordinates.
-      //
-      // Keep request using its Firestore distance.
       // --------------------------------------------------------
 
       if (!request.hasPickupLocation) {
@@ -777,7 +808,10 @@ class InstaWalkService {
     // ==========================================================
 
     updatedRequests.sort(
-      (WalkRequest a, WalkRequest b) {
+      (
+        InstaWalkRequest a,
+        InstaWalkRequest b,
+      ) {
         return a.distanceKm.compareTo(
           b.distanceKm,
         );
@@ -862,7 +896,7 @@ class InstaWalkService {
             .collection('users')
             .doc(user.uid)
             .set(
-          {
+          <String, dynamic>{
             'instaWalkSearching': false,
             'instaWalkSearchUpdatedAt':
                 FieldValue.serverTimestamp(),
@@ -1012,7 +1046,8 @@ class InstaWalkService {
           _walkerId = id;
 
           debugPrint(
-            'INSTA WALK: Walker ID from users = $id',
+            'INSTA WALK: Walker ID from '
+            'users = $id',
           );
 
           return id;
@@ -1053,9 +1088,6 @@ class InstaWalkService {
   //
   // IMPORTANT:
   // This DOES NOT change Firestore instaWalkSearching.
-  //
-  // Therefore a screen/service cleanup cannot accidentally
-  // write false to Firestore.
   // ============================================================
 
   Future<void> _clearLocalState() async {
@@ -1087,7 +1119,7 @@ class InstaWalkService {
   // IMPORTANT:
   // Do NOT call stopSearch() here.
   //
-  // This means screen navigation/dispose will NOT write
+  // Screen navigation/dispose will NOT write
   // instaWalkSearching=false to Firestore.
   // ============================================================
 
