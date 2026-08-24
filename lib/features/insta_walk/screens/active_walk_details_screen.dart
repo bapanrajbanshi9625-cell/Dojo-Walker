@@ -9,11 +9,11 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../walks/models/walk_request.dart';
-import '../../walks/services/walk_request_service.dart';
+import '../models/insta_walk_request.dart';
+import '../services/insta_walk_service.dart';
 
 class ActiveWalkDetailsScreen extends StatefulWidget {
-  final WalkRequest request;
+  final InstaWalkRequest request;
   final VoidCallback? onReached;
 
   const ActiveWalkDetailsScreen({
@@ -33,8 +33,8 @@ class _ActiveWalkDetailsScreenState
   // SERVICE
   // ============================================================
 
-  final WalkRequestService _walkService =
-      WalkRequestService.instance;
+  final InstaWalkService _instaWalkService =
+      InstaWalkService.instance;
 
   // ============================================================
   // COLORS
@@ -62,10 +62,14 @@ class _ActiveWalkDetailsScreenState
   int _elapsedSeconds = 0;
   int _steps = 0;
 
-  String _liveStatus = 'active';
+  String _liveStatus = 'accepted';
 
-  StreamSubscription<dynamic>? _activeWalkSubscription;
-  StreamSubscription<dynamic>? _liveSessionSubscription;
+  // ============================================================
+  // SUBSCRIPTIONS
+  // ============================================================
+
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _walkSubscription;
 
   // ============================================================
   // UI STATE
@@ -86,267 +90,264 @@ class _ActiveWalkDetailsScreenState
   void initState() {
     super.initState();
 
-    _loadInitialLocations();
+    _loadInitialData();
 
     _sheetController.addListener(_onSheetChanged);
 
-    _listenToActiveWalk();
-    _listenToLiveSession();
+    _listenToWalk();
   }
 
   // ============================================================
-  // INITIAL LOCATIONS
+  // INITIAL DATA
   // ============================================================
 
-  void _loadInitialLocations() {
-    final WalkRequest request = widget.request;
+  void _loadInitialData() {
+    final InstaWalkRequest request = widget.request;
 
-    if (request.hasCurrentLocation) {
-      _walkerLocation = LatLng(
-        request.currentLat,
-        request.currentLng,
-      );
-    }
+    // ----------------------------------------------------------
+    // PICKUP LOCATION
+    // ----------------------------------------------------------
 
-    if (request.hasPickupLocation) {
+    if (_validCoordinate(
+      request.latitude ?? 0.0,
+      request.longitude ?? 0.0,
+    )) {
       _pickupLocation = LatLng(
-        request.pickupLat,
-        request.pickupLng,
+        request.latitude!,
+        request.longitude!,
       );
     }
 
-    if (request.hasDestinationLocation) {
-      _destinationLocation = LatLng(
-        request.destinationLat,
-        request.destinationLng,
-      );
-    }
+    // ----------------------------------------------------------
+    // DISTANCE
+    // ----------------------------------------------------------
 
     _distanceKm = request.distanceKm;
+
+    // ----------------------------------------------------------
+    // STATUS
+    // ----------------------------------------------------------
+
+    if (request.status.trim().isNotEmpty) {
+      _liveStatus = request.status.trim();
+    }
   }
 
   // ============================================================
-  // ACTIVE WALK REALTIME
+  // LIVE WALK REQUEST
+  //
+  // walk_requests/{id}
   // ============================================================
 
-  void _listenToActiveWalk() {
-    final String walkId = _resolveWalkId();
+  void _listenToWalk() {
+    final String walkId = widget.request.id.trim();
 
     if (walkId.isEmpty) {
       return;
     }
 
-    _activeWalkSubscription =
-        _walkService.activeWalkStream(walkId).listen(
-      (snapshot) {
+    _walkSubscription =
+        _instaWalkService.watchWalk(walkId).listen(
+      (
+        DocumentSnapshot<Map<String, dynamic>> snapshot,
+      ) {
         if (!mounted || !snapshot.exists) {
           return;
         }
 
-        final Map<String, dynamic>? data = snapshot.data();
+        final Map<String, dynamic>? data =
+            snapshot.data();
 
         if (data == null) {
           return;
         }
 
-        _applyActiveWalkData(data);
+        _applyLiveData(data);
       },
       onError: (Object error) {
         debugPrint(
-          'Active walk stream error: $error',
+          'Insta Walk stream error: $error',
         );
       },
     );
   }
 
   // ============================================================
-  // LIVE SESSION REALTIME
+  // APPLY LIVE DATA
   // ============================================================
 
-  void _listenToLiveSession() {
-    final String sessionId = _resolveSessionId();
-
-    if (sessionId.isEmpty) {
-      return;
-    }
-
-    _liveSessionSubscription =
-        _walkService.liveWalkSessionStream(sessionId).listen(
-      (snapshot) {
-        if (!mounted || !snapshot.exists) {
-          return;
-        }
-
-        final Map<String, dynamic>? data = snapshot.data();
-
-        if (data == null) {
-          return;
-        }
-
-        _applyLiveSessionData(data);
-      },
-      onError: (Object error) {
-        debugPrint(
-          'Live session stream error: $error',
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // ACTIVE WALK DATA
-  // ============================================================
-
-  void _applyActiveWalkData(
+  void _applyLiveData(
     Map<String, dynamic> data,
   ) {
-    final double latitude =
-        _readDouble(data['currentLat']);
-
-    final double longitude =
-        _readDouble(data['currentLng']);
-
-    if (_validCoordinate(latitude, longitude)) {
-      final LatLng newLocation =
-          LatLng(latitude, longitude);
-
-      if (mounted) {
-        setState(() {
-          _walkerLocation = newLocation;
-        });
-      }
-    }
-
-    final double distance =
-        _readDouble(data['distanceKm']);
-
-    final int elapsed =
-        _readInt(data['elapsedSeconds']);
-
-    final int steps =
-        _readInt(data['steps']);
+    // ----------------------------------------------------------
+    // STATUS
+    // ----------------------------------------------------------
 
     final String status =
         _readString(data['status']);
 
-    if (!mounted) {
-      return;
+    // ----------------------------------------------------------
+    // DISTANCE
+    // ----------------------------------------------------------
+
+    final double distance =
+        _readDouble(data['distanceKm']);
+
+    // ----------------------------------------------------------
+    // ELAPSED
+    // ----------------------------------------------------------
+
+    final int elapsed =
+        _readInt(data['elapsedSeconds']);
+
+    // ----------------------------------------------------------
+    // STEPS
+    // ----------------------------------------------------------
+
+    final int steps =
+        _readInt(data['steps']);
+
+    // ----------------------------------------------------------
+    // PICKUP LOCATION
+    // ----------------------------------------------------------
+
+    final double pickupLat = _readDouble(
+      data['latitude'] ??
+          data['lat'] ??
+          data['pickupLatitude'],
+    );
+
+    final double pickupLng = _readDouble(
+      data['longitude'] ??
+          data['lng'] ??
+          data['pickupLongitude'],
+    );
+
+    // ----------------------------------------------------------
+    // DESTINATION LOCATION
+    // ----------------------------------------------------------
+
+    LatLng? destination;
+
+    final Map<String, dynamic>? destinationMap =
+        _readMap(data['destinationLocation']);
+
+    if (destinationMap != null) {
+      final double lat = _readDouble(
+        destinationMap['lat'] ??
+            destinationMap['latitude'],
+      );
+
+      final double lng = _readDouble(
+        destinationMap['lng'] ??
+            destinationMap['longitude'],
+      );
+
+      if (_validCoordinate(lat, lng)) {
+        destination = LatLng(lat, lng);
+      }
+    } else {
+      final double lat = _readDouble(
+        data['destinationLatitude'] ??
+            data['destinationLat'],
+      );
+
+      final double lng = _readDouble(
+        data['destinationLongitude'] ??
+            data['destinationLng'],
+      );
+
+      if (_validCoordinate(lat, lng)) {
+        destination = LatLng(lat, lng);
+      }
     }
 
-    setState(() {
-      if (distance > 0) {
-        _distanceKm = distance;
-      }
+    // ----------------------------------------------------------
+    // CURRENT / WALKER LOCATION
+    // ----------------------------------------------------------
 
-      _elapsedSeconds = elapsed;
-      _steps = steps;
+    LatLng? walker;
 
-      if (status.isNotEmpty) {
-        _liveStatus = status;
-      }
-    });
-  }
-
-  // ============================================================
-  // LIVE SESSION DATA
-  // ============================================================
-
-  void _applyLiveSessionData(
-    Map<String, dynamic> data,
-  ) {
-    final Map<String, dynamic>? location =
+    final Map<String, dynamic>? currentLocation =
         _readMap(data['currentLocation']);
 
-    if (location != null) {
-      final double latitude = _readDouble(
-        location['lat'] ?? location['latitude'],
+    if (currentLocation != null) {
+      final double lat = _readDouble(
+        currentLocation['lat'] ??
+            currentLocation['latitude'],
       );
 
-      final double longitude = _readDouble(
-        location['lng'] ?? location['longitude'],
+      final double lng = _readDouble(
+        currentLocation['lng'] ??
+            currentLocation['longitude'],
       );
 
-      if (_validCoordinate(latitude, longitude)) {
-        final LatLng newLocation =
-            LatLng(latitude, longitude);
-
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          _walkerLocation = newLocation;
-        });
+      if (_validCoordinate(lat, lng)) {
+        walker = LatLng(lat, lng);
       }
     }
 
-    final double distance =
-        _readDouble(data['distanceKm']);
+    if (walker == null) {
+      final double lat = _readDouble(
+        data['currentLat'] ??
+            data['walkerLat'] ??
+            data['liveLatitude'],
+      );
 
-    final int elapsed =
-        _readInt(data['elapsedSeconds']);
+      final double lng = _readDouble(
+        data['currentLng'] ??
+            data['walkerLng'] ??
+            data['liveLongitude'],
+      );
 
-    final int steps =
-        _readInt(data['steps']);
+      if (_validCoordinate(lat, lng)) {
+        walker = LatLng(lat, lng);
+      }
+    }
 
-    final String status =
-        _readString(data['status']);
+    // ----------------------------------------------------------
+    // UPDATE UI
+    // ----------------------------------------------------------
 
     if (!mounted) {
       return;
     }
 
     setState(() {
+      if (walker != null) {
+        _walkerLocation = walker;
+      }
+
+      if (_validCoordinate(
+        pickupLat,
+        pickupLng,
+      )) {
+        _pickupLocation = LatLng(
+          pickupLat,
+          pickupLng,
+        );
+      }
+
+      if (destination != null) {
+        _destinationLocation = destination;
+      }
+
       if (distance > 0) {
         _distanceKm = distance;
       }
 
-      _elapsedSeconds = elapsed;
-      _steps = steps;
+      if (elapsed >= 0) {
+        _elapsedSeconds = elapsed;
+      }
+
+      if (steps >= 0) {
+        _steps = steps;
+      }
 
       if (status.isNotEmpty) {
         _liveStatus = status;
       }
     });
-  }
-
-  // ============================================================
-  // WALK ID
-  // ============================================================
-
-  String _resolveWalkId() {
-    final String walkId =
-        widget.request.walkId.trim();
-
-    if (walkId.isNotEmpty) {
-      return walkId;
-    }
-
-    final String qrWalkId =
-        widget.request.qrWalkId.trim();
-
-    return qrWalkId;
-  }
-
-  // ============================================================
-  // SESSION ID
-  // ============================================================
-
-  String _resolveSessionId() {
-    final String sessionId =
-        widget.request.liveWalkSessionId.trim();
-
-    if (sessionId.isNotEmpty) {
-      return sessionId;
-    }
-
-    final String walkId = _resolveWalkId();
-
-    if (walkId.isEmpty) {
-      return '';
-    }
-
-    return 'session-$walkId';
   }
 
   // ============================================================
@@ -417,8 +418,11 @@ class _ActiveWalkDetailsScreenState
   // ============================================================
 
   Widget _buildTopBar() {
+    final String status =
+        _liveStatus.trim().toLowerCase();
+
     final bool isActive =
-        _liveStatus.toLowerCase() == 'active';
+        status == 'active';
 
     return SafeArea(
       child: Padding(
@@ -465,7 +469,9 @@ class _ActiveWalkDetailsScreenState
                   Text(
                     isActive
                         ? 'LIVE WALK'
-                        : _liveStatus.toUpperCase(),
+                        : status.isEmpty
+                            ? 'INSTA WALK'
+                            : status.toUpperCase(),
                     style: const TextStyle(
                       color: AppColors.secondary,
                       fontSize: 11,
@@ -798,7 +804,7 @@ class _ActiveWalkDetailsScreenState
                     CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'ACTIVE WALK',
+                    'ACTIVE INSTA WALK',
                     style: TextStyle(
                       color: AppColors.secondary,
                       fontSize: 11,
@@ -1093,8 +1099,7 @@ class _ActiveWalkDetailsScreenState
                   style: const TextStyle(
                     color: AppColors.secondary,
                     fontSize: 9,
-                    fontWeight:
-                        FontWeight.w800,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -1584,20 +1589,20 @@ class _ActiveWalkDetailsScreenState
     final String value =
         widget.request.pickupAddress.trim();
 
-    return value.isEmpty
-        ? 'Pickup address not available'
-        : value;
-  }
-
-  String get _destinationText {
-    final String value =
-        widget.request.destinationAddress.trim();
-
     if (value.isNotEmpty) {
       return value;
     }
 
-    if (widget.request.hasDestinationLocation) {
+    final String address =
+        widget.request.address.trim();
+
+    return address.isEmpty
+        ? 'Pickup address not available'
+        : address;
+  }
+
+  String get _destinationText {
+    if (_destinationLocation != null) {
       return 'Destination location';
     }
 
@@ -1630,16 +1635,27 @@ class _ActiveWalkDetailsScreenState
       return 'Completed';
     }
 
+    if (status == 'cancelled') {
+      return 'Cancelled';
+    }
+
+    if (status == 'rejected') {
+      return 'Rejected';
+    }
+
+    if (status == 'searching') {
+      return 'Searching';
+    }
+
+    if (status == 'accepted') {
+      return 'Accepted';
+    }
+
     return 'Active';
   }
 
   String get _ownerNoteText {
-    final String value =
-        widget.request.ownerNote.trim();
-
-    return value.isEmpty
-        ? 'No additional note provided by owner.'
-        : value;
+    return 'No additional note provided by owner.';
   }
 
   // ============================================================
@@ -1779,8 +1795,7 @@ class _ActiveWalkDetailsScreenState
 
   @override
   void dispose() {
-    _activeWalkSubscription?.cancel();
-    _liveSessionSubscription?.cancel();
+    _walkSubscription?.cancel();
 
     _sheetController.removeListener(
       _onSheetChanged,
