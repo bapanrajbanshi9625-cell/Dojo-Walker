@@ -33,13 +33,11 @@ class LiveWalkScreen extends StatefulWidget {
   final String? sessionId;
 
   @override
-  State<LiveWalkScreen> createState() =>
-      _LiveWalkScreenState();
+  State<LiveWalkScreen> createState() => _LiveWalkScreenState();
 }
 
 class _LiveWalkScreenState extends State<LiveWalkScreen> {
-  final WalkRequestService _service =
-      WalkRequestService.instance;
+  final WalkRequestService _service = WalkRequestService.instance;
 
   final WalkerLocationService _locationService =
       WalkerLocationService.instance;
@@ -83,8 +81,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         .doc(sessionId);
   }
 
-  Stream<DocumentSnapshot<Map<String, dynamic>>>
-      get _sessionStream {
+  Stream<DocumentSnapshot<Map<String, dynamic>>> get _sessionStream {
     return _sessionRef.snapshots();
   }
 
@@ -147,8 +144,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         final DocumentSnapshot<Map<String, dynamic>> snapshot =
             await _sessionRef.get();
 
-        final Map<String, dynamic>? data =
-            snapshot.data();
+        final Map<String, dynamic>? data = snapshot.data();
 
         if (data != null) {
           _loadExistingRoute(data);
@@ -160,27 +156,21 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             initialDistance = distance;
           }
 
-          initialSteps =
-              _toInt(data['steps']) ?? 0;
+          initialSteps = _toInt(data['steps']) ?? 0;
 
-          initialPee =
-              _toInt(data['peeCount']) ?? 0;
+          initialPee = _toInt(data['peeCount']) ?? 0;
 
-          initialPoop =
-              _toInt(data['poopCount']) ?? 0;
+          initialPoop = _toInt(data['poopCount']) ?? 0;
 
-          final dynamic startedAt =
-              data['startedAt'];
+          final dynamic startedAt = data['startedAt'];
 
           if (startedAt is Timestamp) {
-            initialStartedAt =
-                startedAt.toDate();
+            initialStartedAt = startedAt.toDate();
           } else if (startedAt is DateTime) {
             initialStartedAt = startedAt;
           }
 
-          final dynamic rawRoute =
-              data['routeCoordinates'];
+          final dynamic rawRoute = data['routeCoordinates'];
 
           if (rawRoute is List) {
             for (final dynamic item in rawRoute) {
@@ -319,16 +309,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           continue;
         }
 
-        final double? latitude =
-            _toDouble(
-          item['lat'] ??
-              item['latitude'],
+        final double? latitude = _toDouble(
+          item['lat'] ?? item['latitude'],
         );
 
-        final double? longitude =
-            _toDouble(
-          item['lng'] ??
-              item['longitude'],
+        final double? longitude = _toDouble(
+          item['lng'] ?? item['longitude'],
         );
 
         if (latitude == null ||
@@ -455,21 +441,21 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         BuildContext dialogContext,
       ) {
         return AlertDialog(
-          backgroundColor: AppColors.card,
+          backgroundColor: AppColors.cardBackground,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
           title: const Text(
             'End Walk?',
             style: TextStyle(
-              color: AppColors.navy,
+              color: AppColors.secondary,
               fontWeight: FontWeight.w900,
             ),
           ),
           content: const Text(
             'Are you sure you want to end this walk?',
             style: TextStyle(
-              color: AppColors.grey,
+              color: Colors.grey,
               height: 1.4,
             ),
           ),
@@ -483,7 +469,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               child: const Text(
                 'Keep Walking',
                 style: TextStyle(
-                  color: AppColors.navy,
+                  color: AppColors.secondary,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -500,7 +486,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.error,
-                foregroundColor: AppColors.white,
+                foregroundColor: Colors.white,
                 elevation: 0,
               ),
               child: const Text(
@@ -523,7 +509,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   void _openSupport() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.transparent,
+      backgroundColor: Colors.transparent,
       builder: (_) {
         return Container(
           padding: const EdgeInsets.fromLTRB(
@@ -533,7 +519,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             25,
           ),
           decoration: const BoxDecoration(
-            color: AppColors.card,
+            color: AppColors.cardBackground,
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(25),
             ),
@@ -560,7 +546,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 const Text(
                   'Walk Support',
                   style: TextStyle(
-                    color: AppColors.navy,
+                    color: AppColors.secondary,
                     fontSize: 19,
                     fontWeight: FontWeight.w900,
                   ),
@@ -570,7 +556,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                   'Need help during this walk?',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppColors.grey,
+                    color: Colors.grey,
                     fontSize: 12,
                   ),
                 ),
@@ -590,7 +576,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.white,
+                      foregroundColor: Colors.white,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -613,7 +599,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   void _openSos() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.transparent,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) {
         return const LiveWalkSosSheet();
@@ -710,7 +696,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         // ------------------------------------------------------
 
         return Scaffold(
-          backgroundColor: AppColors.card,
+          backgroundColor: AppColors.cardBackground,
           appBar: AppBar(
             backgroundColor: AppColors.primary,
             surfaceTintColor: AppColors.primary,
@@ -720,7 +706,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             title: const Text(
               'LIVE WALK',
               style: TextStyle(
-                color: AppColors.white,
+                color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.w900,
                 letterSpacing: .4,
@@ -732,7 +718,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 onPressed: _ending ? null : _openSos,
                 icon: const Icon(
                   Icons.sos_rounded,
-                  color: AppColors.white,
+                  color: Colors.white,
                   size: 27,
                 ),
               ),
@@ -743,7 +729,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                     : _openSupport,
                 icon: const Icon(
                   Icons.support_agent_rounded,
-                  color: AppColors.white,
+                  color: Colors.white,
                   size: 24,
                 ),
               ),
@@ -756,19 +742,16 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                   sessionData: data,
                 ),
               ),
-
               Positioned(
                 top: 14,
                 left: 16,
                 child: _liveBadge(),
               ),
-
               Positioned(
                 top: 14,
                 right: 16,
                 child: _gpsBadge(data),
               ),
-
               Align(
                 alignment: Alignment.bottomCenter,
                 child: LiveWalkBottomSheet(
@@ -799,7 +782,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         vertical: 7,
       ),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
           BoxShadow(
@@ -821,7 +804,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           Text(
             'LIVE',
             style: TextStyle(
-              color: AppColors.navy,
+              color: AppColors.secondary,
               fontSize: 10,
               fontWeight: FontWeight.w900,
             ),
@@ -869,7 +852,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         vertical: 7,
       ),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
           BoxShadow(
@@ -891,7 +874,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           Text(
             hasLocation ? 'GPS' : 'GPS...',
             style: const TextStyle(
-              color: AppColors.navy,
+              color: AppColors.secondary,
               fontSize: 9,
               fontWeight: FontWeight.w900,
             ),
@@ -917,7 +900,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.white,
+        foregroundColor: Colors.white,
         centerTitle: true,
         title: const Text(
           'WALK COMPLETED',
@@ -941,7 +924,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               const Text(
                 'Walk Completed',
                 style: TextStyle(
-                  color: AppColors.navy,
+                  color: AppColors.secondary,
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
                 ),
@@ -951,7 +934,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 'Distance: '
                 '${distance.toStringAsFixed(2)} km',
                 style: const TextStyle(
-                  color: AppColors.grey,
+                  color: Colors.grey,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
@@ -966,7 +949,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.white,
+                    foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
