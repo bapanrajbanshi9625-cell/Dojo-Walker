@@ -11,7 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../models/insta_walk_request.dart';
-import 'package:dojo_walker/services/insta_walk_service.dart';
+import '../services/insta_walk_service.dart';
 
 class ActiveWalkDetailsScreen extends StatefulWidget {
   final InstaWalkRequest request;
