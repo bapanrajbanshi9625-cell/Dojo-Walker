@@ -82,10 +82,6 @@ class QRService {
 
   /// ==========================================================
   /// GET CURRENT OWNER ID
-  ///
-  /// IMPORTANT:
-  /// Firebase UID is used internally to locate the owner
-  /// document, but QR only exposes ownerId.
   /// ==========================================================
 
   Future<String> getOwnerId() async {
@@ -240,13 +236,7 @@ class QRService {
     );
 
     /// --------------------------------------------------------
-    /// Store active QR connection.
-    ///
-    /// Firestore document:
-    ///
-    /// qr_connections/{Firebase owner UID}
-    ///
-    /// UID stays internal. It is NOT placed inside QR payload.
+    /// STORE ACTIVE QR CONNECTION
     /// --------------------------------------------------------
 
     await _firestore
@@ -361,10 +351,12 @@ class QRService {
   }
 
   /// ==========================================================
-  /// VALIDATE SCANNED QR
+  /// PARSE / VALIDATE QR PAYLOAD
+  ///
+  /// Main method used by QR scanner.
   /// ==========================================================
 
-  static QRData parseQR(String raw) {
+  static QRData dataFromPayload(String raw) {
     final String value = raw.trim();
 
     if (value.isEmpty) {
@@ -420,5 +412,16 @@ class QRService {
     }
 
     return QRData.fromMap(map);
+  }
+
+  /// ==========================================================
+  /// BACKWARD COMPATIBILITY
+  ///
+  /// Older code may still call QRService.parseQR().
+  /// Keep it working.
+  /// ==========================================================
+
+  static QRData parseQR(String raw) {
+    return dataFromPayload(raw);
   }
 }
