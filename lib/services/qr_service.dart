@@ -45,22 +45,17 @@ class QRData {
     return jsonEncode(toMap());
   }
 
-  factory QRData.fromMap(
-    Map<String, dynamic> map,
-  ) {
+  factory QRData.fromMap(Map<String, dynamic> map) {
+    final String ownerPhone =
+        (map['ownerPhone'] ?? '').toString().trim();
+
     return QRData(
       ownerId: (map['ownerId'] ?? '').toString().trim(),
-      ownerName:
-          (map['ownerName'] ?? 'Owner').toString().trim(),
+      ownerName: (map['ownerName'] ?? 'Owner').toString().trim(),
       walkId: (map['walkId'] ?? '').toString().trim(),
-      dogName:
-          (map['dogName'] ?? 'Dog').toString().trim(),
-      dogBreed:
-          (map['dogBreed'] ?? '').toString().trim(),
-      ownerPhone:
-          (map['ownerPhone'] ?? '').toString().trim().isEmpty
-              ? null
-              : map['ownerPhone'].toString().trim(),
+      dogName: (map['dogName'] ?? 'Dog').toString().trim(),
+      dogBreed: (map['dogBreed'] ?? '').toString().trim(),
+      ownerPhone: ownerPhone.isEmpty ? null : ownerPhone,
     );
   }
 }
@@ -88,47 +83,35 @@ class QRService {
     final User? user = _auth.currentUser;
 
     if (user == null) {
-      throw Exception(
-        'Owner is not logged in.',
-      );
+      throw Exception('Owner is not logged in.');
     }
 
     final String uid = user.uid.trim();
 
     if (uid.isEmpty) {
-      throw Exception(
-        'Owner account is invalid.',
-      );
+      throw Exception('Owner account is invalid.');
     }
 
     final DocumentSnapshot<Map<String, dynamic>> ownerDoc =
-        await _firestore
-            .collection('owners')
-            .doc(uid)
-            .get();
+        await _firestore.collection('owners').doc(uid).get();
 
     if (!ownerDoc.exists) {
-      throw Exception(
-        'Owner profile not found.',
-      );
+      throw Exception('Owner profile not found.');
     }
 
     final Map<String, dynamic> data =
         ownerDoc.data() ?? <String, dynamic>{};
 
-    final String ownerId =
-        (data['ownerId'] ??
-                data['businessId'] ??
-                data['Business ID'] ??
-                data['Owner ID'] ??
-                '')
-            .toString()
-            .trim();
+    final String ownerId = (
+      data['ownerId'] ??
+      data['businessId'] ??
+      data['Business ID'] ??
+      data['Owner ID'] ??
+      ''
+    ).toString().trim();
 
     if (ownerId.isEmpty) {
-      throw Exception(
-        'Owner ID is missing.',
-      );
+      throw Exception('Owner ID is missing.');
     }
 
     return ownerId;
@@ -154,90 +137,69 @@ class QRService {
     final User? user = _auth.currentUser;
 
     if (user == null) {
-      throw Exception(
-        'Owner is not logged in.',
-      );
+      throw Exception('Owner is not logged in.');
     }
 
     final String uid = user.uid.trim();
 
     if (uid.isEmpty) {
-      throw Exception(
-        'Owner account is invalid.',
-      );
+      throw Exception('Owner account is invalid.');
     }
 
     final DocumentSnapshot<Map<String, dynamic>> ownerDoc =
-        await _firestore
-            .collection('owners')
-            .doc(uid)
-            .get();
+        await _firestore.collection('owners').doc(uid).get();
 
     if (!ownerDoc.exists) {
-      throw Exception(
-        'Owner profile not found.',
-      );
+      throw Exception('Owner profile not found.');
     }
 
     final Map<String, dynamic> ownerData =
         ownerDoc.data() ?? <String, dynamic>{};
 
-    final String ownerId =
-        (ownerData['ownerId'] ??
-                ownerData['businessId'] ??
-                ownerData['Business ID'] ??
-                ownerData['Owner ID'] ??
-                '')
-            .toString()
-            .trim();
+    final String ownerId = (
+      ownerData['ownerId'] ??
+      ownerData['businessId'] ??
+      ownerData['Business ID'] ??
+      ownerData['Owner ID'] ??
+      ''
+    ).toString().trim();
 
     if (ownerId.isEmpty) {
-      throw Exception(
-        'Owner ID is missing.',
-      );
+      throw Exception('Owner ID is missing.');
     }
 
-    final String ownerName =
-        (ownerData['ownerName'] ??
-                ownerData['name'] ??
-                ownerData['Full Name'] ??
-                user.displayName ??
-                'Owner')
-            .toString()
-            .trim();
+    final String ownerName = (
+      ownerData['ownerName'] ??
+      ownerData['name'] ??
+      ownerData['Full Name'] ??
+      user.displayName ??
+      'Owner'
+    ).toString().trim();
 
-    final String ownerPhone =
-        (ownerData['ownerPhone'] ??
-                ownerData['phoneNumber'] ??
-                ownerData['Mobile number'] ??
-                user.phoneNumber ??
-                '')
-            .toString()
-            .trim();
+    final String ownerPhone = (
+      ownerData['ownerPhone'] ??
+      ownerData['phoneNumber'] ??
+      ownerData['Mobile number'] ??
+      user.phoneNumber ??
+      ''
+    ).toString().trim();
 
     final String cleanWalkId = walkId.trim();
 
     if (cleanWalkId.isEmpty) {
-      throw Exception(
-        'Walk ID is missing.',
-      );
+      throw Exception('Walk ID is missing.');
     }
 
     final QRData qrData = QRData(
       ownerId: ownerId,
-      ownerName:
-          ownerName.isEmpty ? 'Owner' : ownerName,
+      ownerName: ownerName.isEmpty ? 'Owner' : ownerName,
       walkId: cleanWalkId,
-      dogName:
-          dogName.trim().isEmpty ? 'Dog' : dogName.trim(),
+      dogName: dogName.trim().isEmpty
+          ? 'Dog'
+          : dogName.trim(),
       dogBreed: dogBreed.trim(),
-      ownerPhone:
-          ownerPhone.isEmpty ? null : ownerPhone,
+      ownerPhone: ownerPhone.isEmpty ? null : ownerPhone,
     );
-
-    /// --------------------------------------------------------
-    /// STORE ACTIVE QR CONNECTION
-    /// --------------------------------------------------------
 
     await _firestore
         .collection('qr_connections')
@@ -257,8 +219,7 @@ class QRService {
         'dogName': qrData.dogName,
         'dogBreed': qrData.dogBreed,
 
-        'ownerPhone':
-            qrData.ownerPhone ?? '',
+        'ownerPhone': qrData.ownerPhone ?? '',
 
         'scanned': false,
         'connected': false,
@@ -266,15 +227,10 @@ class QRService {
         'walkerId': null,
         'walkerName': null,
 
-        'createdAt':
-            FieldValue.serverTimestamp(),
-
-        'updatedAt':
-            FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       },
-      SetOptions(
-        merge: true,
-      ),
+      SetOptions(merge: true),
     );
 
     return qrData.encode();
@@ -323,9 +279,7 @@ class QRService {
     final User? user = _auth.currentUser;
 
     if (user == null) {
-      throw Exception(
-        'Owner is not logged in.',
-      );
+      throw Exception('Owner is not logged in.');
     }
 
     await _firestore
@@ -341,28 +295,27 @@ class QRService {
 
         'activeWalkId': null,
 
-        'updatedAt':
-            FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       },
-      SetOptions(
-        merge: true,
-      ),
+      SetOptions(merge: true),
     );
   }
 
   /// ==========================================================
-  /// PARSE / VALIDATE QR PAYLOAD
+  /// PARSE QR PAYLOAD
   ///
-  /// Main method used by QR scanner.
+  /// Supports both:
+  ///   QRService.parseQR(...)
+  ///   QRService.instance.dataFromPayload(...)
+  ///
+  /// This keeps old scanner code compatible.
   /// ==========================================================
 
-  static QRData dataFromPayload(String raw) {
+  static QRData parseQR(String raw) {
     final String value = raw.trim();
 
     if (value.isEmpty) {
-      throw Exception(
-        'QR code is empty.',
-      );
+      throw Exception('QR code is empty.');
     }
 
     dynamic decoded;
@@ -370,15 +323,11 @@ class QRService {
     try {
       decoded = jsonDecode(value);
     } catch (_) {
-      throw Exception(
-        'Invalid QR data.',
-      );
+      throw Exception('Invalid QR data.');
     }
 
     if (decoded is! Map) {
-      throw Exception(
-        'Invalid Owner QR Code.',
-      );
+      throw Exception('Invalid Owner QR Code.');
     }
 
     final Map<String, dynamic> map =
@@ -388,40 +337,33 @@ class QRService {
         (map['type'] ?? '').toString().trim();
 
     if (type != 'dojo_owner_qr') {
-      throw Exception(
-        'This is not a valid Owner QR Code.',
-      );
+      throw Exception('This is not a valid Owner QR Code.');
     }
 
     final String ownerId =
         (map['ownerId'] ?? '').toString().trim();
 
     if (ownerId.isEmpty) {
-      throw Exception(
-        'Owner ID is missing from QR.',
-      );
+      throw Exception('Owner ID is missing from QR.');
     }
 
     final String walkId =
         (map['walkId'] ?? '').toString().trim();
 
     if (walkId.isEmpty) {
-      throw Exception(
-        'Walk ID is missing from QR.',
-      );
+      throw Exception('Walk ID is missing from QR.');
     }
 
     return QRData.fromMap(map);
   }
 
   /// ==========================================================
-  /// BACKWARD COMPATIBILITY
+  /// DATA FROM PAYLOAD
   ///
-  /// Older code may still call QRService.parseQR().
-  /// Keep it working.
+  /// Used by qr_scanner_screen.dart
   /// ==========================================================
 
-  static QRData parseQR(String raw) {
-    return dataFromPayload(raw);
+  QRData dataFromPayload(String payload) {
+    return parseQR(payload);
   }
 }
