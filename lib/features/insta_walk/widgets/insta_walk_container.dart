@@ -1,9 +1,10 @@
 // File:
-// lib/features/walks/widgets/insta_walk_container.dart
+// lib/features/insta_walk/widgets/insta_walk_container.dart
 
 import 'package:flutter/material.dart';
 
-import '../../walks/models/walk_request.dart';
+import '../../../core/constants/app_colors.dart';
+import '../models/insta_walk_request.dart';
 import 'insta_walk_map_radar.dart';
 
 class InstaWalkContainer extends StatelessWidget {
@@ -34,7 +35,7 @@ class InstaWalkContainer extends StatelessWidget {
   // REQUESTS
   // ============================================================
 
-  final List<WalkRequest> requests;
+  final List<InstaWalkRequest> requests;
 
   // ============================================================
   // REQUEST LIST BUILDER
@@ -55,18 +56,6 @@ class InstaWalkContainer extends StatelessWidget {
     this.requestListBuilder,
   });
 
-  // ============================================================
-  // COLORS
-  // ============================================================
-
-  static const Color _orange = Color(0xFFFF6B35);
-  static const Color _orangeDark = Color(0xFFE94F25);
-
-  static const Color _navy = Color(0xFF101820);
-  static const Color _navyLight = Color(0xFF18232D);
-
-  static const Color _green = Color(0xFF62E6A7);
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -79,22 +68,22 @@ class InstaWalkContainer extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 18),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               colors: [
-                _navy,
-                _navyLight,
+                AppColors.textDark,
+                AppColors.primaryDark,
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(26),
             border: Border.all(
-              color: _orange.withOpacity(0.20),
+              color: AppColors.primary.withOpacity(0.20),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.14),
+                color: AppColors.overlay.withOpacity(0.14),
                 blurRadius: 22,
                 offset: const Offset(0, 9),
               ),
@@ -113,10 +102,10 @@ class InstaWalkContainer extends StatelessWidget {
                     width: 50,
                     height: 50,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         colors: [
-                          _orange,
-                          _orangeDark,
+                          AppColors.primary,
+                          AppColors.primaryDark,
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -124,39 +113,39 @@ class InstaWalkContainer extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: _orange.withOpacity(0.25),
+                          color: AppColors.primary.withOpacity(0.25),
                           blurRadius: 12,
                           offset: const Offset(0, 5),
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.pets_rounded,
-                      color: Colors.white,
+                      color: AppColors.iconOnPrimary,
                       size: 27,
                     ),
                   ),
 
                   const SizedBox(width: 12),
 
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Insta Walk',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.buttonText,
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.3,
                           ),
                         ),
-                        SizedBox(height: 3),
+                        const SizedBox(height: 3),
                         Text(
                           'Find a walk right now',
                           style: TextStyle(
-                            color: Color(0xFFB7C1C9),
+                            color: AppColors.textMuted,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -175,25 +164,25 @@ class InstaWalkContainer extends StatelessWidget {
                       vertical: 7,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.07),
+                      color: AppColors.surface.withOpacity(0.07),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.08),
+                        color: AppColors.border.withOpacity(0.08),
                       ),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           Icons.near_me_rounded,
-                          color: _orange,
+                          color: AppColors.primary,
                           size: 14,
                         ),
-                        SizedBox(width: 5),
+                        const SizedBox(width: 5),
                         Text(
                           '3.5 km',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.buttonText,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                           ),
@@ -215,26 +204,26 @@ class InstaWalkContainer extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.055),
+                    color: AppColors.surface.withOpacity(0.055),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.06),
+                      color: AppColors.border.withOpacity(0.06),
                     ),
                   ),
-                  child: const Row(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
                         Icons.location_searching_rounded,
-                        color: _orange,
+                        color: AppColors.primary,
                         size: 21,
                       ),
-                      SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'Search for available Insta Walk requests near your current location.',
                           style: TextStyle(
-                            color: Color(0xFFDCE3E8),
+                            color: AppColors.textMuted,
                             fontSize: 12.5,
                             height: 1.45,
                             fontWeight: FontWeight.w500,
@@ -261,10 +250,10 @@ class InstaWalkContainer extends StatelessWidget {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: _green.withOpacity(0.08),
+                    color: AppColors.success.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(13),
                     border: Border.all(
-                      color: _green.withOpacity(0.14),
+                      color: AppColors.success.withOpacity(0.14),
                     ),
                   ),
                   child: Row(
@@ -272,25 +261,25 @@ class InstaWalkContainer extends StatelessWidget {
                       Container(
                         width: 8,
                         height: 8,
-                        decoration: const BoxDecoration(
-                          color: _green,
+                        decoration: BoxDecoration(
+                          color: AppColors.success,
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'Searching around your current location',
                           style: TextStyle(
-                            color: Color(0xFFDDF8EC),
+                            color: AppColors.successSoft,
                             fontSize: 11.5,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.gps_fixed_rounded,
-                        color: _green,
+                        color: AppColors.success,
                         size: 16,
                       ),
                     ],
@@ -309,9 +298,9 @@ class InstaWalkContainer extends StatelessWidget {
                     width: double.infinity,
                     height: 220,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0B131A),
+                      color: AppColors.textDark,
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.06),
+                        color: AppColors.border.withOpacity(0.06),
                       ),
                     ),
                     child: Stack(
@@ -331,15 +320,15 @@ class InstaWalkContainer extends StatelessWidget {
                           width: 14,
                           height: 14,
                           decoration: BoxDecoration(
-                            color: _orange,
+                            color: AppColors.primary,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Colors.white,
+                              color: AppColors.iconOnPrimary,
                               width: 2,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: _orange.withOpacity(0.55),
+                                color: AppColors.primary.withOpacity(0.55),
                                 blurRadius: 14,
                                 spreadRadius: 3,
                               ),
@@ -371,25 +360,25 @@ class InstaWalkContainer extends StatelessWidget {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: _navy.withOpacity(0.88),
+                              color: AppColors.textDark.withOpacity(0.88),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.08),
+                                color: AppColors.border.withOpacity(0.08),
                               ),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
                                   Icons.radar_rounded,
-                                  color: _green,
+                                  color: AppColors.success,
                                   size: 14,
                                 ),
-                                SizedBox(width: 5),
+                                const SizedBox(width: 5),
                                 Text(
                                   '3.5 km',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: AppColors.buttonText,
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -412,22 +401,22 @@ class InstaWalkContainer extends StatelessWidget {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: _navy.withOpacity(0.88),
+                              color: AppColors.textDark.withOpacity(0.88),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
                                   Icons.my_location_rounded,
-                                  color: _orange,
+                                  color: AppColors.primary,
                                   size: 13,
                                 ),
-                                SizedBox(width: 5),
+                                const SizedBox(width: 5),
                                 Text(
                                   'Your location',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: AppColors.buttonText,
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -453,27 +442,27 @@ class InstaWalkContainer extends StatelessWidget {
                     vertical: 11,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.045),
+                    color: AppColors.surface.withOpacity(0.045),
                     borderRadius: BorderRadius.circular(13),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
                       SizedBox(
                         width: 9,
                         height: 9,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
-                            color: _green,
+                            color: AppColors.success,
                             shape: BoxShape.circle,
                           ),
                         ),
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Searching for nearby Insta Walk requests...',
                           style: TextStyle(
-                            color: Color(0xFFDCE3E8),
+                            color: AppColors.textMuted,
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
                           ),
@@ -496,17 +485,19 @@ class InstaWalkContainer extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: loading ? null : onSearchPressed,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        searching ? const Color(0xFF222C34) : _orange,
-                    disabledBackgroundColor:
-                        searching ? const Color(0xFF222C34) : _orangeDark,
+                    backgroundColor: searching
+                        ? AppColors.buttonSecondary
+                        : AppColors.buttonPrimary,
+                    disabledBackgroundColor: searching
+                        ? AppColors.buttonSecondary
+                        : AppColors.buttonPrimaryPressed,
                     elevation: 0,
                     padding: EdgeInsets.zero,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(15),
                       side: BorderSide(
                         color: searching
-                            ? Colors.white.withOpacity(0.08)
+                            ? AppColors.border.withOpacity(0.08)
                             : Colors.transparent,
                       ),
                     ),
@@ -519,22 +510,21 @@ class InstaWalkContainer extends StatelessWidget {
                       // ==================================================
 
                       if (loading) ...[
-                        const SizedBox(
+                        SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(
-                              Colors.white,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              AppColors.buttonText,
                             ),
                           ),
                         ),
                         const SizedBox(width: 9),
-                        const Text(
+                        Text(
                           'Searching...',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.buttonText,
                             fontWeight: FontWeight.w800,
                             fontSize: 13,
                           ),
@@ -550,8 +540,9 @@ class InstaWalkContainer extends StatelessWidget {
                           searching
                               ? Icons.stop_circle_outlined
                               : Icons.flash_on_rounded,
-                          color:
-                              searching ? _orange : Colors.white,
+                          color: searching
+                              ? AppColors.primary
+                              : AppColors.buttonText,
                           size: 21,
                         ),
                         const SizedBox(width: 8),
@@ -559,8 +550,8 @@ class InstaWalkContainer extends StatelessWidget {
                           searching
                               ? 'Stop Insta Walk Search'
                               : 'Start Insta Walk Search',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppColors.buttonText,
                             fontWeight: FontWeight.w800,
                             fontSize: 13,
                           ),
@@ -605,15 +596,15 @@ class _RadarDot extends StatelessWidget {
       width: 12,
       height: 12,
       decoration: BoxDecoration(
-        color: const Color(0xFF62E6A7),
+        color: AppColors.success,
         shape: BoxShape.circle,
         border: Border.all(
-          color: Colors.white,
+          color: AppColors.iconOnPrimary,
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF62E6A7).withOpacity(0.70),
+            color: AppColors.success.withOpacity(0.70),
             blurRadius: 12,
             spreadRadius: 4,
           ),
