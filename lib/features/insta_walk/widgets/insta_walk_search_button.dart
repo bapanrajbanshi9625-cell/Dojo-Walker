@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../constants/walks_constants.dart';
+import '../../walks/constants/walks_constants.dart';
 
 class InstaWalkSearchButton extends StatelessWidget {
   final bool loading;
