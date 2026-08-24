@@ -3,12 +3,14 @@
 
 import 'dart:convert';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../screens/qr_scanner_screen.dart
-import '../../../services/walk_request_service.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+import '../screens/qr_scanner_screen.dart';
+import 'walk_request_service.dart';
+
 
 /// ============================================================
 /// WALKER WALK SERVICE
