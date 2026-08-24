@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../models/insta_walk_request.dart';
 
 class InstaWalkRequestCard extends StatelessWidget {
@@ -17,24 +18,6 @@ class InstaWalkRequestCard extends StatelessWidget {
     this.onReject,
   });
 
-  // ============================================================
-  // COLORS
-  // ============================================================
-
-  static const Color dark = Color(0xFF263746);
-  static const Color muted = Color(0xFF7A8289);
-
-  static const Color orange = Color(0xFFFF6600);
-  static const Color orangeLight = Color(0xFFFFF1E8);
-
-  static const Color green = Color(0xFF16A34A);
-  static const Color greenLight = Color(0xFFEAF7EF);
-
-  static const Color red = Color(0xFFDC2626);
-  static const Color redLight = Color(0xFFFEF2F2);
-
-  static const Color blue = Color(0xFF238EAE);
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -42,14 +25,14 @@ class InstaWalkRequestCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardBackground,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: const Color(0xFFE1E8E4),
+          color: AppColors.border,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(.055),
+            color: AppColors.overlay.withOpacity(.055),
             blurRadius: 14,
             offset: const Offset(0, 5),
           ),
@@ -68,12 +51,12 @@ class InstaWalkRequestCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: orangeLight,
+                  color: AppColors.primary.withOpacity(.10),
                   borderRadius: BorderRadius.circular(13),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.pets_rounded,
-                  color: orange,
+                  color: AppColors.primary,
                   size: 23,
                 ),
               ),
@@ -85,10 +68,10 @@ class InstaWalkRequestCard extends StatelessWidget {
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'INSTA WALK REQUEST',
                       style: TextStyle(
-                        color: dark,
+                        color: AppColors.textDark,
                         fontSize: 11,
                         fontWeight: FontWeight.w900,
                         letterSpacing: .5,
@@ -101,8 +84,8 @@ class InstaWalkRequestCard extends StatelessWidget {
                       _title(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: muted,
+                      style: TextStyle(
+                        color: AppColors.textMuted,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
@@ -117,13 +100,13 @@ class InstaWalkRequestCard extends StatelessWidget {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: greenLight,
+                  color: AppColors.successSoft,
                   borderRadius: BorderRadius.circular(9),
                 ),
-                child: const Text(
+                child: Text(
                   'NEW',
                   style: TextStyle(
-                    color: green,
+                    color: AppColors.success,
                     fontSize: 8,
                     fontWeight: FontWeight.w900,
                   ),
@@ -145,14 +128,14 @@ class InstaWalkRequestCard extends StatelessWidget {
               vertical: 9,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFFF7FAF8),
+              color: AppColors.surfaceSoft,
               borderRadius: BorderRadius.circular(13),
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.location_on_rounded,
-                  color: green,
+                  color: AppColors.success,
                   size: 18,
                 ),
 
@@ -163,8 +146,8 @@ class InstaWalkRequestCard extends StatelessWidget {
                     _pickupAddress(),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: dark,
+                    style: TextStyle(
+                      color: AppColors.textDark,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),
@@ -216,19 +199,20 @@ class InstaWalkRequestCard extends StatelessWidget {
                   child: OutlinedButton(
                     onPressed: onReject,
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: red,
-                      side: const BorderSide(
-                        color: Color(0xFFFECACA),
+                      foregroundColor: AppColors.error,
+                      side: BorderSide(
+                        color: AppColors.error.withOpacity(.25),
                       ),
-                      backgroundColor: redLight,
+                      backgroundColor: AppColors.errorSoft,
                       shape: RoundedRectangleBorder(
                         borderRadius:
                             BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Reject',
                       style: TextStyle(
+                        color: AppColors.error,
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
@@ -246,26 +230,28 @@ class InstaWalkRequestCard extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: onAccept,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: orange,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.buttonPrimary,
+                      foregroundColor: AppColors.buttonText,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius:
                             BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment:
                           MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.check_circle_rounded,
+                          color: AppColors.buttonText,
                           size: 18,
                         ),
-                        SizedBox(width: 6),
+                        const SizedBox(width: 6),
                         Text(
                           'Accept Walk',
                           style: TextStyle(
+                            color: AppColors.buttonText,
                             fontSize: 12,
                             fontWeight: FontWeight.w900,
                           ),
@@ -287,11 +273,8 @@ class InstaWalkRequestCard extends StatelessWidget {
   // ============================================================
 
   String _title() {
-    final String owner =
-        request.ownerName.trim();
-
-    final String dog =
-        request.dogName.trim();
+    final String owner = request.ownerName.trim();
+    final String dog = request.dogName.trim();
 
     if (owner.isNotEmpty && dog.isNotEmpty) {
       return '$owner • $dog';
@@ -313,8 +296,7 @@ class InstaWalkRequestCard extends StatelessWidget {
   // ============================================================
 
   String _pickupAddress() {
-    final String address =
-        request.pickupAddress.trim();
+    final String address = request.pickupAddress.trim();
 
     if (address.isEmpty) {
       return 'Pickup location';
@@ -328,8 +310,7 @@ class InstaWalkRequestCard extends StatelessWidget {
   // ============================================================
 
   String _estimatedTime() {
-    final String value =
-        request.estimatedTime.trim();
+    final String value = request.estimatedTime.trim();
 
     if (value.isEmpty) {
       return '--';
@@ -353,17 +334,17 @@ class InstaWalkRequestCard extends StatelessWidget {
         vertical: 8,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F8F8),
+        color: AppColors.surfaceSoft,
         borderRadius: BorderRadius.circular(11),
         border: Border.all(
-          color: const Color(0xFFE5E8E8),
+          color: AppColors.border,
         ),
       ),
       child: Row(
         children: [
           Icon(
             icon,
-            color: blue,
+            color: AppColors.info,
             size: 16,
           ),
 
@@ -377,10 +358,9 @@ class InstaWalkRequestCard extends StatelessWidget {
                 Text(
                   value,
                   maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: dark,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.textDark,
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                   ),
@@ -388,8 +368,8 @@ class InstaWalkRequestCard extends StatelessWidget {
 
                 Text(
                   label,
-                  style: const TextStyle(
-                    color: muted,
+                  style: TextStyle(
+                    color: AppColors.textMuted,
                     fontSize: 7,
                   ),
                 ),
