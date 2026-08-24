@@ -1,9 +1,15 @@
+// File:
+// lib/screens/active_walk_details_screen.dart
+
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../features/walks/models/walk_request.dart';
+import '../services/walk_request_service.dart';
 
 class ActiveWalkDetailsScreen extends StatefulWidget {
   final WalkRequest request;
@@ -25,6 +31,13 @@ class ActiveWalkDetailsScreen extends StatefulWidget {
 class _ActiveWalkDetailsScreenState
     extends State<ActiveWalkDetailsScreen> {
   // ==========================================================================
+  // SERVICE
+  // ==========================================================================
+
+  final WalkRequestService _walkService =
+      WalkRequestService.instance;
+
+  // ==========================================================================
   // COLORS
   // ==========================================================================
 
@@ -44,11 +57,24 @@ class _ActiveWalkDetailsScreenState
   LatLng? _pickupLocation;
   LatLng? _destinationLocation;
 
-  bool _reached = false;
+  // ==========================================================================
+  // LIVE DATA
+  // ==========================================================================
+
+  double _distanceKm = 0.0;
+  int _elapsedSeconds = 0;
+  int _steps = 0;
+
+  String _liveStatus = 'active';
+
+  StreamSubscription<dynamic>? _activeWalkSubscription;
+  StreamSubscription<dynamic>? _liveSessionSubscription;
 
   // ==========================================================================
-  // BOTTOM SHEET
+  // UI STATE
   // ==========================================================================
+
+  bool _reached = false;
 
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
@@ -63,21 +89,20 @@ class _ActiveWalkDetailsScreenState
   void initState() {
     super.initState();
 
-    _loadLocations();
+    _loadInitialLocations();
 
     _sheetController.addListener(_onSheetChanged);
+
+    _listenToActiveWalk();
+    _listenToLiveSession();
   }
 
   // ==========================================================================
-  // LOAD REAL LOCATIONS
+  // INITIAL LOCATIONS
   // ==========================================================================
 
-  void _loadLocations() {
+  void _loadInitialLocations() {
     final WalkRequest request = widget.request;
-
-    // --------------------------------------------------------------------------
-    // WALKER CURRENT LOCATION
-    // --------------------------------------------------------------------------
 
     if (request.hasCurrentLocation) {
       _walkerLocation = LatLng(
@@ -86,10 +111,6 @@ class _ActiveWalkDetailsScreenState
       );
     }
 
-    // --------------------------------------------------------------------------
-    // PICKUP
-    // --------------------------------------------------------------------------
-
     if (request.hasPickupLocation) {
       _pickupLocation = LatLng(
         request.pickupLat,
@@ -97,16 +118,259 @@ class _ActiveWalkDetailsScreenState
       );
     }
 
-    // --------------------------------------------------------------------------
-    // DESTINATION
-    // --------------------------------------------------------------------------
-
     if (request.hasDestinationLocation) {
       _destinationLocation = LatLng(
         request.destinationLat,
         request.destinationLng,
       );
     }
+
+    _distanceKm = request.distanceKm;
+  }
+
+  // ==========================================================================
+  // ACTIVE WALK REALTIME
+  //
+  // active_walk/{walkId}
+  // ==========================================================================
+
+  void _listenToActiveWalk() {
+    final String walkId = _resolveWalkId();
+
+    if (walkId.isEmpty) {
+      return;
+    }
+
+    _activeWalkSubscription = _walkService
+        .activeWalkStream(walkId)
+        .listen(
+      (snapshot) {
+        if (!mounted || !snapshot.exists) {
+          return;
+        }
+
+        final Map<String, dynamic>? data =
+            snapshot.data();
+
+        if (data == null) {
+          return;
+        }
+
+        _applyActiveWalkData(data);
+      },
+      onError: (Object error) {
+        debugPrint(
+          'Active walk stream error: $error',
+        );
+      },
+    );
+  }
+
+  // ==========================================================================
+  // LIVE SESSION REALTIME
+  //
+  // liveWalkSessions/{sessionId}
+  // ==========================================================================
+
+  void _listenToLiveSession() {
+    final String sessionId = _resolveSessionId();
+
+    if (sessionId.isEmpty) {
+      return;
+    }
+
+    _liveSessionSubscription = _walkService
+        .liveWalkSessionStream(sessionId)
+        .listen(
+      (snapshot) {
+        if (!mounted || !snapshot.exists) {
+          return;
+        }
+
+        final Map<String, dynamic>? data =
+            snapshot.data();
+
+        if (data == null) {
+          return;
+        }
+
+        _applyLiveSessionData(data);
+      },
+      onError: (Object error) {
+        debugPrint(
+          'Live session stream error: $error',
+        );
+      },
+    );
+  }
+
+  // ==========================================================================
+  // ACTIVE WALK DATA
+  // ==========================================================================
+
+  void _applyActiveWalkData(
+    Map<String, dynamic> data,
+  ) {
+    final double latitude = _readDouble(
+      data['currentLat'],
+    );
+
+    final double longitude = _readDouble(
+      data['currentLng'],
+    );
+
+    if (_validCoordinate(latitude, longitude)) {
+      final LatLng newLocation = LatLng(
+        latitude,
+        longitude,
+      );
+
+      if (mounted) {
+        setState(() {
+          _walkerLocation = newLocation;
+        });
+      }
+    }
+
+    final double distance =
+        _readDouble(data['distanceKm']);
+
+    final int elapsed =
+        _readInt(data['elapsedSeconds']);
+
+    final int steps =
+        _readInt(data['steps']);
+
+    final String status =
+        _readString(data['status']);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      if (distance > 0) {
+        _distanceKm = distance;
+      }
+
+      if (elapsed >= 0) {
+        _elapsedSeconds = elapsed;
+      }
+
+      if (steps >= 0) {
+        _steps = steps;
+      }
+
+      if (status.isNotEmpty) {
+        _liveStatus = status;
+      }
+    });
+  }
+
+  // ==========================================================================
+  // LIVE SESSION DATA
+  // ==========================================================================
+
+  void _applyLiveSessionData(
+    Map<String, dynamic> data,
+  ) {
+    final Map<String, dynamic>? location =
+        _readMap(data['currentLocation']);
+
+    if (location != null) {
+      final double latitude = _readDouble(
+        location['lat'] ??
+            location['latitude'],
+      );
+
+      final double longitude = _readDouble(
+        location['lng'] ??
+            location['longitude'],
+      );
+
+      if (_validCoordinate(latitude, longitude)) {
+        final LatLng newLocation = LatLng(
+          latitude,
+          longitude,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _walkerLocation = newLocation;
+        });
+      }
+    }
+
+    final double distance =
+        _readDouble(data['distanceKm']);
+
+    final int elapsed =
+        _readInt(data['elapsedSeconds']);
+
+    final int steps =
+        _readInt(data['steps']);
+
+    final String status =
+        _readString(data['status']);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      if (distance > 0) {
+        _distanceKm = distance;
+      }
+
+      _elapsedSeconds = elapsed;
+      _steps = steps;
+
+      if (status.isNotEmpty) {
+        _liveStatus = status;
+      }
+    });
+  }
+
+  // ==========================================================================
+  // RESOLVE WALK ID
+  // ==========================================================================
+
+  String _resolveWalkId() {
+    final String walkId =
+        widget.request.walkId.trim();
+
+    if (walkId.isNotEmpty) {
+      return walkId;
+    }
+
+    final String activeWalkId =
+        widget.request.qrWalkId.trim();
+
+    return activeWalkId;
+  }
+
+  // ==========================================================================
+  // RESOLVE SESSION ID
+  // ==========================================================================
+
+  String _resolveSessionId() {
+    final String sessionId =
+        widget.request.liveWalkSessionId.trim();
+
+    if (sessionId.isNotEmpty) {
+      return sessionId;
+    }
+
+    final String walkId = _resolveWalkId();
+
+    if (walkId.isEmpty) {
+      return '';
+    }
+
+    return 'session-$walkId';
   }
 
   // ==========================================================================
@@ -114,7 +378,8 @@ class _ActiveWalkDetailsScreenState
   // ==========================================================================
 
   void _onSheetChanged() {
-    final bool expanded = _sheetController.size > 0.55;
+    final bool expanded =
+        _sheetController.size > 0.55;
 
     if (_sheetExpanded != expanded && mounted) {
       setState(() {
@@ -133,23 +398,11 @@ class _ActiveWalkDetailsScreenState
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // --------------------------------------------------------------------
-          // FULL MAP
-          // --------------------------------------------------------------------
-
           Positioned.fill(
             child: _buildMap(),
           ),
 
-          // --------------------------------------------------------------------
-          // TOP BAR
-          // --------------------------------------------------------------------
-
           _buildTopBar(),
-
-          // --------------------------------------------------------------------
-          // MY LOCATION
-          // --------------------------------------------------------------------
 
           Positioned(
             right: 16,
@@ -160,10 +413,6 @@ class _ActiveWalkDetailsScreenState
               iconColor: orange,
             ),
           ),
-
-          // --------------------------------------------------------------------
-          // BOTTOM SHEET
-          // --------------------------------------------------------------------
 
           DraggableScrollableSheet(
             controller: _sheetController,
@@ -192,6 +441,9 @@ class _ActiveWalkDetailsScreenState
   // ==========================================================================
 
   Widget _buildTopBar() {
+    final bool isActive =
+        _liveStatus.toLowerCase() == 'active';
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
@@ -201,7 +453,8 @@ class _ActiveWalkDetailsScreenState
           0,
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment:
+              MainAxisAlignment.spaceBetween,
           children: [
             _circleButton(
               Icons.arrow_back_ios_new,
@@ -222,17 +475,21 @@ class _ActiveWalkDetailsScreenState
                   ),
                 ],
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(
                     Icons.circle,
                     size: 8,
-                    color: Color(0xFF18A957),
+                    color: isActive
+                        ? const Color(0xFF18A957)
+                        : const Color(0xFFFFA000),
                   ),
-                  SizedBox(width: 7),
+                  const SizedBox(width: 7),
                   Text(
-                    'LIVE WALK',
-                    style: TextStyle(
+                    isActive
+                        ? 'LIVE WALK'
+                        : _liveStatus.toUpperCase(),
+                    style: const TextStyle(
                       color: navy,
                       fontSize: 11,
                       fontWeight: FontWeight.w900,
@@ -266,10 +523,6 @@ class _ActiveWalkDetailsScreenState
       locations.add(_destinationLocation!);
     }
 
-    // --------------------------------------------------------------------------
-    // MAP CENTER
-    // --------------------------------------------------------------------------
-
     LatLng mapCenter;
 
     if (_walkerLocation != null) {
@@ -279,17 +532,11 @@ class _ActiveWalkDetailsScreenState
     } else if (_destinationLocation != null) {
       mapCenter = _destinationLocation!;
     } else {
-      // केवल visual fallback.
-      // किसी walk की fake location नहीं है.
       mapCenter = const LatLng(
         20.5937,
         78.9629,
       );
     }
-
-    // --------------------------------------------------------------------------
-    // MARKERS
-    // --------------------------------------------------------------------------
 
     final List<Marker> markers = [];
 
@@ -330,8 +577,10 @@ class _ActiveWalkDetailsScreenState
       mapController: _mapController,
       options: MapOptions(
         initialCenter: mapCenter,
-        initialZoom: locations.length > 1 ? 14 : 16,
-        interactionOptions: const InteractionOptions(
+        initialZoom:
+            locations.length > 1 ? 14 : 16,
+        interactionOptions:
+            const InteractionOptions(
           flags: InteractiveFlag.all,
         ),
       ),
@@ -339,14 +588,13 @@ class _ActiveWalkDetailsScreenState
         TileLayer(
           urlTemplate:
               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.doojowalker.app',
+          userAgentPackageName:
+              'com.doojowalker.app',
         ),
-
         if (markers.isNotEmpty)
           MarkerLayer(
             markers: markers,
           ),
-
         if (_walkerLocation != null &&
             _pickupLocation != null)
           PolylineLayer(
@@ -370,7 +618,8 @@ class _ActiveWalkDetailsScreenState
   // ==========================================================================
 
   void _moveToWalker() {
-    final LatLng? location = _walkerLocation;
+    final LatLng? location =
+        _walkerLocation;
 
     if (location == null) {
       _showMessage(
@@ -408,7 +657,8 @@ class _ActiveWalkDetailsScreenState
       ),
       child: ListView(
         controller: controller,
-        physics: const ClampingScrollPhysics(),
+        physics:
+            const ClampingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(
           18,
           9,
@@ -423,8 +673,10 @@ class _ActiveWalkDetailsScreenState
                 width: 48,
                 height: 5,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD3D8DB),
-                  borderRadius: BorderRadius.circular(20),
+                  color:
+                      const Color(0xFFD3D8DB),
+                  borderRadius:
+                      BorderRadius.circular(20),
                 ),
               ),
             ),
@@ -477,18 +729,25 @@ class _ActiveWalkDetailsScreenState
               const SizedBox(width: 7),
               Expanded(
                 child: _statCard(
-                  _etaText,
-                  'ETA',
+                  _durationText,
+                  'Duration',
                 ),
               ),
               const SizedBox(width: 7),
               Expanded(
                 child: _statCard(
-                  _walkStatusText,
-                  'Walk',
+                  '$_steps',
+                  'Steps',
                 ),
               ),
             ],
+          ),
+
+          const SizedBox(height: 10),
+
+          _statCard(
+            _walkStatusText,
+            'Walk',
           ),
 
           const SizedBox(height: 10),
@@ -525,15 +784,18 @@ class _ActiveWalkDetailsScreenState
       onTap: _expandSheet,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(
+        padding:
+            const EdgeInsets.symmetric(
           horizontal: 13,
           vertical: 11,
         ),
         decoration: BoxDecoration(
           color: greenLight,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius:
+              BorderRadius.circular(16),
           border: Border.all(
-            color: const Color(0xFFCBEBD7),
+            color:
+                const Color(0xFFCBEBD7),
           ),
         ),
         child: Row(
@@ -543,7 +805,8 @@ class _ActiveWalkDetailsScreenState
               height: 38,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius:
+                    BorderRadius.circular(12),
               ),
               child: const Icon(
                 Icons.pets_rounded,
@@ -556,7 +819,8 @@ class _ActiveWalkDetailsScreenState
 
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
                 children: [
                   const Text(
                     'ACTIVE WALK',
@@ -571,7 +835,8 @@ class _ActiveWalkDetailsScreenState
                   Text(
                     '$_ownerNameText • $_dogNameText',
                     maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    overflow:
+                        TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: muted,
                       fontSize: 9,
@@ -583,17 +848,19 @@ class _ActiveWalkDetailsScreenState
             ),
 
             Container(
-              padding: const EdgeInsets.symmetric(
+              padding:
+                  const EdgeInsets.symmetric(
                 horizontal: 9,
                 vertical: 6,
               ),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius:
+                    BorderRadius.circular(10),
               ),
-              child: const Text(
-                'ACTIVE',
-                style: TextStyle(
+              child: Text(
+                _liveStatus.toUpperCase(),
+                style: const TextStyle(
                   color: green,
                   fontSize: 8,
                   fontWeight: FontWeight.w900,
@@ -625,8 +892,10 @@ class _ActiveWalkDetailsScreenState
           width: 60,
           height: 60,
           decoration: BoxDecoration(
-            color: const Color(0xFFFFF0E7),
-            borderRadius: BorderRadius.circular(18),
+            color:
+                const Color(0xFFFFF0E7),
+            borderRadius:
+                BorderRadius.circular(18),
           ),
           child: const Center(
             child: Icon(
@@ -641,12 +910,14 @@ class _ActiveWalkDetailsScreenState
 
         Expanded(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
               Text(
                 _dogNameText,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                overflow:
+                    TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: navy,
                   fontSize: 19,
@@ -659,7 +930,8 @@ class _ActiveWalkDetailsScreenState
               Text(
                 _breedText,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                overflow:
+                    TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: muted,
                   fontSize: 11,
@@ -672,9 +944,11 @@ class _ActiveWalkDetailsScreenState
               Text(
                 'Owner: $_ownerNameText',
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                overflow:
+                    TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF9AA0A4),
+                  color:
+                      Color(0xFF9AA0A4),
                   fontSize: 9,
                 ),
               ),
@@ -683,13 +957,16 @@ class _ActiveWalkDetailsScreenState
         ),
 
         Container(
-          padding: const EdgeInsets.symmetric(
+          padding:
+              const EdgeInsets.symmetric(
             horizontal: 12,
             vertical: 9,
           ),
           decoration: BoxDecoration(
-            color: const Color(0xFFFFF0E7),
-            borderRadius: BorderRadius.circular(15),
+            color:
+                const Color(0xFFFFF0E7),
+            borderRadius:
+                BorderRadius.circular(15),
           ),
           child: Column(
             children: [
@@ -703,9 +980,10 @@ class _ActiveWalkDetailsScreenState
               ),
               const SizedBox(height: 2),
               const Text(
-                'away',
+                'distance',
                 style: TextStyle(
-                  color: Color(0xFF92999D),
+                  color:
+                      Color(0xFF92999D),
                   fontSize: 8,
                 ),
               ),
@@ -721,19 +999,24 @@ class _ActiveWalkDetailsScreenState
   // ==========================================================================
 
   Widget _buildLiveStatus() {
-    final bool hasLocation = _walkerLocation != null;
+    final bool hasLocation =
+        _walkerLocation != null;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         horizontal: 12,
         vertical: 10,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0FAF4),
-        borderRadius: BorderRadius.circular(16),
+        color:
+            const Color(0xFFF0FAF4),
+        borderRadius:
+            BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFD7EFDF),
+          color:
+              const Color(0xFFD7EFDF),
         ),
       ),
       child: Row(
@@ -748,14 +1031,16 @@ class _ActiveWalkDetailsScreenState
 
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 Text(
                   hasLocation
-                      ? 'Walking to pickup'
+                      ? 'Live location active'
                       : 'Waiting for live location',
                   style: const TextStyle(
-                    color: Color(0xFF237546),
+                    color:
+                        Color(0xFF237546),
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
                   ),
@@ -763,10 +1048,11 @@ class _ActiveWalkDetailsScreenState
                 const SizedBox(height: 2),
                 Text(
                   hasLocation
-                      ? 'Live walk is active'
+                      ? 'Walker location is updating in real time'
                       : 'GPS location will appear here',
                   style: const TextStyle(
-                    color: Color(0xFF6B8B77),
+                    color:
+                        Color(0xFF6B8B77),
                     fontSize: 8,
                   ),
                 ),
@@ -799,10 +1085,13 @@ class _ActiveWalkDetailsScreenState
     String value,
   ) {
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding:
+          const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F8F9),
-        borderRadius: BorderRadius.circular(15),
+        color:
+            const Color(0xFFF7F8F9),
+        borderRadius:
+            BorderRadius.circular(15),
       ),
       child: Row(
         children: [
@@ -816,12 +1105,14 @@ class _ActiveWalkDetailsScreenState
 
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
                   style: const TextStyle(
-                    color: Color(0xFF9AA0A4),
+                    color:
+                        Color(0xFF9AA0A4),
                     fontSize: 7,
                     fontWeight: FontWeight.w900,
                   ),
@@ -832,7 +1123,8 @@ class _ActiveWalkDetailsScreenState
                 Text(
                   value,
                   maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  overflow:
+                      TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: navy,
                     fontSize: 9,
@@ -856,20 +1148,25 @@ class _ActiveWalkDetailsScreenState
     String title,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(
+      width: double.infinity,
+      padding:
+          const EdgeInsets.symmetric(
         vertical: 9,
         horizontal: 5,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F8F9),
-        borderRadius: BorderRadius.circular(14),
+        color:
+            const Color(0xFFF7F8F9),
+        borderRadius:
+            BorderRadius.circular(14),
       ),
       child: Column(
         children: [
           Text(
             value,
             maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            overflow:
+                TextOverflow.ellipsis,
             style: const TextStyle(
               color: navy,
               fontSize: 11,
@@ -882,7 +1179,8 @@ class _ActiveWalkDetailsScreenState
           Text(
             title,
             style: const TextStyle(
-              color: Color(0xFF999FA3),
+              color:
+                  Color(0xFF999FA3),
               fontSize: 7,
             ),
           ),
@@ -896,20 +1194,26 @@ class _ActiveWalkDetailsScreenState
   // ==========================================================================
 
   Widget _buildOwnerNote() {
-    final String note = _ownerNoteText;
+    final String note =
+        _ownerNoteText;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding:
+          const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8F2),
-        borderRadius: BorderRadius.circular(16),
+        color:
+            const Color(0xFFFFF8F2),
+        borderRadius:
+            BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFFFFE8D7),
+          color:
+              const Color(0xFFFFE8D7),
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
@@ -935,7 +1239,8 @@ class _ActiveWalkDetailsScreenState
           Text(
             note,
             style: const TextStyle(
-              color: Color(0xFF666D72),
+              color:
+                  Color(0xFF666D72),
               fontSize: 10,
               height: 1.35,
             ),
@@ -969,12 +1274,17 @@ class _ActiveWalkDetailsScreenState
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
+              style:
+                  ElevatedButton.styleFrom(
+                backgroundColor:
+                    Colors.black,
+                foregroundColor:
+                    Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                shape:
+                    RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(16),
                 ),
               ),
             ),
@@ -1000,15 +1310,20 @@ class _ActiveWalkDetailsScreenState
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              style: OutlinedButton.styleFrom(
+              style:
+                  OutlinedButton.styleFrom(
                 foregroundColor: navy,
-                backgroundColor: Colors.white,
+                backgroundColor:
+                    Colors.white,
                 side: const BorderSide(
-                  color: Color(0xFFD5DADD),
+                  color:
+                      Color(0xFFD5DADD),
                   width: 1.3,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                shape:
+                    RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(16),
                 ),
               ),
             ),
@@ -1023,7 +1338,8 @@ class _ActiveWalkDetailsScreenState
   // ==========================================================================
 
   Future<void> _callOwner() async {
-    final String phone = widget.request.ownerPhone.trim();
+    final String phone =
+        widget.request.ownerPhone.trim();
 
     if (phone.isEmpty) {
       _showMessage(
@@ -1089,9 +1405,8 @@ class _ActiveWalkDetailsScreenState
   void _expandSheet() {
     _sheetController.animateTo(
       .90,
-      duration: const Duration(
-        milliseconds: 350,
-      ),
+      duration:
+          const Duration(milliseconds: 350),
       curve: Curves.easeOut,
     );
   }
@@ -1100,9 +1415,8 @@ class _ActiveWalkDetailsScreenState
     if (_sheetExpanded) {
       _sheetController.animateTo(
         .25,
-        duration: const Duration(
-          milliseconds: 300,
-        ),
+        duration:
+            const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
     } else {
@@ -1117,15 +1431,18 @@ class _ActiveWalkDetailsScreenState
   Widget _buildBottomNavigation() {
     return Container(
       height: 54,
-      decoration: const BoxDecoration(
+      decoration:
+          const BoxDecoration(
         border: Border(
           top: BorderSide(
-            color: Color(0xFFF0F1F2),
+            color:
+                Color(0xFFF0F1F2),
           ),
         ),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        mainAxisAlignment:
+            MainAxisAlignment.spaceAround,
         children: [
           _tab(
             Icons.home_outlined,
@@ -1149,7 +1466,8 @@ class _ActiveWalkDetailsScreenState
     String title,
   ) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment:
+          MainAxisAlignment.center,
       children: [
         Icon(
           icon,
@@ -1184,7 +1502,8 @@ class _ActiveWalkDetailsScreenState
       shape: const CircleBorder(),
       child: InkWell(
         onTap: onTap,
-        customBorder: const CircleBorder(),
+        customBorder:
+            const CircleBorder(),
         child: SizedBox(
           width: 46,
           height: 46,
@@ -1256,7 +1575,8 @@ class _ActiveWalkDetailsScreenState
 
   Widget _destinationMarker() {
     return Container(
-      decoration: const BoxDecoration(
+      decoration:
+          const BoxDecoration(
         color: navy,
         shape: BoxShape.circle,
       ),
@@ -1322,25 +1642,32 @@ class _ActiveWalkDetailsScreenState
   }
 
   String get _distanceText {
-    final double value =
-        widget.request.distanceKm;
-
-    if (value <= 0) {
+    if (_distanceKm <= 0) {
       return '--';
     }
 
-    return '${value.toStringAsFixed(1)} km';
+    return '${_distanceKm.toStringAsFixed(1)} km';
   }
 
-  String get _etaText {
-    final String value =
-        widget.request.estimatedTime.trim();
-
-    return value.isEmpty ? '--' : value;
+  String get _durationText {
+    return _formatDuration(
+      _elapsedSeconds,
+    );
   }
 
   String get _walkStatusText {
-    return _reached ? 'Reached' : 'Active';
+    if (_reached) {
+      return 'Reached';
+    }
+
+    final String status =
+        _liveStatus.trim().toLowerCase();
+
+    if (status == 'completed') {
+      return 'Completed';
+    }
+
+    return 'Active';
   }
 
   String get _ownerNoteText {
@@ -1353,10 +1680,121 @@ class _ActiveWalkDetailsScreenState
   }
 
   // ==========================================================================
+  // SAFE FIRESTORE READERS
+  // ==========================================================================
+
+  static String _readString(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return '';
+    }
+
+    return value.toString().trim();
+  }
+
+  static double _readDouble(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return 0.0;
+    }
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(
+          value.toString().trim(),
+        ) ??
+        0.0;
+  }
+
+  static int _readInt(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return 0;
+    }
+
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+          value.toString().trim(),
+        ) ??
+        0;
+  }
+
+  static Map<String, dynamic>? _readMap(
+    dynamic value,
+  ) {
+    if (value is Map<String, dynamic>) {
+      return value;
+    }
+
+    if (value is Map) {
+      return Map<String, dynamic>.from(
+        value,
+      );
+    }
+
+    return null;
+  }
+
+  static bool _validCoordinate(
+    double latitude,
+    double longitude,
+  ) {
+    return latitude != 0.0 &&
+        longitude != 0.0 &&
+        latitude >= -90.0 &&
+        latitude <= 90.0 &&
+        longitude >= -180.0 &&
+        longitude <= 180.0;
+  }
+
+  static String _formatDuration(
+    int totalSeconds,
+  ) {
+    final int safeSeconds =
+        totalSeconds < 0
+            ? 0
+            : totalSeconds;
+
+    final int hours =
+        safeSeconds ~/ 3600;
+
+    final int minutes =
+        (safeSeconds % 3600) ~/ 60;
+
+    final int seconds =
+        safeSeconds % 60;
+
+    final String hh =
+        hours.toString().padLeft(2, '0');
+
+    final String mm =
+        minutes.toString().padLeft(2, '0');
+
+    final String ss =
+        seconds.toString().padLeft(2, '0');
+
+    return '$hh:$mm:$ss';
+  }
+
+  // ==========================================================================
   // MESSAGE
   // ==========================================================================
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message,
+  ) {
     if (!mounted) {
       return;
     }
@@ -1366,9 +1804,8 @@ class _ActiveWalkDetailsScreenState
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          duration: const Duration(
-            seconds: 2,
-          ),
+          duration:
+              const Duration(seconds: 2),
         ),
       );
   }
@@ -1379,6 +1816,9 @@ class _ActiveWalkDetailsScreenState
 
   @override
   void dispose() {
+    _activeWalkSubscription?.cancel();
+    _liveSessionSubscription?.cancel();
+
     _sheetController.removeListener(
       _onSheetChanged,
     );
@@ -1408,14 +1848,17 @@ class ReachSlider extends StatefulWidget {
       _ReachSliderState();
 }
 
-class _ReachSliderState extends State<ReachSlider> {
+class _ReachSliderState
+    extends State<ReachSlider> {
   static const Color green =
       Color(0xFF159447);
 
   double _position = 0;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return LayoutBuilder(
       builder: (
         BuildContext context,
@@ -1424,24 +1867,24 @@ class _ReachSliderState extends State<ReachSlider> {
         const double handleSize = 50;
 
         final double maxPosition =
-            (constraints.maxWidth - handleSize)
+            (constraints.maxWidth -
+                    handleSize)
                 .clamp(
                   0.0,
                   double.infinity,
                 );
 
-        // ====================================================================
-        // SUCCESS
-        // ====================================================================
-
         if (widget.reached) {
           return Container(
             height: 54,
             decoration: BoxDecoration(
-              color: const Color(0xFFE7F7ED),
-              borderRadius: BorderRadius.circular(17),
+              color:
+                  const Color(0xFFE7F7ED),
+              borderRadius:
+                  BorderRadius.circular(17),
               border: Border.all(
-                color: const Color(0xFFCBEBD7),
+                color:
+                    const Color(0xFFCBEBD7),
               ),
             ),
             child: const Center(
@@ -1469,17 +1912,16 @@ class _ReachSliderState extends State<ReachSlider> {
           );
         }
 
-        // ====================================================================
-        // SLIDER
-        // ====================================================================
-
         return Container(
           height: 54,
           decoration: BoxDecoration(
-            color: const Color(0xFFE7F7ED),
-            borderRadius: BorderRadius.circular(17),
+            color:
+                const Color(0xFFE7F7ED),
+            borderRadius:
+                BorderRadius.circular(17),
             border: Border.all(
-              color: const Color(0xFFCBEBD7),
+              color:
+                  const Color(0xFFCBEBD7),
             ),
           ),
           child: Stack(
@@ -1492,20 +1934,24 @@ class _ReachSliderState extends State<ReachSlider> {
                     Text(
                       'Slide to Reach',
                       style: TextStyle(
-                        color: Color(0xFF23834A),
+                        color:
+                            Color(0xFF23834A),
                         fontSize: 14,
-                        fontWeight: FontWeight.w900,
+                        fontWeight:
+                            FontWeight.w900,
                       ),
                     ),
                     SizedBox(width: 4),
                     Icon(
                       Icons.chevron_right,
-                      color: Color(0xFF23834A),
+                      color:
+                          Color(0xFF23834A),
                       size: 19,
                     ),
                     Icon(
                       Icons.chevron_right,
-                      color: Color(0xFF75B58E),
+                      color:
+                          Color(0xFF75B58E),
                       size: 19,
                     ),
                   ],
@@ -1519,9 +1965,11 @@ class _ReachSliderState extends State<ReachSlider> {
                   onHorizontalDragUpdate:
                       (DragUpdateDetails details) {
                     setState(() {
-                      _position += details.delta.dx;
+                      _position +=
+                          details.delta.dx;
 
-                      _position = _position.clamp(
+                      _position =
+                          _position.clamp(
                         0.0,
                         maxPosition,
                       );
@@ -1538,20 +1986,27 @@ class _ReachSliderState extends State<ReachSlider> {
                       });
                     }
                   },
-                  child: const SizedBox(
+                  child:
+                      const SizedBox(
                     width: 50,
                     height: 50,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.all(
+                    child:
+                        DecoratedBox(
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            Colors.white,
+                        borderRadius:
+                            BorderRadius.all(
                           Radius.circular(15),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black26,
+                            color:
+                                Colors.black26,
                             blurRadius: 8,
-                            offset: Offset(0, 2),
+                            offset:
+                                Offset(0, 2),
                           ),
                         ],
                       ),
