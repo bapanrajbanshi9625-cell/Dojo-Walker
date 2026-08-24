@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../core/constants/app_colors.dart';
 import '../services/qr_service.dart';
 
 class QrScannerScreen extends StatefulWidget {
@@ -74,13 +75,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       // ========================================================
       // 2. VERIFY QR TYPE
-      //
-      // QRService already validates:
-      //
-      // type == dojo_owner_qr
-      //
-      // ownerId exists
-      // walkId exists
       // ========================================================
 
       final String ownerId =
@@ -139,11 +133,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       // ========================================================
       // 6. GET WALKER BUSINESS ID
-      //
-      // phoneAccounts/{walkerUid}
       // ========================================================
 
-      final DocumentSnapshot<Map<String, dynamic>>
+      final DocumentSnapshot<
+              Map<String, dynamic>>
           accountSnapshot =
           await _firestore
               .collection('phoneAccounts')
@@ -191,15 +184,15 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       // ========================================================
       // 8. VERIFY OWNER CONNECTION DOCUMENT
-      //
-      // qr_connections/{ownerId}
       // ========================================================
 
-      final DocumentReference<Map<String, dynamic>>
+      final DocumentReference<
+              Map<String, dynamic>>
           connectionRef =
           _qrConnections.doc(ownerId);
 
-      final DocumentSnapshot<Map<String, dynamic>>
+      final DocumentSnapshot<
+              Map<String, dynamic>>
           connectionSnapshot =
           await connectionRef.get();
 
@@ -309,7 +302,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       // 13. GENERATE LIVE WALK SESSION
       // ========================================================
 
-      final DocumentReference<Map<String, dynamic>>
+      final DocumentReference<
+              Map<String, dynamic>>
           sessionRef =
           _liveWalkSessions.doc();
 
@@ -369,8 +363,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       // ========================================================
       // 17. UPDATE QR CONNECTION
-      //
-      // qr_connections/{ownerId}
       // ========================================================
 
       batch.set(
@@ -385,12 +377,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           // WALK
           'walkId': firebaseWalkId,
 
-          // WALKER BUSINESS ID
+          // WALKER
           'walkerId': walkerId,
-
-          // WALKER AUTH UID
           'walkerUid': walkerUid,
-
           'walkerName': walkerName,
 
           // CONNECTION
@@ -416,107 +405,65 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       // ========================================================
       // 18. CREATE LIVE WALK SESSION
-      //
-      // liveWalkSessions/{sessionId}
       // ========================================================
 
       batch.set(
         sessionRef,
         {
-          // ----------------------------------------------------
           // SESSION
-          // ----------------------------------------------------
-
           'id': sessionId,
           'sessionId': sessionId,
 
           'walkId': sessionId,
           'qrWalkId': firebaseWalkId,
 
-          // ----------------------------------------------------
           // SOURCE
-          // ----------------------------------------------------
-
           'source': 'qr',
           'startedFromQr': true,
 
-          // ----------------------------------------------------
           // OWNER
-          // ----------------------------------------------------
-
           'ownerId': ownerId,
           'ownerUid': ownerId,
-
           'ownerName': ownerName,
           'ownerPhone': ownerPhone,
 
-          // ----------------------------------------------------
           // WALKER
-          // ----------------------------------------------------
-
           'walkerId': walkerId,
           'walkerUid': walkerUid,
           'walkerName': walkerName,
 
-          // ----------------------------------------------------
           // DOG
-          // ----------------------------------------------------
-
           'dogName': dogName,
           'dogBreed': dogBreed,
 
-          // ----------------------------------------------------
           // LOCATION
-          // ----------------------------------------------------
-
           'currentLocation': {
             'lat': 0.0,
             'lng': 0.0,
           },
 
-          // ----------------------------------------------------
           // WALK STATS
-          // ----------------------------------------------------
-
           'distanceKm': 0.0,
           'elapsedSeconds': 0,
-
-          // IMPORTANT:
-          // These fields always exist from walk start.
-
           'peeCount': 0,
           'poopCount': 0,
 
-          // ----------------------------------------------------
           // EVENTS
-          // ----------------------------------------------------
-
           'events':
               <Map<String, dynamic>>[],
 
-          // ----------------------------------------------------
           // ROUTE
-          // ----------------------------------------------------
-
           'routeCoordinates':
               <Map<String, dynamic>>[],
 
-          // ----------------------------------------------------
           // STATUS
-          // ----------------------------------------------------
-
           'status': 'ACTIVE',
-
           'walkStarted': true,
           'walkEnded': false,
-
           'trackingStarted': false,
           'trackingEnded': false,
 
-          // ----------------------------------------------------
           // TIMESTAMPS
-          // ----------------------------------------------------
-
           'startedAt':
               FieldValue.serverTimestamp(),
 
@@ -526,13 +473,13 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       );
 
       // ========================================================
-      // 19. COMMIT BOTH OPERATIONS TOGETHER
+      // 19. COMMIT
       // ========================================================
 
       await batch.commit();
 
       // ========================================================
-      // 20. RETURN RESULT TO PREVIOUS SCREEN
+      // 20. RETURN RESULT
       // ========================================================
 
       if (!mounted) {
@@ -540,33 +487,26 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       }
 
       final Map<String, dynamic> result = {
-        // OWNER
         'ownerId': ownerId,
         'ownerName': ownerName,
         'ownerPhone': ownerPhone,
 
-        // WALKER
         'walkerId': walkerId,
         'walkerUid': walkerUid,
         'walkerName': walkerName,
 
-        // DOG
         'dogName': dogName,
         'dogBreed': dogBreed,
 
-        // WALK
         'walkId': sessionId,
         'qrWalkId': firebaseWalkId,
         'sessionId': sessionId,
 
-        // STATUS
         'status': 'ACTIVE',
 
-        // SOURCE
         'source': 'qr',
         'startedFromQr': true,
 
-        // STATS
         'peeCount': 0,
         'poopCount': 0,
       };
@@ -670,8 +610,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       // ========================================================
 
       appBar: AppBar(
-        backgroundColor:
-            const Color(0xFFF4511E),
+        backgroundColor: AppColors.primary,
         elevation: 0,
         title: const Text(
           'Scan Owner QR Code',
@@ -898,7 +837,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                         valueColor:
                             AlwaysStoppedAnimation<
                                 Color>(
-                          Color(0xFFF4511E),
+                          AppColors.primary,
                         ),
                       ),
                     ),
@@ -995,9 +934,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     required bool top,
     required bool left,
   }) {
-    const Color orange =
-        Color(0xFFFF6600);
-
     const double length = 42;
     const double thickness = 4;
 
@@ -1020,7 +956,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               height: thickness,
               decoration:
                   BoxDecoration(
-                color: orange,
+                color: AppColors.primary,
                 borderRadius:
                     BorderRadius.circular(
                   4,
@@ -1043,7 +979,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               height: length,
               decoration:
                   BoxDecoration(
-                color: orange,
+                color: AppColors.primary,
                 borderRadius:
                     BorderRadius.circular(
                   4,
