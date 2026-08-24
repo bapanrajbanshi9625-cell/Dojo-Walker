@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'firebase_options.dart';
 import 'core/services/app_state_service.dart';
+import 'core/theme/dojo_walker_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,8 +30,7 @@ Future<void> main() async {
       stackTrace: stackTrace,
     );
 
-    final String error =
-        e.toString().toLowerCase();
+    final String error = e.toString().toLowerCase();
 
     final bool isNetworkError =
         error.contains('network') ||
@@ -43,25 +43,12 @@ Future<void> main() async {
     if (isNetworkError) {
       startupError = 'NO_NETWORK';
     } else {
-      startupError =
-          'Firebase initialization failed:\n$e';
+      startupError = 'Firebase initialization failed:\n$e';
     }
   }
 
   // ============================================================
   // APP STATE INITIALIZATION
-  // ============================================================
-  //
-  // Firebase successfully initialize होने के बाद ही
-  // AppStateService initialize होगा.
-  //
-  // इसका काम:
-  // - Firebase user recover करना
-  // - active walk recover करना
-  // - live walk state monitor करना
-  // - app restart के बाद state restore करना
-  //
-  // AppStateService fail होने पर application बंद नहीं होगी.
   // ============================================================
 
   if (startupError == null) {
@@ -85,6 +72,7 @@ Future<void> main() async {
   runApp(
     DojoWalkerApp(
       startupError: startupError,
+      theme: DojoWalkerTheme.light(),
     ),
   );
 }
