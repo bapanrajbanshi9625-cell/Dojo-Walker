@@ -1,4 +1,9 @@
+// File:
+// lib/features/walker_home/widgets/summary_stat_card.dart
+
 import 'package:flutter/material.dart';
+
+import '../../../core/constants/app_colors.dart';
 
 class SummaryStatCard extends StatelessWidget {
   final IconData icon;
@@ -29,10 +34,10 @@ class SummaryStatCard extends StatelessWidget {
           height: 110,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFFFAFBFC),
+            color: AppColors.cardBackground,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: const Color(0xFFE5E8EC),
+              color: AppColors.border,
             ),
           ),
           child: Column(
@@ -67,7 +72,7 @@ class SummaryStatCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF687386),
+                  color: AppColors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -84,7 +89,7 @@ class SummaryStatCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF27394A),
+                  color: AppColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
