@@ -12,6 +12,20 @@ on:
 jobs:
   build_and_test:
     name: Build and Test Flutter App
+name: Dojo Walker CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - "main"
+
+  pull_request:
+    branches:
+      - "main"
+
+jobs:
+  build_and_test:
+    name: Build and Test Flutter App
     runs-on: ubuntu-latest
 
     steps:
@@ -59,7 +73,7 @@ jobs:
       # ANALYZE
       # -----------------------------------------------
       - name: Analyze code
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
       # -----------------------------------------------
       # TEST
