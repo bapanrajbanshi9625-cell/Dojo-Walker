@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'core/constants/app_colors.dart';
 import 'core/network/network_monitor.dart';
 import 'core/services/app_state_service.dart';
 import 'core/theme/dojo_walker_theme.dart';
@@ -28,10 +29,6 @@ class _DojoWalkerAppState
   void initState() {
     super.initState();
 
-    // ==========================================================
-    // APP LIFECYCLE
-    // ==========================================================
-
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -41,10 +38,6 @@ class _DojoWalkerAppState
 
     super.dispose();
   }
-
-  // ============================================================
-  // APP LIFECYCLE CHANGED
-  // ============================================================
 
   @override
   void didChangeAppLifecycleState(
@@ -56,10 +49,6 @@ class _DojoWalkerAppState
       AppStateService.instance.refresh();
     }
   }
-
-  // ============================================================
-  // BUILD
-  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -82,25 +71,13 @@ class _DojoWalkerAppState
       title: 'Dojo Walker - Buddy',
       debugShowCheckedModeBanner: false,
 
-      // ========================================================
-      // DOJO WALKER GLOBAL THEME
-      // ========================================================
-
       theme: DojoWalkerTheme.light(),
-
-      // ========================================================
-      // START SCREEN
-      // ========================================================
 
       home: NetworkMonitor(
         child: startScreen,
       ),
     );
   }
-
-  // ============================================================
-  // NETWORK ERROR CHECK
-  // ============================================================
 
   bool _isNetworkError(
     String? error,
@@ -109,8 +86,7 @@ class _DojoWalkerAppState
       return false;
     }
 
-    final String text =
-        error.toLowerCase();
+    final String text = error.toLowerCase();
 
     return text.contains('no_network') ||
         text.contains('network') ||
@@ -141,14 +117,12 @@ class StartupErrorScreen extends StatelessWidget {
     BuildContext context,
   ) {
     return Scaffold(
-      backgroundColor:
-          DojoWalkerColors.background,
+      backgroundColor: AppColors.background,
 
       body: SafeArea(
         child: Center(
           child: Padding(
-            padding:
-                const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment:
                   MainAxisAlignment.center,
@@ -156,50 +130,38 @@ class StartupErrorScreen extends StatelessWidget {
                 const Icon(
                   Icons.error_outline_rounded,
                   size: 64,
-                  color: DojoWalkerColors.error,
+                  color: AppColors.error,
                 ),
 
-                const SizedBox(
-                  height: 20,
-                ),
+                const SizedBox(height: 20),
 
                 const Text(
                   'Dojo Walker',
                   style: TextStyle(
                     fontSize: 24,
-                    fontWeight:
-                        FontWeight.bold,
-                    color:
-                        DojoWalkerColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
                   ),
                 ),
 
-                const SizedBox(
-                  height: 12,
-                ),
+                const SizedBox(height: 12),
 
                 const Text(
                   'App startup failed',
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight:
-                        FontWeight.w600,
-                    color:
-                        DojoWalkerColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
                   ),
                 ),
 
-                const SizedBox(
-                  height: 16,
-                ),
+                const SizedBox(height: 16),
 
                 Text(
                   error,
-                  textAlign:
-                      TextAlign.center,
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color:
-                        DojoWalkerColors.textSecondary,
+                    color: AppColors.textSecondary,
                   ),
                 ),
               ],
