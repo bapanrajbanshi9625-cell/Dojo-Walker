@@ -14,8 +14,7 @@ class DojoWalkerTheme {
       // GLOBAL
       // ==========================================================
 
-      scaffoldBackgroundColor:
-          DojoWalkerColors.background,
+      scaffoldBackgroundColor: DojoWalkerColors.background,
 
       colorScheme: const ColorScheme.light(
         primary: DojoWalkerColors.primary,
@@ -45,7 +44,7 @@ class DojoWalkerTheme {
       // CARD
       // ==========================================================
 
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         color: DojoWalkerColors.surface,
         elevation: 0,
         margin: EdgeInsets.zero,
@@ -125,14 +124,13 @@ class DojoWalkerTheme {
 
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor:
-              DojoWalkerColors.buttonPrimary,
+          backgroundColor: DojoWalkerColors.buttonPrimary,
+          foregroundColor: DojoWalkerColors.buttonText,
 
-          foregroundColor:
-              DojoWalkerColors.buttonText,
-
-          minimumSize:
-              const Size(double.infinity, 52),
+          minimumSize: const Size(
+            double.infinity,
+            52,
+          ),
 
           elevation: 0,
 
@@ -153,11 +151,12 @@ class DojoWalkerTheme {
 
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor:
-              DojoWalkerColors.primary,
+          foregroundColor: DojoWalkerColors.primary,
 
-          minimumSize:
-              const Size(double.infinity, 52),
+          minimumSize: const Size(
+            double.infinity,
+            52,
+          ),
 
           side: const BorderSide(
             color: DojoWalkerColors.primary,
@@ -176,8 +175,7 @@ class DojoWalkerTheme {
 
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor:
-              DojoWalkerColors.primary,
+          foregroundColor: DojoWalkerColors.primary,
 
           textStyle: const TextStyle(
             fontWeight: FontWeight.w700,
@@ -191,8 +189,7 @@ class DojoWalkerTheme {
 
       floatingActionButtonTheme:
           const FloatingActionButtonThemeData(
-        backgroundColor:
-            DojoWalkerColors.primary,
+        backgroundColor: DojoWalkerColors.primary,
         foregroundColor: Colors.white,
         elevation: 2,
       ),
@@ -203,10 +200,8 @@ class DojoWalkerTheme {
 
       bottomNavigationBarTheme:
           const BottomNavigationBarThemeData(
-        backgroundColor:
-            DojoWalkerColors.bottomBar,
-        selectedItemColor:
-            DojoWalkerColors.navSelected,
+        backgroundColor: DojoWalkerColors.bottomBar,
+        selectedItemColor: DojoWalkerColors.navSelected,
         unselectedItemColor:
             DojoWalkerColors.navUnselected,
         type: BottomNavigationBarType.fixed,
@@ -237,12 +232,9 @@ class DojoWalkerTheme {
       // DIALOG
       // ==========================================================
 
-      dialogTheme: DialogThemeData(
-        backgroundColor:
-            DojoWalkerColors.surface,
-
-        surfaceTintColor:
-            Colors.transparent,
+      dialogTheme: DialogTheme(
+        backgroundColor: DojoWalkerColors.surface,
+        surfaceTintColor: Colors.transparent,
 
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
