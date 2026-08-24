@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'firebase_options.dart';
 import 'core/services/app_state_service.dart';
-import 'core/theme/dojo_walker_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,7 +71,6 @@ Future<void> main() async {
   runApp(
     DojoWalkerApp(
       startupError: startupError,
-      theme: DojoWalkerTheme.light(),
     ),
   );
 }
