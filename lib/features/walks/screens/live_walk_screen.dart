@@ -1,1223 +1,1719 @@
-import 'dart:async';
+// File:
+// lib/services/walker_walk_service.dart
+
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 
-import '../../../core/services/live_walk_background_service.dart';
-import '../services/walk_request_service.dart';
-import '../services/walker_location_service.dart';
-import '../widgets/live_walk_bottom_sheet.dart';
-import '../widgets/live_walk_map.dart';
-import '../widgets/live_walk_sos_sheet.dart';
+import '../screens/qr_scanner_screen.dart';
+import '../features/walks/screens/live_walk_screen.dart';
+import '../features/walks/services/walk_request_service.dart';
 
-class LiveWalkScreen extends StatefulWidget {
-  const LiveWalkScreen({
-    super.key,
-    required this.ownerUid,
-    required this.ownerName,
-    required this.walkId,
-    required this.dogName,
-    this.dogBreed = '',
-    this.ownerPhone,
-    this.sessionId,
-  });
+/// ============================================================
+/// WALKER WALK SERVICE
+///
+/// Supports:
+/// 1. Insta Walk
+/// 2. Owner QR Walk
+///
+/// IMPORTANT:
+/// QR flow uses:
+///     liveWalkSessions/{sessionId}
+///
+/// Insta Walk existing flow remains compatible with:
+///     WalkRequestService
+///
+/// QR flow does NOT create a duplicate active_walks document.
+/// ============================================================
 
-  final String ownerUid;
-  final String ownerName;
-  final String walkId;
-  final String dogName;
-  final String dogBreed;
-  final String? ownerPhone;
-  final String? sessionId;
+class WalkerWalkService {
+  WalkerWalkService._();
 
-  @override
-  State<LiveWalkScreen> createState() =>
-      _LiveWalkScreenState();
-}
+  static final WalkerWalkService instance =
+      WalkerWalkService._();
 
-class _LiveWalkScreenState
-    extends State<LiveWalkScreen> {
-  static const Color orange =
-      Color(0xFFFF6600);
+  static final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
 
-  static const Color dark =
-      Color(0xFF263746);
+  static final FirebaseAuth _auth =
+      FirebaseAuth.instance;
 
-  static const Color muted =
-      Color(0xFF7A8289);
-
-  static const Color green =
-      Color(0xFF16A34A);
-
-  static const Color red =
-      Color(0xFFE53935);
-
-  final WalkRequestService _service =
+  static final WalkRequestService _walkRequestService =
       WalkRequestService.instance;
 
-  final WalkerLocationService _locationService =
-      WalkerLocationService.instance;
+  // ==========================================================
+  // COLLECTIONS
+  // ==========================================================
 
-  final LiveWalkBackgroundService _backgroundService =
-      LiveWalkBackgroundService.instance;
+  static CollectionReference<Map<String, dynamic>>
+      get _liveWalkSessions =>
+          _firestore.collection('liveWalkSessions');
 
-  StreamSubscription<Position>?
-      _locationSubscription;
+  static CollectionReference<Map<String, dynamic>>
+      get _qrConnections =>
+          _firestore.collection('qr_connections');
 
-  bool _ending = false;
-  bool _gpsStarting = false;
-  bool _gpsActive = false;
-  bool _routeLoaded = false;
+  // ==========================================================
+  // SCAN OWNER QR
+  //
+  // QR SCANNER itself verifies QR and creates:
+  //
+  // liveWalkSessions/{sessionId}
+  //
+  // Scanner returns result JSON to this service.
+  // ==========================================================
 
-  double _totalDistanceKm = 0.0;
-
-  final List<Map<String, dynamic>>
-      _routeCoordinates =
-          <Map<String, dynamic>>[];
-
-  // ============================================================
-  // SESSION ID
-  // ============================================================
-
-  String get sessionId {
-    final String? value =
-        widget.sessionId?.trim();
-
-    if (value != null &&
-        value.isNotEmpty) {
-      return value;
-    }
-
-    return 'session-${widget.walkId}';
-  }
-
-  // ============================================================
-  // FIRESTORE SESSION
-  // ============================================================
-
-  DocumentReference<Map<String, dynamic>>
-      get _sessionRef {
-    return FirebaseFirestore.instance
-        .collection('liveWalkSessions')
-        .doc(sessionId);
-  }
-
-  Stream<DocumentSnapshot<Map<String, dynamic>>>
-      get _sessionStream {
-    return _sessionRef.snapshots();
-  }
-
-  // ============================================================
-  // INIT
-  // ============================================================
-
-  @override
-  void initState() {
-    super.initState();
-
-    unawaited(
-      _startGpsTracking(),
+  static Future<WalkerWalkData?> scanOwnerQr(
+    BuildContext context,
+  ) async {
+    final String? scannedData =
+        await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const QrScannerScreen(),
+      ),
     );
-  }
 
-  // ============================================================
-  // START GPS
-  // ============================================================
-
-  Future<void> _startGpsTracking() async {
-    if (_gpsStarting ||
-        _gpsActive ||
-        _ending) {
-      return;
+    if (!context.mounted ||
+        scannedData == null ||
+        scannedData.trim().isEmpty) {
+      return null;
     }
-
-    _gpsStarting = true;
 
     try {
-      final bool allowed =
-          await _locationService
-              .ensurePermission();
+      final String rawQr =
+          scannedData.trim();
 
-      if (!allowed) {
-        if (mounted) {
-          _showGpsError(
-            'Location permission is required for Live Walk.',
-          );
-        }
-
-        return;
-      }
-
-      if (_ending) {
-        return;
-      }
-
-      // --------------------------------------------------------
-      // RESTORE SESSION
-      // --------------------------------------------------------
-
-      double initialDistance =
-          _totalDistanceKm;
-
-      int initialSteps = 0;
-      int initialPee = 0;
-      int initialPoop = 0;
-
-      DateTime? initialStartedAt;
-
-      final List<Map<String, dynamic>>
-          initialRoute =
-          <Map<String, dynamic>>[];
+      dynamic decoded;
 
       try {
-        final DocumentSnapshot<
-                Map<String, dynamic>>
-            snapshot =
-            await _sessionRef.get();
-
-        final Map<String, dynamic>? data =
-            snapshot.data();
-
-        if (data != null) {
-          _loadExistingRoute(data);
-
-          final double? distance =
-              _toDouble(
-            data['distanceKm'],
-          );
-
-          if (distance != null &&
-              distance >= 0) {
-            initialDistance = distance;
-          }
-
-          initialSteps =
-              _toInt(data['steps']) ?? 0;
-
-          initialPee =
-              _toInt(data['peeCount']) ?? 0;
-
-          initialPoop =
-              _toInt(data['poopCount']) ?? 0;
-
-          final dynamic startedAt =
-              data['startedAt'];
-
-          if (startedAt is Timestamp) {
-            initialStartedAt =
-                startedAt.toDate();
-          } else if (startedAt is DateTime) {
-            initialStartedAt =
-                startedAt;
-          }
-
-          final dynamic rawRoute =
-              data['routeCoordinates'];
-
-          if (rawRoute is List) {
-            for (final dynamic item
-                in rawRoute) {
-              if (item is Map) {
-                initialRoute.add(
-                  Map<String, dynamic>.from(
-                    item,
-                  ),
-                );
-              }
-            }
-          }
-        }
-      } catch (e) {
-        debugPrint(
-          'Existing session read failed: $e',
+        decoded = jsonDecode(rawQr);
+      } catch (_) {
+        throw Exception(
+          'Invalid QR connection result.',
         );
       }
 
-      // --------------------------------------------------------
-      // START BACKGROUND GPS
-      // --------------------------------------------------------
+      if (decoded is! Map) {
+        throw Exception(
+          'Invalid QR connection result.',
+        );
+      }
 
-      final bool started =
-          await _backgroundService.start(
-        walkId: widget.walkId,
+      final Map<String, dynamic> data =
+          Map<String, dynamic>.from(decoded);
+
+      // ======================================================
+      // WALKER LOGIN
+      // ======================================================
+
+      final User? walker =
+          _auth.currentUser;
+
+      if (walker == null) {
+        throw Exception(
+          'Walker is not logged in.',
+        );
+      }
+
+      final String walkerUid =
+          walker.uid.trim();
+
+      if (walkerUid.isEmpty) {
+        throw Exception(
+          'Walker account is invalid.',
+        );
+      }
+
+      // ======================================================
+      // RESULT TYPE
+      // ======================================================
+
+      final String source =
+          (data['source'] ?? 'qr')
+              .toString()
+              .trim()
+              .toLowerCase();
+
+      if (source != 'qr') {
+        throw Exception(
+          'Invalid QR walk connection.',
+        );
+      }
+
+      // ======================================================
+      // OWNER BUSINESS ID
+      // ======================================================
+
+      final String ownerId =
+          (
+            data['ownerId'] ??
+            ''
+          )
+              .toString()
+              .trim();
+
+      if (ownerId.isEmpty) {
+        throw Exception(
+          'Owner ID is missing.',
+        );
+      }
+
+      // ======================================================
+      // OWNER FIREBASE UID
+      // ======================================================
+
+      final String ownerUid =
+          (
+            data['ownerUid'] ??
+            ''
+          )
+              .toString()
+              .trim();
+
+      if (ownerUid.isEmpty) {
+        throw Exception(
+          'Owner UID is missing.',
+        );
+      }
+
+      // ======================================================
+      // PREVENT SELF CONNECTION
+      // ======================================================
+
+      if (ownerUid == walkerUid) {
+        throw Exception(
+          'You cannot connect to your own Owner QR.',
+        );
+      }
+
+      // ======================================================
+      // OWNER NAME
+      // ======================================================
+
+      final String ownerName =
+          (
+            data['ownerName'] ??
+            'Owner'
+          )
+              .toString()
+              .trim();
+
+      // ======================================================
+      // OWNER PHONE
+      // ======================================================
+
+      final String ownerPhone =
+          (
+            data['ownerPhone'] ??
+            ''
+          )
+              .toString()
+              .trim();
+
+      // ======================================================
+      // SESSION ID
+      //
+      // New QR scanner returns sessionId.
+      // ======================================================
+
+      String sessionId =
+          (
+            data['sessionId'] ??
+            ''
+          )
+              .toString()
+              .trim();
+
+      // ======================================================
+      // WALK ID
+      // ======================================================
+
+      String walkId =
+          (
+            data['walkId'] ??
+            ''
+          )
+              .toString()
+              .trim();
+
+      // ======================================================
+      // QR WALK ID
+      // ======================================================
+
+      final String qrWalkId =
+          (
+            data['qrWalkId'] ??
+            ''
+          )
+              .toString()
+              .trim();
+
+      // ======================================================
+      // SESSION FALLBACK
+      //
+      // Normally scanner already created the session.
+      // ======================================================
+
+      if (sessionId.isEmpty) {
+        sessionId = walkId;
+      }
+
+      if (walkId.isEmpty) {
+        walkId = sessionId;
+      }
+
+      if (sessionId.isEmpty) {
+        throw Exception(
+          'Live Walk session is missing.',
+        );
+      }
+
+      if (walkId.isEmpty) {
+        throw Exception(
+          'Walk ID is missing.',
+        );
+      }
+
+      // ======================================================
+      // VERIFY LIVE SESSION
+      // ======================================================
+
+      final DocumentSnapshot<
+          Map<String, dynamic>> sessionSnapshot =
+          await _liveWalkSessions
+              .doc(sessionId)
+              .get();
+
+      if (!sessionSnapshot.exists) {
+        throw Exception(
+          'Live Walk session not found.',
+        );
+      }
+
+      final Map<String, dynamic> sessionData =
+          sessionSnapshot.data() ??
+              <String, dynamic>{};
+
+      // ======================================================
+      // VERIFY SESSION OWNER
+      // ======================================================
+
+      final String sessionOwnerUid =
+          (
+            sessionData['ownerUid'] ??
+            ''
+          )
+              .toString()
+              .trim();
+
+      if (sessionOwnerUid.isNotEmpty &&
+          sessionOwnerUid != ownerUid) {
+        throw Exception(
+          'Owner verification failed.',
+        );
+      }
+
+      // ======================================================
+      // VERIFY SESSION OWNER BUSINESS ID
+      // ======================================================
+
+      final String sessionOwnerId =
+          (
+            sessionData['ownerId'] ??
+            ''
+          )
+              .toString()
+              .trim();
+
+      if (sessionOwnerId.isNotEmpty &&
+          sessionOwnerId != ownerId) {
+        throw Exception(
+          'Owner ID verification failed.',
+        );
+      }
+
+      // ======================================================
+      // GET DOG DATA FROM SESSION
+      // ======================================================
+
+      final String dogName =
+          (
+            sessionData['dogName'] ??
+            data['dogName'] ??
+            'Dog'
+          )
+              .toString()
+              .trim();
+
+      final String dogBreed =
+          (
+            sessionData['dogBreed'] ??
+            data['dogBreed'] ??
+            ''
+          )
+              .toString()
+              .trim();
+
+      // ======================================================
+      // UPDATE WALKER CONNECTION
+      //
+      // QR scanner already created session.
+      // We only attach current walker here.
+      // ======================================================
+
+      await _connectQrSession(
+        ownerId: ownerId,
+        ownerUid: ownerUid,
+        ownerName: ownerName.isEmpty
+            ? 'Owner'
+            : ownerName,
+        ownerPhone: ownerPhone,
+        walkerUid: walkerUid,
+        walkId: walkId,
         sessionId: sessionId,
-        initialDistanceKm:
-            initialDistance,
-        initialSteps: initialSteps,
-        initialPeeCount:
-            initialPee,
-        initialPoopCount:
-            initialPoop,
-        initialStartedAt:
-            initialStartedAt,
-        initialRoute:
-            initialRoute,
       );
 
-      if (!started) {
-        if (mounted) {
-          _showGpsError(
-            'Unable to start GPS tracking.',
-          );
-        }
+      // ======================================================
+      // RETURN WALK DATA
+      // ======================================================
 
-        return;
-      }
-
-      // --------------------------------------------------------
-      // CENTRAL GPS STREAM
-      // --------------------------------------------------------
-
-      await _locationSubscription?.cancel();
-
-      _locationSubscription =
-          _backgroundService
-              .locationStream
-              .listen(
-        (Position position) {
-          if (!mounted ||
-              _ending) {
-            return;
-          }
-
-          _handlePosition(position);
-        },
-        onError: (Object error) {
-          debugPrint(
-            'Live GPS stream error: $error',
-          );
-        },
-        cancelOnError: false,
-      );
-
-      _gpsActive = true;
-
-      // --------------------------------------------------------
-      // LAST POSITION
-      // --------------------------------------------------------
-
-      final Position? current =
-          _backgroundService.lastPosition;
-
-      if (current != null &&
-          mounted &&
-          !_ending) {
-        _handlePosition(current);
-      }
-
-      if (mounted) {
-        setState(() {});
-      }
-    } catch (e) {
-      debugPrint(
-        'GPS start error: $e',
-      );
-
-      if (mounted) {
-        _showGpsError(
-          'Unable to connect to GPS.',
-        );
-      }
-    } finally {
-      _gpsStarting = false;
-    }
-  }
-
-  // ============================================================
-  // POSITION
-  // ============================================================
-
-  void _handlePosition(
-    Position position,
-  ) {
-    if (!mounted ||
-        _ending) {
-      return;
-    }
-
-    final double distance =
-        _backgroundService
-            .totalDistanceKm;
-
-    if (distance >= 0) {
-      _totalDistanceKm = distance;
-    }
-
-    setState(() {});
-  }
-
-  // ============================================================
-  // LOAD ROUTE
-  // ============================================================
-
-  void _loadExistingRoute(
-    Map<String, dynamic> data,
-  ) {
-    if (_routeLoaded) {
-      return;
-    }
-
-    final dynamic rawRoute =
-        data['routeCoordinates'];
-
-    if (rawRoute is List) {
-      for (final dynamic item
-          in rawRoute) {
-        if (item is! Map) {
-          continue;
-        }
-
-        final double? latitude =
-            _toDouble(
-          item['lat'] ??
-              item['latitude'],
-        );
-
-        final double? longitude =
-            _toDouble(
-          item['lng'] ??
-              item['longitude'],
-        );
-
-        if (latitude == null ||
-            longitude == null) {
-          continue;
-        }
-
-        if (!_validCoordinate(
-          latitude,
-          longitude,
-        )) {
-          continue;
-        }
-
-        _routeCoordinates.add(
-          <String, dynamic>{
-            'lat': latitude,
-            'lng': longitude,
-            if (item['timestamp'] != null)
-              'timestamp':
-                  item['timestamp'],
-          },
-        );
-      }
-    }
-
-    final double? distance =
-        _toDouble(
-      data['distanceKm'],
-    );
-
-    if (distance != null &&
-        distance >= 0) {
-      _totalDistanceKm =
-          distance;
-    }
-
-    _routeLoaded = true;
-  }
-
-  // ============================================================
-  // STOP GPS
-  // ============================================================
-
-  Future<void> _stopGpsTracking() async {
-    await _locationSubscription
-        ?.cancel();
-
-    _locationSubscription = null;
-
-    await _backgroundService.stop();
-
-    _gpsActive = false;
-  }
-
-  // ============================================================
-  // END WALK
-  // ============================================================
-
-  Future<void> _endWalk() async {
-    if (_ending ||
-        !mounted) {
-      return;
-    }
-
-    setState(() {
-      _ending = true;
-    });
-
-    try {
-      await _stopGpsTracking();
-
-      await _service.endLiveWalk(
-        widget.walkId,
+      return WalkerWalkData(
+        ownerId: ownerId,
+        ownerUid: ownerUid,
+        ownerName: ownerName.isEmpty
+            ? 'Owner'
+            : ownerName,
+        ownerPhone:
+            ownerPhone.isEmpty
+                ? null
+                : ownerPhone,
+        walkId: walkId,
         sessionId: sessionId,
+        qrWalkId: qrWalkId,
+        dogName: dogName.isEmpty
+            ? 'Dog'
+            : dogName,
+        dogBreed: dogBreed,
       );
-
-      if (!mounted) {
-        return;
-      }
-
-      Navigator.of(context).pop(true);
     } catch (e) {
-      debugPrint(
-        'End walk error: $e',
-      );
-
-      if (!mounted) {
-        return;
+      if (!context.mounted) {
+        return null;
       }
 
-      setState(() {
-        _ending = false;
-      });
+      final String message =
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              );
 
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
             content: Text(
-              e.toString().replaceFirst(
-                    'Exception: ',
-                    '',
-                  ),
+              'Could not connect Owner QR: $message',
             ),
-            backgroundColor: red,
             behavior:
                 SnackBarBehavior.floating,
           ),
         );
 
-      if (!_gpsActive) {
-        unawaited(
-          _startGpsTracking(),
+      return null;
+    }
+  }
+
+  // ==========================================================
+  // CONNECT QR SESSION
+  //
+  // IMPORTANT:
+  //
+  // NO active_walks CREATE HERE.
+  //
+  // liveWalkSessions already exists because the scanner
+  // created it.
+  // ==========================================================
+
+  static Future<void> _connectQrSession({
+    required String ownerId,
+    required String ownerUid,
+    required String ownerName,
+    required String ownerPhone,
+    required String walkerUid,
+    required String walkId,
+    required String sessionId,
+  }) async {
+    if (sessionId.trim().isEmpty) {
+      throw Exception(
+        'Session ID is missing.',
+      );
+    }
+
+    if (walkerUid.trim().isEmpty) {
+      throw Exception(
+        'Walker UID is missing.',
+      );
+    }
+
+    final DocumentReference<
+        Map<String, dynamic>> sessionRef =
+        _liveWalkSessions.doc(sessionId);
+
+    final DocumentSnapshot<
+        Map<String, dynamic>> snapshot =
+        await sessionRef.get();
+
+    if (!snapshot.exists) {
+      throw Exception(
+        'Live Walk session not found.',
+      );
+    }
+
+    final Map<String, dynamic> data =
+        snapshot.data() ??
+            <String, dynamic>{};
+
+    final String existingWalkerUid =
+        (
+          data['walkerUid'] ??
+          ''
+        )
+            .toString()
+            .trim();
+
+    if (existingWalkerUid.isNotEmpty &&
+        existingWalkerUid != walkerUid) {
+      throw Exception(
+        'This Live Walk is already connected to another walker.',
+      );
+    }
+
+    final WriteBatch batch =
+        _firestore.batch();
+
+    // ========================================================
+    // UPDATE LIVE SESSION
+    // ========================================================
+
+    batch.set(
+      sessionRef,
+      {
+        'id': sessionId,
+        'sessionId': sessionId,
+
+        'walkId':
+            data['walkId'] ??
+            sessionId,
+
+        'qrWalkId':
+            data['qrWalkId'] ??
+            walkId,
+
+        // ----------------------------------------------------
+        // SOURCE
+        // ----------------------------------------------------
+
+        'source': 'qr',
+        'startedFromQr': true,
+
+        // ----------------------------------------------------
+        // OWNER
+        // ----------------------------------------------------
+
+        'ownerId': ownerId,
+        'ownerUid': ownerUid,
+        'ownerName': ownerName,
+        'ownerPhone': ownerPhone,
+
+        // ----------------------------------------------------
+        // WALKER
+        // ----------------------------------------------------
+
+        'walkerUid': walkerUid,
+        'walkerId':
+            data['walkerId'] ??
+            walkerUid,
+
+        'connectionStatus':
+            'connected',
+
+        'walkerConnected':
+            true,
+
+        // ----------------------------------------------------
+        // STATUS
+        // ----------------------------------------------------
+
+        'status':
+            'ACTIVE',
+
+        'walkStarted':
+            true,
+
+        'walkEnded':
+            false,
+
+        // ----------------------------------------------------
+        // CONNECTION
+        // ----------------------------------------------------
+
+        'connectedAt':
+            FieldValue.serverTimestamp(),
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    // ========================================================
+    // UPDATE QR CONNECTION
+    // ========================================================
+
+    final DocumentReference<
+        Map<String, dynamic>> qrRef =
+        _qrConnections.doc(ownerUid);
+
+    batch.set(
+      qrRef,
+      {
+        'type':
+            'dojo_owner_qr',
+
+        'ownerId':
+            ownerId,
+
+        'ownerUid':
+            ownerUid,
+
+        'walkerId':
+            data['walkerId'] ??
+            walkerUid,
+
+        'walkerUid':
+            walkerUid,
+
+        'walkId':
+            walkId,
+
+        'activeWalkId':
+            sessionId,
+
+        'scanned':
+            true,
+
+        'connected':
+            true,
+
+        'connectedAt':
+            FieldValue.serverTimestamp(),
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    await batch.commit();
+  }
+
+  // ==========================================================
+  // CONNECT WALKER WITH OWNER
+  //
+  // Kept for compatibility with existing Insta Walk / callers.
+  //
+  // If a session already exists, update it.
+  // Otherwise create an active_walks document for legacy
+  // callers only.
+  // ==========================================================
+
+  static Future<String> connectWithOwner(
+    WalkerWalkData walk,
+  ) async {
+    final User? walker =
+        _auth.currentUser;
+
+    if (walker == null) {
+      throw Exception(
+        'Walker is not logged in.',
+      );
+    }
+
+    final String walkerUid =
+        walker.uid.trim();
+
+    if (walkerUid.isEmpty) {
+      throw Exception(
+        'Walker account is invalid.',
+      );
+    }
+
+    if (walk.ownerId.trim().isEmpty) {
+      throw Exception(
+        'Owner ID is missing.',
+      );
+    }
+
+    if (walk.walkId.trim().isEmpty) {
+      throw Exception(
+        'Walk ID is missing.',
+      );
+    }
+
+    // ========================================================
+    // NEW QR FLOW
+    //
+    // Existing live session means QR scanner has already
+    // created the session.
+    // ========================================================
+
+    if (walk.sessionId.trim().isNotEmpty) {
+      final DocumentSnapshot<
+          Map<String, dynamic>> session =
+          await _liveWalkSessions
+              .doc(walk.sessionId)
+              .get();
+
+      if (!session.exists) {
+        throw Exception(
+          'Live Walk session not found.',
+        );
+      }
+
+      await _connectQrSession(
+        ownerId: walk.ownerId,
+        ownerUid: walk.ownerUid,
+        ownerName: walk.ownerName,
+        ownerPhone:
+            walk.ownerPhone ?? '',
+        walkerUid: walkerUid,
+        walkId: walk.walkId,
+        sessionId: walk.sessionId,
+      );
+
+      return walk.walkId;
+    }
+
+    // ========================================================
+    // LEGACY / EXISTING INSTA WALK COMPATIBILITY
+    //
+    // Do not remove this path.
+    //
+    // Existing Insta Walk implementation can continue using
+    // active_walks through this compatibility path.
+    // ========================================================
+
+    final DocumentReference<
+        Map<String, dynamic>> activeRef =
+        _firestore
+            .collection('active_walks')
+            .doc(walk.walkId);
+
+    final DocumentSnapshot<
+        Map<String, dynamic>> existing =
+        await activeRef.get();
+
+    if (existing.exists) {
+      final Map<String, dynamic> data =
+          existing.data() ??
+              <String, dynamic>{};
+
+      final String status =
+          (data['status'] ?? '')
+              .toString()
+              .toLowerCase();
+
+      final String existingWalker =
+          (data['walkerUid'] ?? '')
+              .toString();
+
+      final String existingOwner =
+          (data['ownerId'] ?? '')
+              .toString();
+
+      if (status == 'active' &&
+          existingWalker == walkerUid &&
+          existingOwner == walk.ownerId) {
+        return walk.walkId;
+      }
+
+      if (status == 'active' &&
+          existingWalker != walkerUid) {
+        throw Exception(
+          'This Walk is already active.',
         );
       }
     }
+
+    // ========================================================
+    // WALKER DETAILS
+    // ========================================================
+
+    final String walkerName =
+        walker.displayName
+                    ?.trim()
+                    .isNotEmpty ==
+                true
+            ? walker.displayName!.trim()
+            : 'Walker';
+
+    final String walkerPhone =
+        walker.phoneNumber
+                    ?.trim()
+                    .isNotEmpty ==
+                true
+            ? walker.phoneNumber!.trim()
+            : '';
+
+    // ========================================================
+    // LEGACY ACTIVE WALK
+    //
+    // This is intentionally retained for existing Insta Walk
+    // compatibility.
+    // ========================================================
+
+    await activeRef.set(
+      {
+        'walkId':
+            walk.walkId,
+
+        'status':
+            'active',
+
+        'connectionStatus':
+            'connected',
+
+        'isLive':
+            true,
+
+        // ----------------------------------------------------
+        // OWNER
+        // ----------------------------------------------------
+
+        'ownerId':
+            walk.ownerId,
+
+        'ownerUid':
+            walk.ownerUid,
+
+        'ownerName':
+            walk.ownerName,
+
+        'ownerPhone':
+            walk.ownerPhone ?? '',
+
+        // ----------------------------------------------------
+        // WALKER
+        // ----------------------------------------------------
+
+        'walkerUid':
+            walkerUid,
+
+        'walkerName':
+            walkerName,
+
+        'walkerPhone':
+            walkerPhone,
+
+        // ----------------------------------------------------
+        // DOG
+        // ----------------------------------------------------
+
+        'dogName':
+            walk.dogName,
+
+        'dogBreed':
+            walk.dogBreed,
+
+        // ----------------------------------------------------
+        // CONNECTION
+        // ----------------------------------------------------
+
+        'connectedBy':
+            walkerUid,
+
+        'connectedAt':
+            FieldValue.serverTimestamp(),
+
+        // ----------------------------------------------------
+        // TIME
+        // ----------------------------------------------------
+
+        'startedAt':
+            FieldValue.serverTimestamp(),
+
+        'endedAt':
+            null,
+
+        // ----------------------------------------------------
+        // LOCATION
+        // ----------------------------------------------------
+
+        'ownerLocation':
+            null,
+
+        'walkerLocation':
+            null,
+
+        'ownerLocationUpdatedAt':
+            null,
+
+        'walkerLocationUpdatedAt':
+            null,
+
+        // ----------------------------------------------------
+        // SCAN
+        // ----------------------------------------------------
+
+        'ownerScanned':
+            false,
+
+        'walkerScanned':
+            true,
+
+        'scannedAt':
+            FieldValue.serverTimestamp(),
+
+        'lastUpdatedAt':
+            FieldValue.serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    return walk.walkId;
   }
 
-  // ============================================================
-  // CONFIRM END
-  // ============================================================
+  // ==========================================================
+  // SCAN + CONNECT
+  // ==========================================================
 
-  void _confirmEndWalk() {
-    if (_ending) {
+  static Future<String?> scanAndConnect(
+    BuildContext context,
+  ) async {
+    final WalkerWalkData? walk =
+        await scanOwnerQr(context);
+
+    if (walk == null) {
+      return null;
+    }
+
+    try {
+      final String walkId =
+          await connectWithOwner(walk);
+
+      if (!context.mounted) {
+        return walkId;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Owner connected successfully.',
+            ),
+          ),
+        );
+
+      return walkId;
+    } catch (e) {
+      if (!context.mounted) {
+        return null;
+      }
+
+      final String message =
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              );
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not connect: $message',
+            ),
+          ),
+        );
+
+      return null;
+    }
+  }
+
+  // ==========================================================
+  // SCAN + CONNECT + OPEN LIVE WALK
+  // ==========================================================
+
+  static Future<void> scanConnectAndOpenLiveWalk(
+    BuildContext context,
+  ) async {
+    final WalkerWalkData? walk =
+        await scanOwnerQr(context);
+
+    if (walk == null) {
       return;
     }
 
-    showDialog<void>(
-      context: context,
-      builder: (
-        BuildContext dialogContext,
-      ) {
-        return AlertDialog(
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'End Walk?',
-            style: TextStyle(
-              color: dark,
-              fontWeight:
-                  FontWeight.w900,
-            ),
-          ),
-          content: const Text(
-            'Are you sure you want to end this walk?',
-            style: TextStyle(
-              color: muted,
-              height: 1.4,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop();
-              },
-              child: const Text(
-                'Keep Walking',
-                style: TextStyle(
-                  color: dark,
-                  fontWeight:
-                      FontWeight.w700,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop();
+    try {
+      // ======================================================
+      // CONNECTION
+      // ======================================================
 
-                unawaited(
-                  _endWalk(),
-                );
-              },
-              style:
-                  ElevatedButton.styleFrom(
-                backgroundColor: red,
-                foregroundColor:
-                    Colors.white,
-                elevation: 0,
-              ),
-              child: const Text(
-                'End Walk',
-                style: TextStyle(
-                  fontWeight:
-                      FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
+      await connectWithOwner(walk);
 
-  // ============================================================
-  // SUPPORT
-  // ============================================================
+      if (!context.mounted) {
+        return;
+      }
 
-  void _openSupport() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor:
-          Colors.transparent,
-      builder: (_) {
-        return Container(
-          padding:
-              const EdgeInsets.fromLTRB(
-            20,
-            14,
-            20,
-            25,
-          ),
-          decoration:
-              const BoxDecoration(
-            color: Colors.white,
-            borderRadius:
-                BorderRadius.vertical(
-              top: Radius.circular(25),
-            ),
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
-              children: [
-                Container(
-                  width: 42,
-                  height: 5,
-                  decoration:
-                      BoxDecoration(
-                    color: const Color(
-                      0xFFD7DCE0,
-                    ),
-                    borderRadius:
-                        BorderRadius.circular(
-                      10,
-                    ),
-                  ),
-                ),
-                const SizedBox(
-                  height: 18,
-                ),
-                const Icon(
-                  Icons
-                      .support_agent_rounded,
-                  color: orange,
-                  size: 38,
-                ),
-                const SizedBox(
-                  height: 10,
-                ),
-                const Text(
-                  'Walk Support',
-                  style: TextStyle(
-                    color: dark,
-                    fontSize: 19,
-                    fontWeight:
-                        FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(
-                  height: 6,
-                ),
-                const Text(
-                  'Need help during this walk?',
-                  textAlign:
-                      TextAlign.center,
-                  style: TextStyle(
-                    color: muted,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(
-                  height: 18,
-                ),
-                SizedBox(
-                  width:
-                      double.infinity,
-                  height: 50,
-                  child:
-                      ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.of(
-                        context,
-                      ).pop();
-                    },
-                    icon: const Icon(
-                      Icons
-                          .support_agent_rounded,
-                    ),
-                    label: const Text(
-                      'Contact Support',
-                    ),
-                    style:
-                        ElevatedButton.styleFrom(
-                      backgroundColor:
-                          orange,
-                      foregroundColor:
-                          Colors.white,
-                      elevation: 0,
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(
-                          14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+      // ======================================================
+      // OPEN LIVE WALK
+      // ======================================================
+
+      await openLiveWalk(
+        context,
+        walk,
+      );
+    } catch (e) {
+      if (!context.mounted) {
+        return;
+      }
+
+      final String message =
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              );
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not start Live Walk: $message',
             ),
           ),
         );
-      },
+    }
+  }
+
+  // ==========================================================
+  // OPEN LIVE WALK
+  //
+  // QR:
+  // ownerUid = Firebase UID
+  // sessionId = liveWalkSessions document
+  //
+  // Insta:
+  // sessionId can be absent and existing walkId remains usable.
+  // ==========================================================
+
+  static Future<void> openLiveWalk(
+    BuildContext context,
+    WalkerWalkData walk,
+  ) async {
+    final User? walker =
+        _auth.currentUser;
+
+    if (walker == null) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Walker is not logged in.',
+            ),
+          ),
+        );
+
+      return;
+    }
+
+    if (walk.ownerUid.trim().isEmpty) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Owner UID is missing.',
+            ),
+          ),
+        );
+
+      return;
+    }
+
+    if (walk.walkId.trim().isEmpty) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Walk ID is missing.',
+            ),
+          ),
+        );
+
+      return;
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+
+    // ========================================================
+    // LIVE WALK
+    // ========================================================
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LiveWalkScreen(
+          // IMPORTANT:
+          // Firebase Owner UID, NOT business ownerId.
+          ownerUid:
+              walk.ownerUid,
+
+          ownerName:
+              walk.ownerName,
+
+          walkId:
+              walk.walkId,
+
+          dogName:
+              walk.dogName,
+
+          dogBreed:
+              walk.dogBreed,
+
+          ownerPhone:
+              walk.ownerPhone,
+
+          sessionId:
+              walk.sessionId.isEmpty
+                  ? null
+                  : walk.sessionId,
+        ),
+      ),
     );
   }
 
-  // ============================================================
-  // SOS
-  // ============================================================
+  // ==========================================================
+  // GET ACTIVE WALK FOR CURRENT WALKER
+  //
+  // Existing Insta Walk compatibility.
+  // ==========================================================
 
-  void _openSos() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor:
-          Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) {
-        return const LiveWalkSosSheet();
-      },
-    );
+  static Future<
+      DocumentSnapshot<Map<String, dynamic>>?>
+      getMyActiveWalk() async {
+    final User? walker =
+        _auth.currentUser;
+
+    if (walker == null) {
+      return null;
+    }
+
+    final QuerySnapshot<
+        Map<String, dynamic>> result =
+        await _firestore
+            .collection('active_walks')
+            .where(
+              'walkerUid',
+              isEqualTo: walker.uid,
+            )
+            .where(
+              'status',
+              isEqualTo: 'active',
+            )
+            .limit(1)
+            .get();
+
+    if (result.docs.isEmpty) {
+      return null;
+    }
+
+    return result.docs.first;
   }
 
-  // ============================================================
-  // GPS ERROR
-  // ============================================================
+  // ==========================================================
+  // WATCH ACTIVE WALK
+  //
+  // Existing Insta Walk compatibility.
+  // ==========================================================
 
-  void _showGpsError(
-    String message,
+  static Stream<
+      DocumentSnapshot<Map<String, dynamic>>>
+      watchWalk(
+    String walkId,
   ) {
-    if (!mounted) {
-      return;
+    return _firestore
+        .collection('active_walks')
+        .doc(walkId)
+        .snapshots();
+  }
+
+  // ==========================================================
+  // WATCH LIVE SESSION
+  //
+  // New QR flow.
+  // ==========================================================
+
+  static Stream<
+      DocumentSnapshot<Map<String, dynamic>>>
+      watchLiveSession(
+    String sessionId,
+  ) {
+    return _liveWalkSessions
+        .doc(sessionId)
+        .snapshots();
+  }
+
+  // ==========================================================
+  // UPDATE WALKER LOCATION
+  //
+  // Supports:
+  // QR -> liveWalkSessions
+  // Legacy/Insta -> active_walks
+  // ==========================================================
+
+  static Future<void> updateWalkerLocation({
+    required String walkId,
+    required double latitude,
+    required double longitude,
+    String? sessionId,
+  }) async {
+    final User? walker =
+        _auth.currentUser;
+
+    if (walker == null) {
+      throw Exception(
+        'Walker is not logged in.',
+      );
     }
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: red,
-          behavior:
-              SnackBarBehavior.floating,
+    if (walkId.trim().isEmpty) {
+      throw Exception(
+        'Walk ID is missing.',
+      );
+    }
+
+    final String? cleanSessionId =
+        sessionId?.trim();
+
+    // ========================================================
+    // NEW QR SESSION
+    // ========================================================
+
+    if (cleanSessionId != null &&
+        cleanSessionId.isNotEmpty) {
+      await _liveWalkSessions
+          .doc(cleanSessionId)
+          .set(
+        {
+          'currentLocation': {
+            'lat': latitude,
+            'lng': longitude,
+          },
+
+          'walkerLocation': {
+            'latitude': latitude,
+            'longitude': longitude,
+          },
+
+          'walkerLocationUpdatedAt':
+              FieldValue.serverTimestamp(),
+
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+        },
+        SetOptions(
+          merge: true,
         ),
       );
+
+      return;
+    }
+
+    // ========================================================
+    // EXISTING INSTA / LEGACY FLOW
+    // ========================================================
+
+    await _firestore
+        .collection('active_walks')
+        .doc(walkId)
+        .set(
+      {
+        'walkerLocation': {
+          'latitude': latitude,
+          'longitude': longitude,
+        },
+
+        'walkerLocationUpdatedAt':
+            FieldValue.serverTimestamp(),
+
+        'lastUpdatedAt':
+            FieldValue.serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
   }
 
-  // ============================================================
-  // BUILD
-  // ============================================================
+  // ==========================================================
+  // COMPLETE WALK
+  //
+  // Kept as existing compatibility method.
+  // ==========================================================
 
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return StreamBuilder<
-        DocumentSnapshot<
-            Map<String, dynamic>>>(
-      stream: _sessionStream,
-      builder: (
-        BuildContext context,
-        AsyncSnapshot<
-                DocumentSnapshot<
-                    Map<String, dynamic>>>
-            snapshot,
-      ) {
-        final Map<String, dynamic> data =
-            snapshot.data?.data() ??
-                <String, dynamic>{};
+  static Future<void> completeWalk({
+    required String walkId,
+    String? sessionId,
+  }) async {
+    final User? walker =
+        _auth.currentUser;
 
-        // ------------------------------------------------------
-        // LOAD ROUTE ONCE
-        // ------------------------------------------------------
+    if (walker == null) {
+      throw Exception(
+        'Walker is not logged in.',
+      );
+    }
 
-        if (!_routeLoaded &&
-            data.isNotEmpty) {
-          WidgetsBinding.instance
-              .addPostFrameCallback(
-            (_) {
-              if (!mounted ||
-                  _routeLoaded) {
-                return;
-              }
+    if (walkId.trim().isEmpty) {
+      throw Exception(
+        'Walk ID is missing.',
+      );
+    }
 
-              _loadExistingRoute(data);
+    final String? cleanSessionId =
+        sessionId?.trim();
 
-              if (mounted) {
-                setState(() {});
-              }
-            },
-          );
-        }
+    // ========================================================
+    // NEW QR SESSION
+    // ========================================================
 
-        final String status =
-            data['status']
-                    ?.toString()
-                    .toLowerCase() ??
-                'live';
+    if (cleanSessionId != null &&
+        cleanSessionId.isNotEmpty) {
+      await _completeQrSession(
+        walkId: walkId,
+        sessionId: cleanSessionId,
+        walkerUid: walker.uid,
+      );
 
-        // ------------------------------------------------------
-        // COMPLETED
-        // ------------------------------------------------------
+      return;
+    }
 
-        if (status == 'completed' ||
-            status == 'ended') {
-          if (_gpsActive) {
-            unawaited(
-              _stopGpsTracking(),
-            );
-          }
+    // ========================================================
+    // EXISTING INSTA / LEGACY FLOW
+    //
+    // Do NOT remove.
+    // ========================================================
 
-          return _completedScreen(
-            data,
-          );
-        }
+    await _completeLegacyActiveWalk(
+      walkId: walkId,
+      walkerUid: walker.uid,
+    );
+  }
 
-        // ------------------------------------------------------
-        // LIVE
-        // ------------------------------------------------------
+  // ==========================================================
+  // COMPLETE QR SESSION
+  // ==========================================================
 
-        return Scaffold(
-          backgroundColor:
-              Colors.white,
-          appBar: AppBar(
-            backgroundColor: orange,
-            surfaceTintColor: orange,
-            elevation: 0,
-            centerTitle: true,
-            automaticallyImplyLeading:
-                false,
-            title: const Text(
-              'LIVE WALK',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight:
-                    FontWeight.w900,
-                letterSpacing: .4,
-              ),
-            ),
-            actions: [
-              IconButton(
-                tooltip: 'SOS',
-                onPressed: _ending
-                    ? null
-                    : _openSos,
-                icon: const Icon(
-                  Icons.sos_rounded,
-                  color: Colors.white,
-                  size: 27,
-                ),
-              ),
-              IconButton(
-                tooltip: 'Support',
-                onPressed: _ending
-                    ? null
-                    : _openSupport,
-                icon: const Icon(
-                  Icons
-                      .support_agent_rounded,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ],
-          ),
-          body: Stack(
-            children: [
-              Positioned.fill(
-                child: LiveWalkMap(
-                  sessionData: data,
-                ),
-              ),
+  static Future<void> _completeQrSession({
+    required String walkId,
+    required String sessionId,
+    required String walkerUid,
+  }) async {
+    final DocumentReference<
+        Map<String, dynamic>> sessionRef =
+        _liveWalkSessions.doc(sessionId);
 
-              Positioned(
-                top: 14,
-                left: 16,
-                child: _liveBadge(),
-              ),
+    final DocumentSnapshot<
+        Map<String, dynamic>> snapshot =
+        await sessionRef.get();
 
-              Positioned(
-                top: 14,
-                right: 16,
-                child: _gpsBadge(data),
-              ),
+    if (!snapshot.exists) {
+      throw Exception(
+        'Live Walk session not found.',
+      );
+    }
 
-              Align(
-                alignment:
-                    Alignment.bottomCenter,
-                child:
-                    LiveWalkBottomSheet(
-                  ownerName:
-                      widget.ownerName,
-                  dogName:
-                      widget.dogName,
-                  dogBreed:
-                      widget.dogBreed,
-                  ownerPhone:
-                      widget.ownerPhone,
-                  sessionData:
-                      data,
-                  ending:
-                      _ending,
-                  onEndWalk:
-                      _confirmEndWalk,
-                ),
-              ),
-            ],
-          ),
-        );
+    final Map<String, dynamic> data =
+        snapshot.data() ??
+            <String, dynamic>{};
+
+    final Map<String, dynamic> historyData =
+        Map<String, dynamic>.from(data);
+
+    historyData['status'] =
+        'completed';
+
+    historyData['walkEnded'] =
+        true;
+
+    historyData['isLive'] =
+        false;
+
+    historyData['connectionStatus'] =
+        'completed';
+
+    historyData['completedBy'] =
+        walkerUid;
+
+    historyData['completedAt'] =
+        FieldValue.serverTimestamp();
+
+    historyData['endedAt'] =
+        FieldValue.serverTimestamp();
+
+    historyData['updatedAt'] =
+        FieldValue.serverTimestamp();
+
+    // ========================================================
+    // HISTORY
+    // ========================================================
+
+    await _firestore
+        .collection('walk_history')
+        .doc(walkId)
+        .set(
+      historyData,
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    // ========================================================
+    // SESSION COMPLETE
+    // ========================================================
+
+    await sessionRef.set(
+      {
+        'status':
+            'completed',
+
+        'walkEnded':
+            true,
+
+        'isLive':
+            false,
+
+        'connectionStatus':
+            'completed',
+
+        'completedBy':
+            walkerUid,
+
+        'completedAt':
+            FieldValue.serverTimestamp(),
+
+        'endedAt':
+            FieldValue.serverTimestamp(),
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    // ========================================================
+    // RESET QR CONNECTION
+    // ========================================================
+
+    final String ownerUid =
+        (data['ownerUid'] ?? '')
+            .toString()
+            .trim();
+
+    if (ownerUid.isNotEmpty) {
+      await _qrConnections
+          .doc(ownerUid)
+          .set(
+        {
+          'scanned':
+              false,
+
+          'connected':
+              false,
+
+          'walkerId':
+              null,
+
+          'walkerUid':
+              null,
+
+          'walkerName':
+              null,
+
+          'activeWalkId':
+              null,
+
+          'lastCompletedWalkId':
+              walkId,
+
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+        },
+        SetOptions(
+          merge: true,
+        ),
+      );
+    }
+  }
+
+  // ==========================================================
+  // COMPLETE LEGACY / INSTA ACTIVE WALK
+  // ==========================================================
+
+  static Future<void>
+      _completeLegacyActiveWalk({
+    required String walkId,
+    required String walkerUid,
+  }) async {
+    final DocumentReference<
+        Map<String, dynamic>> activeRef =
+        _firestore
+            .collection('active_walks')
+            .doc(walkId);
+
+    final DocumentSnapshot<
+        Map<String, dynamic>> snapshot =
+        await activeRef.get();
+
+    if (!snapshot.exists) {
+      throw Exception(
+        'Active walk not found.',
+      );
+    }
+
+    final Map<String, dynamic> data =
+        snapshot.data() ??
+            <String, dynamic>{};
+
+    // ========================================================
+    // SAVE HISTORY
+    // ========================================================
+
+    await _firestore
+        .collection('walk_history')
+        .doc(walkId)
+        .set(
+      {
+        ...data,
+
+        'status':
+            'completed',
+
+        'isLive':
+            false,
+
+        'connectionStatus':
+            'completed',
+
+        'endedAt':
+            FieldValue.serverTimestamp(),
+
+        'completedBy':
+            walkerUid,
+
+        'completedAt':
+            FieldValue.serverTimestamp(),
+
+        'lastUpdatedAt':
+            FieldValue.serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    // ========================================================
+    // COMPLETE ACTIVE WALK
+    // ========================================================
+
+    await activeRef.update(
+      {
+        'status':
+            'completed',
+
+        'isLive':
+            false,
+
+        'connectionStatus':
+            'completed',
+
+        'endedAt':
+            FieldValue.serverTimestamp(),
+
+        'completedBy':
+            walkerUid,
+
+        'completedAt':
+            FieldValue.serverTimestamp(),
+
+        'lastUpdatedAt':
+            FieldValue.serverTimestamp(),
       },
     );
-  }
 
-  // ============================================================
-  // LIVE BADGE
-  // ============================================================
+    // ========================================================
+    // RESET QR CONNECTION IF PRESENT
+    // ========================================================
 
-  Widget _liveBadge() {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 11,
-        vertical: 7,
-      ),
-      decoration:
-          BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color:
-                Color(0x26000000),
-            blurRadius: 10,
-            offset:
-                Offset(0, 4),
-          ),
-        ],
-      ),
-      child: const Row(
-        mainAxisSize:
-            MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.circle,
-            color: green,
-            size: 9,
-          ),
-          SizedBox(width: 7),
-          Text(
-            'LIVE',
-            style: TextStyle(
-              color: dark,
-              fontSize: 10,
-              fontWeight:
-                  FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    final String ownerUid =
+        (data['ownerUid'] ?? '')
+            .toString()
+            .trim();
 
-  // ============================================================
-  // GPS BADGE
-  // ============================================================
+    if (ownerUid.isNotEmpty) {
+      await _qrConnections
+          .doc(ownerUid)
+          .set(
+        {
+          'scanned':
+              false,
 
-  Widget _gpsBadge(
-    Map<String, dynamic> data,
-  ) {
-    final double? lat =
-        _toDouble(
-      data['currentLocation'] is Map
-          ? data['currentLocation']['lat']
-          : data['currentLat'],
-    );
+          'connected':
+              false,
 
-    final double? lng =
-        _toDouble(
-      data['currentLocation'] is Map
-          ? data['currentLocation']['lng']
-          : data['currentLng'],
-    );
+          'walkerId':
+              null,
 
-    final bool hasLocation =
-        lat != null &&
-            lng != null &&
-            _validCoordinate(
-              lat,
-              lng,
-            );
+          'walkerUid':
+              null,
 
-    final Color color =
-        hasLocation
-            ? green
-            : orange;
+          'walkerName':
+              null,
 
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
-      decoration:
-          BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color:
-                Color(0x26000000),
-            blurRadius: 10,
-            offset:
-                Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize:
-            MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.location_on_rounded,
-            color: color,
-            size: 14,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            hasLocation
-                ? 'GPS'
-                : 'GPS...',
-            style: const TextStyle(
-              color: dark,
-              fontSize: 9,
-              fontWeight:
-                  FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+          'activeWalkId':
+              null,
 
-  // ============================================================
-  // COMPLETED SCREEN
-  // ============================================================
+          'lastCompletedWalkId':
+              walkId,
 
-  Widget _completedScreen(
-    Map<String, dynamic> data,
-  ) {
-    final double distance =
-        _toDouble(
-              data['distanceKm'],
-            ) ??
-            _totalDistanceKm;
-
-    return Scaffold(
-      backgroundColor:
-          const Color(0xFFF5F6F8),
-      appBar: AppBar(
-        automaticallyImplyLeading:
-            false,
-        backgroundColor: orange,
-        foregroundColor:
-            Colors.white,
-        centerTitle: true,
-        title: const Text(
-          'WALK COMPLETED',
-          style: TextStyle(
-            fontWeight:
-                FontWeight.w900,
-          ),
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+        },
+        SetOptions(
+          merge: true,
         ),
-      ),
-      body: Center(
-        child: Padding(
-          padding:
-              const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment:
-                MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons
-                    .check_circle_rounded,
-                color: green,
-                size: 80,
-              ),
-              const SizedBox(
-                height: 18,
-              ),
-              const Text(
-                'Walk Completed',
-                style: TextStyle(
-                  color: dark,
-                  fontSize: 24,
-                  fontWeight:
-                      FontWeight.w900,
-                ),
-              ),
-              const SizedBox(
-                height: 12,
-              ),
-              Text(
-                'Distance: '
-                '${distance.toStringAsFixed(2)} km',
-                style: const TextStyle(
-                  color: muted,
-                  fontSize: 13,
-                  fontWeight:
-                      FontWeight.w700,
-                ),
-              ),
-              const SizedBox(
-                height: 25,
-              ),
-              SizedBox(
-                width:
-                    double.infinity,
-                height: 52,
-                child:
-                    ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(
-                      context,
-                    ).pop(true);
-                  },
-                  style:
-                      ElevatedButton.styleFrom(
-                    backgroundColor:
-                        orange,
-                    foregroundColor:
-                        Colors.white,
-                    elevation: 0,
-                    shape:
-                        RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(
-                        14,
-                      ),
-                    ),
-                  ),
-                  child: const Text(
-                    'Back to Walker Home',
-                    style: TextStyle(
-                      fontWeight:
-                          FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      );
+    }
+  }
+
+  // ==========================================================
+  // END LIVE WALK
+  //
+  // IMPORTANT:
+  //
+  // Existing LiveWalkScreen currently calls:
+  //
+  // WalkRequestService.endLiveWalk(...)
+  //
+  // Keep this bridge so Insta Walk is not broken.
+  // ==========================================================
+
+  static Future<void> endLiveWalk(
+    String walkId, {
+    String? sessionId,
+  }) async {
+    final String? cleanSessionId =
+        sessionId?.trim();
+
+    // ========================================================
+    // NEW QR FLOW
+    // ========================================================
+
+    if (cleanSessionId != null &&
+        cleanSessionId.isNotEmpty) {
+      final User? walker =
+          _auth.currentUser;
+
+      if (walker == null) {
+        throw Exception(
+          'Walker is not logged in.',
+        );
+      }
+
+      await _completeQrSession(
+        walkId: walkId,
+        sessionId: cleanSessionId,
+        walkerUid: walker.uid,
+      );
+
+      return;
+    }
+
+    // ========================================================
+    // EXISTING INSTA WALK FLOW
+    //
+    // This is deliberately preserved.
+    // ========================================================
+
+    await _walkRequestService.endLiveWalk(
+      walkId,
     );
   }
+}
 
-  // ============================================================
-  // HELPERS
-  // ============================================================
+/// ============================================================
+/// WALKER WALK DATA
+/// ============================================================
 
-  double? _toDouble(
-    dynamic value,
-  ) {
-    if (value == null) {
-      return null;
-    }
+class WalkerWalkData {
+  /// Business Owner ID.
+  final String ownerId;
 
-    if (value is num) {
-      return value.toDouble();
-    }
+  /// Firebase Authentication UID.
+  final String ownerUid;
 
-    return double.tryParse(
-      value.toString().trim(),
-    );
-  }
+  final String ownerName;
+  final String? ownerPhone;
 
-  int? _toInt(
-    dynamic value,
-  ) {
-    if (value == null) {
-      return null;
-    }
+  /// Walk ID.
+  final String walkId;
 
-    if (value is int) {
-      return value;
-    }
+  /// liveWalkSessions document ID.
+  final String sessionId;
 
-    if (value is num) {
-      return value.toInt();
-    }
+  /// Original walkId embedded in QR.
+  final String qrWalkId;
 
-    return int.tryParse(
-      value.toString().trim(),
-    );
-  }
+  final String dogName;
+  final String dogBreed;
 
-  bool _validCoordinate(
-    double lat,
-    double lng,
-  ) {
-    return lat >= -90 &&
-        lat <= 90 &&
-        lng >= -180 &&
-        lng <= 180 &&
-        !(lat == 0 &&
-            lng == 0);
-  }
-
-  // ============================================================
-  // DISPOSE
-  // ============================================================
-
-  @override
-  void dispose() {
-    _locationSubscription?.cancel();
-
-    // Background GPS को यहाँ stop नहीं करना है.
-    // Actual stop केवल End Walk flow में होगा.
-
-    super.dispose();
-  }
+  const WalkerWalkData({
+    required this.ownerId,
+    required this.ownerUid,
+    required this.ownerName,
+    required this.ownerPhone,
+    required this.walkId,
+    required this.sessionId,
+    this.qrWalkId = '',
+    required this.dogName,
+    required this.dogBreed,
+  });
 }
