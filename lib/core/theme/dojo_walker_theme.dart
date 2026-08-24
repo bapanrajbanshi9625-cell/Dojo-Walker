@@ -6,14 +6,16 @@ class DojoWalkerTheme {
   DojoWalkerTheme._();
 
   static ThemeData light() {
-    final colors = DojoWalkerColors;
-
     return ThemeData(
       useMaterial3: true,
-
       brightness: Brightness.light,
 
-      scaffoldBackgroundColor: colors.background,
+      // ==========================================================
+      // GLOBAL
+      // ==========================================================
+
+      scaffoldBackgroundColor:
+          DojoWalkerColors.background,
 
       colorScheme: const ColorScheme.light(
         primary: DojoWalkerColors.primary,
@@ -26,6 +28,10 @@ class DojoWalkerTheme {
         onError: Colors.white,
       ),
 
+      // ==========================================================
+      // APP BAR
+      // ==========================================================
+
       appBarTheme: const AppBarTheme(
         backgroundColor: DojoWalkerColors.surface,
         foregroundColor: DojoWalkerColors.textPrimary,
@@ -35,8 +41,12 @@ class DojoWalkerTheme {
         scrolledUnderElevation: 0,
       ),
 
+      // ==========================================================
+      // CARD
+      // ==========================================================
+
       cardTheme: CardThemeData(
-        color: colors.surface,
+        color: DojoWalkerColors.surface,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
@@ -48,15 +58,23 @@ class DojoWalkerTheme {
         ),
       ),
 
+      // ==========================================================
+      // DIVIDER
+      // ==========================================================
+
       dividerTheme: const DividerThemeData(
         color: DojoWalkerColors.divider,
         thickness: 1,
         space: 1,
       ),
 
+      // ==========================================================
+      // INPUT
+      // ==========================================================
+
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colors.surface,
+        fillColor: DojoWalkerColors.surface,
 
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -101,12 +119,20 @@ class DojoWalkerTheme {
         ),
       ),
 
+      // ==========================================================
+      // ELEVATED BUTTON
+      // ==========================================================
+
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: colors.buttonPrimary,
-          foregroundColor: colors.buttonText,
+          backgroundColor:
+              DojoWalkerColors.buttonPrimary,
 
-          minimumSize: const Size(double.infinity, 52),
+          foregroundColor:
+              DojoWalkerColors.buttonText,
+
+          minimumSize:
+              const Size(double.infinity, 52),
 
           elevation: 0,
 
@@ -121,11 +147,17 @@ class DojoWalkerTheme {
         ),
       ),
 
+      // ==========================================================
+      // OUTLINED BUTTON
+      // ==========================================================
+
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: colors.primary,
+          foregroundColor:
+              DojoWalkerColors.primary,
 
-          minimumSize: const Size(double.infinity, 52),
+          minimumSize:
+              const Size(double.infinity, 52),
 
           side: const BorderSide(
             color: DojoWalkerColors.primary,
@@ -138,44 +170,80 @@ class DojoWalkerTheme {
         ),
       ),
 
+      // ==========================================================
+      // TEXT BUTTON
+      // ==========================================================
+
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: colors.primary,
+          foregroundColor:
+              DojoWalkerColors.primary,
+
           textStyle: const TextStyle(
             fontWeight: FontWeight.w700,
           ),
         ),
       ),
 
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: DojoWalkerColors.primary,
+      // ==========================================================
+      // FAB
+      // ==========================================================
+
+      floatingActionButtonTheme:
+          const FloatingActionButtonThemeData(
+        backgroundColor:
+            DojoWalkerColors.primary,
         foregroundColor: Colors.white,
         elevation: 2,
       ),
 
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: DojoWalkerColors.bottomBar,
-        selectedItemColor: DojoWalkerColors.navSelected,
-        unselectedItemColor: DojoWalkerColors.navUnselected,
+      // ==========================================================
+      // BOTTOM NAVIGATION
+      // ==========================================================
+
+      bottomNavigationBarTheme:
+          const BottomNavigationBarThemeData(
+        backgroundColor:
+            DojoWalkerColors.bottomBar,
+        selectedItemColor:
+            DojoWalkerColors.navSelected,
+        unselectedItemColor:
+            DojoWalkerColors.navUnselected,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
       ),
 
+      // ==========================================================
+      // SNACKBAR
+      // ==========================================================
+
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: colors.textPrimary,
+
+        backgroundColor:
+            DojoWalkerColors.textPrimary,
+
         contentTextStyle: const TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.w500,
         ),
+
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
       ),
 
+      // ==========================================================
+      // DIALOG
+      // ==========================================================
+
       dialogTheme: DialogThemeData(
-        backgroundColor: colors.surface,
-        surfaceTintColor: Colors.transparent,
+        backgroundColor:
+            DojoWalkerColors.surface,
+
+        surfaceTintColor:
+            Colors.transparent,
+
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
