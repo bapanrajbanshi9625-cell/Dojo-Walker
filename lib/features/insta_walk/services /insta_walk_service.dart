@@ -8,10 +8,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../constants/walks_constants.dart';
-import '../models/walk_request.dart';
-import 'walk_request_sound_service.dart';
-import 'walker_location_service.dart';
+import '../../walks/constants/walks_constants.dart';
+import '../../walks/models/walk_request.dart';
+import '../../walks/services/walk_request_sound_service.dart';
+import '../../walks/services/walker_location_service.dart';
 
 class InstaWalkService {
   InstaWalkService._();
