@@ -17,6 +17,18 @@ class WalkRequest {
   final String ownerUserId;
 
   // ============================================================
+  // INSTA WALK / SENDER
+  // ============================================================
+
+  final String senderUid;
+  final String senderRole;
+  final String requestId;
+  final String searchType;
+  final double searchRadiusKm;
+  final String ownerLocationType;
+  final GeoPoint? ownerLocation;
+
+  // ============================================================
   // DOG
   // ============================================================
 
@@ -59,13 +71,8 @@ class WalkRequest {
   // WALKER
   // ============================================================
 
-  /// Walker Business ID.
-  ///
-  /// IMPORTANT:
-  /// This is NOT the Firebase Authentication UID.
   final String walkerId;
-
-  /// Walker Firebase Authentication UID.
+  final String walkerName;
   final String walkerUid;
 
   // ============================================================
@@ -74,6 +81,7 @@ class WalkRequest {
 
   final String qrWalkId;
   final String walkId;
+  final String liveWalkSessionId;
 
   // ============================================================
   // CURRENT WALKER LOCATION
@@ -86,6 +94,8 @@ class WalkRequest {
   // TIMESTAMPS
   // ============================================================
 
+  final Timestamp? createdAt;
+  final Timestamp? acceptedAt;
   final Timestamp? startedAt;
   final Timestamp? updatedAt;
 
@@ -103,6 +113,15 @@ class WalkRequest {
     required this.ownerUid,
     required this.ownerUserId,
 
+    // INSTA WALK
+    required this.senderUid,
+    required this.senderRole,
+    required this.requestId,
+    required this.searchType,
+    required this.searchRadiusKm,
+    required this.ownerLocationType,
+    required this.ownerLocation,
+
     // DOG
     required this.dogName,
     required this.dogBreed,
@@ -118,7 +137,7 @@ class WalkRequest {
     required this.destinationLat,
     required this.destinationLng,
 
-    // OWNER NOTE
+    // NOTE
     required this.ownerNote,
 
     // WALK
@@ -129,17 +148,21 @@ class WalkRequest {
 
     // WALKER
     required this.walkerId,
+    required this.walkerName,
     required this.walkerUid,
 
     // ACTIVE WALK
     required this.qrWalkId,
     required this.walkId,
+    required this.liveWalkSessionId,
 
     // CURRENT LOCATION
     required this.currentLat,
     required this.currentLng,
 
     // TIMESTAMPS
+    required this.createdAt,
+    required this.acceptedAt,
     required this.startedAt,
     required this.updatedAt,
   });
@@ -155,26 +178,23 @@ class WalkRequest {
         snapshot.data() ?? <String, dynamic>{};
 
     // ==========================================================
+    // OWNER LOCATION
+    //
+    // Insta Walk:
+    // ownerLocation: GeoPoint
+    // ==========================================================
+
+    final GeoPoint? ownerLocation =
+        _geoPoint(data['ownerLocation']);
+
+    // ==========================================================
     // PICKUP LOCATION
     //
-    // Supported:
+    // Priority:
     //
-    // pickupLat
-    // pickupLng
-    //
-    // OR:
-    //
-    // pickupLocation: {
-    //   lat: ...,
-    //   lng: ...
-    // }
-    //
-    // OR:
-    //
-    // pickupLocation: {
-    //   latitude: ...,
-    //   longitude: ...
-    // }
+    // 1. pickupLat / pickupLng
+    // 2. pickupLocation
+    // 3. ownerLocation
     // ==========================================================
 
     final Map<String, dynamic>? pickupLocation =
@@ -183,17 +203,19 @@ class WalkRequest {
     final double pickupLat = _double(
       data['pickupLat'] ??
           pickupLocation?['lat'] ??
-          pickupLocation?['latitude'],
+          pickupLocation?['latitude'] ??
+          ownerLocation?.latitude,
     );
 
     final double pickupLng = _double(
       data['pickupLng'] ??
           pickupLocation?['lng'] ??
-          pickupLocation?['longitude'],
+          pickupLocation?['longitude'] ??
+          ownerLocation?.longitude,
     );
 
     // ==========================================================
-    // DESTINATION LOCATION
+    // DESTINATION
     // ==========================================================
 
     final Map<String, dynamic>? destinationLocation =
@@ -213,18 +235,6 @@ class WalkRequest {
 
     // ==========================================================
     // CURRENT WALKER LOCATION
-    //
-    // Supported:
-    //
-    // currentLat
-    // currentLng
-    //
-    // OR:
-    //
-    // currentLocation: {
-    //   lat: ...,
-    //   lng: ...
-    // }
     // ==========================================================
 
     final Map<String, dynamic>? currentLocation =
@@ -243,7 +253,25 @@ class WalkRequest {
     );
 
     // ==========================================================
-    // RETURN MODEL
+    // WALK TYPE
+    //
+    // Insta Walk documents may use searchType.
+    // Normal walks may use walkType.
+    // ==========================================================
+
+    final String searchType = _string(
+      data['searchType'],
+    );
+
+    final String walkType = _string(
+      data['walkType'],
+      fallback: searchType.isNotEmpty
+          ? _formatWalkType(searchType)
+          : 'Walk',
+    );
+
+    // ==========================================================
+    // RETURN
     // ==========================================================
 
     return WalkRequest(
@@ -269,14 +297,48 @@ class WalkRequest {
       ),
 
       ownerUid: _string(
-        data['ownerUid'] ??
-            data['ownerAuthUid'],
+        data['ownerAuthUid'] ??
+            data['ownerUid'],
       ),
 
       ownerUserId: _string(
         data['ownerUserId'] ??
-            data['userId'],
+            data['userId'] ??
+            data['ownerId'],
       ),
+
+      // ========================================================
+      // INSTA WALK
+      // ========================================================
+
+      senderUid: _string(
+        data['senderUid'],
+        fallback: _string(
+          data['ownerAuthUid'] ??
+              data['ownerUid'],
+        ),
+      ),
+
+      senderRole: _string(
+        data['senderRole'],
+      ),
+
+      requestId: _string(
+        data['requestId'],
+        fallback: snapshot.id,
+      ),
+
+      searchType: searchType,
+
+      searchRadiusKm: _double(
+        data['searchRadiusKm'],
+      ),
+
+      ownerLocationType: _string(
+        data['ownerLocationType'],
+      ),
+
+      ownerLocation: ownerLocation,
 
       // ========================================================
       // DOG
@@ -302,7 +364,8 @@ class WalkRequest {
       pickupAddress: _string(
         data['pickupAddress'] ??
             data['pickup'] ??
-            data['pickupLocationName'],
+            data['pickupLocationName'] ??
+            data['address'],
       ),
 
       pickupLat: pickupLat,
@@ -353,10 +416,7 @@ class WalkRequest {
         data['status'],
       ),
 
-      walkType: _string(
-        data['walkType'],
-        fallback: 'Insta Walk',
-      ),
+      walkType: walkType,
 
       // ========================================================
       // WALKER
@@ -364,6 +424,10 @@ class WalkRequest {
 
       walkerId: _string(
         data['walkerId'],
+      ),
+
+      walkerName: _string(
+        data['walkerName'],
       ),
 
       walkerUid: _string(
@@ -384,8 +448,12 @@ class WalkRequest {
             data['activeWalkId'],
       ),
 
+      liveWalkSessionId: _string(
+        data['liveWalkSessionId'],
+      ),
+
       // ========================================================
-      // CURRENT WALKER LOCATION
+      // CURRENT LOCATION
       // ========================================================
 
       currentLat: currentLat,
@@ -395,6 +463,14 @@ class WalkRequest {
       // ========================================================
       // TIMESTAMPS
       // ========================================================
+
+      createdAt: _timestamp(
+        data['createdAt'],
+      ),
+
+      acceptedAt: _timestamp(
+        data['acceptedAt'],
+      ),
 
       startedAt: _timestamp(
         data['startedAt'],
@@ -412,29 +488,29 @@ class WalkRequest {
   // ============================================================
 
   Map<String, dynamic> toMap() {
-    return {
-      // ========================================================
+    final Map<String, dynamic> data =
+        <String, dynamic>{
       // OWNER
-      // ========================================================
-
       'ownerId': ownerId,
       'ownerName': ownerName,
       'ownerPhone': ownerPhone,
       'ownerUid': ownerUid,
       'ownerUserId': ownerUserId,
 
-      // ========================================================
-      // DOG
-      // ========================================================
+      // INSTA WALK
+      'senderUid': senderUid,
+      'senderRole': senderRole,
+      'requestId': requestId,
+      'searchType': searchType,
+      'searchRadiusKm': searchRadiusKm,
+      'ownerLocationType': ownerLocationType,
 
+      // DOG
       'dogName': dogName,
       'dogBreed': dogBreed,
       'dogAge': dogAge,
 
-      // ========================================================
       // PICKUP
-      // ========================================================
-
       'pickupAddress': pickupAddress,
       'pickupLat': pickupLat,
       'pickupLng': pickupLng,
@@ -444,10 +520,7 @@ class WalkRequest {
         'lng': pickupLng,
       },
 
-      // ========================================================
       // DESTINATION
-      // ========================================================
-
       'destinationAddress': destinationAddress,
       'destinationLat': destinationLat,
       'destinationLng': destinationLng,
@@ -457,39 +530,26 @@ class WalkRequest {
         'lng': destinationLng,
       },
 
-      // ========================================================
-      // OWNER NOTE
-      // ========================================================
-
+      // NOTE
       'ownerNote': ownerNote,
 
-      // ========================================================
       // WALK
-      // ========================================================
-
       'distanceKm': distanceKm,
       'estimatedTime': estimatedTime,
       'status': status,
       'walkType': walkType,
 
-      // ========================================================
       // WALKER
-      // ========================================================
-
       'walkerId': walkerId,
+      'walkerName': walkerName,
       'walkerUid': walkerUid,
 
-      // ========================================================
       // ACTIVE WALK
-      // ========================================================
-
       'qrWalkId': qrWalkId,
       'walkId': walkId,
+      'liveWalkSessionId': liveWalkSessionId,
 
-      // ========================================================
-      // CURRENT WALKER LOCATION
-      // ========================================================
-
+      // CURRENT LOCATION
       'currentLat': currentLat,
       'currentLng': currentLng,
 
@@ -498,13 +558,281 @@ class WalkRequest {
         'lng': currentLng,
       },
 
-      // ========================================================
       // TIMESTAMPS
-      // ========================================================
-
+      'createdAt': createdAt,
+      'acceptedAt': acceptedAt,
       'startedAt': startedAt,
       'updatedAt': updatedAt,
     };
+
+    if (ownerLocation != null) {
+      data['ownerLocation'] = ownerLocation;
+    }
+
+    return data;
+  }
+
+  // ============================================================
+  // LOCATION
+  // ============================================================
+
+  bool get hasOwnerLocation {
+    return ownerLocation != null;
+  }
+
+  bool get hasPickupLocation {
+    return _validCoordinate(
+      pickupLat,
+      pickupLng,
+    );
+  }
+
+  bool get hasDestinationLocation {
+    return _validCoordinate(
+      destinationLat,
+      destinationLng,
+    );
+  }
+
+  bool get hasCurrentLocation {
+    return _validCoordinate(
+      currentLat,
+      currentLng,
+    );
+  }
+
+  // ============================================================
+  // INSTA WALK
+  // ============================================================
+
+  bool get isInstaWalk {
+    final String search =
+        searchType.trim().toLowerCase();
+
+    final String walk =
+        walkType.trim().toLowerCase();
+
+    return search == 'insta_walk' ||
+        search == 'instawalk' ||
+        search == 'insta walk' ||
+        walk == 'insta_walk' ||
+        walk == 'instawalk' ||
+        walk == 'insta walk';
+  }
+
+  // ============================================================
+  // REQUEST STATUS
+  // ============================================================
+
+  bool get isSearching {
+    return status.trim().toLowerCase() ==
+        'searching';
+  }
+
+  bool get isAccepted {
+    return status.trim().toLowerCase() ==
+        'accepted';
+  }
+
+  bool get isWalkerOnWay {
+    return status.trim().toLowerCase() ==
+        'walker_on_way';
+  }
+
+  bool get isActive {
+    return status.trim().toLowerCase() ==
+        'active';
+  }
+
+  bool get isCompleted {
+    return status.trim().toLowerCase() ==
+        'completed';
+  }
+
+  bool get isCancelled {
+    final String value =
+        status.trim().toLowerCase();
+
+    return value == 'cancelled' ||
+        value == 'owner_cancelled' ||
+        value == 'walker_cancelled';
+  }
+
+  // ============================================================
+  // WALKER
+  // ============================================================
+
+  bool get hasWalker {
+    return walkerId.trim().isNotEmpty ||
+        walkerUid.trim().isNotEmpty;
+  }
+
+  // ============================================================
+  // OWNER
+  // ============================================================
+
+  bool get hasOwner {
+    return ownerId.trim().isNotEmpty ||
+        ownerUid.trim().isNotEmpty ||
+        ownerUserId.trim().isNotEmpty;
+  }
+
+  // ============================================================
+  // COPY WITH
+  // ============================================================
+
+  WalkRequest copyWith({
+    String? id,
+
+    String? ownerId,
+    String? ownerName,
+    String? ownerPhone,
+    String? ownerUid,
+    String? ownerUserId,
+
+    String? senderUid,
+    String? senderRole,
+    String? requestId,
+    String? searchType,
+    double? searchRadiusKm,
+    String? ownerLocationType,
+    GeoPoint? ownerLocation,
+
+    String? dogName,
+    String? dogBreed,
+    String? dogAge,
+
+    String? pickupAddress,
+    double? pickupLat,
+    double? pickupLng,
+
+    String? destinationAddress,
+    double? destinationLat,
+    double? destinationLng,
+
+    String? ownerNote,
+
+    double? distanceKm,
+    String? estimatedTime,
+    String? status,
+    String? walkType,
+
+    String? walkerId,
+    String? walkerName,
+    String? walkerUid,
+
+    String? qrWalkId,
+    String? walkId,
+    String? liveWalkSessionId,
+
+    double? currentLat,
+    double? currentLng,
+
+    Timestamp? createdAt,
+    Timestamp? acceptedAt,
+    Timestamp? startedAt,
+    Timestamp? updatedAt,
+  }) {
+    return WalkRequest(
+      id: id ?? this.id,
+
+      ownerId: ownerId ?? this.ownerId,
+      ownerName: ownerName ?? this.ownerName,
+      ownerPhone: ownerPhone ?? this.ownerPhone,
+      ownerUid: ownerUid ?? this.ownerUid,
+      ownerUserId:
+          ownerUserId ?? this.ownerUserId,
+
+      senderUid:
+          senderUid ?? this.senderUid,
+      senderRole:
+          senderRole ?? this.senderRole,
+      requestId:
+          requestId ?? this.requestId,
+      searchType:
+          searchType ?? this.searchType,
+      searchRadiusKm:
+          searchRadiusKm ?? this.searchRadiusKm,
+      ownerLocationType:
+          ownerLocationType ??
+              this.ownerLocationType,
+      ownerLocation:
+          ownerLocation ?? this.ownerLocation,
+
+      dogName: dogName ?? this.dogName,
+      dogBreed: dogBreed ?? this.dogBreed,
+      dogAge: dogAge ?? this.dogAge,
+
+      pickupAddress:
+          pickupAddress ?? this.pickupAddress,
+      pickupLat:
+          pickupLat ?? this.pickupLat,
+      pickupLng:
+          pickupLng ?? this.pickupLng,
+
+      destinationAddress:
+          destinationAddress ??
+              this.destinationAddress,
+      destinationLat:
+          destinationLat ??
+              this.destinationLat,
+      destinationLng:
+          destinationLng ??
+              this.destinationLng,
+
+      ownerNote:
+          ownerNote ?? this.ownerNote,
+
+      distanceKm:
+          distanceKm ?? this.distanceKm,
+
+      estimatedTime:
+          estimatedTime ??
+              this.estimatedTime,
+
+      status:
+          status ?? this.status,
+
+      walkType:
+          walkType ?? this.walkType,
+
+      walkerId:
+          walkerId ?? this.walkerId,
+
+      walkerName:
+          walkerName ?? this.walkerName,
+
+      walkerUid:
+          walkerUid ?? this.walkerUid,
+
+      qrWalkId:
+          qrWalkId ?? this.qrWalkId,
+
+      walkId:
+          walkId ?? this.walkId,
+
+      liveWalkSessionId:
+          liveWalkSessionId ??
+              this.liveWalkSessionId,
+
+      currentLat:
+          currentLat ?? this.currentLat,
+
+      currentLng:
+          currentLng ?? this.currentLng,
+
+      createdAt:
+          createdAt ?? this.createdAt,
+
+      acceptedAt:
+          acceptedAt ?? this.acceptedAt,
+
+      startedAt:
+          startedAt ?? this.startedAt,
+
+      updatedAt:
+          updatedAt ?? this.updatedAt,
+    );
   }
 
   // ============================================================
@@ -520,6 +848,20 @@ class WalkRequest {
 
     if (value is Map) {
       return Map<String, dynamic>.from(value);
+    }
+
+    return null;
+  }
+
+  // ============================================================
+  // SAFE GEOPOINT
+  // ============================================================
+
+  static GeoPoint? _geoPoint(
+    dynamic value,
+  ) {
+    if (value is GeoPoint) {
+      return value;
     }
 
     return null;
@@ -601,74 +943,26 @@ class WalkRequest {
   }
 
   // ============================================================
-  // LOCATION HELPERS
+  // WALK TYPE FORMATTER
   // ============================================================
 
-  bool get hasPickupLocation {
-    return _validCoordinate(
-          pickupLat,
-          pickupLng,
-        );
-  }
+  static String _formatWalkType(
+    String value,
+  ) {
+    final String normalized =
+        value.trim().toLowerCase();
 
-  bool get hasDestinationLocation {
-    return _validCoordinate(
-          destinationLat,
-          destinationLng,
-        );
-  }
+    if (normalized == 'insta_walk' ||
+        normalized == 'instawalk' ||
+        normalized == 'insta walk') {
+      return 'Insta Walk';
+    }
 
-  bool get hasCurrentLocation {
-    return _validCoordinate(
-          currentLat,
-          currentLng,
-        );
-  }
+    if (normalized.isEmpty) {
+      return 'Walk';
+    }
 
-  // ============================================================
-  // REQUEST HELPERS
-  // ============================================================
-
-  bool get isSearching {
-    return status.trim().toLowerCase() == 'searching';
-  }
-
-  bool get isAccepted {
-    return status.trim().toLowerCase() == 'accepted';
-  }
-
-  bool get isWalkerOnWay {
-    return status.trim().toLowerCase() ==
-        'walker_on_way';
-  }
-
-  bool get isCompleted {
-    return status.trim().toLowerCase() ==
-        'completed';
-  }
-
-  bool get isCancelled {
-    final String value =
-        status.trim().toLowerCase();
-
-    return value == 'cancelled' ||
-        value == 'owner_cancelled' ||
-        value == 'walker_cancelled';
-  }
-
-  // ============================================================
-  // WALKER ID HELPERS
-  // ============================================================
-
-  bool get hasWalker {
-    return walkerId.trim().isNotEmpty ||
-        walkerUid.trim().isNotEmpty;
-  }
-
-  bool get hasOwner {
-    return ownerId.trim().isNotEmpty ||
-        ownerUid.trim().isNotEmpty ||
-        ownerUserId.trim().isNotEmpty;
+    return value.trim();
   }
 
   // ============================================================
@@ -685,111 +979,5 @@ class WalkRequest {
         latitude <= 90.0 &&
         longitude >= -180.0 &&
         longitude <= 180.0;
-  }
-
-  // ============================================================
-  // COPY WITH
-  // ============================================================
-
-  WalkRequest copyWith({
-    String? id,
-    String? ownerId,
-    String? ownerName,
-    String? ownerPhone,
-    String? ownerUid,
-    String? ownerUserId,
-    String? dogName,
-    String? dogBreed,
-    String? dogAge,
-    String? pickupAddress,
-    double? pickupLat,
-    double? pickupLng,
-    String? destinationAddress,
-    double? destinationLat,
-    double? destinationLng,
-    String? ownerNote,
-    double? distanceKm,
-    String? estimatedTime,
-    String? status,
-    String? walkType,
-    String? walkerId,
-    String? walkerUid,
-    String? qrWalkId,
-    String? walkId,
-    double? currentLat,
-    double? currentLng,
-    Timestamp? startedAt,
-    Timestamp? updatedAt,
-  }) {
-    return WalkRequest(
-      id: id ?? this.id,
-
-      ownerId: ownerId ?? this.ownerId,
-      ownerName: ownerName ?? this.ownerName,
-      ownerPhone: ownerPhone ?? this.ownerPhone,
-      ownerUid: ownerUid ?? this.ownerUid,
-      ownerUserId: ownerUserId ?? this.ownerUserId,
-
-      dogName: dogName ?? this.dogName,
-      dogBreed: dogBreed ?? this.dogBreed,
-      dogAge: dogAge ?? this.dogAge,
-
-      pickupAddress:
-          pickupAddress ?? this.pickupAddress,
-      pickupLat:
-          pickupLat ?? this.pickupLat,
-      pickupLng:
-          pickupLng ?? this.pickupLng,
-
-      destinationAddress:
-          destinationAddress ??
-              this.destinationAddress,
-      destinationLat:
-          destinationLat ??
-              this.destinationLat,
-      destinationLng:
-          destinationLng ??
-              this.destinationLng,
-
-      ownerNote:
-          ownerNote ?? this.ownerNote,
-
-      distanceKm:
-          distanceKm ?? this.distanceKm,
-
-      estimatedTime:
-          estimatedTime ??
-              this.estimatedTime,
-
-      status:
-          status ?? this.status,
-
-      walkType:
-          walkType ?? this.walkType,
-
-      walkerId:
-          walkerId ?? this.walkerId,
-
-      walkerUid:
-          walkerUid ?? this.walkerUid,
-
-      qrWalkId:
-          qrWalkId ?? this.qrWalkId,
-
-      walkId:
-          walkId ?? this.walkId,
-
-      currentLat:
-          currentLat ?? this.currentLat,
-
-      currentLng:
-          currentLng ?? this.currentLng,
-
-      startedAt:
-          startedAt ?? this.startedAt,
-
-      updatedAt:
-          updatedAt ?? this.updatedAt,
-    );
   }
 }
