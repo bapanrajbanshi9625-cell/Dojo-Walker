@@ -208,25 +208,17 @@ class QRService {
       {
         'type': 'dojo_owner_qr',
         'version': 1,
-
         'ownerId': ownerId,
         'ownerUid': uid,
-
         'ownerName': qrData.ownerName,
-
         'walkId': cleanWalkId,
-
         'dogName': qrData.dogName,
         'dogBreed': qrData.dogBreed,
-
         'ownerPhone': qrData.ownerPhone ?? '',
-
         'scanned': false,
         'connected': false,
-
         'walkerId': null,
         'walkerName': null,
-
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       },
@@ -289,12 +281,9 @@ class QRService {
       {
         'scanned': false,
         'connected': false,
-
         'walkerId': null,
         'walkerName': null,
-
         'activeWalkId': null,
-
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),
@@ -303,12 +292,6 @@ class QRService {
 
   /// ==========================================================
   /// PARSE QR PAYLOAD
-  ///
-  /// Supports both:
-  ///   QRService.parseQR(...)
-  ///   QRService.instance.dataFromPayload(...)
-  ///
-  /// This keeps old scanner code compatible.
   /// ==========================================================
 
   static QRData parseQR(String raw) {
@@ -363,7 +346,7 @@ class QRService {
   /// Used by qr_scanner_screen.dart
   /// ==========================================================
 
-  QRData dataFromPayload(String payload) {
+  static QRData dataFromPayload(String payload) {
     return parseQR(payload);
   }
 }
