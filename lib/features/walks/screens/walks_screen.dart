@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/walk_request.dart';
 import '../services/walk_request_service.dart';
-import '../widgets/insta_walk_container.dart';
+import '../../insta_walk/widgets/insta_walk_container.dart';
 import '../widgets/walk_request_card.dart';
 
 class WalksScreen extends StatelessWidget {
