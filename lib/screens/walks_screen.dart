@@ -8,8 +8,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../features/insta_walk/models/insta_walk_request.dart';
+import '../features/insta_walk/screens/active_walk_details_screen.dart';
 import '../features/insta_walk/services/insta_walk_service.dart';
 import '../features/insta_walk/widgets/insta_walk_container.dart';
+import '../features/insta_walk/widgets/insta_walk_request_card.dart';
 import '../features/walker_home/containers/walker_home_header.dart';
 import 'qr_scanner_screen.dart';
 
@@ -26,40 +28,40 @@ class _WalksScreenState extends State<WalksScreen>
   // FIREBASE
   // ============================================================
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
+
+  final InstaWalkService _instaWalkService =
+      InstaWalkService.instance;
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _requestSubscription;
 
   // ============================================================
-  // INSTA WALK SERVICE
-  // ============================================================
-
-  final InstaWalkService _instaWalkService = InstaWalkService();
-
-  // ============================================================
-  // WALKER IDENTITY
+  // WALKER
   // ============================================================
 
   String? _walkerUid;
   String? _walkerId;
 
   // ============================================================
-  // SEARCH STATE
+  // SEARCH
   // ============================================================
 
   bool _searching = false;
   bool _loading = false;
 
   // ============================================================
-  // QR STATE
+  // QR
   // ============================================================
 
   bool _openingQrScanner = false;
 
   // ============================================================
-  // INSTA WALK REQUESTS
+  // REQUESTS
   // ============================================================
 
   final List<InstaWalkRequest> _requests =
@@ -74,7 +76,8 @@ class _WalksScreenState extends State<WalksScreen>
   Timer? _dotTimer;
   Timer? _dotGlowTimer;
 
-  final math.Random _random = math.Random();
+  final math.Random _random =
+      math.Random();
 
   double _dotX = 0;
   double _dotY = 0;
@@ -89,12 +92,14 @@ class _WalksScreenState extends State<WalksScreen>
   void initState() {
     super.initState();
 
-    final User? user = _auth.currentUser;
-    _walkerUid = user?.uid;
+    _walkerUid =
+        _auth.currentUser?.uid;
 
-    _radarController = AnimationController(
+    _radarController =
+        AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 3),
+      duration:
+          const Duration(seconds: 3),
     )..repeat();
 
     _dotTimer = Timer.periodic(
@@ -116,56 +121,45 @@ class _WalksScreenState extends State<WalksScreen>
   Future<void> _loadWalkerState() async {
     final String? uid = _walkerUid;
 
-    if (uid == null) {
+    if (uid == null ||
+        uid.trim().isEmpty) {
       return;
     }
 
     try {
-      final DocumentSnapshot<Map<String, dynamic>> accountSnapshot =
+      final DocumentSnapshot<
+          Map<String, dynamic>> account =
           await _firestore
               .collection('phoneAccounts')
               .doc(uid)
               .get();
 
-      final Map<String, dynamic>? accountData =
-          accountSnapshot.data();
+      final Map<String, dynamic>?
+          accountData = account.data();
 
-      final dynamic savedWalkerId =
-          accountData?['walkerId'];
+      final String savedWalkerId =
+          accountData?['walkerId']
+                  ?.toString()
+                  .trim() ??
+              '';
 
-      if (savedWalkerId != null) {
-        final String id =
-            savedWalkerId.toString().trim();
-
-        if (id.isNotEmpty) {
-          _walkerId = id;
-        }
+      if (savedWalkerId.isNotEmpty) {
+        _walkerId = savedWalkerId;
       }
 
-      final DocumentSnapshot<Map<String, dynamic>> userSnapshot =
+      final DocumentSnapshot<
+          Map<String, dynamic>> userDoc =
           await _firestore
               .collection('users')
               .doc(uid)
               .get();
 
-      final Map<String, dynamic>? userData =
-          userSnapshot.data();
+      final Map<String, dynamic>?
+          userData = userDoc.data();
 
       final bool searching =
-          userData?['instaWalkSearching'] == true;
-
-      if (_walkerId != null &&
-          _walkerId!.isNotEmpty) {
-        await _firestore
-            .collection('users')
-            .doc(uid)
-            .set(
-          <String, dynamic>{
-            'walkerId': _walkerId,
-          },
-          SetOptions(merge: true),
-        );
-      }
+          userData?['instaWalkSearching'] ==
+              true;
 
       if (!mounted) {
         return;
@@ -181,7 +175,7 @@ class _WalksScreenState extends State<WalksScreen>
       }
     } catch (e) {
       debugPrint(
-        'Walker State Load Error: $e',
+        'Walker state error: $e',
       );
     }
   }
@@ -191,278 +185,59 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
 
   Future<String?> _getWalkerId() async {
-    if (_walkerId != null &&
-        _walkerId!.trim().isNotEmpty) {
-      return _walkerId;
+    final String cached =
+        _walkerId?.trim() ?? '';
+
+    if (cached.isNotEmpty) {
+      return cached;
     }
 
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     if (user == null) {
       return null;
     }
 
     try {
-      final DocumentSnapshot<Map<String, dynamic>> snapshot =
+      final DocumentSnapshot<
+          Map<String, dynamic>> snapshot =
           await _firestore
               .collection('phoneAccounts')
               .doc(user.uid)
               .get();
 
-      final Map<String, dynamic>? data =
-          snapshot.data();
+      final String id =
+          snapshot.data()?['walkerId']
+                  ?.toString()
+                  .trim() ??
+              '';
 
-      final dynamic value =
-          data?['walkerId'];
-
-      if (value != null) {
-        final String id =
-            value.toString().trim();
-
-        if (id.isNotEmpty) {
-          _walkerId = id;
-
-          if (mounted) {
-            setState(() {});
-          }
-
-          return id;
-        }
+      if (id.isEmpty) {
+        return null;
       }
+
+      _walkerId = id;
+
+      return id;
     } catch (e) {
       debugPrint(
-        'Walker ID Load Error: $e',
-      );
-    }
-
-    return null;
-  }
-
-  // ============================================================
-  // OPEN QR SCANNER
-  // ============================================================
-
-  Future<void> _openQrScanner() async {
-    if (_openingQrScanner || !mounted) {
-      return;
-    }
-
-    final User? user = _auth.currentUser;
-
-    if (user == null) {
-      _showMessage('Please login first.');
-      return;
-    }
-
-    final String? walkerId =
-        await _getWalkerId();
-
-    if (walkerId == null ||
-        walkerId.trim().isEmpty) {
-      _showMessage(
-        'Walker ID is not available. '
-        'Please complete your Walker profile.',
-      );
-      return;
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _openingQrScanner = true;
-    });
-
-    try {
-      final dynamic result =
-          await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              const QrScannerScreen(),
-        ),
+        'Walker ID error: $e',
       );
 
-      if (!mounted) {
-        return;
-      }
-
-      if (result != null) {
-        await _handleQrResult(result);
-      }
-    } catch (e) {
-      debugPrint(
-        'Open QR Scanner Error: $e',
-      );
-
-      if (mounted) {
-        _showMessage(
-          'Unable to open QR scanner.',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _openingQrScanner = false;
-        });
-      }
-    }
-  }
-
-  // ============================================================
-  // HANDLE QR RESULT
-  // ============================================================
-
-  Future<void> _handleQrResult(
-    dynamic result,
-  ) async {
-    try {
-      Map<String, dynamic> data =
-          <String, dynamic>{};
-
-      if (result is String) {
-        final dynamic decoded =
-            result.isEmpty
-                ? null
-                : _tryDecodeJson(result);
-
-        if (decoded is Map) {
-          data = Map<String, dynamic>.from(
-            decoded,
-          );
-        }
-      }
-
-      if (result is Map) {
-        data = Map<String, dynamic>.from(
-          result,
-        );
-      }
-
-      if (data.isEmpty) {
-        return;
-      }
-
-      final String ownerId =
-          data['ownerId']
-                  ?.toString()
-                  .trim() ??
-              '';
-
-      final String walkerId =
-          data['walkerId']
-                  ?.toString()
-                  .trim() ??
-              '';
-
-      final String sessionId =
-          data['sessionId']
-                  ?.toString()
-                  .trim() ??
-              '';
-
-      final String walkId =
-          data['walkId']
-                  ?.toString()
-                  .trim() ??
-              '';
-
-      final String ownerName =
-          data['ownerName']
-                  ?.toString()
-                  .trim() ??
-              'Owner';
-
-      if (sessionId.isEmpty &&
-          walkId.isEmpty) {
-        _showMessage(
-          'QR connection was not completed.',
-        );
-        return;
-      }
-
-      final String? currentWalkerId =
-          await _getWalkerId();
-
-      if (currentWalkerId != null &&
-          walkerId.isNotEmpty &&
-          walkerId != currentWalkerId) {
-        _showMessage(
-          'This QR connection belongs '
-          'to another walker.',
-        );
-        return;
-      }
-
-      final User? user =
-          _auth.currentUser;
-
-      if (user != null) {
-        await _firestore
-            .collection('users')
-            .doc(user.uid)
-            .set(
-          <String, dynamic>{
-            'walkerId': currentWalkerId,
-            'instaWalkSearching': false,
-            'instaWalkSearchUpdatedAt':
-                FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
-      }
-
-      await _requestSubscription?.cancel();
-      _requestSubscription = null;
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _searching = false;
-        _requests.clear();
-        _dotVisible = false;
-      });
-
-      _showMessage(
-        ownerId.isNotEmpty
-            ? 'Connected with $ownerName.'
-            : 'Live Walk connected successfully.',
-      );
-    } catch (e) {
-      debugPrint(
-        'QR Result Error: $e',
-      );
-
-      if (mounted) {
-        _showMessage(
-          'Invalid QR connection result.',
-        );
-      }
-    }
-  }
-
-  // ============================================================
-  // SAFE JSON DECODE
-  // ============================================================
-
-  dynamic _tryDecodeJson(String value) {
-    try {
-      return value.isEmpty
-          ? null
-          : const JsonDecoder().convert(value);
-    } catch (_) {
       return null;
     }
   }
 
   // ============================================================
-  // START INSTA WALK SEARCH
+  // START SEARCH
   // ============================================================
 
   Future<void> _startSearch() async {
+    if (_loading) {
+      return;
+    }
+
     final User? user =
         _auth.currentUser;
 
@@ -473,15 +248,11 @@ class _WalksScreenState extends State<WalksScreen>
       return;
     }
 
-    if (_loading) {
-      return;
-    }
-
     final String? walkerId =
         await _getWalkerId();
 
     if (walkerId == null ||
-        walkerId.trim().isEmpty) {
+        walkerId.isEmpty) {
       _showMessage(
         'Walker ID is not available. '
         'Please complete your Walker profile.',
@@ -516,6 +287,7 @@ class _WalksScreenState extends State<WalksScreen>
       }
 
       setState(() {
+        _walkerUid = user.uid;
         _walkerId = walkerId;
         _searching = true;
         _loading = false;
@@ -526,7 +298,7 @@ class _WalksScreenState extends State<WalksScreen>
       _moveRadarDot();
     } catch (e) {
       debugPrint(
-        'Start Insta Walk Error: $e',
+        'Start Insta Walk error: $e',
       );
 
       if (!mounted) {
@@ -550,116 +322,66 @@ class _WalksScreenState extends State<WalksScreen>
   void _startRequestListener() {
     _requestSubscription?.cancel();
 
-    _requestSubscription = _firestore
-        .collection('walk_requests')
-        .where(
-          'status',
-          isEqualTo: 'searching',
-        )
-        .snapshots()
-        .listen(
-      (snapshot) {
-        if (!mounted || !_searching) {
+    _requestSubscription =
+        _firestore
+            .collection('walk_requests')
+            .where(
+              'status',
+              isEqualTo: 'searching',
+            )
+            .snapshots()
+            .listen(
+      (QuerySnapshot<
+              Map<String, dynamic>>
+          snapshot) {
+        if (!mounted ||
+            !_searching) {
           return;
         }
 
         final List<InstaWalkRequest>
-            incoming =
-            <InstaWalkRequest>[];
+            requests =
+            snapshot.docs
+                .map(
+                  (
+                    QueryDocumentSnapshot<
+                        Map<String, dynamic>>
+                    doc,
+                  ) {
+                    return InstaWalkRequest
+                        .fromFirestore(doc);
+                  },
+                )
+                .toList();
 
-        for (
-          final QueryDocumentSnapshot<
-              Map<String, dynamic>> document
-              in snapshot.docs
-        ) {
-          try {
-            final InstaWalkRequest request =
-                InstaWalkRequest.fromFirestore(
-              document,
-            );
-
-            incoming.add(request);
-          } catch (e) {
-            debugPrint(
-              'Invalid Insta Walk request '
-              '${document.id}: $e',
-            );
-          }
-        }
-
-        incoming.sort(
-          (a, b) =>
-              _requestDistance(a)
-                  .compareTo(
-                    _requestDistance(b),
-                  ),
+        requests.sort(
+          (
+            InstaWalkRequest a,
+            InstaWalkRequest b,
+          ) =>
+              a.distanceKm.compareTo(
+            b.distanceKm,
+          ),
         );
 
         setState(() {
           _requests
             ..clear()
-            ..addAll(incoming);
+            ..addAll(requests);
         });
       },
       onError: (Object error) {
         debugPrint(
-          'Insta Walk Request Listener Error: '
-          '$error',
+          'Insta Walk listener error: $error',
         );
 
         if (mounted) {
           _showMessage(
-            'Unable to receive Insta Walk requests.',
+            'Unable to receive walk requests.',
           );
         }
       },
     );
-  }
-
-  // ============================================================
-  // REQUEST DISTANCE
-  // ============================================================
-
-  double _requestDistance(
-    InstaWalkRequest request,
-  ) {
-    final dynamic value =
-        _readDynamicField(
-      request,
-      <String>[
-        'distanceKm',
-        'distance',
-      ],
-    );
-
-    if (value is num) {
-      return value.toDouble();
-    }
-
-    return double.tryParse(
-          value?.toString() ?? '',
-        ) ??
-        999;
-  }
-
-  // ============================================================
-  // DYNAMIC FIELD HELPER
-  // ============================================================
-
-  dynamic _readDynamicField(
-    InstaWalkRequest request,
-    List<String> names,
-  ) {
-    final Map<String, dynamic> data =
-        request.toMap();
-
-    for (final String name in names) {
-      if (data.containsKey(name)) {
-        return data[name];
-      }
-    }
-
-    return null;
   }
 
   // ============================================================
@@ -683,7 +405,7 @@ class _WalksScreenState extends State<WalksScreen>
         await _getWalkerId();
 
     if (walkerId == null ||
-        walkerId.trim().isEmpty) {
+        walkerId.isEmpty) {
       _showMessage(
         'Walker ID is not available.',
       );
@@ -691,30 +413,55 @@ class _WalksScreenState extends State<WalksScreen>
     }
 
     try {
-      await _instaWalkService.acceptRequest(
-        request,
-        walkerId: walkerId,
-        walkerUid: user.uid,
+      await _instaWalkService.acceptWalk(
+        request.id,
       );
 
-      await _stopSearchAfterMatch();
+      await _stopSearchState(
+        clearRequests: false,
+      );
+
+      final InstaWalkRequest?
+          accepted =
+          await _instaWalkService
+              .getWalkRequest(
+        request.id,
+      );
+
+      if (accepted == null) {
+        throw Exception(
+          'Accepted walk could not be loaded.',
+        );
+      }
 
       if (!mounted) {
         return;
       }
 
-      _showMessage(
-        'Insta Walk request accepted.',
+      setState(() {
+        _requests.removeWhere(
+          (InstaWalkRequest item) =>
+              item.id == request.id,
+        );
+      });
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              ActiveWalkDetailsScreen(
+            request: accepted,
+          ),
+        ),
       );
     } catch (e) {
       debugPrint(
-        'Accept Insta Walk Request Error: $e',
+        'Accept Insta Walk error: $e',
       );
 
       if (mounted) {
         _showMessage(
-          'This Insta Walk request is '
-          'no longer available.',
+          'This walk request is no longer available.',
         );
       }
     }
@@ -727,32 +474,9 @@ class _WalksScreenState extends State<WalksScreen>
   Future<void> _rejectRequest(
     InstaWalkRequest request,
   ) async {
-    final User? user =
-        _auth.currentUser;
-
-    if (user == null) {
-      _showMessage(
-        'Please login first.',
-      );
-      return;
-    }
-
-    final String? walkerId =
-        await _getWalkerId();
-
-    if (walkerId == null ||
-        walkerId.trim().isEmpty) {
-      _showMessage(
-        'Walker ID is not available.',
-      );
-      return;
-    }
-
     try {
-      await _instaWalkService.rejectRequest(
-        request,
-        walkerId: walkerId,
-        walkerUid: user.uid,
+      await _instaWalkService.rejectWalk(
+        request.id,
       );
 
       if (!mounted) {
@@ -761,53 +485,36 @@ class _WalksScreenState extends State<WalksScreen>
 
       setState(() {
         _requests.removeWhere(
-          (item) =>
-              _requestId(item) ==
-              _requestId(request),
+          (InstaWalkRequest item) =>
+              item.id == request.id,
         );
       });
     } catch (e) {
       debugPrint(
-        'Reject Insta Walk Request Error: $e',
+        'Reject Insta Walk error: $e',
       );
 
       if (mounted) {
         _showMessage(
-          'This Insta Walk request is '
-          'no longer available.',
+          'This walk request is no longer available.',
         );
       }
     }
   }
 
   // ============================================================
-  // REQUEST ID
+  // STOP SEARCH STATE
   // ============================================================
 
-  String _requestId(
-    InstaWalkRequest request,
-  ) {
-    final dynamic value =
-        _readDynamicField(
-      request,
-      <String>[
-        'id',
-        'requestId',
-      ],
-    );
-
-    return value?.toString() ?? '';
-  }
-
-  // ============================================================
-  // STOP SEARCH AFTER MATCH
-  // ============================================================
-
-  Future<void> _stopSearchAfterMatch() async {
+  Future<void> _stopSearchState({
+    bool clearRequests = true,
+  }) async {
     final String? uid =
-        _walkerUid;
+        _walkerUid ??
+        _auth.currentUser?.uid;
 
-    if (uid == null) {
+    if (uid == null ||
+        uid.trim().isEmpty) {
       return;
     }
 
@@ -825,6 +532,7 @@ class _WalksScreenState extends State<WalksScreen>
       );
 
       await _requestSubscription?.cancel();
+
       _requestSubscription = null;
 
       if (!mounted) {
@@ -833,63 +541,19 @@ class _WalksScreenState extends State<WalksScreen>
 
       setState(() {
         _searching = false;
-        _requests.clear();
+
+        if (clearRequests) {
+          _requests.clear();
+        }
+
         _dotVisible = false;
       });
     } catch (e) {
       debugPrint(
-        'Stop Search After Match Error: $e',
-      );
-    }
-  }
-
-  // ============================================================
-  // STOP SEARCH
-  // ============================================================
-
-  Future<void> _stopSearch() async {
-    final String? uid =
-        _walkerUid;
-
-    if (uid == null) {
-      return;
-    }
-
-    try {
-      await _firestore
-          .collection('users')
-          .doc(uid)
-          .set(
-        <String, dynamic>{
-          'instaWalkSearching': false,
-          'instaWalkSearchUpdatedAt':
-              FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
+        'Stop search error: $e',
       );
 
-      await _requestSubscription?.cancel();
-      _requestSubscription = null;
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _searching = false;
-        _requests.clear();
-        _dotVisible = false;
-      });
-    } catch (e) {
-      debugPrint(
-        'Stop Insta Walk Error: $e',
-      );
-
-      if (mounted) {
-        _showMessage(
-          'Unable to stop searching.',
-        );
-      }
+      rethrow;
     }
   }
 
@@ -898,44 +562,30 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
 
   void _searchButtonPressed() {
-    if (!_searching) {
-      _startSearch();
-    } else {
+    if (_searching) {
       _showStopDialog();
+    } else {
+      _startSearch();
     }
   }
 
   // ============================================================
-  // STOP SEARCH DIALOG
+  // STOP DIALOG
   // ============================================================
 
   Future<void> _showStopDialog() async {
     final bool? confirm =
         await showDialog<bool>(
       context: context,
-      barrierDismissible: true,
-      barrierColor:
-          Colors.black.withOpacity(.48),
-      builder: (dialogContext) {
+      builder:
+          (BuildContext dialogContext) {
         return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(26),
-          ),
           title: const Text(
             'Stop Searching?',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFF263238),
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
           ),
           content: const Text(
             'You will stop receiving nearby '
             'Insta Walk requests.',
-            textAlign: TextAlign.center,
           ),
           actions: <Widget>[
             TextButton(
@@ -945,7 +595,9 @@ class _WalksScreenState extends State<WalksScreen>
                   false,
                 );
               },
-              child: const Text('Cancel'),
+              child: const Text(
+                'Cancel',
+              ),
             ),
             ElevatedButton(
               onPressed: () {
@@ -954,20 +606,26 @@ class _WalksScreenState extends State<WalksScreen>
                   true,
                 );
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    const Color(0xFF1E3A8A),
-                foregroundColor: Colors.white,
+              child: const Text(
+                'Confirm',
               ),
-              child: const Text('Confirm'),
             ),
           ],
         );
       },
     );
 
-    if (confirm == true && mounted) {
-      await _stopSearch();
+    if (confirm != true ||
+        !mounted) {
+      return;
+    }
+
+    try {
+      await _stopSearchState();
+    } catch (_) {
+      _showMessage(
+        'Unable to stop searching.',
+      );
     }
   }
 
@@ -984,10 +642,14 @@ class _WalksScreenState extends State<WalksScreen>
 
     setState(() {
       _dotX =
-          -.78 + _random.nextDouble() * 1.56;
+          -.78 +
+          _random.nextDouble() *
+              1.56;
 
       _dotY =
-          -.65 + _random.nextDouble() * 1.30;
+          -.65 +
+          _random.nextDouble() *
+              1.30;
 
       _dotVisible = true;
     });
@@ -1009,31 +671,64 @@ class _WalksScreenState extends State<WalksScreen>
   }
 
   // ============================================================
-  // MESSAGE
+  // QR SCANNER
   // ============================================================
 
-  void _showMessage(String message) {
-    if (!mounted) {
+  Future<void> _openQrScanner() async {
+    if (_openingQrScanner ||
+        !mounted) {
       return;
     }
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior:
-              SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(12),
-          ),
+    if (_auth.currentUser == null) {
+      _showMessage(
+        'Please login first.',
+      );
+      return;
+    }
+
+    setState(() {
+      _openingQrScanner = true;
+    });
+
+    try {
+      final dynamic result =
+          await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              const QrScannerScreen(),
         ),
       );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (result != null) {
+        await _stopSearchState();
+      }
+    } catch (e) {
+      debugPrint(
+        'QR scanner error: $e',
+      );
+
+      if (mounted) {
+        _showMessage(
+          'Unable to open QR scanner.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _openingQrScanner = false;
+        });
+      }
+    }
   }
 
   // ============================================================
-  // REQUEST LIST
+  // REQUEST UI
   // ============================================================
 
   Widget _buildRequests(
@@ -1042,14 +737,19 @@ class _WalksScreenState extends State<WalksScreen>
     if (_requests.isEmpty) {
       return Container(
         width: double.infinity,
+        margin:
+            const EdgeInsets.only(
+          top: 8,
+        ),
         padding:
             const EdgeInsets.symmetric(
           horizontal: 15,
           vertical: 14,
         ),
-        decoration: BoxDecoration(
+        decoration:
+            BoxDecoration(
           color:
-              Colors.white.withOpacity(.52),
+              Colors.white.withOpacity(.55),
           borderRadius:
               BorderRadius.circular(16),
         ),
@@ -1061,19 +761,13 @@ class _WalksScreenState extends State<WalksScreen>
               child:
                   CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor:
-                    AlwaysStoppedAnimation<
-                        Color>(
-                  Color(0xFF22C55E),
-                ),
               ),
             ),
             SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Waiting for nearby Insta Walk requests...',
+                'Waiting for nearby walk requests...',
                 style: TextStyle(
-                  color: Color(0xFF35443A),
                   fontSize: 12,
                   fontWeight:
                       FontWeight.w600,
@@ -1090,28 +784,35 @@ class _WalksScreenState extends State<WalksScreen>
           CrossAxisAlignment.start,
       children: <Widget>[
         const Padding(
-          padding: EdgeInsets.only(
+          padding:
+              EdgeInsets.only(
             left: 3,
             bottom: 9,
           ),
           child: Text(
-            'AVAILABLE INSTA WALK REQUESTS',
+            'AVAILABLE WALK REQUESTS',
             style: TextStyle(
-              color: Color(0xFF26352A),
               fontSize: 10,
-              fontWeight: FontWeight.w900,
+              fontWeight:
+                  FontWeight.w900,
               letterSpacing: 1.1,
             ),
           ),
         ),
         ..._requests.map(
-          (InstaWalkRequest request) {
+          (
+            InstaWalkRequest request,
+          ) {
             return InstaWalkRequestCard(
               request: request,
               onAccept: () =>
-                  _acceptRequest(request),
+                  _acceptRequest(
+                request,
+              ),
               onReject: () =>
-                  _rejectRequest(request),
+                  _rejectRequest(
+                request,
+              ),
             );
           },
         ),
@@ -1120,7 +821,7 @@ class _WalksScreenState extends State<WalksScreen>
   }
 
   // ============================================================
-  // FLOATING QR BUTTON
+  // QR BUTTON
   // ============================================================
 
   Widget _buildFloatingQrButton() {
@@ -1133,69 +834,96 @@ class _WalksScreenState extends State<WalksScreen>
           onTap: _openingQrScanner
               ? null
               : _openQrScanner,
-          child: AnimatedContainer(
-            duration:
-                const Duration(
-              milliseconds: 180,
-            ),
+          child: Container(
             width: 76,
             height: 76,
             decoration:
                 const BoxDecoration(
-              color: Color(0xFFF4511E),
+              color:
+                  Color(0xFFF4511E),
               shape: BoxShape.circle,
               boxShadow: <BoxShadow>[
                 BoxShadow(
                   color: Colors.black26,
                   blurRadius: 16,
-                  offset: Offset(0, 7),
+                  offset:
+                      Offset(0, 7),
                 ),
               ],
             ),
-            child: _openingQrScanner
-                ? const Center(
-                    child: SizedBox(
-                      width: 28,
-                      height: 28,
-                      child:
-                          CircularProgressIndicator(
-                        strokeWidth: 3,
-                        valueColor:
-                            AlwaysStoppedAnimation<
-                                Color>(
-                          Colors.white,
+            child:
+                _openingQrScanner
+                    ? const SizedBox(
+                        width: 28,
+                        height: 28,
+                        child:
+                            CircularProgressIndicator(
+                          strokeWidth: 3,
+                          valueColor:
+                              AlwaysStoppedAnimation<
+                                  Color>(
+                            Colors.white,
+                          ),
                         ),
+                      )
+                    : const Column(
+                        mainAxisAlignment:
+                            MainAxisAlignment
+                                .center,
+                        children: <Widget>[
+                          Icon(
+                            Icons
+                                .qr_code_scanner_rounded,
+                            color:
+                                Colors.white,
+                            size: 29,
+                          ),
+                          SizedBox(
+                            height: 2,
+                          ),
+                          Text(
+                            'SCAN',
+                            style:
+                                TextStyle(
+                              color:
+                                  Colors.white,
+                              fontSize: 9,
+                              fontWeight:
+                                  FontWeight
+                                      .w900,
+                              letterSpacing:
+                                  .8,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  )
-                : const Column(
-                    mainAxisAlignment:
-                        MainAxisAlignment
-                            .center,
-                    children: <Widget>[
-                      Icon(
-                        Icons
-                            .qr_code_scanner_rounded,
-                        color: Colors.white,
-                        size: 29,
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'SCAN',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight:
-                              FontWeight.w900,
-                          letterSpacing: .8,
-                        ),
-                      ),
-                    ],
-                  ),
           ),
         ),
       ),
     );
+  }
+
+  // ============================================================
+  // MESSAGE
+  // ============================================================
+
+  void _showMessage(
+    String message,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content:
+              Text(message),
+          behavior:
+              SnackBarBehavior.floating,
+        ),
+      );
   }
 
   // ============================================================
@@ -1204,7 +932,9 @@ class _WalksScreenState extends State<WalksScreen>
 
   @override
   void dispose() {
-    _requestSubscription?.cancel();
+    _requestSubscription
+        ?.cancel();
+
     _dotTimer?.cancel();
     _dotGlowTimer?.cancel();
 
@@ -1229,6 +959,7 @@ class _WalksScreenState extends State<WalksScreen>
           Column(
             children: <Widget>[
               const WalkerHomeHeader(),
+
               Expanded(
                 child: ListView(
                   padding:
@@ -1237,15 +968,18 @@ class _WalksScreenState extends State<WalksScreen>
                   ),
                   children: <Widget>[
                     InstaWalkContainer(
-                      searching: _searching,
-                      loading: _loading,
+                      searching:
+                          _searching,
+                      loading:
+                          _loading,
                       radarAnimation:
                           _radarController,
                       dotVisible:
                           _dotVisible,
                       dotX: _dotX,
                       dotY: _dotY,
-                      requests: _requests,
+                      requests:
+                          _requests,
                       onSearchPressed:
                           _searchButtonPressed,
                       requestListBuilder:
@@ -1256,6 +990,7 @@ class _WalksScreenState extends State<WalksScreen>
               ),
             ],
           ),
+
           _buildFloatingQrButton(),
         ],
       ),
