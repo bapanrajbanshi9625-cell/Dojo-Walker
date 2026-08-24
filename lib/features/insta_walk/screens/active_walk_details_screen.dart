@@ -8,12 +8,12 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../walks/models/walk_request.dart';
 import '../../walks/services/walk_request_service.dart';
 
 class ActiveWalkDetailsScreen extends StatefulWidget {
   final WalkRequest request;
-
   final VoidCallback? onReached;
 
   const ActiveWalkDetailsScreen({
@@ -40,8 +40,6 @@ class _ActiveWalkDetailsScreenState
   // COLORS
   // ============================================================
 
-  static const Color orange = Color(0xFFFF6600);
-  static const Color navy = Color(0xFF263746);
   static const Color green = Color(0xFF159447);
   static const Color greenLight = Color(0xFFE7F7ED);
   static const Color muted = Color(0xFF737C82);
@@ -145,8 +143,7 @@ class _ActiveWalkDetailsScreenState
           return;
         }
 
-        final Map<String, dynamic>? data =
-            snapshot.data();
+        final Map<String, dynamic>? data = snapshot.data();
 
         if (data == null) {
           return;
@@ -180,8 +177,7 @@ class _ActiveWalkDetailsScreenState
           return;
         }
 
-        final Map<String, dynamic>? data =
-            snapshot.data();
+        final Map<String, dynamic>? data = snapshot.data();
 
         if (data == null) {
           return;
@@ -344,8 +340,7 @@ class _ActiveWalkDetailsScreenState
       return sessionId;
     }
 
-    final String walkId =
-        _resolveWalkId();
+    final String walkId = _resolveWalkId();
 
     if (walkId.isEmpty) {
       return '';
@@ -391,7 +386,7 @@ class _ActiveWalkDetailsScreenState
             child: _circleButton(
               Icons.my_location,
               _moveToWalker,
-              iconColor: orange,
+              iconColor: AppColors.primary,
             ),
           ),
 
@@ -441,10 +436,8 @@ class _ActiveWalkDetailsScreenState
               Icons.arrow_back_ios_new,
               () => Navigator.pop(context),
             ),
-
             Container(
-              padding:
-                  const EdgeInsets.symmetric(
+              padding: const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 9,
               ),
@@ -465,7 +458,7 @@ class _ActiveWalkDetailsScreenState
                     Icons.circle,
                     size: 8,
                     color: isActive
-                        ? const Color(0xFF18A957)
+                        ? green
                         : const Color(0xFFFFA000),
                   ),
                   const SizedBox(width: 7),
@@ -474,7 +467,7 @@ class _ActiveWalkDetailsScreenState
                         ? 'LIVE WALK'
                         : _liveStatus.toUpperCase(),
                     style: const TextStyle(
-                      color: navy,
+                      color: AppColors.secondary,
                       fontSize: 11,
                       fontWeight: FontWeight.w900,
                     ),
@@ -575,12 +568,10 @@ class _ActiveWalkDetailsScreenState
           userAgentPackageName:
               'com.doojowalker.app',
         ),
-
         if (markers.isNotEmpty)
           MarkerLayer(
             markers: markers,
           ),
-
         if (_walkerLocation != null &&
             _pickupLocation != null)
           PolylineLayer(
@@ -591,7 +582,7 @@ class _ActiveWalkDetailsScreenState
                   _pickupLocation!,
                 ],
                 strokeWidth: 4,
-                color: orange,
+                color: AppColors.primary,
               ),
             ],
           ),
@@ -800,9 +791,7 @@ class _ActiveWalkDetailsScreenState
                 size: 21,
               ),
             ),
-
             const SizedBox(width: 10),
-
             Expanded(
               child: Column(
                 crossAxisAlignment:
@@ -811,7 +800,7 @@ class _ActiveWalkDetailsScreenState
                   const Text(
                     'ACTIVE WALK',
                     style: TextStyle(
-                      color: navy,
+                      color: AppColors.secondary,
                       fontSize: 11,
                       fontWeight:
                           FontWeight.w900,
@@ -834,7 +823,6 @@ class _ActiveWalkDetailsScreenState
                 ],
               ),
             ),
-
             Container(
               padding:
                   const EdgeInsets.symmetric(
@@ -856,9 +844,7 @@ class _ActiveWalkDetailsScreenState
                 ),
               ),
             ),
-
             const SizedBox(width: 5),
-
             const Icon(
               Icons.keyboard_arrow_up_rounded,
               color: green,
@@ -886,17 +872,15 @@ class _ActiveWalkDetailsScreenState
             borderRadius:
                 BorderRadius.circular(18),
           ),
-          child: const Center(
+          child: Center(
             child: Icon(
               Icons.pets_rounded,
-              color: orange,
+              color: AppColors.primary,
               size: 31,
             ),
           ),
         ),
-
         const SizedBox(width: 12),
-
         Expanded(
           child: Column(
             crossAxisAlignment:
@@ -908,14 +892,12 @@ class _ActiveWalkDetailsScreenState
                 overflow:
                     TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: navy,
+                  color: AppColors.secondary,
                   fontSize: 19,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-
               const SizedBox(height: 3),
-
               Text(
                 _breedText,
                 maxLines: 1,
@@ -928,9 +910,7 @@ class _ActiveWalkDetailsScreenState
                       FontWeight.w600,
                 ),
               ),
-
               const SizedBox(height: 2),
-
               Text(
                 'Owner: $_ownerNameText',
                 maxLines: 1,
@@ -945,7 +925,6 @@ class _ActiveWalkDetailsScreenState
             ],
           ),
         ),
-
         Container(
           padding:
               const EdgeInsets.symmetric(
@@ -962,8 +941,8 @@ class _ActiveWalkDetailsScreenState
             children: [
               Text(
                 _distanceText,
-                style: const TextStyle(
-                  color: orange,
+                style: TextStyle(
+                  color: AppColors.primary,
                   fontSize: 12,
                   fontWeight:
                       FontWeight.w900,
@@ -1017,9 +996,7 @@ class _ActiveWalkDetailsScreenState
             color: green,
             size: 18,
           ),
-
           const SizedBox(width: 9),
-
           Expanded(
             child: Column(
               crossAxisAlignment:
@@ -1051,13 +1028,12 @@ class _ActiveWalkDetailsScreenState
               ],
             ),
           ),
-
           Container(
             width: 8,
             height: 8,
             decoration: BoxDecoration(
               color: hasLocation
-                  ? const Color(0xFF18A957)
+                  ? green
                   : const Color(0xFFFFA000),
               shape: BoxShape.circle,
             ),
@@ -1089,7 +1065,7 @@ class _ActiveWalkDetailsScreenState
         children: [
           Icon(
             icon,
-            color: orange,
+            color: AppColors.primary,
             size: 17,
           ),
           const SizedBox(width: 7),
@@ -1115,7 +1091,7 @@ class _ActiveWalkDetailsScreenState
                   overflow:
                       TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: navy,
+                    color: AppColors.secondary,
                     fontSize: 9,
                     fontWeight:
                         FontWeight.w800,
@@ -1158,7 +1134,7 @@ class _ActiveWalkDetailsScreenState
             overflow:
                 TextOverflow.ellipsis,
             style: const TextStyle(
-              color: navy,
+              color: AppColors.secondary,
               fontSize: 11,
               fontWeight:
                   FontWeight.w900,
@@ -1201,18 +1177,18 @@ class _ActiveWalkDetailsScreenState
         crossAxisAlignment:
             CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(
                 Icons.sticky_note_2_outlined,
-                color: orange,
+                color: AppColors.primary,
                 size: 15,
               ),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               Text(
                 'OWNER NOTE',
                 style: TextStyle(
-                  color: orange,
+                  color: AppColors.primary,
                   fontSize: 9,
                   fontWeight:
                       FontWeight.w900,
@@ -1276,9 +1252,7 @@ class _ActiveWalkDetailsScreenState
             ),
           ),
         ),
-
         const SizedBox(width: 10),
-
         Expanded(
           flex: 5,
           child: SizedBox(
@@ -1299,7 +1273,8 @@ class _ActiveWalkDetailsScreenState
               ),
               style:
                   OutlinedButton.styleFrom(
-                foregroundColor: navy,
+                foregroundColor:
+                    AppColors.secondary,
                 backgroundColor:
                     Colors.white,
                 side: const BorderSide(
@@ -1458,14 +1433,14 @@ class _ActiveWalkDetailsScreenState
       children: [
         Icon(
           icon,
-          color: navy,
+          color: AppColors.secondary,
           size: 20,
         ),
         const SizedBox(height: 1),
         Text(
           title,
           style: const TextStyle(
-            color: navy,
+            color: AppColors.secondary,
             fontSize: 8,
             fontWeight:
                 FontWeight.w600,
@@ -1482,7 +1457,7 @@ class _ActiveWalkDetailsScreenState
   Widget _circleButton(
     IconData icon,
     VoidCallback onTap, {
-    Color iconColor = navy,
+    Color? iconColor,
   }) {
     return Material(
       color: Colors.white,
@@ -1497,7 +1472,8 @@ class _ActiveWalkDetailsScreenState
           height: 46,
           child: Icon(
             icon,
-            color: iconColor,
+            color:
+                iconColor ?? AppColors.secondary,
             size: 20,
           ),
         ),
@@ -1515,7 +1491,7 @@ class _ActiveWalkDetailsScreenState
         color: Colors.white,
         shape: BoxShape.circle,
         border: Border.all(
-          color: orange,
+          color: AppColors.primary,
           width: 4,
         ),
         boxShadow: const [
@@ -1528,7 +1504,7 @@ class _ActiveWalkDetailsScreenState
       child: const Center(
         child: Icon(
           Icons.person,
-          color: navy,
+          color: AppColors.secondary,
           size: 22,
         ),
       ),
@@ -1538,7 +1514,7 @@ class _ActiveWalkDetailsScreenState
   Widget _pickupMarker() {
     return Container(
       decoration: BoxDecoration(
-        color: orange,
+        color: AppColors.primary,
         shape: BoxShape.circle,
         border: Border.all(
           color: Colors.white,
@@ -1563,9 +1539,8 @@ class _ActiveWalkDetailsScreenState
 
   Widget _destinationMarker() {
     return Container(
-      decoration:
-          const BoxDecoration(
-        color: navy,
+      decoration: const BoxDecoration(
+        color: AppColors.secondary,
         shape: BoxShape.circle,
       ),
       child: const Center(
@@ -1946,7 +1921,6 @@ class _ReachSliderState
                   ],
                 ),
               ),
-
               Positioned(
                 left: _position,
                 top: 2,
