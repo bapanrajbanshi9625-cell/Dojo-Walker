@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../models/insta_walk_request.dart';
+import 'insta_walk_request_actions.dart';
 
 class InstaWalkRequestCard extends StatelessWidget {
   final InstaWalkRequest request;
@@ -60,9 +61,7 @@ class InstaWalkRequestCard extends StatelessWidget {
                   size: 23,
                 ),
               ),
-
               const SizedBox(width: 10),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,7 +89,6 @@ class InstaWalkRequestCard extends StatelessWidget {
                   ],
                 ),
               ),
-
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 8,
@@ -167,9 +165,7 @@ class InstaWalkRequestCard extends StatelessWidget {
                   'Distance',
                 ),
               ),
-
               const SizedBox(width: 7),
-
               Expanded(
                 child: _info(
                   Icons.access_time_rounded,
@@ -183,77 +179,12 @@ class InstaWalkRequestCard extends StatelessWidget {
           const SizedBox(height: 11),
 
           // ======================================================
-          // ACTION BUTTONS
+          // ACCEPT / REJECT ACTIONS
           // ======================================================
 
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 43,
-                  child: OutlinedButton(
-                    onPressed: onReject,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.error,
-                      side: BorderSide(
-                        color: AppColors.error.withOpacity(.25),
-                      ),
-                      backgroundColor: AppColors.errorSoft,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      'Reject',
-                      style: TextStyle(
-                        color: AppColors.error,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(width: 9),
-
-              Expanded(
-                flex: 2,
-                child: SizedBox(
-                  height: 43,
-                  child: ElevatedButton(
-                    onPressed: onAccept,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.buttonPrimary,
-                      foregroundColor: AppColors.buttonText,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.check_circle_rounded,
-                          color: AppColors.buttonText,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Accept Walk',
-                          style: TextStyle(
-                            color: AppColors.buttonText,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          InstaWalkRequestActions(
+            onReject: onReject,
+            onAccept: onAccept,
           ),
         ],
       ),
