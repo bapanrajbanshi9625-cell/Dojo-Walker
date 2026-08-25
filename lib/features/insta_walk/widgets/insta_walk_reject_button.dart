@@ -1,3 +1,6 @@
+// File:
+// lib/features/insta_walk/widgets/insta_walk_reject_button.dart
+
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
