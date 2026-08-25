@@ -9,25 +9,31 @@ import '../models/insta_walk_request.dart';
 /// ============================================================
 /// INSTA WALK SERVICE
 ///
-/// Firestore:
+/// Firestore structure:
 ///
 /// walk_requests/{walkId}
-///     status: searching
-///     rejectedWalkerUids: []
+///     status: "searching"
+///     ownerId: "OWN26GS0003"
+///     walkerId: null
+///     walkerName: null
+///     ...
 ///
-///     rejections/{walkerUid}
-///         walkerUid
-///         rejectedAt
+///     rejections/{walkerId}
+///         walkerId: "WALKER001"
+///         walkerUid: "firebase-auth-uid"
+///         rejectedAt: timestamp
+///
+/// IMPORTANT:
 ///
 /// Reject करने पर:
 ///
-///     request.status
-///         remains "searching"
+///     status = "searching"
 ///
-///     rejections/{walkerUid}
-///         is created
+/// NEVER:
 ///
-/// इससे अगला Walker वही request देख सकता है.
+///     status = "rejected"
+///
+/// इससे अगला Walker उसी request को देख सकता है.
 ///
 /// Status flow:
 ///
@@ -41,9 +47,6 @@ import '../models/insta_walk_request.dart';
 ///
 /// Other:
 ///     cancelled
-///
-/// IMPORTANT:
-///     "rejected" अब main request status नहीं बनेगा.
 /// ============================================================
 
 class InstaWalkService {
@@ -59,12 +62,17 @@ class InstaWalkService {
       FirebaseAuth.instance;
 
   // ============================================================
-  // COLLECTION
+  // COLLECTIONS
   // ============================================================
 
   CollectionReference<Map<String, dynamic>>
       get _walkRequests {
     return _firestore.collection('walk_requests');
+  }
+
+  CollectionReference<Map<String, dynamic>>
+      get _walkers {
+    return _firestore.collection('walkers');
   }
 
   // ============================================================
@@ -76,13 +84,14 @@ class InstaWalkService {
   }
 
   // ============================================================
-  // CURRENT WALKER UID
+  // CURRENT FIREBASE AUTH UID
   // ============================================================
 
   String? get currentWalkerUid {
     final User? user = _auth.currentUser;
 
-    final String uid = user?.uid.trim() ?? '';
+    final String uid =
+        user?.uid.trim() ?? '';
 
     if (uid.isEmpty) {
       return null;
@@ -92,7 +101,111 @@ class InstaWalkService {
   }
 
   // ============================================================
+  // GET CURRENT WALKER DOCUMENT
+  //
+  // walkers/{FirebaseAuthUID}
+  // ============================================================
+
+  Future<DocumentSnapshot<Map<String, dynamic>>?>
+      _getCurrentWalkerDocument() async {
+    final String? uid =
+        currentWalkerUid;
+
+    if (uid == null) {
+      return null;
+    }
+
+    final DocumentSnapshot<
+            Map<String, dynamic>>
+        snapshot =
+        await _walkers.doc(uid).get();
+
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    return snapshot;
+  }
+
+  // ============================================================
+  // GET CURRENT WALKER ID
+  //
+  // Example:
+  //
+  // Firebase Auth UID:
+  // abcXYZ123
+  //
+  // walkers/abcXYZ123
+  //     walkerId: WALKER001
+  //
+  // Returns:
+  //     WALKER001
+  // ============================================================
+
+  Future<String?> getCurrentWalkerId() async {
+    final DocumentSnapshot<
+            Map<String, dynamic>>?
+        snapshot =
+        await _getCurrentWalkerDocument();
+
+    if (snapshot == null) {
+      return null;
+    }
+
+    final Map<String, dynamic>? data =
+        snapshot.data();
+
+    if (data == null) {
+      return null;
+    }
+
+    final String walkerId =
+        data['walkerId']
+                ?.toString()
+                .trim() ??
+            '';
+
+    if (walkerId.isEmpty) {
+      return null;
+    }
+
+    return walkerId;
+  }
+
+  // ============================================================
+  // GET CURRENT WALKER NAME
+  // ============================================================
+
+  Future<String> getCurrentWalkerName() async {
+    final DocumentSnapshot<
+            Map<String, dynamic>>?
+        snapshot =
+        await _getCurrentWalkerDocument();
+
+    if (snapshot == null) {
+      return '';
+    }
+
+    final Map<String, dynamic>? data =
+        snapshot.data();
+
+    if (data == null) {
+      return '';
+    }
+
+    return data['walkerName']
+                ?.toString()
+                .trim() ??
+        data['name']
+                ?.toString()
+                .trim() ??
+        '';
+  }
+
+  // ============================================================
   // REJECTIONS COLLECTION
+  //
+  // walk_requests/{walkId}/rejections/{walkerId}
   // ============================================================
 
   CollectionReference<Map<String, dynamic>>
@@ -105,83 +218,113 @@ class InstaWalkService {
   }
 
   // ============================================================
+  // CHECK WHETHER CURRENT WALKER ALREADY REJECTED
+  // ============================================================
+
+  Future<bool> _hasRejected(
+    String walkId,
+    String walkerId,
+  ) async {
+    final String id =
+        walkId.trim();
+
+    final String wid =
+        walkerId.trim();
+
+    if (id.isEmpty || wid.isEmpty) {
+      return false;
+    }
+
+    final DocumentSnapshot<
+            Map<String, dynamic>>
+        snapshot =
+        await _rejections(id)
+            .doc(wid)
+            .get();
+
+    return snapshot.exists;
+  }
+
+  // ============================================================
   // PENDING / SEARCHING REQUESTS
   //
-  // Walker ko sirf searching requests milengi.
+  // Walker ko:
   //
-  // Lekin jis Walker ne already reject kiya hai,
-  // usko wahi request dobara nahi dikhayenge.
+  // status == searching
+  //
+  // wali request milegi.
+  //
+  // Lekin jis Walker ne pehle reject kiya hai,
+  // usko wahi request dobara nahi milegi.
   // ============================================================
 
   Stream<List<InstaWalkRequest>>
       pendingRequestsStream() {
-    final String? walkerUid =
-        currentWalkerUid;
+    return Stream.fromFuture(
+      getCurrentWalkerId(),
+    ).asyncExpand(
+      (
+        String? walkerId,
+      ) {
+        if (walkerId == null ||
+            walkerId.trim().isEmpty) {
+          return Stream.value(
+            <InstaWalkRequest>[],
+          );
+        }
 
-    if (walkerUid == null) {
-      return Stream.value(
-        <InstaWalkRequest>[],
-      );
-    }
+        return _walkRequests
+            .where(
+              'status',
+              isEqualTo: 'searching',
+            )
+            .snapshots()
+            .asyncMap(
+              (
+                QuerySnapshot<
+                        Map<String, dynamic>>
+                    snapshot,
+              ) async {
+                if (snapshot.docs.isEmpty) {
+                  return <InstaWalkRequest>[];
+                }
 
-    return _walkRequests
-        .where(
-          'status',
-          isEqualTo: 'searching',
-        )
-        .snapshots()
-        .asyncMap(
-          (
-            QuerySnapshot<Map<String, dynamic>>
-                snapshot,
-          ) async {
-            if (snapshot.docs.isEmpty) {
-              return <InstaWalkRequest>[];
-            }
+                final List<InstaWalkRequest>
+                    availableRequests =
+                    <InstaWalkRequest>[];
 
-            final List<InstaWalkRequest>
-                availableRequests =
-                <InstaWalkRequest>[];
+                for (final QueryDocumentSnapshot<
+                        Map<String, dynamic>>
+                    doc in snapshot.docs) {
+                  final bool alreadyRejected =
+                      await _hasRejected(
+                    doc.id,
+                    walkerId,
+                  );
 
-            for (final QueryDocumentSnapshot<
-                Map<String, dynamic>> doc
-                in snapshot.docs) {
-              final Map<String, dynamic>? data =
-                  doc.data();
+                  if (alreadyRejected) {
+                    continue;
+                  }
 
-              final List<dynamic>
-                  rejectedWalkerUids =
-                  data['rejectedWalkerUids']
-                          as List<dynamic>? ??
-                      <dynamic>[];
+                  availableRequests.add(
+                    InstaWalkRequest
+                        .fromFirestore(doc),
+                  );
+                }
 
-              final bool alreadyRejected =
-                  rejectedWalkerUids.contains(
-                walkerUid,
-              );
+                if (availableRequests
+                    .isEmpty) {
+                  return <InstaWalkRequest>[];
+                }
 
-              if (alreadyRejected) {
-                continue;
-              }
-
-              availableRequests.add(
-                InstaWalkRequest.fromFirestore(
-                  doc,
-                ),
-              );
-            }
-
-            if (availableRequests.isEmpty) {
-              return <InstaWalkRequest>[];
-            }
-
-            // Walker ko ek time par
-            // sirf ONE request dikhani hai.
-            return <InstaWalkRequest>[
-              availableRequests.first,
-            ];
-          },
-        );
+                // केवल ONE request दिखानी है.
+                return <InstaWalkRequest>[
+                  availableRequests.first,
+                ];
+              },
+            );
+      },
+    );
   }
 
   // ============================================================
@@ -189,14 +332,15 @@ class InstaWalkService {
   //
   // searching → accepted
   //
-  // IMPORTANT:
-  // Reject ki hui request ko bhi accept nahi kar sakte.
+  // walkerId:
+  //     walkers/{FirebaseAuthUID}.walkerId
   // ============================================================
 
   Future<void> acceptWalk(
     String walkId,
   ) async {
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     if (user == null) {
       throw Exception(
@@ -213,137 +357,13 @@ class InstaWalkService {
       );
     }
 
-    final String id =
-        walkId.trim();
+    final String? walkerId =
+        await getCurrentWalkerId();
 
-    if (id.isEmpty) {
+    if (walkerId == null ||
+        walkerId.trim().isEmpty) {
       throw Exception(
-        'Walk ID is missing.',
-      );
-    }
-
-    final DocumentReference<
-            Map<String, dynamic>>
-        walkRef =
-        _walkRequests.doc(id);
-
-    await _firestore.runTransaction(
-      (
-        Transaction transaction,
-      ) async {
-        final DocumentSnapshot<
-                Map<String, dynamic>>
-            snapshot =
-            await transaction.get(
-          walkRef,
-        );
-
-        if (!snapshot.exists) {
-          throw Exception(
-            'Walk request no longer exists.',
-          );
-        }
-
-        final Map<String, dynamic>? data =
-            snapshot.data();
-
-        if (data == null) {
-          throw Exception(
-            'Walk request data is empty.',
-          );
-        }
-
-        final String status =
-            data['status']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        if (status != 'searching') {
-          throw Exception(
-            'This walk is no longer available.',
-          );
-        }
-
-        // ------------------------------------------------------
-        // CHECK IF THIS WALKER ALREADY REJECTED
-        // ------------------------------------------------------
-
-        final List<dynamic>
-            rejectedWalkerUids =
-            data['rejectedWalkerUids']
-                    as List<dynamic>? ??
-                <dynamic>[];
-
-        if (rejectedWalkerUids.contains(
-          walkerUid,
-        )) {
-          throw Exception(
-            'You already rejected this walk.',
-          );
-        }
-
-        // ------------------------------------------------------
-        // ACCEPT
-        // ------------------------------------------------------
-
-        transaction.update(
-          walkRef,
-          <String, dynamic>{
-            'status': 'accepted',
-
-            'walkerUid': walkerUid,
-            'walkerId': walkerUid,
-
-            'acceptedBy': walkerUid,
-
-            'acceptedAt':
-                FieldValue.serverTimestamp(),
-
-            'updatedAt':
-                FieldValue.serverTimestamp(),
-          },
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // REJECT INSTA WALK
-  //
-  // IMPORTANT:
-  //
-  // DO NOT:
-  //
-  //     status = rejected
-  //
-  // Instead:
-  //
-  //     walk_requests/{walkId}
-  //         status = searching
-  //
-  //     walk_requests/{walkId}/rejections/{walkerUid}
-  //
-  // This allows the NEXT Walker to receive the request.
-  // ============================================================
-
-  Future<void> rejectWalk(
-    String walkId,
-  ) async {
-    final User? user = _auth.currentUser;
-
-    if (user == null) {
-      throw Exception(
-        'Walker is not logged in.',
-      );
-    }
-
-    final String walkerUid =
-        user.uid.trim();
-
-    if (walkerUid.isEmpty) {
-      throw Exception(
-        'Walker UID is missing.',
+        'Walker ID not found in walkers collection.',
       );
     }
 
@@ -364,7 +384,8 @@ class InstaWalkService {
     final DocumentReference<
             Map<String, dynamic>>
         rejectionRef =
-        _rejections(id).doc(walkerUid);
+        _rejections(id)
+            .doc(walkerId);
 
     await _firestore.runTransaction(
       (
@@ -397,7 +418,7 @@ class InstaWalkService {
         }
 
         // ------------------------------------------------------
-        // STATUS CHECK
+        // STATUS
         // ------------------------------------------------------
 
         final String status =
@@ -413,38 +434,189 @@ class InstaWalkService {
         }
 
         // ------------------------------------------------------
-        // EXISTING REJECTION LIST
+        // CHECK REJECTION
         // ------------------------------------------------------
 
-        final List<dynamic>
-            rejectedWalkerUids =
-            List<dynamic>.from(
-          data['rejectedWalkerUids']
-                  as List<dynamic>? ??
-              <dynamic>[],
+        final DocumentSnapshot<
+                Map<String, dynamic>>
+            rejectionSnapshot =
+            await transaction.get(
+          rejectionRef,
         );
 
-        // ------------------------------------------------------
-        // ADD CURRENT WALKER
-        // ------------------------------------------------------
-
-        if (!rejectedWalkerUids.contains(
-          walkerUid,
-        )) {
-          rejectedWalkerUids.add(
-            walkerUid,
+        if (rejectionSnapshot.exists) {
+          throw Exception(
+            'You already rejected this walk.',
           );
         }
 
         // ------------------------------------------------------
-        // SAVE REJECTION SUBDOCUMENT
+        // ACCEPT
+        // ------------------------------------------------------
+
+        transaction.update(
+          walkRef,
+          <String, dynamic>{
+            'status': 'accepted',
+
+            'walkerId': walkerId,
+
+            'walkerUid': walkerUid,
+
+            'acceptedBy': walkerId,
+
+            'acceptedAt':
+                FieldValue.serverTimestamp(),
+
+            'updatedAt':
+                FieldValue.serverTimestamp(),
+          },
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // REJECT INSTA WALK
+  //
+  // IMPORTANT:
+  //
+  // Main request:
+  //
+  //     status = searching
+  //
+  // Rejection:
+  //
+  //     rejections/{walkerId}
+  //
+  // इसलिए अगला Walker request देख सकता है.
+  // ============================================================
+
+  Future<void> rejectWalk(
+    String walkId,
+  ) async {
+    final User? user =
+        _auth.currentUser;
+
+    if (user == null) {
+      throw Exception(
+        'Walker is not logged in.',
+      );
+    }
+
+    final String walkerUid =
+        user.uid.trim();
+
+    if (walkerUid.isEmpty) {
+      throw Exception(
+        'Walker UID is missing.',
+      );
+    }
+
+    final String? walkerId =
+        await getCurrentWalkerId();
+
+    if (walkerId == null ||
+        walkerId.trim().isEmpty) {
+      throw Exception(
+        'Walker ID not found in walkers collection.',
+      );
+    }
+
+    final String id =
+        walkId.trim();
+
+    if (id.isEmpty) {
+      throw Exception(
+        'Walk ID is missing.',
+      );
+    }
+
+    final DocumentReference<
+            Map<String, dynamic>>
+        walkRef =
+        _walkRequests.doc(id);
+
+    final DocumentReference<
+            Map<String, dynamic>>
+        rejectionRef =
+        _rejections(id)
+            .doc(walkerId);
+
+    await _firestore.runTransaction(
+      (
+        Transaction transaction,
+      ) async {
+        // ------------------------------------------------------
+        // READ REQUEST
+        // ------------------------------------------------------
+
+        final DocumentSnapshot<
+                Map<String, dynamic>>
+            snapshot =
+            await transaction.get(
+          walkRef,
+        );
+
+        if (!snapshot.exists) {
+          throw Exception(
+            'Walk request no longer exists.',
+          );
+        }
+
+        final Map<String, dynamic>? data =
+            snapshot.data();
+
+        if (data == null) {
+          throw Exception(
+            'Walk request data is empty.',
+          );
+        }
+
+        // ------------------------------------------------------
+        // STATUS MUST REMAIN SEARCHING
+        // ------------------------------------------------------
+
+        final String status =
+            data['status']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        if (status != 'searching') {
+          throw Exception(
+            'This walk is no longer available.',
+          );
+        }
+
+        // ------------------------------------------------------
+        // CHECK DUPLICATE REJECTION
+        // ------------------------------------------------------
+
+        final DocumentSnapshot<
+                Map<String, dynamic>>
+            rejectionSnapshot =
+            await transaction.get(
+          rejectionRef,
+        );
+
+        if (rejectionSnapshot.exists) {
+          throw Exception(
+            'You already rejected this walk.',
+          );
+        }
+
+        // ------------------------------------------------------
+        // CREATE REJECTION
         //
-        // rejections/{walkerUid}
+        // walk_requests/{id}/rejections/{walkerId}
         // ------------------------------------------------------
 
         transaction.set(
           rejectionRef,
           <String, dynamic>{
+            'walkerId': walkerId,
+
             'walkerUid': walkerUid,
 
             'rejectedAt':
@@ -453,24 +625,18 @@ class InstaWalkService {
             'updatedAt':
                 FieldValue.serverTimestamp(),
           },
-          SetOptions(
-            merge: true,
-          ),
         );
 
         // ------------------------------------------------------
-        // UPDATE MAIN REQUEST
+        // IMPORTANT:
         //
-        // STATUS REMAINS SEARCHING
+        // MAIN REQUEST STATUS REMAINS SEARCHING
         // ------------------------------------------------------
 
         transaction.update(
           walkRef,
           <String, dynamic>{
             'status': 'searching',
-
-            'rejectedWalkerUids':
-                rejectedWalkerUids,
 
             'updatedAt':
                 FieldValue.serverTimestamp(),
@@ -528,9 +694,7 @@ class InstaWalkService {
                         doc,
                   ) {
                     return InstaWalkRequest
-                        .fromFirestore(
-                      doc,
-                    );
+                        .fromFirestore(doc);
                   },
                 )
                 .toList();
@@ -572,6 +736,8 @@ class InstaWalkService {
 
   // ============================================================
   // WATCH SINGLE INSTA WALK
+  //
+  // searching → accepted → active → completed
   // ============================================================
 
   Stream<DocumentSnapshot<
@@ -734,6 +900,16 @@ class InstaWalkService {
       );
     }
 
+    final String? walkerId =
+        await getCurrentWalkerId();
+
+    if (walkerId == null ||
+        walkerId.trim().isEmpty) {
+      throw Exception(
+        'Walker ID not found in walkers collection.',
+      );
+    }
+
     final String id =
         walkId.trim();
 
@@ -786,6 +962,20 @@ class InstaWalkService {
           );
         }
 
+        final String storedWalkerId =
+            data['walkerId']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        if (storedWalkerId.isNotEmpty &&
+            storedWalkerId !=
+                walkerId) {
+          throw Exception(
+            'This walk belongs to another walker.',
+          );
+        }
+
         final String storedWalkerUid =
             data['walkerUid']
                     ?.toString()
@@ -813,8 +1003,9 @@ class InstaWalkService {
           <String, dynamic>{
             'status': 'active',
 
+            'walkerId': walkerId,
+
             'walkerUid': walkerUid,
-            'walkerId': walkerUid,
 
             'activeWalkId': id,
 
@@ -856,6 +1047,16 @@ class InstaWalkService {
     if (walkerUid.isEmpty) {
       throw Exception(
         'Walker UID is missing.',
+      );
+    }
+
+    final String? walkerId =
+        await getCurrentWalkerId();
+
+    if (walkerId == null ||
+        walkerId.trim().isEmpty) {
+      throw Exception(
+        'Walker ID not found in walkers collection.',
       );
     }
 
@@ -908,6 +1109,20 @@ class InstaWalkService {
         if (status != 'active') {
           throw Exception(
             'This walk is not active.',
+          );
+        }
+
+        final String storedWalkerId =
+            data['walkerId']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        if (storedWalkerId.isNotEmpty &&
+            storedWalkerId !=
+                walkerId) {
+          throw Exception(
+            'This walk belongs to another walker.',
           );
         }
 
