@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 
 import '../features/insta_walk/models/insta_walk_request.dart';
 import '../features/insta_walk/screens/active_walk_details_screen.dart';
+import '../features/insta_walk/services/insta_walk_accept_service.dart';
+import '../features/insta_walk/services/insta_walk_reject_service.dart';
 import '../features/insta_walk/services/insta_walk_service.dart';
 import '../features/insta_walk/widgets/insta_walk_container.dart';
 import '../features/insta_walk/widgets/insta_walk_request_card.dart';
@@ -23,7 +25,7 @@ class WalksScreen extends StatefulWidget {
 }
 
 class _WalksScreenState extends State<WalksScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   // ============================================================
   // FIREBASE
   // ============================================================
@@ -34,10 +36,20 @@ class _WalksScreenState extends State<WalksScreen>
   final FirebaseAuth _auth =
       FirebaseAuth.instance;
 
+  // ============================================================
+  // INSTA WALK SERVICES
+  // ============================================================
+
   final InstaWalkService _instaWalkService =
       InstaWalkService.instance;
 
-  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+  final InstaWalkAcceptService _acceptService =
+      InstaWalkAcceptService.instance;
+
+  final InstaWalkRejectService _rejectService =
+      InstaWalkRejectService.instance;
+
+  StreamSubscription<List<InstaWalkRequest>>?
       _requestSubscription;
 
   // ============================================================
@@ -92,6 +104,8 @@ class _WalksScreenState extends State<WalksScreen>
   void initState() {
     super.initState();
 
+    WidgetsBinding.instance.addObserver(this);
+
     _walkerUid =
         _auth.currentUser?.uid;
 
@@ -115,11 +129,37 @@ class _WalksScreenState extends State<WalksScreen>
   }
 
   // ============================================================
+  // APP LIFECYCLE
+  // ============================================================
+  //
+  // Background करने पर search बंद नहीं होगी.
+  //
+  // App/Flutter engine detached होने पर search बंद करने की
+  // कोशिश की जाएगी.
+  //
+  // dispose() में भी best-effort cleanup है.
+  // ============================================================
+
+  @override
+  void didChangeAppLifecycleState(
+    AppLifecycleState state,
+  ) {
+    if (state ==
+            AppLifecycleState.detached &&
+        _searching) {
+      unawaited(
+        _stopSearchState(),
+      );
+    }
+  }
+
+  // ============================================================
   // LOAD WALKER STATE
   // ============================================================
 
   Future<void> _loadWalkerState() async {
-    final String? uid = _walkerUid;
+    final String? uid =
+        _walkerUid;
 
     if (uid == null ||
         uid.trim().isEmpty) {
@@ -135,7 +175,8 @@ class _WalksScreenState extends State<WalksScreen>
               .get();
 
       final Map<String, dynamic>?
-          accountData = account.data();
+          accountData =
+          account.data();
 
       final String savedWalkerId =
           accountData?['walkerId']
@@ -155,10 +196,12 @@ class _WalksScreenState extends State<WalksScreen>
               .get();
 
       final Map<String, dynamic>?
-          userData = userDoc.data();
+          userData =
+          userDoc.data();
 
       final bool searching =
-          userData?['instaWalkSearching'] ==
+          userData?[
+                  'instaWalkSearching'] ==
               true;
 
       if (!mounted) {
@@ -318,56 +361,52 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
   // REQUEST LISTENER
   // ============================================================
+  //
+  // IMPORTANT:
+  //
+  // Direct walk_requests query नहीं.
+  //
+  // InstaWalkService.pendingRequestsStream()
+  // use किया गया है.
+  //
+  // यही rejected requests को filter करता है.
+  // ============================================================
 
   void _startRequestListener() {
     _requestSubscription?.cancel();
 
     _requestSubscription =
-        _firestore
-            .collection('walk_requests')
-            .where(
-              'status',
-              isEqualTo: 'searching',
-            )
-            .snapshots()
+        _instaWalkService
+            .pendingRequestsStream()
             .listen(
-      (QuerySnapshot<
-              Map<String, dynamic>>
-          snapshot) {
+      (
+        List<InstaWalkRequest> requests,
+      ) {
         if (!mounted ||
             !_searching) {
           return;
         }
 
         final List<InstaWalkRequest>
-            requests =
-            snapshot.docs
-                .map(
-                  (
-                    QueryDocumentSnapshot<
-                        Map<String, dynamic>>
-                    doc,
-                  ) {
-                    return InstaWalkRequest
-                        .fromFirestore(doc);
-                  },
-                )
-                .toList();
-
-        requests.sort(
-          (
-            InstaWalkRequest a,
-            InstaWalkRequest b,
-          ) =>
-              a.distanceKm.compareTo(
-            b.distanceKm,
-          ),
-        );
+            sortedRequests =
+            List<InstaWalkRequest>.from(
+          requests,
+        )..sort(
+            (
+              InstaWalkRequest a,
+              InstaWalkRequest b,
+            ) =>
+                a.distanceKm.compareTo(
+              b.distanceKm,
+            ),
+          );
 
         setState(() {
           _requests
             ..clear()
-            ..addAll(requests);
+            ..addAll(
+              sortedRequests,
+            );
         });
       },
       onError: (Object error) {
@@ -401,25 +440,26 @@ class _WalksScreenState extends State<WalksScreen>
       return;
     }
 
-    final String? walkerId =
-        await _getWalkerId();
-
-    if (walkerId == null ||
-        walkerId.isEmpty) {
-      _showMessage(
-        'Walker ID is not available.',
-      );
-      return;
-    }
-
     try {
-      await _instaWalkService.acceptWalk(
+      // --------------------------------------------------------
+      // ACCEPT SERVICE
+      // --------------------------------------------------------
+
+      await _acceptService.acceptWalk(
         request.id,
       );
+
+      // --------------------------------------------------------
+      // STOP WALKER SEARCH
+      // --------------------------------------------------------
 
       await _stopSearchState(
         clearRequests: false,
       );
+
+      // --------------------------------------------------------
+      // LOAD ACCEPTED REQUEST
+      // --------------------------------------------------------
 
       final InstaWalkRequest?
           accepted =
@@ -440,10 +480,17 @@ class _WalksScreenState extends State<WalksScreen>
 
       setState(() {
         _requests.removeWhere(
-          (InstaWalkRequest item) =>
-              item.id == request.id,
+          (
+            InstaWalkRequest item,
+          ) =>
+              item.id ==
+              request.id,
         );
       });
+
+      // --------------------------------------------------------
+      // ACTIVE WALK
+      // --------------------------------------------------------
 
       await Navigator.push(
         context,
@@ -461,7 +508,10 @@ class _WalksScreenState extends State<WalksScreen>
 
       if (mounted) {
         _showMessage(
-          'This walk request is no longer available.',
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              ),
         );
       }
     }
@@ -470,12 +520,21 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
   // REJECT REQUEST
   // ============================================================
+  //
+  // Main walk request rejected नहीं होगी.
+  //
+  // Reject service:
+  //
+  // walk_requests/{walkId}/rejections/{walkerId}
+  //
+  // में rejection save करेगा.
+  // ============================================================
 
   Future<void> _rejectRequest(
     InstaWalkRequest request,
   ) async {
     try {
-      await _instaWalkService.rejectWalk(
+      await _rejectService.rejectWalk(
         request.id,
       );
 
@@ -485,8 +544,11 @@ class _WalksScreenState extends State<WalksScreen>
 
       setState(() {
         _requests.removeWhere(
-          (InstaWalkRequest item) =>
-              item.id == request.id,
+          (
+            InstaWalkRequest item,
+          ) =>
+              item.id ==
+              request.id,
         );
       });
     } catch (e) {
@@ -496,7 +558,10 @@ class _WalksScreenState extends State<WalksScreen>
 
       if (mounted) {
         _showMessage(
-          'This walk request is no longer available.',
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              ),
         );
       }
     }
@@ -511,7 +576,7 @@ class _WalksScreenState extends State<WalksScreen>
   }) async {
     final String? uid =
         _walkerUid ??
-        _auth.currentUser?.uid;
+            _auth.currentUser?.uid;
 
     if (uid == null ||
         uid.trim().isEmpty) {
@@ -578,7 +643,9 @@ class _WalksScreenState extends State<WalksScreen>
         await showDialog<bool>(
       context: context,
       builder:
-          (BuildContext dialogContext) {
+          (
+        BuildContext dialogContext,
+      ) {
         return AlertDialog(
           title: const Text(
             'Stop Searching?',
@@ -831,9 +898,10 @@ class _WalksScreenState extends State<WalksScreen>
       bottom: 22,
       child: Center(
         child: GestureDetector(
-          onTap: _openingQrScanner
-              ? null
-              : _openQrScanner,
+          onTap:
+              _openingQrScanner
+                  ? null
+                  : _openQrScanner,
           child: Container(
             width: 76,
             height: 76,
@@ -841,10 +909,13 @@ class _WalksScreenState extends State<WalksScreen>
                 const BoxDecoration(
               color:
                   Color(0xFFF4511E),
-              shape: BoxShape.circle,
-              boxShadow: <BoxShadow>[
+              shape:
+                  BoxShape.circle,
+              boxShadow:
+                  <BoxShadow>[
                 BoxShadow(
-                  color: Colors.black26,
+                  color:
+                      Colors.black26,
                   blurRadius: 16,
                   offset:
                       Offset(0, 7),
@@ -932,8 +1003,20 @@ class _WalksScreenState extends State<WalksScreen>
 
   @override
   void dispose() {
-    _requestSubscription
-        ?.cancel();
+    WidgetsBinding.instance
+        .removeObserver(this);
+
+    // Best-effort cleanup.
+    // dispose async नहीं हो सकता, इसलिए unawaited().
+    if (_searching) {
+      unawaited(
+        _stopSearchState(),
+      );
+    }
+
+    _requestSubscription?.cancel();
+
+    _requestSubscription = null;
 
     _dotTimer?.cancel();
     _dotGlowTimer?.cancel();
