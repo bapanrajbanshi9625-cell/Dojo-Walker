@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../models/insta_walk_request.dart';
-import 'insta_walk_request_actions.dart';
+import 'insta_walk_accept_button.dart';
+import 'insta_walk_reject_button.dart';
 
 class InstaWalkRequestCard extends StatelessWidget {
   final InstaWalkRequest request;
@@ -179,12 +180,19 @@ class InstaWalkRequestCard extends StatelessWidget {
           const SizedBox(height: 11),
 
           // ======================================================
-          // ACCEPT / REJECT ACTIONS
+          // ACCEPT / REJECT BUTTONS
           // ======================================================
 
-          InstaWalkRequestActions(
-            onReject: onReject,
-            onAccept: onAccept,
+          Row(
+            children: [
+              InstaWalkRejectButton(
+                onPressed: onReject,
+              ),
+              const SizedBox(width: 9),
+              InstaWalkAcceptButton(
+                onPressed: onAccept,
+              ),
+            ],
           ),
         ],
       ),
