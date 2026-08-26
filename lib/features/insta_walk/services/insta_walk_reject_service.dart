@@ -1,31 +1,32 @@
-// File:
-// lib/features/insta_walk/services/insta_walk_reject_service.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 /// ============================================================
 /// INSTA WALK REJECT SERVICE
 ///
-/// जिम्मेदारी:
-///
-/// सिर्फ Insta Walk REJECT करना.
+/// Collection:
+///     walk_request
 ///
 /// IMPORTANT:
 ///
-/// Main request कभी "rejected" नहीं होगी.
+/// Main request NEVER becomes "rejected".
 ///
-/// walk_requests/{walkId}
-///     status = "searching"
+/// Only this Walker gets a rejection record:
 ///
-/// Rejection यहाँ save होगी:
+/// walk_request/{walkId}/rejections/{walkerId}
 ///
-/// walk_requests/{walkId}/rejections/{walkerId}
+/// Example:
 ///
-/// इससे:
-///
-/// 1. Current Walker को request दोबारा नहीं दिखेगी.
-/// 2. दूसरा Walker उसी request को देख सकता है.
+/// walk_request
+///   └── ABC123
+///       ├── status: searching
+///       │
+///       └── rejections
+///           └── WALKER001
+///               ├── walkerId
+///               ├── walkerUid
+///               ├── rejectedAt
+///               └── updatedAt
 /// ============================================================
 
 class InstaWalkRejectService {
@@ -41,19 +42,16 @@ class InstaWalkRejectService {
       FirebaseAuth.instance;
 
   // ============================================================
-  // WALK REQUESTS
+  // COLLECTION
   // ============================================================
 
   CollectionReference<Map<String, dynamic>>
       get _walkRequests {
-    return _firestore.collection('walk_requests');
+    return _firestore.collection('walk_request');
   }
 
   // ============================================================
   // CURRENT WALKER ID
-  //
-  // walkers/{FirebaseAuthUID}
-  //     walkerId: WALKER001
   // ============================================================
 
   Future<String?> getCurrentWalkerId() async {
@@ -105,8 +103,6 @@ class InstaWalkRejectService {
 
   // ============================================================
   // REJECTIONS
-  //
-  // walk_requests/{walkId}/rejections/{walkerId}
   // ============================================================
 
   CollectionReference<Map<String, dynamic>>
@@ -121,22 +117,18 @@ class InstaWalkRejectService {
   // ============================================================
   // REJECT WALK
   //
-  // IMPORTANT:
+  // Main request remains:
   //
-  // Main request:
-  //     status = searching
+  // status = searching
   //
-  // Rejection:
-  //     rejections/{walkerId}
+  // Only current Walker gets:
+  //
+  // rejections/{walkerId}
   // ============================================================
 
   Future<void> rejectWalk(
     String walkId,
   ) async {
-    // ----------------------------------------------------------
-    // AUTH
-    // ----------------------------------------------------------
-
     final User? user =
         _auth.currentUser;
 
@@ -155,10 +147,6 @@ class InstaWalkRejectService {
       );
     }
 
-    // ----------------------------------------------------------
-    // WALKER ID
-    // ----------------------------------------------------------
-
     final String? walkerId =
         await getCurrentWalkerId();
 
@@ -168,10 +156,6 @@ class InstaWalkRejectService {
         'Walker ID not found in walkers collection.',
       );
     }
-
-    // ----------------------------------------------------------
-    // WALK ID
-    // ----------------------------------------------------------
 
     final String id =
         walkId.trim();
@@ -190,18 +174,15 @@ class InstaWalkRejectService {
     final DocumentReference<
             Map<String, dynamic>>
         rejectionRef =
-        _rejections(id).doc(walkerId);
-
-    // ----------------------------------------------------------
-    // TRANSACTION
-    // ----------------------------------------------------------
+        _rejections(id)
+            .doc(walkerId);
 
     await _firestore.runTransaction(
       (
         Transaction transaction,
       ) async {
         // ------------------------------------------------------
-        // READ WALK
+        // READ MAIN REQUEST
         // ------------------------------------------------------
 
         final DocumentSnapshot<
@@ -243,7 +224,7 @@ class InstaWalkRejectService {
         }
 
         // ------------------------------------------------------
-        // CHECK DUPLICATE REJECTION
+        // CHECK EXISTING REJECTION
         // ------------------------------------------------------
 
         final DocumentSnapshot<
@@ -260,35 +241,32 @@ class InstaWalkRejectService {
         }
 
         // ------------------------------------------------------
-        // SAVE REJECTION
-        //
-        // walk_requests/{walkId}/rejections/{walkerId}
+        // SAVE PRIVATE WALKER REJECTION
         // ------------------------------------------------------
 
         transaction.set(
           rejectionRef,
           <String, dynamic>{
             'walkerId': walkerId,
-
             'walkerUid': walkerUid,
-
             'rejectedAt':
                 FieldValue.serverTimestamp(),
-
             'updatedAt':
                 FieldValue.serverTimestamp(),
           },
         );
 
         // ------------------------------------------------------
-        // MAIN REQUEST REMAINS SEARCHING
+        // IMPORTANT:
+        //
+        // MAIN REQUEST REMAINS SEARCHING.
+        //
+        // इसलिए दूसरा Walker इसे देख सकता है.
         // ------------------------------------------------------
 
         transaction.update(
           walkRef,
           <String, dynamic>{
-            'status': 'searching',
-
             'updatedAt':
                 FieldValue.serverTimestamp(),
           },
