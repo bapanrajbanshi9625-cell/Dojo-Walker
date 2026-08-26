@@ -1,3 +1,6 @@
+// File location:
+// lib/features/profile_setup/screens/mandatory_profile_setup_screen1.dart
+
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -49,12 +52,10 @@ class _MandatoryProfileSetupScreen1State
   void initState() {
     super.initState();
 
-    _ownsNameController =
-        widget.nameController == null;
+    _ownsNameController = widget.nameController == null;
 
     nameController =
-        widget.nameController ??
-            TextEditingController();
+        widget.nameController ?? TextEditingController();
 
     dateOfBirth = widget.dateOfBirth;
     gender = widget.gender;
@@ -85,8 +86,7 @@ class _MandatoryProfileSetupScreen1State
 
     final DateTime now = DateTime.now();
 
-    DateTime initialDate =
-        dateOfBirth ??
+    DateTime initialDate = dateOfBirth ??
         DateTime(
           now.year - 18,
           now.month,
@@ -97,8 +97,7 @@ class _MandatoryProfileSetupScreen1State
       initialDate = now;
     }
 
-    final DateTime? selected =
-        await showDatePicker(
+    final DateTime? selected = await showDatePicker(
       context: context,
       initialDate: initialDate,
       firstDate: DateTime(1900),
@@ -116,7 +115,7 @@ class _MandatoryProfileSetupScreen1State
   }
 
   // ============================================================
-  // PROFILE SELFIE URL
+  // PROFILE PHOTO URL
   // ============================================================
 
   Future<void> enterSelfieUrl() async {
@@ -129,82 +128,94 @@ class _MandatoryProfileSetupScreen1State
       text: selfieUrl ?? '',
     );
 
-    final String? result =
-        await showDialog<String>(
+    final String? result = await showDialog<String>(
       context: context,
       builder: (BuildContext dialogContext) {
+        final ThemeData theme = Theme.of(dialogContext);
+        final ColorScheme colors = theme.colorScheme;
+
         return AlertDialog(
+          backgroundColor: colors.surface,
           shape: RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(22),
           ),
-          title: const Text(
+          title: Text(
             'Profile Photo URL',
-            style: TextStyle(
+            style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w900,
+              color: colors.onSurface,
             ),
           ),
           content: TextField(
             controller: controller,
             keyboardType: TextInputType.url,
-            textInputAction:
-                TextInputAction.done,
+            textInputAction: TextInputAction.done,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: colors.onSurface,
+            ),
             decoration: InputDecoration(
               hintText: 'https://...',
-              prefixIcon: const Icon(
+              prefixIcon: Icon(
                 Icons.link_rounded,
+                color: AppColors.blue,
               ),
               filled: true,
-              fillColor:
-                  AppColors.background,
+              fillColor: AppColors.background,
               border: OutlineInputBorder(
-                borderRadius:
-                    BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(15),
                 borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide(
+                  color: AppColors.border,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide(
+                  color: AppColors.green,
+                  width: 1.5,
+                ),
               ),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                );
+                Navigator.pop(dialogContext);
               },
-              child: const Text(
+              child: Text(
                 'CANCEL',
+                style: TextStyle(
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             ElevatedButton(
-              style:
-                  ElevatedButton.styleFrom(
-                backgroundColor:
-                    AppColors.green,
-                foregroundColor:
-                    Colors.white,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.green,
+                foregroundColor: AppColors.onPrimary,
+                elevation: 0,
               ),
               onPressed: () {
-                final String value =
-                    controller.text.trim();
+                final String value = controller.text.trim();
 
-                final Uri? uri =
-                    Uri.tryParse(value);
+                final Uri? uri = Uri.tryParse(value);
 
                 if (uri == null ||
                     uri.host.isEmpty ||
-                    !(
-                      uri.scheme == 'http' ||
-                      uri.scheme == 'https'
-                    )) {
-                  ScaffoldMessenger.of(
-                    dialogContext,
-                  )
+                    !(uri.scheme == 'http' ||
+                        uri.scheme == 'https')) {
+                  ScaffoldMessenger.of(dialogContext)
                     ..hideCurrentSnackBar()
                     ..showSnackBar(
-                      const SnackBar(
-                        content: Text(
+                      SnackBar(
+                        content: const Text(
                           'Enter a valid image URL.',
                         ),
+                        backgroundColor: AppColors.red,
                       ),
                     );
 
@@ -253,56 +264,45 @@ class _MandatoryProfileSetupScreen1State
     final String? result =
         await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: Colors.white,
-      shape:
-          const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
           top: Radius.circular(28),
         ),
       ),
-      builder:
-          (BuildContext sheetContext) {
+      builder: (BuildContext sheetContext) {
+        final ThemeData theme = Theme.of(sheetContext);
+
         return SafeArea(
           child: Padding(
-            padding:
-                const EdgeInsets.fromLTRB(
+            padding: const EdgeInsets.fromLTRB(
               20,
               20,
               20,
               25,
             ),
             child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
+                Text(
                   'Select Gender',
-                  style: TextStyle(
+                  style: theme.textTheme.titleLarge?.copyWith(
                     fontSize: 19,
-                    fontWeight:
-                        FontWeight.w900,
-                    color:
-                        AppColors.textDark,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textDark,
                   ),
                 ),
-                const SizedBox(
-                  height: 18,
-                ),
+                const SizedBox(height: 18),
                 _genderOption(
                   context: sheetContext,
                   value: 'Male',
-                  icon:
-                      Icons.male_rounded,
+                  icon: Icons.male_rounded,
                 ),
-                const SizedBox(
-                  height: 10,
-                ),
+                const SizedBox(height: 10),
                 _genderOption(
                   context: sheetContext,
                   value: 'Female',
-                  icon:
-                      Icons.female_rounded,
+                  icon: Icons.female_rounded,
                 ),
               ],
             ),
@@ -329,8 +329,17 @@ class _MandatoryProfileSetupScreen1State
     required String value,
     required IconData icon,
   }) {
-    final bool selected =
-        gender == value;
+    final bool selected = gender == value;
+
+    final Color backgroundColor = selected
+        ? AppColors.green.withOpacity(.08)
+        : AppColors.surface;
+
+    final Color borderColor =
+        selected ? AppColors.green : AppColors.border;
+
+    final Color iconColor =
+        selected ? AppColors.green : AppColors.blue;
 
     return InkWell(
       onTap: () {
@@ -339,52 +348,36 @@ class _MandatoryProfileSetupScreen1State
           value,
         );
       },
-      borderRadius:
-          BorderRadius.circular(17),
+      borderRadius: BorderRadius.circular(17),
       child: Container(
         width: double.infinity,
-        padding:
-            const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: selected
-              ? AppColors.green
-                  .withOpacity(.08)
-              : AppColors.surface,
-          borderRadius:
-              BorderRadius.circular(17),
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(17),
           border: Border.all(
-            color: selected
-                ? AppColors.green
-                : AppColors.border,
+            color: borderColor,
           ),
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              color: selected
-                  ? AppColors.green
-                  : AppColors.blue,
+              color: iconColor,
             ),
-            const SizedBox(
-              width: 12,
-            ),
+            const SizedBox(width: 12),
             Text(
               value,
-              style: const TextStyle(
-                fontWeight:
-                    FontWeight.w800,
-                color:
-                    AppColors.textDark,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: AppColors.textDark,
               ),
             ),
             const Spacer(),
             if (selected)
-              const Icon(
-                Icons
-                    .check_circle_rounded,
-                color:
-                    AppColors.green,
+              Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.green,
               ),
           ],
         ),
@@ -416,10 +409,8 @@ class _MandatoryProfileSetupScreen1State
 
     if (selfieUri == null ||
         selfieUri.host.isEmpty ||
-        !(
-          selfieUri.scheme == 'http' ||
-          selfieUri.scheme == 'https'
-        )) {
+        !(selfieUri.scheme == 'http' ||
+            selfieUri.scheme == 'https')) {
       showMessage(
         'Please enter a valid profile photo URL.',
         false,
@@ -500,17 +491,12 @@ class _MandatoryProfileSetupScreen1State
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: success
-              ? AppColors.green
-              : AppColors.red,
-          behavior:
-              SnackBarBehavior.floating,
-          margin:
-              const EdgeInsets.all(16),
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(14),
+          backgroundColor:
+              success ? AppColors.green : AppColors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
       );
@@ -526,56 +512,40 @@ class _MandatoryProfileSetupScreen1State
     required IconData icon,
   }) {
     return Padding(
-      padding:
-          const EdgeInsets.only(
+      padding: const EdgeInsets.only(
         bottom: 14,
       ),
       child: TextField(
         controller: controller,
-        textInputAction:
-            TextInputAction.next,
-        decoration:
-            InputDecoration(
+        textInputAction: TextInputAction.next,
+        style: TextStyle(
+          color: AppColors.textDark,
+        ),
+        decoration: InputDecoration(
           labelText: label,
+          labelStyle: TextStyle(
+            color: AppColors.muted,
+          ),
           prefixIcon: Icon(
             icon,
-            color:
-                AppColors.blue,
+            color: AppColors.blue,
           ),
           filled: true,
-          fillColor:
-              Colors.white,
-          border:
-              OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(
-              16,
-            ),
-            borderSide:
-                BorderSide.none,
+          fillColor: AppColors.surface,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
           ),
-          enabledBorder:
-              OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(
-              16,
-            ),
-            borderSide:
-                const BorderSide(
-              color:
-                  AppColors.border,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(
+              color: AppColors.border,
             ),
           ),
-          focusedBorder:
-              OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(
-              16,
-            ),
-            borderSide:
-                const BorderSide(
-              color:
-                  AppColors.green,
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(
+              color: AppColors.green,
               width: 1.5,
             ),
           ),
@@ -590,16 +560,14 @@ class _MandatoryProfileSetupScreen1State
 
   @override
   Widget build(BuildContext context) {
-    final bool busy =
-        widget.isBusy;
+    final bool busy = widget.isBusy;
 
     final bool hasSelfie =
         selfieUrl != null &&
         selfieUrl!.trim().isNotEmpty;
 
     return Scaffold(
-      backgroundColor:
-          AppColors.background,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -608,24 +576,18 @@ class _MandatoryProfileSetupScreen1State
             // ==================================================
 
             Container(
-              width:
-                  double.infinity,
-              padding:
-                  const EdgeInsets.fromLTRB(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(
                 20,
                 18,
                 20,
                 18,
               ),
-              decoration:
-                  const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: AppColors.surface,
                 border: Border(
-                  bottom:
-                      BorderSide(
-                    color:
-                        AppColors
-                            .borderLight,
+                  bottom: BorderSide(
+                    color: AppColors.borderLight,
                   ),
                 ),
               ),
@@ -634,101 +596,59 @@ class _MandatoryProfileSetupScreen1State
                   Container(
                     width: 46,
                     height: 46,
-                    decoration:
-                        BoxDecoration(
-                      color:
-                          AppColors
-                              .orange,
+                    decoration: BoxDecoration(
+                      color: AppColors.orange,
                       borderRadius:
-                          BorderRadius
-                              .circular(
-                        14,
-                      ),
+                          BorderRadius.circular(14),
                     ),
-                    child:
-                        const Icon(
-                      Icons
-                          .pets_rounded,
-                      color:
-                          Colors.white,
+                    child: Icon(
+                      Icons.pets_rounded,
+                      color: AppColors.onPrimary,
                     ),
                   ),
-                  const SizedBox(
-                    width: 12,
-                  ),
-                  const Expanded(
+                  const SizedBox(width: 12),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment:
-                          CrossAxisAlignment
-                              .start,
+                          CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Walker',
-                          style:
-                              TextStyle(
-                            fontSize:
-                                11,
-                            color:
-                                AppColors
-                                    .orange,
-                            fontWeight:
-                                FontWeight
-                                    .w800,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.orange,
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
-                        SizedBox(
-                          height: 2,
-                        ),
+                        const SizedBox(height: 2),
                         Text(
                           'Walker Information',
-                          style:
-                              TextStyle(
-                            fontSize:
-                                19,
-                            color:
-                                AppColors
-                                    .textDark,
-                            fontWeight:
-                                FontWeight
-                                    .w900,
+                          style: TextStyle(
+                            fontSize: 19,
+                            color: AppColors.textDark,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       ],
                     ),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets
-                            .symmetric(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: 10,
                       vertical: 7,
                     ),
-                    decoration:
-                        BoxDecoration(
-                      color: AppColors
-                          .green
-                          .withOpacity(
-                        .10,
-                      ),
+                    decoration: BoxDecoration(
+                      color:
+                          AppColors.green.withOpacity(.10),
                       borderRadius:
-                          BorderRadius
-                              .circular(
-                        12,
-                      ),
+                          BorderRadius.circular(12),
                     ),
-                    child:
-                        const Text(
+                    child: Text(
                       'STEP 1',
-                      style:
-                          TextStyle(
-                        color:
-                            AppColors
-                                .green,
-                        fontSize:
-                            10,
-                        fontWeight:
-                            FontWeight
-                                .w900,
+                      style: TextStyle(
+                        color: AppColors.green,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
@@ -741,14 +661,11 @@ class _MandatoryProfileSetupScreen1State
             // ==================================================
 
             Expanded(
-              child:
-                  SingleChildScrollView(
+              child: SingleChildScrollView(
                 keyboardDismissBehavior:
                     ScrollViewKeyboardDismissBehavior
                         .onDrag,
-                padding:
-                    const EdgeInsets
-                        .fromLTRB(
+                padding: const EdgeInsets.fromLTRB(
                   18,
                   18,
                   18,
@@ -756,42 +673,28 @@ class _MandatoryProfileSetupScreen1State
                 ),
                 child: Column(
                   crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
+                      CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Tell us about yourself',
-                      style:
-                          TextStyle(
+                      style: TextStyle(
                         fontSize: 23,
-                        fontWeight:
-                            FontWeight
-                                .w900,
-                        color:
-                            AppColors
-                                .textDark,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textDark,
                       ),
                     ),
 
-                    const SizedBox(
-                      height: 5,
-                    ),
+                    const SizedBox(height: 5),
 
-                    const Text(
+                    Text(
                       'Enter your basic Walker information.',
-                      style:
-                          TextStyle(
-                        fontSize:
-                            12.5,
-                        color:
-                            AppColors
-                                .muted,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.muted,
                       ),
                     ),
 
-                    const SizedBox(
-                      height: 20,
-                    ),
+                    const SizedBox(height: 20),
 
                     // ==================================================
                     // PROFILE PHOTO
@@ -802,142 +705,92 @@ class _MandatoryProfileSetupScreen1State
                           ? null
                           : enterSelfieUrl,
                       borderRadius:
-                          BorderRadius
-                              .circular(
-                        20,
-                      ),
-                      child:
-                          Container(
-                        width:
-                            double.infinity,
-                        padding:
-                            const EdgeInsets
-                                .all(
-                          16,
-                        ),
-                        decoration:
-                            BoxDecoration(
-                          color:
-                              Colors.white,
+                          BorderRadius.circular(20),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
                           borderRadius:
-                              BorderRadius
-                                  .circular(
-                            20,
-                          ),
-                          border:
-                              Border.all(
-                            color:
-                                hasSelfie
-                                    ? AppColors
-                                        .green
-                                        .withOpacity(
-                                        .45,
-                                      )
-                                    : AppColors
-                                        .border,
+                              BorderRadius.circular(20),
+                          border: Border.all(
+                            color: hasSelfie
+                                ? AppColors.green
+                                    .withOpacity(.45)
+                                : AppColors.border,
                           ),
                         ),
-                        child:
-                            Row(
+                        child: Row(
                           children: [
                             Container(
                               width: 64,
                               height: 64,
-                              decoration:
-                                  BoxDecoration(
-                                color: AppColors
-                                    .orange
-                                    .withOpacity(
-                                  .10,
-                                ),
+                              decoration: BoxDecoration(
+                                color: AppColors.orange
+                                    .withOpacity(.10),
                                 borderRadius:
-                                    BorderRadius
-                                        .circular(
-                                  17,
-                                ),
+                                    BorderRadius.circular(17),
                               ),
-                              child:
-                                  hasSelfie
-                                      ? ClipRRect(
-                                          borderRadius:
-                                              BorderRadius
-                                                  .circular(
-                                            17,
-                                          ),
-                                          child:
-                                              Image.network(
-                                            selfieUrl!,
-                                            fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (
-                                              context,
-                                              error,
-                                              stackTrace,
-                                            ) {
-                                              return const Icon(
-                                                Icons
-                                                    .image_not_supported_rounded,
-                                                color:
-                                                    AppColors.orange,
-                                                size:
-                                                    28,
-                                              );
-                                            },
-                                          ),
-                                        )
-                                      : const Icon(
-                                          Icons
-                                              .add_a_photo_rounded,
-                                          color:
-                                              AppColors.orange,
-                                          size:
-                                              28,
-                                        ),
+                              child: hasSelfie
+                                  ? ClipRRect(
+                                      borderRadius:
+                                          BorderRadius
+                                              .circular(17),
+                                      child: Image.network(
+                                        selfieUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (
+                                          context,
+                                          error,
+                                          stackTrace,
+                                        ) {
+                                          return Icon(
+                                            Icons
+                                                .image_not_supported_rounded,
+                                            color:
+                                                AppColors.orange,
+                                            size: 28,
+                                          );
+                                        },
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons
+                                          .add_a_photo_rounded,
+                                      color:
+                                          AppColors.orange,
+                                      size: 28,
+                                    ),
                             ),
 
-                            const SizedBox(
-                              width: 13,
-                            ),
+                            const SizedBox(width: 13),
 
                             Expanded(
-                              child:
-                                  Column(
+                              child: Column(
                                 crossAxisAlignment:
-                                    CrossAxisAlignment
-                                        .start,
+                                    CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'Profile Photo',
-                                    style:
-                                        TextStyle(
-                                      fontSize:
-                                          15,
+                                    style: TextStyle(
+                                      fontSize: 15,
                                       fontWeight:
-                                          FontWeight
-                                              .w800,
+                                          FontWeight.w800,
                                       color:
-                                          AppColors
-                                              .textDark,
+                                          AppColors.textDark,
                                     ),
                                   ),
-                                  const SizedBox(
-                                    height:
-                                        4,
-                                  ),
+                                  const SizedBox(height: 4),
                                   Text(
                                     hasSelfie
                                         ? 'Photo added • Tap to replace'
                                         : 'Testing के लिए Image URL',
-                                    style:
-                                        TextStyle(
-                                      fontSize:
-                                          11,
-                                      color:
-                                          hasSelfie
-                                              ? AppColors
-                                                  .green
-                                              : AppColors
-                                                  .muted,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: hasSelfie
+                                          ? AppColors.green
+                                          : AppColors.muted,
                                     ),
                                   ),
                                 ],
@@ -950,34 +803,25 @@ class _MandatoryProfileSetupScreen1State
                                       .check_circle_rounded
                                   : Icons
                                       .chevron_right_rounded,
-                              color:
-                                  hasSelfie
-                                      ? AppColors
-                                          .green
-                                      : AppColors
-                                          .muted,
+                              color: hasSelfie
+                                  ? AppColors.green
+                                  : AppColors.muted,
                             ),
                           ],
                         ),
                       ),
                     ),
 
-                    const SizedBox(
-                      height: 18,
-                    ),
+                    const SizedBox(height: 18),
 
                     // ==================================================
                     // NAME
                     // ==================================================
 
                     field(
-                      controller:
-                          nameController,
-                      label:
-                          'Full Name',
-                      icon:
-                          Icons
-                              .person_rounded,
+                      controller: nameController,
+                      label: 'Full Name',
+                      icon: Icons.person_rounded,
                     ),
 
                     // ==================================================
@@ -985,92 +829,59 @@ class _MandatoryProfileSetupScreen1State
                     // ==================================================
 
                     InkWell(
-                      onTap: busy
-                          ? null
-                          : selectDate,
+                      onTap:
+                          busy ? null : selectDate,
                       borderRadius:
-                          BorderRadius
-                              .circular(
-                        16,
-                      ),
-                      child:
-                          Container(
-                        width:
-                            double.infinity,
+                          BorderRadius.circular(16),
+                      child: Container(
+                        width: double.infinity,
                         padding:
-                            const EdgeInsets
-                                .symmetric(
+                            const EdgeInsets.symmetric(
                           horizontal: 15,
                           vertical: 17,
                         ),
                         margin:
-                            const EdgeInsets
-                                .only(
+                            const EdgeInsets.only(
                           bottom: 14,
                         ),
-                        decoration:
-                            BoxDecoration(
-                          color:
-                              Colors.white,
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
                           borderRadius:
-                              BorderRadius
-                                  .circular(
-                            16,
-                          ),
-                          border:
-                              Border.all(
-                            color:
-                                AppColors
-                                    .border,
+                              BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.border,
                           ),
                         ),
-                        child:
-                            Row(
+                        child: Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons
                                   .calendar_month_rounded,
-                              color:
-                                  AppColors
-                                      .blue,
+                              color: AppColors.blue,
                             ),
-                            const SizedBox(
-                              width: 12,
-                            ),
+                            const SizedBox(width: 12),
                             Expanded(
-                              child:
-                                  Text(
-                                dateOfBirth ==
-                                        null
+                              child: Text(
+                                dateOfBirth == null
                                     ? 'Date of Birth'
                                     : '${dateOfBirth!.day.toString().padLeft(2, '0')}/'
                                       '${dateOfBirth!.month.toString().padLeft(2, '0')}/'
                                       '${dateOfBirth!.year}',
-                                style:
-                                    TextStyle(
-                                  color:
-                                      dateOfBirth ==
-                                              null
-                                          ? AppColors
-                                              .muted
-                                          : AppColors
-                                              .textDark,
-                                  fontWeight:
-                                      dateOfBirth ==
-                                              null
-                                          ? FontWeight
-                                              .w400
-                                          : FontWeight
-                                              .w700,
+                                style: TextStyle(
+                                  color: dateOfBirth == null
+                                      ? AppColors.muted
+                                      : AppColors.textDark,
+                                  fontWeight: dateOfBirth ==
+                                          null
+                                      ? FontWeight.w400
+                                      : FontWeight.w700,
                                 ),
                               ),
                             ),
-                            const Icon(
+                            Icon(
                               Icons
                                   .keyboard_arrow_down_rounded,
-                              color:
-                                  AppColors
-                                      .muted,
+                              color: AppColors.muted,
                             ),
                           ],
                         ),
@@ -1082,176 +893,121 @@ class _MandatoryProfileSetupScreen1State
                     // ==================================================
 
                     InkWell(
-                      onTap: busy
-                          ? null
-                          : selectGender,
+                      onTap:
+                          busy ? null : selectGender,
                       borderRadius:
-                          BorderRadius
-                              .circular(
-                        16,
-                      ),
-                      child:
-                          Container(
-                        width:
-                            double.infinity,
+                          BorderRadius.circular(16),
+                      child: Container(
+                        width: double.infinity,
                         padding:
-                            const EdgeInsets
-                                .symmetric(
+                            const EdgeInsets.symmetric(
                           horizontal: 15,
                           vertical: 17,
                         ),
                         margin:
-                            const EdgeInsets
-                                .only(
+                            const EdgeInsets.only(
                           bottom: 14,
                         ),
-                        decoration:
-                            BoxDecoration(
-                          color:
-                              Colors.white,
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
                           borderRadius:
-                              BorderRadius
-                                  .circular(
-                            16,
-                          ),
-                          border:
-                              Border.all(
-                            color:
-                                AppColors
-                                    .border,
+                              BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.border,
                           ),
                         ),
-                        child:
-                            Row(
+                        child: Row(
                           children: [
                             Icon(
-                              gender ==
-                                      'Female'
-                                  ? Icons
-                                      .female_rounded
-                                  : Icons
-                                      .male_rounded,
-                              color:
-                                  AppColors
-                                      .blue,
+                              gender == 'Female'
+                                  ? Icons.female_rounded
+                                  : Icons.male_rounded,
+                              color: AppColors.blue,
                             ),
-                            const SizedBox(
-                              width: 12,
-                            ),
+                            const SizedBox(width: 12),
                             Expanded(
-                              child:
-                                  Text(
-                                gender ==
-                                        null
+                              child: Text(
+                                gender == null
                                     ? 'Gender'
                                     : gender!,
-                                style:
-                                    TextStyle(
-                                  color:
-                                      gender ==
-                                              null
-                                          ? AppColors
-                                              .muted
-                                          : AppColors
-                                              .textDark,
-                                  fontWeight:
-                                      gender ==
-                                              null
-                                          ? FontWeight
-                                              .w400
-                                          : FontWeight
-                                              .w700,
+                                style: TextStyle(
+                                  color: gender == null
+                                      ? AppColors.muted
+                                      : AppColors.textDark,
+                                  fontWeight: gender == null
+                                      ? FontWeight.w400
+                                      : FontWeight.w700,
                                 ),
                               ),
                             ),
-                            const Icon(
+                            Icon(
                               Icons
                                   .keyboard_arrow_down_rounded,
-                              color:
-                                  AppColors
-                                      .muted,
+                              color: AppColors.muted,
                             ),
                           ],
                         ),
                       ),
                     ),
 
-                    const SizedBox(
-                      height: 8,
-                    ),
+                    const SizedBox(height: 8),
 
                     // ==================================================
                     // NEXT
                     // ==================================================
 
                     SizedBox(
-                      width:
-                          double.infinity,
+                      width: double.infinity,
                       height: 55,
-                      child:
-                          ElevatedButton(
+                      child: ElevatedButton(
                         onPressed:
-                            busy
-                                ? null
-                                : next,
-                        style:
-                            ElevatedButton
-                                .styleFrom(
+                            busy ? null : next,
+                        style: ElevatedButton.styleFrom(
                           backgroundColor:
-                              AppColors
-                                  .green,
+                              AppColors.green,
                           disabledBackgroundColor:
-                              AppColors
-                                  .green
-                                  .withOpacity(
-                            .45,
-                          ),
+                              AppColors.green
+                                  .withOpacity(.45),
                           foregroundColor:
-                              Colors.white,
+                              AppColors.onPrimary,
                           elevation: 0,
                           shape:
                               RoundedRectangleBorder(
                             borderRadius:
-                                BorderRadius
-                                    .circular(
-                              17,
-                            ),
+                                BorderRadius.circular(17),
                           ),
                         ),
                         child: busy
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 22,
                                 height: 22,
                                 child:
                                     CircularProgressIndicator(
-                                  strokeWidth:
-                                      2.5,
+                                  strokeWidth: 2.5,
                                   color:
-                                      Colors.white,
+                                      AppColors.onPrimary,
                                 ),
                               )
-                            : const Row(
+                            : Row(
                                 mainAxisAlignment:
-                                    MainAxisAlignment
-                                        .center,
+                                    MainAxisAlignment.center,
                                 children: [
                                   Text(
                                     'NEXT',
-                                    style:
-                                        TextStyle(
+                                    style: TextStyle(
                                       fontWeight:
-                                          FontWeight
-                                              .w900,
-                                      letterSpacing:
-                                          .5,
+                                          FontWeight.w900,
+                                      letterSpacing: .5,
+                                      color: AppColors
+                                          .onPrimary,
                                     ),
                                   ),
-                                  SizedBox(
-                                    width: 8,
-                                  ),
+                                  const SizedBox(width: 8),
                                   Icon(
                                     Icons
                                         .arrow_forward_rounded,
+                                    color: AppColors
+                                        .onPrimary,
                                   ),
                                 ],
                               ),
