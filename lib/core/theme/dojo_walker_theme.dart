@@ -720,7 +720,7 @@ class DojoWalkerTheme {
       // CARD
       // ========================================================
 
-      cardTheme: const CardTheme(
+      cardTheme: const CardThemeData(
         color: DojoWalkerColors.cardDark,
         elevation: 0,
         margin: EdgeInsets.zero,
