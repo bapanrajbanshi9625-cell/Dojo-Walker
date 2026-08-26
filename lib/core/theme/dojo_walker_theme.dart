@@ -512,7 +512,7 @@ class DojoWalkerTheme {
       // Flutter 3.44.x uses DialogTheme
       // ========================================================
 
-      dialogTheme: DialogTheme(
+      dialogTheme: const DialogThemeData(
         backgroundColor:
             DojoWalkerColors.surface,
 
@@ -988,7 +988,7 @@ class DojoWalkerTheme {
       // DIALOG
       // ========================================================
 
-      dialogTheme: DialogTheme(
+      dialogTheme: const DialogThemeData(
         backgroundColor:
             DojoWalkerColors.cardDark,
 
