@@ -46,7 +46,11 @@ class _LiveWalkReviewBottomSheetState
     super.dispose();
   }
 
-  void _submit() {
+  // ============================================================
+  // SUBMIT
+  // ============================================================
+
+  Future<void> _submitReview() async {
     if (_rating == 0 || _submitting) {
       return;
     }
@@ -55,37 +59,48 @@ class _LiveWalkReviewBottomSheetState
       _submitting = true;
     });
 
-    // ==========================================================
+    // ----------------------------------------------------------
     // REVIEW BACKEND
     //
-    // अभी review backend connect नहीं किया गया है।
-    // बाद में Firestore में rating/review save कर सकते हैं।
-    // ==========================================================
+    // अभी review Firestore में save नहीं किया जा रहा।
+    // बाद में यहाँ review service connect कर सकते हैं।
+    // ----------------------------------------------------------
 
-    Future<void>.delayed(
+    await Future<void>.delayed(
       const Duration(
-        milliseconds: 350,
+        milliseconds: 300,
       ),
-      () {
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          _submitting = false;
-        });
-
-        Navigator.of(context).pop();
-
-        widget.onBackToHome();
-      },
     );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _submitting = false;
+    });
+
+    Navigator.of(context).pop();
+
+    widget.onBackToHome();
+  }
+
+  // ============================================================
+  // SKIP
+  // ============================================================
+
+  void _skipReview() {
+    if (_submitting) {
+      return;
+    }
+
+    Navigator.of(context).pop();
+
+    widget.onBackToHome();
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return SafeArea(
       child: Container(
         width: double.infinity,
@@ -93,7 +108,7 @@ class _LiveWalkReviewBottomSheetState
           16,
           10,
           16,
-          18,
+          20,
         ),
         decoration: const BoxDecoration(
           color: AppColors.cardBackground,
@@ -105,7 +120,6 @@ class _LiveWalkReviewBottomSheetState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-
               // ==================================================
               // HANDLE
               // ==================================================
@@ -147,9 +161,10 @@ class _LiveWalkReviewBottomSheetState
 
               const Text(
                 'Walk Completed!',
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   color: AppColors.secondary,
-                  fontSize: 22,
+                  fontSize: 21,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -158,8 +173,8 @@ class _LiveWalkReviewBottomSheetState
 
               Text(
                 widget.dogName.trim().isEmpty
-                    ? 'Your walk is complete.'
-                    : '${widget.dogName.trim()}\'s walk is complete.',
+                    ? 'Great job! Your walk is complete.'
+                    : '${widget.dogName}\'s walk is complete.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.grey,
@@ -176,7 +191,7 @@ class _LiveWalkReviewBottomSheetState
 
               Container(
                 width: double.infinity,
-                height: 140,
+                height: 145,
                 decoration: BoxDecoration(
                   color: AppColors.background,
                   borderRadius:
@@ -186,38 +201,43 @@ class _LiveWalkReviewBottomSheetState
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: CustomPaint(
-                  painter: _RoutePainter(
-                    widget.routePoints,
-                  ),
-                  child:
-                      widget.routePoints.length < 2
-                          ? const Center(
-                              child: Column(
-                                mainAxisSize:
-                                    MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.route_rounded,
-                                    color:
-                                        AppColors.primary,
-                                    size: 32,
-                                  ),
-                                  SizedBox(height: 6),
-                                  Text(
-                                    'Walk route',
-                                    style: TextStyle(
-                                      color:
-                                          AppColors.secondary,
-                                      fontSize: 11,
-                                      fontWeight:
-                                          FontWeight.w800,
-                                    ),
-                                  ),
-                                ],
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _RoutePainter(
+                          widget.routePoints,
+                        ),
+                      ),
+                    ),
+
+                    if (widget.routePoints.length < 2)
+                      const Center(
+                        child: Column(
+                          mainAxisSize:
+                              MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.route_rounded,
+                              color:
+                                  AppColors.primary,
+                              size: 32,
+                            ),
+                            SizedBox(height: 5),
+                            Text(
+                              'Walk route',
+                              style: TextStyle(
+                                color:
+                                    AppColors.secondary,
+                                fontSize: 11,
+                                fontWeight:
+                                    FontWeight.w800,
                               ),
-                            )
-                          : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ),
 
@@ -229,12 +249,13 @@ class _LiveWalkReviewBottomSheetState
 
               Row(
                 children: [
-
                   Expanded(
                     child: _stat(
-                      '${widget.distanceKm.toStringAsFixed(2)} km',
-                      'DISTANCE',
-                      Icons.route_rounded,
+                      value:
+                          '${widget.distanceKm.toStringAsFixed(2)} km',
+                      title: 'DISTANCE',
+                      icon:
+                          Icons.route_rounded,
                     ),
                   ),
 
@@ -242,9 +263,10 @@ class _LiveWalkReviewBottomSheetState
 
                   Expanded(
                     child: _stat(
-                      widget.duration,
-                      'TIME',
-                      Icons.timer_rounded,
+                      value: widget.duration,
+                      title: 'TIME',
+                      icon:
+                          Icons.timer_rounded,
                     ),
                   ),
 
@@ -252,9 +274,12 @@ class _LiveWalkReviewBottomSheetState
 
                   Expanded(
                     child: _stat(
-                      '${widget.steps}',
-                      'STEPS',
-                      Icons.directions_walk_rounded,
+                      value:
+                          '${widget.steps}',
+                      title: 'STEPS',
+                      icon:
+                          Icons
+                              .directions_walk_rounded,
                     ),
                   ),
                 ],
@@ -267,23 +292,27 @@ class _LiveWalkReviewBottomSheetState
               // ==================================================
 
               const Align(
-                alignment: Alignment.centerLeft,
+                alignment:
+                    Alignment.centerLeft,
                 child: Text(
                   'Rate this walk',
                   style: TextStyle(
-                    color: AppColors.secondary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
+                    color:
+                        AppColors.secondary,
+                    fontSize: 14,
+                    fontWeight:
+                        FontWeight.w800,
                   ),
                 ),
               ),
 
-              const SizedBox(height: 7),
+              const SizedBox(height: 8),
 
               Row(
                 mainAxisAlignment:
                     MainAxisAlignment.center,
-                children: List.generate(
+                children:
+                    List.generate(
                   5,
                   (int index) {
                     final int star =
@@ -305,18 +334,20 @@ class _LiveWalkReviewBottomSheetState
                             ? Icons.star_rounded
                             : Icons
                                 .star_border_rounded,
-                        size: 36,
+                        size: 37,
                         color:
                             star <= _rating
-                                ? AppColors.primary
-                                : AppColors.border,
+                                ? AppColors
+                                    .primary
+                                : AppColors
+                                    .border,
                       ),
                     );
                   },
                 ),
               ),
 
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
 
               // ==================================================
               // REVIEW
@@ -325,8 +356,7 @@ class _LiveWalkReviewBottomSheetState
               TextField(
                 controller:
                     _reviewController,
-                enabled:
-                    !_submitting,
+                enabled: !_submitting,
                 maxLines: 3,
                 maxLength: 300,
                 textInputAction:
@@ -347,6 +377,14 @@ class _LiveWalkReviewBottomSheetState
                       const TextStyle(
                     color: Colors.grey,
                     fontSize: 9,
+                  ),
+                  contentPadding:
+                      const EdgeInsets
+                          .fromLTRB(
+                    14,
+                    13,
+                    14,
+                    10,
                   ),
                   border:
                       OutlineInputBorder(
@@ -391,19 +429,18 @@ class _LiveWalkReviewBottomSheetState
               const SizedBox(height: 8),
 
               // ==================================================
-              // SUBMIT REVIEW
+              // SUBMIT
               // ==================================================
 
               SizedBox(
                 width: double.infinity,
                 height: 52,
-                child:
-                    ElevatedButton(
+                child: ElevatedButton(
                   onPressed:
                       _rating == 0 ||
                               _submitting
                           ? null
-                          : _submit,
+                          : _submitReview,
                   style:
                       ElevatedButton.styleFrom(
                     backgroundColor:
@@ -423,33 +460,31 @@ class _LiveWalkReviewBottomSheetState
                       ),
                     ),
                   ),
-                  child:
-                      _submitting
-                          ? const SizedBox(
-                              width: 23,
-                              height: 23,
-                              child:
-                                  CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                valueColor:
-                                    AlwaysStoppedAnimation<
-                                        Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            )
-                          : const Text(
-                              'Submit Review',
-                              style:
-                                  TextStyle(
-                                fontWeight:
-                                    FontWeight.w900,
-                              ),
+                  child: _submitting
+                      ? const SizedBox(
+                          width: 23,
+                          height: 23,
+                          child:
+                              CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor:
+                                AlwaysStoppedAnimation<
+                                    Color>(
+                              Colors.white,
                             ),
+                          ),
+                        )
+                      : const Text(
+                          'Submit Review',
+                          style: TextStyle(
+                            fontWeight:
+                                FontWeight.w900,
+                          ),
+                        ),
                 ),
               ),
 
-              const SizedBox(height: 4),
+              const SizedBox(height: 5),
 
               // ==================================================
               // SKIP
@@ -459,19 +494,10 @@ class _LiveWalkReviewBottomSheetState
                 onPressed:
                     _submitting
                         ? null
-                        : () {
-                            Navigator.of(
-                              context,
-                            ).pop();
-
-                            widget
-                                .onBackToHome();
-                          },
-                child:
-                    const Text(
+                        : _skipReview,
+                child: const Text(
                   'Skip Review',
-                  style:
-                      TextStyle(
+                  style: TextStyle(
                     color: Colors.grey,
                     fontWeight:
                         FontWeight.w700,
@@ -489,37 +515,31 @@ class _LiveWalkReviewBottomSheetState
   // STAT
   // ============================================================
 
-  Widget _stat(
-    String value,
-    String title,
-    IconData icon,
-  ) {
+  Widget _stat({
+    required String value,
+    required String title,
+    required IconData icon,
+  }) {
     return Container(
       padding:
           const EdgeInsets.symmetric(
         vertical: 11,
         horizontal: 5,
       ),
-      decoration:
-          BoxDecoration(
-        color:
-            AppColors.background,
+      decoration: BoxDecoration(
+        color: AppColors.background,
         borderRadius:
             BorderRadius.circular(14),
-        border:
-            Border.all(
-          color:
-              AppColors.border,
+        border: Border.all(
+          color: AppColors.border,
         ),
       ),
       child: Column(
         children: [
-
           Icon(
             icon,
-            color:
-                AppColors.primary,
-            size: 22,
+            color: AppColors.primary,
+            size: 21,
           ),
 
           const SizedBox(height: 5),
@@ -531,8 +551,7 @@ class _LiveWalkReviewBottomSheetState
                 TextOverflow.ellipsis,
             textAlign:
                 TextAlign.center,
-            style:
-                const TextStyle(
+            style: const TextStyle(
               color:
                   AppColors.secondary,
               fontSize: 13,
@@ -545,13 +564,12 @@ class _LiveWalkReviewBottomSheetState
 
           Text(
             title,
-            style:
-                const TextStyle(
+            style: const TextStyle(
               color: Colors.grey,
               fontSize: 7.5,
               fontWeight:
                   FontWeight.w800,
-              letterSpacing: .3,
+              letterSpacing: .4,
             ),
           ),
         ],
@@ -564,8 +582,7 @@ class _LiveWalkReviewBottomSheetState
 // ROUTE PAINTER
 // ============================================================
 
-class _RoutePainter
-    extends CustomPainter {
+class _RoutePainter extends CustomPainter {
   const _RoutePainter(
     this.points,
   );
@@ -581,17 +598,12 @@ class _RoutePainter
       return;
     }
 
-    double minX =
-        points.first.dx;
-    double maxX =
-        points.first.dx;
-    double minY =
-        points.first.dy;
-    double maxY =
-        points.first.dy;
+    double minX = points.first.dx;
+    double maxX = points.first.dx;
+    double minY = points.first.dy;
+    double maxY = points.first.dy;
 
-    for (final Offset point
-        in points) {
+    for (final Offset point in points) {
       if (point.dx < minX) {
         minX = point.dx;
       }
@@ -609,21 +621,25 @@ class _RoutePainter
       }
     }
 
-    final double width =
-        (maxX - minX) == 0
+    final double rangeX =
+        maxX - minX == 0
             ? 1
             : maxX - minX;
 
-    final double height =
-        (maxY - minY) == 0
+    final double rangeY =
+        maxY - minY == 0
             ? 1
             : maxY - minY;
 
+    const double padding = 20;
+
     final double scaleX =
-        (size.width - 40) / width;
+        (size.width - padding * 2) /
+            rangeX;
 
     final double scaleY =
-        (size.height - 40) / height;
+        (size.height - padding * 2) /
+            rangeY;
 
     final double scale =
         scaleX < scaleY
@@ -634,29 +650,26 @@ class _RoutePainter
       Offset point,
     ) {
       return Offset(
-        20 +
-            (point.dx - minX) *
-                scale,
-        20 +
-            (maxY - point.dy) *
-                scale,
+        padding +
+            (point.dx - minX) * scale,
+        padding +
+            (maxY - point.dy) * scale,
       );
     }
 
-    final Paint linePaint =
+    final Paint routePaint =
         Paint()
           ..color =
               AppColors.primary
+          ..style =
+              PaintingStyle.stroke
           ..strokeWidth = 5
           ..strokeCap =
               StrokeCap.round
           ..strokeJoin =
-              StrokeJoin.round
-          ..style =
-              PaintingStyle.stroke;
+              StrokeJoin.round;
 
-    final Path path =
-        Path();
+    final Path path = Path();
 
     final Offset first =
         convert(points.first);
@@ -680,7 +693,7 @@ class _RoutePainter
 
     canvas.drawPath(
       path,
-      linePaint,
+      routePaint,
     );
 
     final Paint startPaint =
