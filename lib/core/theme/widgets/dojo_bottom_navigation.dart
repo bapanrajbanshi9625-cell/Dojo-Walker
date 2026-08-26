@@ -16,32 +16,34 @@ class DojoBottomNavigation
   final List<BottomNavigationBarItem> items;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: DojoWalkerColors.white,
-        border: Border(
-          top: BorderSide(
-            color: DojoWalkerColors.border,
-          ),
+Widget build(BuildContext context) {
+  return Container(
+    decoration: const BoxDecoration(
+      color: DojoWalkerColors.white,
+      border: Border(
+        top: BorderSide(
+          color: DojoWalkerColors.border,
         ),
       ),
-      child: NavigationBar(
-  selectedIndex: currentIndex,
-  onDestinationSelected: onTap,
-  backgroundColor: DojoWalkerColors.white,
-  indicatorColor: DojoWalkerColors.primarySoft,
-  elevation: 0,
-  height: 70,
-  destinations: items
-      .map(
-        (BottomNavigationBarItem item) {
-          return NavigationDestination(
-            icon: item.icon,
-            selectedIcon: item.activeIcon,
-            label: item.label ?? '',
-          );
-        },
-      )
-      .toList(),
-),
+    ),
+    child: NavigationBar(
+      selectedIndex: currentIndex,
+      onDestinationSelected: onTap,
+      backgroundColor: DojoWalkerColors.white,
+      indicatorColor: DojoWalkerColors.primarySoft,
+      elevation: 0,
+      height: 70,
+      destinations: items
+          .map(
+            (BottomNavigationBarItem item) {
+              return NavigationDestination(
+                icon: item.icon,
+                selectedIcon: item.activeIcon,
+                label: item.label ?? '',
+              );
+            },
+          )
+          .toList(),
+    ),
+  );
+}
