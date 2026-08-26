@@ -624,10 +624,10 @@ class _SplashScreenState extends State<SplashScreen> {
           // ======================================================
 
           Container(
-            color: backgroundColor.withValues(
-              alpha: 0.08,
-            ),
-          ),
+  color: backgroundColor.withOpacity(
+    0.08,
+  ),
+),
 
           // ======================================================
           // BOTTOM STATUS
