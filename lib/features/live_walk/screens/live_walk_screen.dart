@@ -1,667 +1,514 @@
-import 'dart:async';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../controllers/live_walk_controller.dart';
-import '../widgets/live_walk_bottom_sheet.dart';
-import '../widgets/live_walk_complete_slider.dart';
-import '../widgets/live_walk_map_layer.dart';
-import '../widgets/live_walk_review_bottom_sheet.dart';
-import '../widgets/live_walk_sos_sheet.dart';
-import '../widgets/live_walk_start_panel.dart';
 
-class LiveWalkScreen extends StatefulWidget {
-  const LiveWalkScreen({
+class LiveWalkBottomSheet extends StatelessWidget {
+  const LiveWalkBottomSheet({
     super.key,
-    required this.ownerUid,
     required this.ownerName,
-    required this.walkId,
     required this.dogName,
-    this.dogBreed = '',
-    this.ownerPhone,
-    this.sessionId,
+    required this.dogBreed,
+    required this.ownerPhone,
+    required this.sessionData,
+    required this.ending,
+    required this.onEndWalk,
   });
 
-  final String ownerUid;
   final String ownerName;
-  final String walkId;
   final String dogName;
   final String dogBreed;
   final String? ownerPhone;
-  final String? sessionId;
+
+  final Map<String, dynamic> sessionData;
+
+  final bool ending;
+  final VoidCallback onEndWalk;
 
   @override
-  State<LiveWalkScreen> createState() =>
-      _LiveWalkScreenState();
-}
+  Widget build(BuildContext context) {
+    final double distance =
+        _readDouble(
+              sessionData['distanceKm'],
+            ) ??
+            0.0;
 
-class _LiveWalkScreenState
-    extends State<LiveWalkScreen> {
-  late final LiveWalkController _controller;
+    final int steps =
+        _readInt(
+              sessionData['steps'],
+            ) ??
+            0;
 
-  bool _showingEndDialog = false;
-  bool _showingReview = false;
+    final String duration =
+        _readDuration(sessionData);
 
-  @override
-  void initState() {
-    super.initState();
+    final String cleanDogName =
+        dogName.trim().isEmpty
+            ? 'Dog Walk'
+            : dogName.trim();
 
-    _controller = LiveWalkController(
-      ownerUid: widget.ownerUid,
-      ownerName: widget.ownerName,
-      walkId: widget.walkId,
-      dogName: widget.dogName,
-      dogBreed: widget.dogBreed,
-      ownerPhone: widget.ownerPhone,
-      sessionId: widget.sessionId,
-    );
-
-    _controller.addListener(
-      _onControllerChanged,
-    );
-
-    unawaited(
-      _controller.initialize(),
-    );
-  }
-
-  void _onControllerChanged() {
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {});
-  }
-
-  Stream<DocumentSnapshot<Map<String, dynamic>>>
-      get _sessionStream {
-    return _controller.sessionStream;
-  }
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return StreamBuilder<
-        DocumentSnapshot<Map<String, dynamic>>>(
-      stream: _sessionStream,
-      builder: (
-        BuildContext context,
-        AsyncSnapshot<
-                DocumentSnapshot<
-                    Map<String, dynamic>>>
-            snapshot,
-      ) {
-        final Map<String, dynamic> data =
-            snapshot.data?.data() ??
-                <String, dynamic>{};
-
-        if (data.isNotEmpty) {
-          WidgetsBinding.instance
-              .addPostFrameCallback((_) {
-            if (!mounted) {
-              return;
-            }
-
-            _controller.updateFromSession(data);
-          });
-        }
-
-        final bool showStartPanel =
-            !_controller.walkStarted &&
-            !_controller.ending;
-
-        final bool showLiveBottom =
-            _controller.walkStarted &&
-            !_controller.ending;
-
-        return Scaffold(
-          backgroundColor:
-              AppColors.cardBackground,
-
-          // ======================================================
-          // TOP BAR
-          // ======================================================
-
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            backgroundColor:
-                AppColors.primary,
-            surfaceTintColor:
-                AppColors.primary,
-            elevation: 0,
-            centerTitle: true,
-            title: const Text(
-              'LIVE WALK',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                letterSpacing: .4,
-              ),
-            ),
-            actions: [
-              IconButton(
-                tooltip: 'SOS',
-                onPressed:
-                    _controller.ending
-                        ? null
-                        : _openSos,
-                icon: const Icon(
-                  Icons.sos_rounded,
-                  color: Colors.white,
-                  size: 27,
-                ),
-              ),
-              IconButton(
-                tooltip: 'Support',
-                onPressed:
-                    _controller.ending
-                        ? null
-                        : _openSupport,
-                icon: const Icon(
-                  Icons.support_agent_rounded,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ],
+    return SafeArea(
+      top: false,
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(
+          10,
+          0,
+          10,
+          10,
+        ),
+        padding: const EdgeInsets.fromLTRB(
+          15,
+          12,
+          15,
+          15,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: AppColors.border,
           ),
-
-          // ======================================================
-          // LIVE MAP
-          // ======================================================
-
-          body: Stack(
-            children: [
-
-              Positioned.fill(
-                child: LiveWalkMapLayer(
-                  sessionData: data,
-                  gpsReady:
-                      _controller.gpsReady,
-                ),
-              ),
-
-              // ====================================================
-              // START PANEL
-              // ====================================================
-
-              if (showStartPanel)
-                LiveWalkStartPanel(
-                  enabled:
-                      !_controller.startingWalk &&
-                      !_controller.ending,
-                  starting:
-                      _controller.startingWalk,
-                  onStarted:
-                      _startWalk,
-                ),
-
-              // ====================================================
-              // LIVE BOTTOM PANEL
-              //
-              // Dog
-              // Distance
-              // Time
-              // Steps
-              // Complete Walk
-              //
-              // No heart.
-              // No End Walk.
-              // ====================================================
-
-              if (showLiveBottom)
-                Align(
-                  alignment:
-                      Alignment.bottomCenter,
-                  child:
-                      LiveWalkBottomSheet(
-                    ownerName:
-                        widget.ownerName,
-                    dogName:
-                        widget.dogName,
-                    dogBreed:
-                        widget.dogBreed,
-                    ownerPhone:
-                        widget.ownerPhone,
-                    sessionData:
-                        data,
-                    ending:
-                        _controller.ending,
-                    onEndWalk:
-                        _confirmCompleteWalk,
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // START WALK
-  // ============================================================
-
-  Future<void> _startWalk() async {
-    if (_controller.startingWalk ||
-        _controller.walkStarted ||
-        _controller.ending) {
-      return;
-    }
-
-    try {
-      await _controller.startWalk();
-
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        'Walk started.',
-      );
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      _showError(
-        _cleanError(e),
-      );
-    }
-  }
-
-  // ============================================================
-  // COMPLETE CONFIRMATION
-  // ============================================================
-
-  void _confirmCompleteWalk() {
-    if (_controller.ending ||
-        _showingEndDialog) {
-      return;
-    }
-
-    if (!_controller.walkStarted) {
-      _showError(
-        'Start the walk first.',
-      );
-      return;
-    }
-
-    _showingEndDialog = true;
-
-    showDialog<void>(
-      context: context,
-      builder: (
-        BuildContext dialogContext,
-      ) {
-        return AlertDialog(
-          backgroundColor:
-              AppColors.cardBackground,
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'Complete Walk?',
-            style: TextStyle(
-              color:
-                  AppColors.secondary,
-              fontWeight:
-                  FontWeight.w900,
-            ),
-          ),
-          content: const Text(
-            'Are you sure you want to complete this walk?',
-            style: TextStyle(
-              color: Colors.grey,
-              height: 1.4,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop();
-              },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  color:
-                      AppColors.secondary,
-                  fontWeight:
-                      FontWeight.w800,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop();
-
-                _openCompleteSlider();
-              },
-              style:
-                  ElevatedButton.styleFrom(
-                backgroundColor:
-                    AppColors.primary,
-                foregroundColor:
-                    Colors.white,
-                elevation: 0,
-              ),
-              child: const Text(
-                'Continue',
-              ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 18,
+              offset: Offset(0, -5),
             ),
           ],
-        );
-      },
-    ).whenComplete(() {
-      _showingEndDialog = false;
-    });
-  }
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
 
-  // ============================================================
-  // COMPLETE SLIDER
-  // ============================================================
+            // ==================================================
+            // HANDLE
+            // ==================================================
 
-  void _openCompleteSlider() {
-    if (!mounted ||
-        _controller.ending ||
-        !_controller.walkStarted) {
-      return;
-    }
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor:
-          Colors.transparent,
-      isDismissible: true,
-      enableDrag: true,
-      builder: (_) {
-        return SafeArea(
-          child: Container(
-            padding:
-                const EdgeInsets.fromLTRB(
-              16,
-              14,
-              16,
-              20,
-            ),
-            decoration:
-                const BoxDecoration(
-              color:
-                  AppColors.cardBackground,
-              borderRadius:
-                  BorderRadius.vertical(
-                top: Radius.circular(24),
+            Container(
+              width: 42,
+              height: 5,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius:
+                    BorderRadius.circular(10),
               ),
             ),
-            child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
+
+            const SizedBox(height: 12),
+
+            // ==================================================
+            // DOG INFORMATION
+            // ==================================================
+
+            Row(
               children: [
+
                 Container(
-                  width: 42,
-                  height: 5,
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        AppColors.border,
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary
+                        .withValues(alpha: .10),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.pets_rounded,
+                    color: AppColors.primary,
+                    size: 24,
+                  ),
+                ),
+
+                const SizedBox(width: 11),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+
+                      Text(
+                        cleanDogName,
+                        maxLines: 1,
+                        overflow:
+                            TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color:
+                              AppColors.secondary,
+                          fontSize: 17,
+                          fontWeight:
+                              FontWeight.w900,
+                        ),
+                      ),
+
+                      if (dogBreed.trim().isNotEmpty)
+                        Padding(
+                          padding:
+                              const EdgeInsets.only(
+                            top: 2,
+                          ),
+                          child: Text(
+                            dogBreed.trim(),
+                            maxLines: 1,
+                            overflow:
+                                TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 10,
+                              fontWeight:
+                                  FontWeight.w600,
+                            ),
+                          ),
+                        ),
+
+                      if (ownerName.trim().isNotEmpty)
+                        Padding(
+                          padding:
+                              const EdgeInsets.only(
+                            top: 2,
+                          ),
+                          child: Text(
+                            'Owner: ${ownerName.trim()}',
+                            maxLines: 1,
+                            overflow:
+                                TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 9,
+                              fontWeight:
+                                  FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+
+                // ==================================================
+                // LIVE
+                // ==================================================
+
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.success
+                        .withValues(alpha: .10),
                     borderRadius:
-                        BorderRadius.circular(
-                      10,
+                        BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize:
+                        MainAxisSize.min,
+                    children: [
+
+                      Icon(
+                        Icons.circle,
+                        color:
+                            AppColors.success,
+                        size: 8,
+                      ),
+
+                      SizedBox(width: 5),
+
+                      Text(
+                        'LIVE',
+                        style: TextStyle(
+                          color:
+                              AppColors.success,
+                          fontSize: 9,
+                          fontWeight:
+                              FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 13),
+
+            // ==================================================
+            // STATS
+            // ==================================================
+
+            Row(
+              children: [
+
+                Expanded(
+                  child: _Stat(
+                    icon:
+                        Icons.route_rounded,
+                    value:
+                        '${distance.toStringAsFixed(2)} km',
+                    label: 'DISTANCE',
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                Expanded(
+                  child: _Stat(
+                    icon:
+                        Icons.timer_rounded,
+                    value: duration,
+                    label: 'TIME',
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                Expanded(
+                  child: _Stat(
+                    icon:
+                        Icons
+                            .directions_walk_rounded,
+                    value: '$steps',
+                    label: 'STEPS',
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // ==================================================
+            // CALL + CHAT
+            // ==================================================
+
+            Row(
+              children: [
+
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed:
+                        _callOwner,
+                    icon: const Icon(
+                      Icons.call_rounded,
+                      size: 20,
+                    ),
+                    label: const Text(
+                      'CALL',
+                    ),
+                    style:
+                        OutlinedButton.styleFrom(
+                      foregroundColor:
+                          AppColors.primary,
+                      side: const BorderSide(
+                        color:
+                            AppColors.primary,
+                      ),
+                      minimumSize:
+                          const Size(
+                        0,
+                        48,
+                      ),
+                      shape:
+                          RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(
+                          14,
+                        ),
+                      ),
+                      textStyle:
+                          const TextStyle(
+                        fontWeight:
+                            FontWeight.w900,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(width: 9),
 
-                const Icon(
-                  Icons
-                      .check_circle_outline_rounded,
-                  color:
-                      AppColors.primary,
-                  size: 42,
-                ),
-
-                const SizedBox(height: 8),
-
-                const Text(
-                  'Complete Walk',
-                  style: TextStyle(
-                    color:
-                        AppColors.secondary,
-                    fontSize: 19,
-                    fontWeight:
-                        FontWeight.w900,
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      // ==================================================
+                      // CHAT
+                      //
+                      // Chat feature is not implemented yet.
+                      // Keep button visible for future implementation.
+                      // ==================================================
+                    },
+                    icon: const Icon(
+                      Icons.chat_bubble_rounded,
+                      size: 20,
+                    ),
+                    label: const Text(
+                      'CHAT',
+                    ),
+                    style:
+                        OutlinedButton.styleFrom(
+                      foregroundColor:
+                          AppColors.secondary,
+                      side: BorderSide(
+                        color:
+                            AppColors.border,
+                      ),
+                      minimumSize:
+                          const Size(
+                        0,
+                        48,
+                      ),
+                      shape:
+                          RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(
+                          14,
+                        ),
+                      ),
+                      textStyle:
+                          const TextStyle(
+                        fontWeight:
+                            FontWeight.w900,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
-                ),
-
-                const SizedBox(height: 6),
-
-                const Text(
-                  'Slide all the way to complete the walk.',
-                  textAlign:
-                      TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 12,
-                    fontWeight:
-                        FontWeight.w600,
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                LiveWalkCompleteSlider(
-                  enabled:
-                      !_controller.ending,
-                  onCompleted: () {
-                    Navigator.of(
-                      context,
-                    ).pop();
-
-                    unawaited(
-                      _completeWalk(),
-                    );
-                  },
                 ),
               ],
             ),
-          ),
-        );
-      },
+
+            const SizedBox(height: 10),
+
+            // ==================================================
+            // COMPLETE WALK
+            // ==================================================
+
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed:
+                    ending
+                        ? null
+                        : onEndWalk,
+                icon: const Icon(
+                  Icons.check_circle_rounded,
+                  size: 22,
+                ),
+                label: Text(
+                  ending
+                      ? 'COMPLETING WALK...'
+                      : 'COMPLETE WALK',
+                ),
+                style:
+                    ElevatedButton.styleFrom(
+                  backgroundColor:
+                      AppColors.primary,
+                  foregroundColor:
+                      Colors.white,
+                  disabledBackgroundColor:
+                      AppColors.primary
+                          .withValues(
+                    alpha: .55,
+                  ),
+                  disabledForegroundColor:
+                      Colors.white,
+                  elevation: 0,
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(
+                      15,
+                    ),
+                  ),
+                  textStyle:
+                      const TextStyle(
+                    fontSize: 14,
+                    fontWeight:
+                        FontWeight.w900,
+                    letterSpacing: .3,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  // ============================================================
-  // COMPLETE WALK
-  // ============================================================
+  // ==========================================================
+  // CALL OWNER
+  // ==========================================================
 
-  Future<void> _completeWalk() async {
-    if (_controller.ending ||
-        !_controller.walkStarted) {
+  Future<void> _callOwner() async {
+    final String phone =
+        ownerPhone?.trim() ?? '';
+
+    if (phone.isEmpty) {
       return;
     }
+
+    final Uri uri =
+        Uri(
+      scheme: 'tel',
+      path: phone,
+    );
 
     try {
-      await _controller.endWalk();
-
-      if (!mounted) {
-        return;
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
       }
-
-      _showMessage(
-        'Walk completed.',
-      );
-
-      // Give Firestore/controller a moment
-      // to finish the final state update.
-      await Future<void>.delayed(
-        const Duration(
-          milliseconds: 250,
-        ),
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      await _openReviewBottomSheet();
-
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      _showError(
-        _cleanError(e),
-      );
+    } catch (_) {
+      // Call failure intentionally ignored.
     }
   }
 
-  // ============================================================
-  // REVIEW BOTTOM SHEET
-  // ============================================================
+  // ==========================================================
+  // DOUBLE
+  // ==========================================================
 
-  Future<void> _openReviewBottomSheet() async {
-    if (!mounted ||
-        _showingReview) {
-      return;
-    }
-
-    _showingReview = true;
-
-    final Map<String, dynamic> data =
-        _controller.currentSessionData;
-
-    final double distance =
-        _readDouble(
-              data['distanceKm'],
-            ) ??
-            _controller.totalDistanceKm;
-
-    final int steps =
-        _readInt(
-              data['steps'],
-            ) ??
-            _controller.steps;
-
-    final String duration =
-        _readDuration(data);
-
-    final List<Offset> routePoints =
-        _extractRoutePoints(data);
-
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor:
-          Colors.transparent,
-      isScrollControlled: true,
-      isDismissible: true,
-      enableDrag: true,
-      builder: (_) {
-        return LiveWalkReviewBottomSheet(
-          routePoints: routePoints,
-          distanceKm: distance,
-          duration: duration,
-          steps: steps,
-          walkId: widget.walkId,
-          ownerUid: widget.ownerUid,
-          dogName: widget.dogName,
-          onBackToHome: () {
-            Navigator.of(
-              context,
-            ).pop();
-          },
-        );
-      },
-    );
-
-    _showingReview = false;
-
-    if (!mounted) {
-      return;
-    }
-
-    // Review can be skipped.
-    // After closing it, leave Live Walk screen.
-    Navigator.of(
-      context,
-    ).pop(true);
-  }
-
-  // ============================================================
-  // ROUTE POINTS
-  // ============================================================
-
-  List<Offset> _extractRoutePoints(
-    Map<String, dynamic> data,
+  double? _readDouble(
+    dynamic value,
   ) {
-    final dynamic raw =
-        data['routePoints'] ??
-            data['polylinePoints'] ??
-            data['locations'];
-
-    if (raw is! List) {
-      return <Offset>[];
+    if (value == null) {
+      return null;
     }
 
-    final List<Offset> points =
-        <Offset>[];
-
-    for (final dynamic item in raw) {
-      if (item is GeoPoint) {
-        points.add(
-          Offset(
-            item.latitude,
-            item.longitude,
-          ),
-        );
-        continue;
-      }
-
-      if (item is Map) {
-        final dynamic lat =
-            item['latitude'] ??
-                item['lat'];
-
-        final dynamic lng =
-            item['longitude'] ??
-                item['lng'] ??
-                item['lon'];
-
-        final double? latitude =
-            _readDouble(lat);
-
-        final double? longitude =
-            _readDouble(lng);
-
-        if (latitude != null &&
-            longitude != null) {
-          points.add(
-            Offset(
-              latitude,
-              longitude,
-            ),
-          );
-        }
-      }
+    if (value is num) {
+      return value.toDouble();
     }
 
-    return points;
+    return double.tryParse(
+      value.toString().trim(),
+    );
   }
 
-  // ============================================================
+  // ==========================================================
+  // INT
+  // ==========================================================
+
+  int? _readInt(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+      value.toString().trim(),
+    );
+  }
+
+  // ==========================================================
   // DURATION
-  // ============================================================
+  // ==========================================================
 
   String _readDuration(
     Map<String, dynamic> data,
@@ -693,258 +540,84 @@ class _LiveWalkScreenState
           .trim();
     }
 
-    return '--';
+    return '0m';
   }
+}
 
-  // ============================================================
-  // SOS
-  // ============================================================
+// ============================================================
+// STAT
+// ============================================================
 
-  void _openSos() {
-    if (_controller.ending) {
-      return;
-    }
+class _Stat extends StatelessWidget {
+  const _Stat({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
 
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor:
-          Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) {
-        return const LiveWalkSosSheet();
-      },
-    );
-  }
-
-  // ============================================================
-  // SUPPORT
-  // ============================================================
-
-  void _openSupport() {
-    if (_controller.ending) {
-      return;
-    }
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor:
-          Colors.transparent,
-      builder: (_) {
-        return Container(
-          padding:
-              const EdgeInsets.fromLTRB(
-            20,
-            14,
-            20,
-            25,
-          ),
-          decoration:
-              const BoxDecoration(
-            color:
-                AppColors.cardBackground,
-            borderRadius:
-                BorderRadius.vertical(
-              top: Radius.circular(25),
-            ),
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
-              children: [
-                Container(
-                  width: 42,
-                  height: 5,
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        AppColors.border,
-                    borderRadius:
-                        BorderRadius.circular(
-                      10,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Icon(
-                  Icons
-                      .support_agent_rounded,
-                  color:
-                      AppColors.primary,
-                  size: 38,
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Walk Support',
-                  style: TextStyle(
-                    color:
-                        AppColors.secondary,
-                    fontSize: 19,
-                    fontWeight:
-                        FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Need help during this walk?',
-                  textAlign:
-                      TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child:
-                      ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.of(
-                        context,
-                      ).pop();
-
-                      _showMessage(
-                        'Support contact will be connected soon.',
-                      );
-                    },
-                    icon: const Icon(
-                      Icons
-                          .support_agent_rounded,
-                    ),
-                    label: const Text(
-                      'Contact Support',
-                    ),
-                    style:
-                        ElevatedButton.styleFrom(
-                      backgroundColor:
-                          AppColors.primary,
-                      foregroundColor:
-                          Colors.white,
-                      elevation: 0,
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(
-                          14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // HELPERS
-  // ============================================================
-
-  double? _readDouble(
-    dynamic value,
-  ) {
-    if (value == null) {
-      return null;
-    }
-
-    if (value is num) {
-      return value.toDouble();
-    }
-
-    return double.tryParse(
-      value.toString().trim(),
-    );
-  }
-
-  int? _readInt(
-    dynamic value,
-  ) {
-    if (value == null) {
-      return null;
-    }
-
-    if (value is int) {
-      return value;
-    }
-
-    if (value is num) {
-      return value.toInt();
-    }
-
-    return int.tryParse(
-      value.toString().trim(),
-    );
-  }
-
-  String _cleanError(
-    Object error,
-  ) {
-    return error
-        .toString()
-        .replaceFirst(
-          'Exception: ',
-          '',
-        )
-        .trim();
-  }
-
-  void _showError(
-    String message,
-  ) {
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content:
-              Text(message),
-          backgroundColor:
-              AppColors.error,
-          behavior:
-              SnackBarBehavior.floating,
-        ),
-      );
-  }
-
-  void _showMessage(
-    String message,
-  ) {
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content:
-              Text(message),
-          behavior:
-              SnackBarBehavior.floating,
-          duration:
-              const Duration(
-            seconds: 2,
-          ),
-        ),
-      );
-  }
+  final IconData icon;
+  final String value;
+  final String label;
 
   @override
-  void dispose() {
-    _controller.removeListener(
-      _onControllerChanged,
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        vertical: 10,
+        horizontal: 4,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.circular(14),
+        border: Border.all(
+          color: AppColors.border,
+        ),
+      ),
+      child: Column(
+        children: [
+
+          Icon(
+            icon,
+            color: AppColors.primary,
+            size: 21,
+          ),
+
+          const SizedBox(height: 5),
+
+          Text(
+            value,
+            maxLines: 1,
+            overflow:
+                TextOverflow.ellipsis,
+            textAlign:
+                TextAlign.center,
+            style: const TextStyle(
+              color:
+                  AppColors.secondary,
+              fontSize: 14,
+              fontWeight:
+                  FontWeight.w900,
+            ),
+          ),
+
+          const SizedBox(height: 2),
+
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 7.5,
+              fontWeight:
+                  FontWeight.w800,
+              letterSpacing: .4,
+            ),
+          ),
+        ],
+      ),
     );
-
-    _controller.dispose();
-
-    super.dispose();
   }
 }
