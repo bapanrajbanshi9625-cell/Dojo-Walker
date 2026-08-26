@@ -58,9 +58,7 @@ class LiveWalkCompletedScreen extends StatelessWidget {
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
-                    color: AppColors.success.withValues(
-                      alpha: .10,
-                    ),
+                    color: AppColors.success.withOpacity(0.10),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -93,7 +91,7 @@ class LiveWalkCompletedScreen extends StatelessWidget {
                 // ==================================================
 
                 Text(
-                  '$dogName\'s walk is complete.',
+                  '${dogName.trim()}\'s walk is complete.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.grey,
@@ -112,8 +110,7 @@ class LiveWalkCompletedScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _stat(
-                        distanceKm.toStringAsFixed(2) +
-                            ' km',
+                        '${distanceKm.toStringAsFixed(2)} km',
                         'Distance',
                       ),
                     ),
