@@ -1,13 +1,7 @@
-import 'package:flutter/material.dart';
+// File location:
+// lib/core/theme/colors/dojo_walker_colors.dart
 
-/// ============================================================
-/// DOJO WALK - COMPLETE COLOR SYSTEM
-/// ============================================================
-///
-/// Centralized color palette for the complete Dojo Walk app.
-/// Do not add random colors inside screens.
-/// Use DojoWalkerColors or AppColors compatibility aliases.
-///
+import 'package:flutter/material.dart';
 
 class DojoWalkerColors {
   DojoWalkerColors._();
@@ -16,237 +10,425 @@ class DojoWalkerColors {
   // BRAND
   // ==========================================================
 
-  static const Color primary = Color(0xFFF97316);
-  static const Color primaryDark = Color(0xFFEA580C);
-  static const Color primaryLight = Color(0xFFFB923C);
-  static const Color primarySoft = Color(0xFFFFEDD5);
-  static const Color primaryUltraSoft = Color(0xFFFFF7ED);
+  /// Primary Dojo orange
+  static const Color primary =
+      Color(0xFFFF7A00);
+
+  /// Darker orange for pressed / deep brand states
+  static const Color primaryDark =
+      Color(0xFFE85D00);
+
+  /// Soft orange for light backgrounds / highlights
+  static const Color primaryLight =
+      Color(0xFFFFB067);
+
+  /// Secondary brand color
+  static const Color secondary =
+      Color(0xFF0E7490);
+
+  static const Color secondaryDark =
+      Color(0xFF0A5C70);
+
+  static const Color secondaryLight =
+      Color(0xFF38BDF8);
 
   // ==========================================================
-  // HERO / DARK
+  // HERO / DARK BRAND
   // ==========================================================
 
-  static const Color heroDark = Color(0xFF0F172A);
-  static const Color heroMid = Color(0xFF1E293B);
-  static const Color heroLight = Color(0xFF334155);
-  static const Color heroSoft = Color(0xFF475569);
+  /// Premium dark hero background
+  static const Color hero =
+      Color(0xFF0A252C);
+
+  /// Dark slate
+  static const Color slate =
+      Color(0xFF0F172A);
+
+  /// Midnight slate
+  static const Color midnight =
+      Color(0xFF1E293B);
+
+  /// Deepest dark
+  static const Color obsidian =
+      Color(0xFF08141A);
 
   // ==========================================================
-  // LIVE / ACTIVE / CYAN
+  // ACTIVE / GLOW
   // ==========================================================
 
-  static const Color cyan = Color(0xFF06B6D4);
-  static const Color cyanDark = Color(0xFF0891B2);
-  static const Color cyanLight = Color(0xFF22D3EE);
-  static const Color cyanSoft = Color(0xFFECFEFF);
+  /// Neon mint / active state
+  static const Color active =
+      Color(0xFF2DD4BF);
 
-  static const Color sky = Color(0xFF38BDF8);
-  static const Color skyDark = Color(0xFF0284C7);
-  static const Color skySoft = Color(0xFFE0F2FE);
+  /// Aqua glow
+  static const Color glow =
+      Color(0xFF06B6D4);
+
+  /// Soft sky aqua
+  static const Color aqua =
+      Color(0xFF38BDF8);
+
+  /// Light active background
+  static const Color activeSoft =
+      Color(0xFFE6FFFB);
+
+  /// Cyan soft background
+  static const Color glowSoft =
+      Color(0xFFE6F9FC);
 
   // ==========================================================
-  // SUCCESS / CTA / GREEN
+  // CTA / ACTION
   // ==========================================================
 
-  static const Color success = Color(0xFF10B981);
-  static const Color successDark = Color(0xFF059669);
-  static const Color forest = Color(0xFF15803D);
-  static const Color successLight = Color(0xFF34D399);
-  static const Color successSoft = Color(0xFFD1FAE5);
-  static const Color successUltraSoft = Color(0xFFECFDF5);
+  /// Main CTA green
+  static const Color buttonPrimary =
+      Color(0xFF15803D);
+
+  /// Pressed CTA green
+  static const Color buttonPrimaryPressed =
+      Color(0xFF166534);
+
+  /// Secondary CTA
+  static const Color buttonSecondary =
+      Color(0xFF0E7490);
+
+  /// Secondary pressed state
+  static const Color buttonSecondaryPressed =
+      Color(0xFF155E75);
+
+  /// Text displayed on CTA buttons
+  static const Color buttonText =
+      Colors.white;
 
   // ==========================================================
-  // ERROR
+  // SUCCESS
   // ==========================================================
 
-  static const Color error = Color(0xFFEF4444);
-  static const Color errorDark = Color(0xFFDC2626);
-  static const Color errorLight = Color(0xFFF87171);
-  static const Color errorSoft = Color(0xFFFEE2E2);
-  static const Color errorUltraSoft = Color(0xFFFEF2F2);
+  static const Color success =
+      Color(0xFF15803D);
+
+  static const Color successSoft =
+      Color(0xFFDCFCE7);
+
+  static const Color successDark =
+      Color(0xFF166534);
 
   // ==========================================================
   // WARNING
   // ==========================================================
 
-  static const Color warning = Color(0xFFF59E0B);
-  static const Color warningDark = Color(0xFFD97706);
-  static const Color warningLight = Color(0xFFFBBF24);
-  static const Color warningSoft = Color(0xFFFEF3C7);
-  static const Color warningUltraSoft = Color(0xFFFFFBEB);
+  static const Color warning =
+      Color(0xFFF59E0B);
+
+  static const Color warningSoft =
+      Color(0xFFFEF3C7);
+
+  static const Color warningDark =
+      Color(0xFFB45309);
+
+  // ==========================================================
+  // ERROR
+  // ==========================================================
+
+  static const Color error =
+      Color(0xFFDC2626);
+
+  static const Color errorSoft =
+      Color(0xFFFEE2E2);
+
+  static const Color errorDark =
+      Color(0xFFB91C1C);
+
+  // ==========================================================
+  // INFO
+  // ==========================================================
+
+  static const Color info =
+      Color(0xFF06B6D4);
+
+  static const Color infoSoft =
+      Color(0xFFCFFAFE);
+
+  static const Color infoDark =
+      Color(0xFF0E7490);
 
   // ==========================================================
   // BACKGROUND
   // ==========================================================
 
-  static const Color background = Color(0xFFF8FAFC);
-  static const Color warmBackground = Color(0xFFFAF9F6);
+  /// Main app background
+  static const Color background =
+      Color(0xFFF1F5F9);
 
-  static const Color white = Color(0xFFFFFFFF);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceSoft = Color(0xFFF1F5F9);
-  static const Color surfaceDark = Color(0xFFE2E8F0);
+  /// Premium white surface
+  static const Color surface =
+      Color(0xFFFFFFFF);
+
+  /// Slightly softer surface
+  static const Color surfaceSoft =
+      Color(0xFFF8FAFC);
+
+  /// Warm white for premium sections
+  static const Color surfaceWarm =
+      Color(0xFFFAF9F6);
 
   // ==========================================================
   // TEXT
   // ==========================================================
 
-  static const Color textPrimary = Color(0xFF0F172A);
-  static const Color textSecondary = Color(0xFF334155);
-  static const Color textBody = Color(0xFF475569);
-  static const Color textMuted = Color(0xFF64748B);
-  static const Color textLight = Color(0xFF94A3B8);
-  static const Color textDisabled = Color(0xFFCBD5E1);
+  /// Main heading / important text
+  static const Color textPrimary =
+      Color(0xFF0F172A);
+
+  /// Normal body text
+  static const Color textSecondary =
+      Color(0xFF475569);
+
+  /// Muted / helper text
+  static const Color textMuted =
+      Color(0xFF94A3B8);
+
+  /// Very light text
+  static const Color textLight =
+      Color(0xFFCBD5E1);
+
+  /// Text on dark hero cards
+  static const Color textOnDark =
+      Color(0xFFF8FAFC);
+
+  /// Text on orange / colored surfaces
+  static const Color textOnPrimary =
+      Colors.white;
 
   // ==========================================================
   // BORDER
   // ==========================================================
 
-  static const Color border = Color(0xFFE2E8F0);
-  static const Color borderLight = Color(0xFFF1F5F9);
-  static const Color borderMedium = Color(0xFFCBD5E1);
-  static const Color borderDark = Color(0xFF94A3B8);
+  static const Color border =
+      Color(0xFFE2E8F0);
 
-  static const Color orangeBorder = Color(0xFFFDBA74);
-  static const Color greenBorder = Color(0xFF6EE7B7);
-  static const Color cyanBorder = Color(0xFF67E8F9);
-  static const Color errorBorder = Color(0xFFFCA5A5);
+  static const Color borderStrong =
+      Color(0xFFCBD5E1);
 
-  // ==========================================================
-  // PET CARE
-  // ==========================================================
+  static const Color borderLight =
+      Color(0xFFF1F5F9);
 
-  static const Color peach = Color(0xFFFDBA74);
-  static const Color softPeach = Color(0xFFFFEDD5);
-  static const Color cream = Color(0xFFFEF3C7);
-  static const Color pawBeige = Color(0xFFFDE68A);
-  static const Color warmSand = Color(0xFFF5E6D3);
+  static const Color divider =
+      Color(0xFFE2E8F0);
 
   // ==========================================================
-  // RATING
+  // ICONS
   // ==========================================================
 
-  static const Color rating = Color(0xFFF59E0B);
-  static const Color ratingLight = Color(0xFFFBBF24);
-  static const Color ratingSoft = Color(0xFFFEF3C7);
+  static const Color iconPrimary =
+      Color(0xFF0F172A);
+
+  static const Color iconSecondary =
+      Color(0xFF475569);
+
+  static const Color iconMuted =
+      Color(0xFF94A3B8);
+
+  static const Color iconOnPrimary =
+      Colors.white;
+
+  static const Color iconOrange =
+      Color(0xFFFF7A00);
+
+  static const Color iconGreen =
+      Color(0xFF15803D);
+
+  static const Color iconBlue =
+      Color(0xFF06B6D4);
 
   // ==========================================================
-  // MAP
+  // NAVIGATION
   // ==========================================================
 
-  static const Color mapLocation = Color(0xFF2563EB);
-  static const Color mapRoute = Color(0xFF10B981);
-  static const Color mapPickup = Color(0xFFF97316);
-  static const Color mapDestination = Color(0xFFEF4444);
-  static const Color mapSurface = Color(0xFFF8FAFC);
+  static const Color bottomBar =
+      Colors.white;
+
+  static const Color bottomBarBorder =
+      Color(0xFFE2E8F0);
+
+  static const Color navSelected =
+      Color(0xFFFF7A00);
+
+  static const Color navUnselected =
+      Color(0xFF94A3B8);
 
   // ==========================================================
-  // STATUS
+  // CARDS
   // ==========================================================
 
-  static const Color online = success;
-  static const Color offline = textLight;
-  static const Color searching = cyan;
-  static const Color active = success;
-  static const Color pending = warning;
-  static const Color approved = success;
-  static const Color rejected = error;
-  static const Color completed = forest;
-  static const Color cancelled = textMuted;
+  static const Color card =
+      Colors.white;
+
+  static const Color cardBorder =
+      Color(0xFFE2E8F0);
+
+  static const Color cardDark =
+      Color(0xFF0F172A);
+
+  static const Color cardDarkSecondary =
+      Color(0xFF1E293B);
+
+  static const Color cardOrange =
+      Color(0xFFFF7A00);
+
+  static const Color cardGreen =
+      Color(0xFF15803D);
+
+  static const Color cardBlue =
+      Color(0xFF0E7490);
 
   // ==========================================================
-  // SPECIAL
+  // INPUT FIELDS
   // ==========================================================
 
-  static const Color black = Color(0xFF000000);
+  static const Color inputBackground =
+      Colors.white;
+
+  static const Color inputBorder =
+      Color(0xFFE2E8F0);
+
+  static const Color inputFocusedBorder =
+      Color(0xFFFF7A00);
+
+  static const Color inputErrorBorder =
+      Color(0xFFDC2626);
+
+  static const Color inputHint =
+      Color(0xFF94A3B8);
+
+  // ==========================================================
+  // OVERLAY
+  // ==========================================================
+
+  static const Color overlay =
+      Color(0x66000000);
+
+  static const Color darkOverlay =
+      Color(0x99000000);
+
+  // ==========================================================
+  // DISABLED
+  // ==========================================================
+
+  static const Color disabled =
+      Color(0xFFE2E8F0);
+
+  static const Color disabledText =
+      Color(0xFF94A3B8);
+
+  // ==========================================================
+  // RAINBOW
+  // ==========================================================
+
+  static const Color rainbowRed =
+      Color(0xFFEF4444);
+
+  static const Color rainbowOrange =
+      Color(0xFFFF7A00);
+
+  static const Color rainbowYellow =
+      Color(0xFFFACC15);
+
+  static const Color rainbowGreen =
+      Color(0xFF22C55E);
+
+  static const Color rainbowBlue =
+      Color(0xFF06B6D4);
+
+  static const Color rainbowPurple =
+      Color(0xFF8B5CF6);
+
+  static const Color rainbowPink =
+      Color(0xFFEC4899);
+
+  static const List<Color> rainbow =
+      <Color>[
+    rainbowRed,
+    rainbowOrange,
+    rainbowYellow,
+    rainbowGreen,
+    rainbowBlue,
+    rainbowPurple,
+    rainbowPink,
+  ];
 
   // ==========================================================
   // GRADIENTS
   // ==========================================================
 
+  /// Premium hero gradient
   static const LinearGradient heroGradient =
       LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
-      heroDark,
-      heroMid,
+      Color(0xFF0F172A),
+      Color(0xFF1E293B),
     ],
   );
 
+  /// Orange brand gradient
   static const LinearGradient orangeGradient =
       LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
-      primary,
-      primaryDark,
+      Color(0xFFFF7A00),
+      Color(0xFFE85D00),
     ],
   );
 
-  static const LinearGradient greenGradient =
-      LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: <Color>[
-      success,
-      successDark,
-    ],
-  );
-
+  /// Active cyan gradient
   static const LinearGradient cyanGradient =
       LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
-      cyan,
-      skyDark,
+      Color(0xFF06B6D4),
+      Color(0xFF2DD4BF),
+    ],
+  );
+
+  /// CTA green gradient
+  static const LinearGradient greenGradient =
+      LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: <Color>[
+      Color(0xFF15803D),
+      Color(0xFF166534),
+    ],
+  );
+
+  /// Premium dark-to-black gradient
+  static const LinearGradient darkGradient =
+      LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: <Color>[
+      Color(0xFF0F172A),
+      Color(0xFF08141A),
     ],
   );
 
   // ==========================================================
-  // GLOW
+  // SHADOW COLORS
   // ==========================================================
 
-  static List<BoxShadow> cyanGlow({
-    double opacity = .22,
-    double blur = 16,
-    double spread = 2,
-  }) {
-    return <BoxShadow>[
-      BoxShadow(
-        color: cyan.withOpacity(opacity),
-        blurRadius: blur,
-        spreadRadius: spread,
-      ),
-    ];
-  }
+  static const Color shadow =
+      Color(0x240F172A);
 
-  static List<BoxShadow> orangeGlow({
-    double opacity = .16,
-    double blur = 16,
-    double spread = 1,
-  }) {
-    return <BoxShadow>[
-      BoxShadow(
-        color: primary.withOpacity(opacity),
-        blurRadius: blur,
-        spreadRadius: spread,
-      ),
-    ];
-  }
+  static const Color orangeShadow =
+      Color(0x40FF7A00);
 
-  static List<BoxShadow> greenGlow({
-    double opacity = .16,
-    double blur = 16,
-    double spread = 1,
-  }) {
-    return <BoxShadow>[
-      BoxShadow(
-        color: success.withOpacity(opacity),
-        blurRadius: blur,
-        spreadRadius: spread,
-      ),
-    ];
-  }
+  static const Color cyanShadow =
+      Color(0x4006B6D4);
+
+  static const Color greenShadow =
+      Color(0x4015803D);
 }
