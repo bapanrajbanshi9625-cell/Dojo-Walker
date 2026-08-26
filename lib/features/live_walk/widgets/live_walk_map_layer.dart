@@ -98,10 +98,6 @@ class LiveWalkMapLayer extends StatelessWidget {
   // ============================================================
 
   Widget _gpsBadge() {
-    final Color color = gpsReady
-        ? AppColors.success
-        : AppColors.primary;
-
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 10,
@@ -123,7 +119,9 @@ class LiveWalkMapLayer extends StatelessWidget {
         children: [
           Icon(
             Icons.location_on_rounded,
-            color: color,
+            color: gpsReady
+                ? AppColors.success
+                : AppColors.primary,
             size: 14,
           ),
           const SizedBox(width: 5),
