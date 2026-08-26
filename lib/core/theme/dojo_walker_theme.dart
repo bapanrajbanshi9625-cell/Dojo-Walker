@@ -981,36 +981,29 @@ dialogTheme: const DialogThemeData(
       // DIALOG
       // ========================================================
 
-      dialogTheme: const DialogThemeData(
-        backgroundColor:
-            DojoWalkerColors.cardDark,
+      dialogTheme: DialogThemeData(
+  backgroundColor: DojoWalkerColors.cardDark,
 
-        surfaceTintColor:
-            Colors.transparent,
+  surfaceTintColor: Colors.transparent,
 
-        elevation: 8,
+  elevation: 8,
 
-        shape: RoundedRectangleBorder(
-          borderRadius:
-              BorderRadius.circular(20),
-        ),
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(20),
+  ),
 
-        titleTextStyle:
-            const TextStyle(
-          color:
-              DojoWalkerColors.textOnDark,
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-        ),
+  titleTextStyle: TextStyle(
+    color: DojoWalkerColors.textOnDark,
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
+  ),
 
-        contentTextStyle:
-            const TextStyle(
-          color:
-              DojoWalkerColors.textSecondary,
-          fontSize: 14,
-          height: 1.5,
-        ),
-      ),
+  contentTextStyle: TextStyle(
+    color: DojoWalkerColors.textSecondary,
+    fontSize: 14,
+    height: 1.5,
+  ),
+),
 
       // ========================================================
       // SNACKBAR
