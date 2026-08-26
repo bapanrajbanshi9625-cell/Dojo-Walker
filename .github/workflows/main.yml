@@ -15,73 +15,43 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # -----------------------------------------------
-      # CHECKOUT
-      # -----------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # -----------------------------------------------
-      # JAVA
-      # -----------------------------------------------
       - name: Set up Java
         uses: actions/setup-java@v5
         with:
           distribution: zulu
           java-version: "17"
 
-      # -----------------------------------------------
-      # FLUTTER
-      # -----------------------------------------------
       - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.22.0"
+          flutter-version: "3.44.8"
           channel: stable
           cache: true
 
       - name: Check Flutter version
         run: flutter --version
 
-      # -----------------------------------------------
-      # DEPENDENCIES
-      # -----------------------------------------------
       - name: Install dependencies
         run: flutter pub get
 
-      # -----------------------------------------------
-      # APP ICON
-      # -----------------------------------------------
       - name: Generate app icon
         run: flutter pub run flutter_launcher_icons
 
-      # -----------------------------------------------
-      # ANALYZE
-      # -----------------------------------------------
       - name: Analyze code
         run: flutter analyze --no-fatal-infos
 
-      # -----------------------------------------------
-      # TEST
-      # -----------------------------------------------
       - name: Run tests
         run: flutter test
 
-      # -----------------------------------------------
-      # CLEAN
-      # -----------------------------------------------
       - name: Clean Flutter
         run: flutter clean
 
-      # -----------------------------------------------
-      # INSTALL DEPENDENCIES AGAIN
-      # -----------------------------------------------
       - name: Install dependencies again
         run: flutter pub get
 
-      # -----------------------------------------------
-      # BUILD RELEASE APK
-      # -----------------------------------------------
       - name: Build Release APK
         env:
           GRADLE_OPTS: >-
@@ -89,50 +59,15 @@ jobs:
             -Dorg.gradle.caching=true
             -Dorg.gradle.parallel=false
             -Dorg.gradle.jvmargs=-Xmx4g
-        run: |
-          set -e
+        run: flutter build apk --release
 
-          for i in 1 2 3 4 5; do
-            echo "======================================"
-            echo "Release build attempt $i / 5"
-            echo "======================================"
-
-            if flutter build apk --release; then
-              echo "Release build successful."
-              break
-            fi
-
-            if [ "$i" -eq 5 ]; then
-              echo "ERROR: Release build failed after 5 attempts."
-              exit 1
-            fi
-
-            WAIT_TIME=$((30 * i))
-
-            echo "Build failed."
-            echo "Waiting ${WAIT_TIME} seconds before retry..."
-
-            sleep "$WAIT_TIME"
-          done
-
-      # -----------------------------------------------
-      # FIND APK
-      # -----------------------------------------------
       - name: Find Release APK
         run: |
-          echo "======================================"
-          echo "Generated Release APK"
-          echo "======================================"
-
           find build -type f -name "*.apk" -exec ls -lh {} \;
 
-      # -----------------------------------------------
-      # PREPARE RELEASE APK
-      # -----------------------------------------------
       - name: Prepare Release APK
         run: |
           mkdir -p build/release-apk
-
           APK=$(find build -type f -name "app-release.apk" | head -n 1)
 
           if [ -z "$APK" ]; then
@@ -140,19 +75,9 @@ jobs:
             exit 1
           fi
 
-          echo "Found APK: $APK"
-
           cp "$APK" build/release-apk/Dojo-Walker-release.apk
-
-          echo "======================================"
-          echo "Final Dojo Walker APK"
-          echo "======================================"
-
           ls -lh build/release-apk/
 
-      # -----------------------------------------------
-      # UPLOAD RELEASE APK
-      # -----------------------------------------------
       - name: Upload Dojo Walker Release APK
         uses: actions/upload-artifact@v4
         with:
