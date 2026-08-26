@@ -45,7 +45,9 @@ class _LiveWalkCompleteSliderState
   // SLIDE END
   // ============================================================
 
-  Future<void> _onChangeEnd(double value) async {
+  Future<void> _onChangeEnd(
+    double value,
+  ) async {
     if (!widget.enabled ||
         _completed ||
         _loading) {
@@ -110,7 +112,8 @@ class _LiveWalkCompleteSliderState
       height: 66,
       decoration: BoxDecoration(
         color: AppColors.error,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius:
+            BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(
             color: Color(0x26000000),
@@ -138,11 +141,13 @@ class _LiveWalkCompleteSliderState
                     : _completed
                         ? 'Walk Completed'
                         : 'Slide to Complete Walk',
-                textAlign: TextAlign.center,
+                textAlign:
+                    TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 14,
-                  fontWeight: FontWeight.w900,
+                  fontWeight:
+                      FontWeight.w900,
                   letterSpacing: .2,
                 ),
               ),
@@ -155,19 +160,26 @@ class _LiveWalkCompleteSliderState
 
           Positioned.fill(
             child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
+              data:
+                  SliderTheme.of(context)
+                      .copyWith(
                 trackHeight: 0,
                 activeTrackColor:
                     Colors.transparent,
                 inactiveTrackColor:
                     Colors.transparent,
-                thumbColor: Colors.white,
+                thumbColor:
+                    Colors.white,
+
+                // FIXED:
+                // withValues() -> withOpacity()
                 overlayColor:
-                    Colors.white.withValues(
-                  alpha: .12,
-                ),
+                    Colors.white
+                        .withOpacity(.12),
+
                 thumbShape:
                     const _CompleteThumbShape(),
+
                 overlayShape:
                     const RoundSliderOverlayShape(
                   overlayRadius: 24,
@@ -220,8 +232,7 @@ class _LiveWalkCompleteSliderState
                       )
                     : _completed
                         ? const Icon(
-                            Icons
-                                .check_rounded,
+                            Icons.check_rounded,
                             key: ValueKey(
                               'completed',
                             ),
@@ -280,7 +291,7 @@ class _CompleteThumbShape
     required RenderBox parentBox,
     required SliderThemeData
         sliderTheme,
-    required  TextDirection
+    required TextDirection
         textDirection,
     required double value,
     required double
