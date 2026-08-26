@@ -1,14 +1,8 @@
+// File:
+// lib/features/insta_walk/services/insta_walk_accept_service.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
-/// ============================================================
-/// INSTA WALK ACCEPT SERVICE
-///
-/// Collection:
-///     walk_request
-///
-/// searching → accepted
-/// ============================================================
 
 class InstaWalkAcceptService {
   InstaWalkAcceptService._();
@@ -23,7 +17,9 @@ class InstaWalkAcceptService {
       FirebaseAuth.instance;
 
   // ============================================================
-  // COLLECTION
+  // WALK REQUESTS
+  // IMPORTANT:
+  // Owner/Admin uses: walk_request
   // ============================================================
 
   CollectionReference<Map<String, dynamic>>
@@ -36,22 +32,19 @@ class InstaWalkAcceptService {
   // ============================================================
 
   Future<String?> getCurrentWalkerId() async {
-    final User? user =
-        _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
       return null;
     }
 
-    final String uid =
-        user.uid.trim();
+    final String uid = user.uid.trim();
 
     if (uid.isEmpty) {
       return null;
     }
 
-    final DocumentSnapshot<
-            Map<String, dynamic>>
+    final DocumentSnapshot<Map<String, dynamic>>
         snapshot =
         await _firestore
             .collection('walkers')
@@ -70,10 +63,7 @@ class InstaWalkAcceptService {
     }
 
     final String walkerId =
-        data['walkerId']
-                ?.toString()
-                .trim() ??
-            '';
+        data['walkerId']?.toString().trim() ?? '';
 
     if (walkerId.isEmpty) {
       return null;
@@ -83,68 +73,13 @@ class InstaWalkAcceptService {
   }
 
   // ============================================================
-  // CURRENT WALKER NAME
-  // ============================================================
-
-  Future<String> getCurrentWalkerName() async {
-    final User? user =
-        _auth.currentUser;
-
-    if (user == null) {
-      return '';
-    }
-
-    final String uid =
-        user.uid.trim();
-
-    if (uid.isEmpty) {
-      return '';
-    }
-
-    final DocumentSnapshot<
-            Map<String, dynamic>>
-        snapshot =
-        await _firestore
-            .collection('walkers')
-            .doc(uid)
-            .get();
-
-    if (!snapshot.exists) {
-      return '';
-    }
-
-    final Map<String, dynamic>? data =
-        snapshot.data();
-
-    if (data == null) {
-      return '';
-    }
-
-    final String walkerName =
-        data['walkerName']
-                ?.toString()
-                .trim() ??
-            '';
-
-    if (walkerName.isNotEmpty) {
-      return walkerName;
-    }
-
-    return data['name']
-                ?.toString()
-                .trim() ??
-        '';
-  }
-
-  // ============================================================
   // ACCEPT WALK
+  //
+  // searching → accepted
   // ============================================================
 
-  Future<void> acceptWalk(
-    String walkId,
-  ) async {
-    final User? user =
-        _auth.currentUser;
+  Future<void> acceptWalk(String walkId) async {
+    final User? user = _auth.currentUser;
 
     if (user == null) {
       throw Exception(
@@ -171,11 +106,7 @@ class InstaWalkAcceptService {
       );
     }
 
-    final String walkerName =
-        await getCurrentWalkerName();
-
-    final String id =
-        walkId.trim();
+    final String id = walkId.trim();
 
     if (id.isEmpty) {
       throw Exception(
@@ -183,8 +114,7 @@ class InstaWalkAcceptService {
       );
     }
 
-    final DocumentReference<
-            Map<String, dynamic>>
+    final DocumentReference<Map<String, dynamic>>
         walkRef =
         _walkRequests.doc(id);
 
@@ -192,12 +122,9 @@ class InstaWalkAcceptService {
       (
         Transaction transaction,
       ) async {
-        final DocumentSnapshot<
-                Map<String, dynamic>>
+        final DocumentSnapshot<Map<String, dynamic>>
             snapshot =
-            await transaction.get(
-          walkRef,
-        );
+            await transaction.get(walkRef);
 
         if (!snapshot.exists) {
           throw Exception(
@@ -215,10 +142,7 @@ class InstaWalkAcceptService {
         }
 
         final String status =
-            data['status']
-                    ?.toString()
-                    .trim() ??
-                '';
+            data['status']?.toString().trim() ?? '';
 
         if (status != 'searching') {
           throw Exception(
@@ -232,10 +156,6 @@ class InstaWalkAcceptService {
             'status': 'accepted',
             'walkerId': walkerId,
             'walkerUid': walkerUid,
-            'walkerName':
-                walkerName.isEmpty
-                    ? null
-                    : walkerName,
             'acceptedBy': walkerId,
             'acceptedAt':
                 FieldValue.serverTimestamp(),
