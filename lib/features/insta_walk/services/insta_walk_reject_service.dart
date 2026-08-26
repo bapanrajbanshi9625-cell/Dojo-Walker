@@ -1,33 +1,8 @@
+// File:
+// lib/features/insta_walk/services/insta_walk_reject_service.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
-/// ============================================================
-/// INSTA WALK REJECT SERVICE
-///
-/// Collection:
-///     walk_request
-///
-/// IMPORTANT:
-///
-/// Main request NEVER becomes "rejected".
-///
-/// Only this Walker gets a rejection record:
-///
-/// walk_request/{walkId}/rejections/{walkerId}
-///
-/// Example:
-///
-/// walk_request
-///   └── ABC123
-///       ├── status: searching
-///       │
-///       └── rejections
-///           └── WALKER001
-///               ├── walkerId
-///               ├── walkerUid
-///               ├── rejectedAt
-///               └── updatedAt
-/// ============================================================
 
 class InstaWalkRejectService {
   InstaWalkRejectService._();
@@ -42,7 +17,9 @@ class InstaWalkRejectService {
       FirebaseAuth.instance;
 
   // ============================================================
-  // COLLECTION
+  // WALK REQUESTS
+  // IMPORTANT:
+  // Owner/Admin uses: walk_request
   // ============================================================
 
   CollectionReference<Map<String, dynamic>>
@@ -55,22 +32,19 @@ class InstaWalkRejectService {
   // ============================================================
 
   Future<String?> getCurrentWalkerId() async {
-    final User? user =
-        _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
       return null;
     }
 
-    final String uid =
-        user.uid.trim();
+    final String uid = user.uid.trim();
 
     if (uid.isEmpty) {
       return null;
     }
 
-    final DocumentSnapshot<
-            Map<String, dynamic>>
+    final DocumentSnapshot<Map<String, dynamic>>
         snapshot =
         await _firestore
             .collection('walkers')
@@ -89,10 +63,7 @@ class InstaWalkRejectService {
     }
 
     final String walkerId =
-        data['walkerId']
-                ?.toString()
-                .trim() ??
-            '';
+        data['walkerId']?.toString().trim() ?? '';
 
     if (walkerId.isEmpty) {
       return null;
@@ -103,12 +74,12 @@ class InstaWalkRejectService {
 
   // ============================================================
   // REJECTIONS
+  //
+  // walk_request/{walkId}/rejections/{walkerId}
   // ============================================================
 
   CollectionReference<Map<String, dynamic>>
-      _rejections(
-    String walkId,
-  ) {
+      _rejections(String walkId) {
     return _walkRequests
         .doc(walkId)
         .collection('rejections');
@@ -121,16 +92,11 @@ class InstaWalkRejectService {
   //
   // status = searching
   //
-  // Only current Walker gets:
-  //
-  // rejections/{walkerId}
+  // Only current Walker is recorded as rejected.
   // ============================================================
 
-  Future<void> rejectWalk(
-    String walkId,
-  ) async {
-    final User? user =
-        _auth.currentUser;
+  Future<void> rejectWalk(String walkId) async {
+    final User? user = _auth.currentUser;
 
     if (user == null) {
       throw Exception(
@@ -157,8 +123,7 @@ class InstaWalkRejectService {
       );
     }
 
-    final String id =
-        walkId.trim();
+    final String id = walkId.trim();
 
     if (id.isEmpty) {
       throw Exception(
@@ -166,16 +131,13 @@ class InstaWalkRejectService {
       );
     }
 
-    final DocumentReference<
-            Map<String, dynamic>>
+    final DocumentReference<Map<String, dynamic>>
         walkRef =
         _walkRequests.doc(id);
 
-    final DocumentReference<
-            Map<String, dynamic>>
+    final DocumentReference<Map<String, dynamic>>
         rejectionRef =
-        _rejections(id)
-            .doc(walkerId);
+        _rejections(id).doc(walkerId);
 
     await _firestore.runTransaction(
       (
@@ -185,12 +147,9 @@ class InstaWalkRejectService {
         // READ MAIN REQUEST
         // ------------------------------------------------------
 
-        final DocumentSnapshot<
-                Map<String, dynamic>>
+        final DocumentSnapshot<Map<String, dynamic>>
             walkSnapshot =
-            await transaction.get(
-          walkRef,
-        );
+            await transaction.get(walkRef);
 
         if (!walkSnapshot.exists) {
           throw Exception(
@@ -207,15 +166,8 @@ class InstaWalkRejectService {
           );
         }
 
-        // ------------------------------------------------------
-        // STATUS
-        // ------------------------------------------------------
-
         final String status =
-            data['status']
-                    ?.toString()
-                    .trim() ??
-                '';
+            data['status']?.toString().trim() ?? '';
 
         if (status != 'searching') {
           throw Exception(
@@ -224,15 +176,12 @@ class InstaWalkRejectService {
         }
 
         // ------------------------------------------------------
-        // CHECK EXISTING REJECTION
+        // CHECK THIS WALKER ALREADY REJECTED
         // ------------------------------------------------------
 
-        final DocumentSnapshot<
-                Map<String, dynamic>>
+        final DocumentSnapshot<Map<String, dynamic>>
             rejectionSnapshot =
-            await transaction.get(
-          rejectionRef,
-        );
+            await transaction.get(rejectionRef);
 
         if (rejectionSnapshot.exists) {
           throw Exception(
@@ -257,16 +206,15 @@ class InstaWalkRejectService {
         );
 
         // ------------------------------------------------------
-        // IMPORTANT:
+        // MAIN REQUEST STAYS SEARCHING
         //
-        // MAIN REQUEST REMAINS SEARCHING.
-        //
-        // इसलिए दूसरा Walker इसे देख सकता है.
+        // दूसरा Walker इसे देख सकेगा.
         // ------------------------------------------------------
 
         transaction.update(
           walkRef,
           <String, dynamic>{
+            'status': 'searching',
             'updatedAt':
                 FieldValue.serverTimestamp(),
           },
