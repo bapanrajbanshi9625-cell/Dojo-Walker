@@ -117,7 +117,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // DATE
+  // DATE OF BIRTH
   // ============================================================
 
   String get formattedDateOfBirth {
@@ -212,6 +212,7 @@ class _MandatoryProfileSetupScreen2State
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
+          backgroundColor: AppColors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
@@ -219,6 +220,7 @@ class _MandatoryProfileSetupScreen2State
             title,
             style: const TextStyle(
               fontWeight: FontWeight.w900,
+              color: AppColors.textDark,
             ),
           ),
           content: TextField(
@@ -229,12 +231,26 @@ class _MandatoryProfileSetupScreen2State
               hintText: 'https://...',
               prefixIcon: const Icon(
                 Icons.link_rounded,
+                color: AppColors.blue,
               ),
               filled: true,
               fillColor: AppColors.background,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15),
                 borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: const BorderSide(
+                  color: AppColors.border,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: const BorderSide(
+                  color: AppColors.green,
+                  width: 1.5,
+                ),
               ),
             ),
           ),
@@ -243,12 +259,19 @@ class _MandatoryProfileSetupScreen2State
               onPressed: () {
                 Navigator.pop(dialogContext);
               },
-              child: const Text('CANCEL'),
+              child: const Text(
+                'CANCEL',
+                style: TextStyle(
+                  color: AppColors.muted,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.green,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.onPrimary,
+                elevation: 0,
               ),
               onPressed: () {
                 final String value =
@@ -258,12 +281,15 @@ class _MandatoryProfileSetupScreen2State
                   ScaffoldMessenger.of(dialogContext)
                     ..hideCurrentSnackBar()
                     ..showSnackBar(
-                      const SnackBar(
-                        content: Text(
+                      SnackBar(
+                        content: const Text(
                           'Enter a valid image URL.',
                         ),
+                        backgroundColor:
+                            AppColors.red,
                       ),
                     );
+
                   return;
                 }
 
@@ -272,7 +298,12 @@ class _MandatoryProfileSetupScreen2State
                   value,
                 );
               },
-              child: const Text('USE URL'),
+              child: const Text(
+                'USE URL',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
           ],
         );
@@ -623,7 +654,7 @@ class _MandatoryProfileSetupScreen2State
       final String phoneNumber =
           user.phoneNumber ?? '';
 
-      final String gender =
+      final String cleanGender =
           widget.gender.trim();
 
       final String aadhaarNumber =
@@ -701,8 +732,8 @@ class _MandatoryProfileSetupScreen2State
         'Date Of Birth': formattedDateOfBirth,
         'dateOfBirth': formattedDateOfBirth,
 
-        'gender': gender,
-        'Gender': gender,
+        'gender': cleanGender,
+        'Gender': cleanGender,
 
         // ======================================================
         // PROFILE SELFIE
@@ -890,7 +921,7 @@ class _MandatoryProfileSetupScreen2State
           ),
         );
       } catch (_) {
-        // Users sync is optional.
+        // Optional sync.
       }
 
       // ========================================================
@@ -996,7 +1027,6 @@ class _MandatoryProfileSetupScreen2State
     required IconData icon,
     TextInputType? keyboardType,
     int? maxLength,
-    ValueChanged<String>? onChanged,
   }) {
     return Padding(
       padding: const EdgeInsets.only(
@@ -1006,17 +1036,22 @@ class _MandatoryProfileSetupScreen2State
         controller: controller,
         keyboardType: keyboardType,
         maxLength: maxLength,
-        onChanged: onChanged,
-        textInputAction:
-            TextInputAction.next,
+        textInputAction: TextInputAction.next,
+        style: const TextStyle(
+          color: AppColors.textDark,
+          fontWeight: FontWeight.w600,
+        ),
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: const TextStyle(
+            color: AppColors.muted,
+          ),
           prefixIcon: Icon(
             icon,
             color: AppColors.blue,
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: AppColors.surface,
           counterText: '',
           border: OutlineInputBorder(
             borderRadius:
@@ -1052,13 +1087,10 @@ class _MandatoryProfileSetupScreen2State
     required String subtitle,
     required bool isFront,
   }) {
-    final String? url;
-
-    if (isFront) {
-      url = aadhaarFrontUrl;
-    } else {
-      url = aadhaarBackUrl;
-    }
+    final String? url =
+        isFront
+            ? aadhaarFrontUrl
+            : aadhaarBackUrl;
 
     final bool added =
         url != null &&
@@ -1077,7 +1109,7 @@ class _MandatoryProfileSetupScreen2State
         padding:
             const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius:
               BorderRadius.circular(18),
           border: Border.all(
@@ -1111,9 +1143,9 @@ class _MandatoryProfileSetupScreen2State
                         fit: BoxFit.cover,
                         errorBuilder:
                             (
-                          context,
-                          error,
-                          stackTrace,
+                          BuildContext context,
+                          Object error,
+                          StackTrace? stackTrace,
                         ) {
                           return const Icon(
                             Icons
@@ -1132,7 +1164,9 @@ class _MandatoryProfileSetupScreen2State
                       size: 29,
                     ),
             ),
-            const SizedBox(width: 13),
+            const SizedBox(
+              width: 13,
+            ),
             Expanded(
               child: Column(
                 crossAxisAlignment:
@@ -1201,7 +1235,7 @@ class _MandatoryProfileSetupScreen2State
         padding:
             const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.surface,
           borderRadius:
               BorderRadius.circular(18),
           border: Border.all(
@@ -1235,9 +1269,9 @@ class _MandatoryProfileSetupScreen2State
                         fit: BoxFit.cover,
                         errorBuilder:
                             (
-                          context,
-                          error,
-                          stackTrace,
+                          BuildContext context,
+                          Object error,
+                          StackTrace? stackTrace,
                         ) {
                           return const Icon(
                             Icons
@@ -1256,7 +1290,9 @@ class _MandatoryProfileSetupScreen2State
                       size: 29,
                     ),
             ),
-            const SizedBox(width: 13),
+            const SizedBox(
+              width: 13,
+            ),
             const Expanded(
               child: Column(
                 crossAxisAlignment:
@@ -1272,7 +1308,9 @@ class _MandatoryProfileSetupScreen2State
                           AppColors.textDark,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  SizedBox(
+                    height: 4,
+                  ),
                   Text(
                     'Testing के लिए Image URL',
                     style: TextStyle(
@@ -1308,7 +1346,7 @@ class _MandatoryProfileSetupScreen2State
       padding:
           const EdgeInsets.all(17),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius:
             BorderRadius.circular(20),
         border: Border.all(
@@ -1325,7 +1363,9 @@ class _MandatoryProfileSetupScreen2State
                 Icons.person_rounded,
                 color: AppColors.green,
               ),
-              SizedBox(width: 9),
+              SizedBox(
+                width: 9,
+              ),
               Text(
                 'Walker Information',
                 style: TextStyle(
@@ -1338,7 +1378,9 @@ class _MandatoryProfileSetupScreen2State
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(
+            height: 14,
+          ),
           _summaryRow(
             'Full Name',
             widget.name,
@@ -1361,6 +1403,10 @@ class _MandatoryProfileSetupScreen2State
       ),
     );
   }
+
+  // ============================================================
+  // SUMMARY ROW
+  // ============================================================
 
   Widget _summaryRow(
     String title,
@@ -1389,7 +1435,9 @@ class _MandatoryProfileSetupScreen2State
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(
+            width: 8,
+          ),
           Expanded(
             child: Text(
               value,
@@ -1420,7 +1468,7 @@ class _MandatoryProfileSetupScreen2State
       padding:
           const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius:
             BorderRadius.circular(20),
         border: Border.all(
@@ -1460,7 +1508,7 @@ class _MandatoryProfileSetupScreen2State
                 ),
                 decoration:
                     const BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   border: Border(
                     bottom: BorderSide(
                       color:
@@ -1485,7 +1533,7 @@ class _MandatoryProfileSetupScreen2State
                       child: const Icon(
                         Icons.pets_rounded,
                         color:
-                            Colors.white,
+                            AppColors.onPrimary,
                       ),
                     ),
                     const SizedBox(
@@ -1510,7 +1558,9 @@ class _MandatoryProfileSetupScreen2State
                                       .w800,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          SizedBox(
+                            height: 2,
+                          ),
                           Text(
                             'Aadhaar, PAN & Address',
                             style:
@@ -1536,8 +1586,7 @@ class _MandatoryProfileSetupScreen2State
                       ),
                       decoration:
                           BoxDecoration(
-                        color: AppColors
-                            .green
+                        color: AppColors.green
                             .withOpacity(.10),
                         borderRadius:
                             BorderRadius.circular(
@@ -1590,11 +1639,9 @@ class _MandatoryProfileSetupScreen2State
                             TextStyle(
                           fontSize: 23,
                           fontWeight:
-                              FontWeight
-                                  .w900,
+                              FontWeight.w900,
                           color:
-                              AppColors
-                                  .textDark,
+                              AppColors.textDark,
                         ),
                       ),
 
@@ -1608,8 +1655,7 @@ class _MandatoryProfileSetupScreen2State
                             TextStyle(
                           fontSize: 12.5,
                           color:
-                              AppColors
-                                  .muted,
+                              AppColors.muted,
                         ),
                       ),
 
@@ -1815,11 +1861,6 @@ class _MandatoryProfileSetupScreen2State
                                   'Village / Locality',
                               icon: Icons
                                   .location_on_rounded,
-                              onChanged:
-                                  (_) =>
-                                      setState(
-                                () {},
-                              ),
                             ),
 
                             field(
@@ -1829,11 +1870,6 @@ class _MandatoryProfileSetupScreen2State
                                   'City / Town',
                               icon: Icons
                                   .location_city_rounded,
-                              onChanged:
-                                  (_) =>
-                                      setState(
-                                () {},
-                              ),
                             ),
 
                             field(
@@ -1843,11 +1879,6 @@ class _MandatoryProfileSetupScreen2State
                                   'District',
                               icon: Icons
                                   .map_rounded,
-                              onChanged:
-                                  (_) =>
-                                      setState(
-                                () {},
-                              ),
                             ),
 
                             field(
@@ -1857,11 +1888,6 @@ class _MandatoryProfileSetupScreen2State
                                   'State',
                               icon: Icons
                                   .public_rounded,
-                              onChanged:
-                                  (_) =>
-                                      setState(
-                                () {},
-                              ),
                             ),
 
                             field(
@@ -1875,11 +1901,6 @@ class _MandatoryProfileSetupScreen2State
                                   TextInputType
                                       .number,
                               maxLength: 6,
-                              onChanged:
-                                  (_) =>
-                                      setState(
-                                () {},
-                              ),
                             ),
 
                             Container(
@@ -2064,9 +2085,8 @@ class _MandatoryProfileSetupScreen2State
                                 .all(15),
                         decoration:
                             BoxDecoration(
-                          color:
-                              AppColors.blue
-                                  .withOpacity(.06),
+                          color: AppColors.blue
+                              .withOpacity(.06),
                           borderRadius:
                               BorderRadius
                                   .circular(17),
@@ -2136,7 +2156,8 @@ class _MandatoryProfileSetupScreen2State
                               .55,
                             ),
                             foregroundColor:
-                                Colors.white,
+                                AppColors
+                                    .onPrimary,
                             elevation: 0,
                             shape:
                                 RoundedRectangleBorder(
@@ -2161,7 +2182,8 @@ class _MandatoryProfileSetupScreen2State
                                         strokeWidth:
                                             2.5,
                                         color:
-                                            Colors.white,
+                                            AppColors
+                                                .onPrimary,
                                       ),
                                     ),
                                     SizedBox(
