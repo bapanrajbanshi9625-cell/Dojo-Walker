@@ -9,7 +9,6 @@ import '../widgets/live_walk_bottom_sheet.dart';
 import '../widgets/live_walk_complete_slider.dart';
 import '../widgets/live_walk_map_layer.dart';
 import '../widgets/live_walk_review_bottom_sheet.dart';
-import '../widgets/live_walk_sos_sheet.dart';
 import '../widgets/live_walk_start_panel.dart';
 
 class LiveWalkScreen extends StatefulWidget {
@@ -43,6 +42,13 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   bool _showingEndDialog = false;
   bool _showingReview = false;
 
+  // ============================================================
+  // LAST SESSION DATA
+  // ============================================================
+
+  Map<String, dynamic> _lastSessionData =
+      <String, dynamic>{};
+
   @override
   void initState() {
     super.initState();
@@ -57,7 +63,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       sessionId: widget.sessionId,
     );
 
-    _controller.addListener(_onControllerChanged);
+    _controller.addListener(
+      _onControllerChanged,
+    );
 
     unawaited(
       _controller.initialize(),
@@ -65,7 +73,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   }
 
   // ============================================================
-  // CONTROLLER
+  // CONTROLLER CHANGE
   // ============================================================
 
   void _onControllerChanged() {
@@ -75,6 +83,10 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     setState(() {});
   }
+
+  // ============================================================
+  // SESSION STREAM
+  // ============================================================
 
   Stream<DocumentSnapshot<Map<String, dynamic>>>
       get _sessionStream {
@@ -101,7 +113,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             snapshot.data?.data() ??
                 <String, dynamic>{};
 
+        // --------------------------------------------------------
+        // KEEP LAST VALID SESSION DATA
+        // --------------------------------------------------------
+
         if (data.isNotEmpty) {
+          _lastSessionData =
+              Map<String, dynamic>.from(data);
+
           WidgetsBinding.instance
               .addPostFrameCallback((_) {
             if (!mounted) {
@@ -111,6 +130,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             _controller.updateFromSession(data);
           });
         }
+
+        final Map<String, dynamic> sessionData =
+            data.isNotEmpty
+                ? data
+                : _lastSessionData;
 
         final bool showStartPanel =
             !_controller.walkStarted &&
@@ -136,6 +160,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 AppColors.primary,
             elevation: 0,
             centerTitle: true,
+
             title: const Text(
               'LIVE WALK',
               style: TextStyle(
@@ -145,6 +170,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 letterSpacing: .4,
               ),
             ),
+
             actions: [
               // --------------------------------------------------
               // SOS
@@ -188,21 +214,21 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
           body: Stack(
             children: [
-              // ==================================================
-              // LIVE MAP
-              // ==================================================
+              // --------------------------------------------------
+              // MAP
+              // --------------------------------------------------
 
               Positioned.fill(
                 child: LiveWalkMapLayer(
-                  sessionData: data,
+                  sessionData: sessionData,
                   gpsReady:
                       _controller.gpsReady,
                 ),
               ),
 
-              // ==================================================
-              // START WALK PANEL
-              // ==================================================
+              // --------------------------------------------------
+              // START PANEL
+              // --------------------------------------------------
 
               if (showStartPanel)
                 LiveWalkStartPanel(
@@ -215,9 +241,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                       _startWalk,
                 ),
 
-              // ==================================================
-              // LIVE BOTTOM SHEET
-              // ==================================================
+              // --------------------------------------------------
+              // LIVE BOTTOM PANEL
+              // --------------------------------------------------
 
               if (showLiveBottom)
                 Align(
@@ -234,7 +260,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                     ownerPhone:
                         widget.ownerPhone,
                     sessionData:
-                        data,
+                        sessionData,
                     ending:
                         _controller.ending,
                     onEndWalk:
@@ -329,10 +355,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             ),
           ),
           actions: [
-            // --------------------------------------------------
-            // CANCEL
-            // --------------------------------------------------
-
             TextButton(
               onPressed: () {
                 Navigator.of(
@@ -349,10 +371,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 ),
               ),
             ),
-
-            // --------------------------------------------------
-            // CONTINUE
-            // --------------------------------------------------
 
             ElevatedButton(
               onPressed: () {
@@ -427,10 +445,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               mainAxisSize:
                   MainAxisSize.min,
               children: [
-                // ------------------------------------------------
-                // HANDLE
-                // ------------------------------------------------
-
                 Container(
                   width: 42,
                   height: 5,
@@ -446,10 +460,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 ),
 
                 const SizedBox(height: 16),
-
-                // ------------------------------------------------
-                // ICON
-                // ------------------------------------------------
 
                 const Icon(
                   Icons
@@ -565,7 +575,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     _showingReview = true;
 
     final Map<String, dynamic> data =
-        _controller.currentSessionData;
+        _lastSessionData;
 
     final double distance =
         _readDouble(
@@ -623,10 +633,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       return;
     }
 
-    // ----------------------------------------------------------
-    // LEAVE LIVE WALK SCREEN
-    // ----------------------------------------------------------
-
     Navigator.of(
       context,
     ).pop(true);
@@ -652,10 +658,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         <Offset>[];
 
     for (final dynamic item in raw) {
-      // --------------------------------------------------------
-      // FIRESTORE GEOPOINT
-      // --------------------------------------------------------
-
       if (item is GeoPoint) {
         points.add(
           Offset(
@@ -666,10 +668,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
         continue;
       }
-
-      // --------------------------------------------------------
-      // MAP
-      // --------------------------------------------------------
 
       if (item is Map) {
         final dynamic lat =
@@ -757,7 +755,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           Colors.transparent,
       isScrollControlled: true,
       builder: (_) {
-        return const LiveWalkSosSheet();
+        return _SosSheet(
+          ownerName:
+              widget.ownerName,
+          ownerPhone:
+              widget.ownerPhone,
+        );
       },
     );
   }
@@ -798,10 +801,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               mainAxisSize:
                   MainAxisSize.min,
               children: [
-                // ------------------------------------------------
-                // HANDLE
-                // ------------------------------------------------
-
                 Container(
                   width: 42,
                   height: 5,
@@ -1023,5 +1022,135 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     _controller.dispose();
 
     super.dispose();
+  }
+}
+
+// ============================================================
+// SOS SHEET
+// ============================================================
+
+class _SosSheet extends StatelessWidget {
+  const _SosSheet({
+    required this.ownerName,
+    required this.ownerPhone,
+  });
+
+  final String ownerName;
+  final String? ownerPhone;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding:
+          const EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        25,
+      ),
+      decoration:
+          const BoxDecoration(
+        color:
+            AppColors.cardBackground,
+        borderRadius:
+            BorderRadius.vertical(
+          top: Radius.circular(25),
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize:
+              MainAxisSize.min,
+          children: [
+            Container(
+              width: 42,
+              height: 5,
+              decoration:
+                  BoxDecoration(
+                color:
+                    AppColors.border,
+                borderRadius:
+                    BorderRadius.circular(
+                  10,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            const Icon(
+              Icons.sos_rounded,
+              color:
+                  AppColors.error,
+              size: 48,
+            ),
+
+            const SizedBox(height: 10),
+
+            const Text(
+              'Emergency SOS',
+              style: TextStyle(
+                color:
+                    AppColors.secondary,
+                fontSize: 20,
+                fontWeight:
+                    FontWeight.w900,
+              ),
+            ),
+
+            const SizedBox(height: 6),
+
+            Text(
+              ownerName.trim().isEmpty
+                  ? 'Emergency assistance'
+                  : 'Emergency assistance for ${ownerName.trim()}',
+              textAlign:
+                  TextAlign.center,
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 12,
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child:
+                  ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(
+                    context,
+                  ).pop();
+                },
+                icon: const Icon(
+                  Icons
+                      .emergency_rounded,
+                ),
+                label: const Text(
+                  'Emergency Assistance',
+                ),
+                style:
+                    ElevatedButton.styleFrom(
+                  backgroundColor:
+                      AppColors.error,
+                  foregroundColor:
+                      Colors.white,
+                  elevation: 0,
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(
+                      14,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
