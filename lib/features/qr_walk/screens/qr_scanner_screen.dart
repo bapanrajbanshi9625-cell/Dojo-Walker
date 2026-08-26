@@ -131,7 +131,7 @@ class _QrScannerScreenState
             ),
           ),
           backgroundColor:
-              Colors.red.shade700,
+              AppColors.errorDark,
           behavior:
               SnackBarBehavior.floating,
           margin:
@@ -491,7 +491,7 @@ class _QrScannerScreenState
                   decoration:
                       BoxDecoration(
                     color:
-                        Colors.white,
+                        AppColors.surface,
                     borderRadius:
                         BorderRadius.circular(
                       24,
@@ -508,9 +508,9 @@ class _QrScannerScreenState
                             CircularProgressIndicator(
                           strokeWidth: 3.5,
                           valueColor:
-                              AlwaysStoppedAnimation<
+                              const AlwaysStoppedAnimation<
                                   Color>(
-                            DojoColors.primary,
+                            AppColors.primary,
                           ),
                         ),
                       ),
@@ -528,7 +528,7 @@ class _QrScannerScreenState
                           fontWeight:
                               FontWeight.w800,
                           color:
-                              Color(0xFF263746),
+                              AppColors.textPrimary,
                         ),
                       ),
 
@@ -544,7 +544,7 @@ class _QrScannerScreenState
                           fontSize: 12,
                           height: 1.4,
                           color:
-                              Color(0xFF6B7280),
+                              AppColors.textSecondary,
                         ),
                       ),
                     ],
@@ -593,8 +593,9 @@ class _QrScannerScreenState
                         height: 38,
                         decoration:
                             BoxDecoration(
-                          color: DojoColors.primary
-                              .withOpacity(
+                          color:
+                              AppColors.primary
+                                  .withOpacity(
                             0.18,
                           ),
                           borderRadius:
@@ -602,11 +603,11 @@ class _QrScannerScreenState
                             12,
                           ),
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons
                               .center_focus_strong_rounded,
                           color:
-                              DojoColors.primary,
+                              AppColors.primary,
                           size: 20,
                         ),
                       ),
@@ -711,7 +712,7 @@ class _QrScannerScreenState
               decoration:
                   BoxDecoration(
                 color:
-                    DojoColors.primary,
+                    AppColors.primary,
                 borderRadius:
                     BorderRadius.circular(
                   4,
@@ -730,7 +731,7 @@ class _QrScannerScreenState
               decoration:
                   BoxDecoration(
                 color:
-                    DojoColors.primary,
+                    AppColors.primary,
                 borderRadius:
                     BorderRadius.circular(
                   4,
