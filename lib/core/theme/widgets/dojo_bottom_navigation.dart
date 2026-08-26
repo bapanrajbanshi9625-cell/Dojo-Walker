@@ -27,21 +27,21 @@ class DojoBottomNavigation
         ),
       ),
       child: NavigationBar(
-        selectedIndex: currentIndex,
-        onDestinationSelected: onTap,
-        backgroundColor:
-            DojoWalkerColors.white,
-        indicatorColor:
-            DojoWalkerColors.primarySoft,
-        elevation: 0,
-        height: 70,
-        destinations: items
-            .map(
-              (BottomNavigationBarItem item) {
-                return NavigationDestination(
-                 icon: item.icon,
-                 selectedIcon: item.activeIcon,
-                 label: item.label ?? '',
-                );
-                toList(),
-              ),
+  selectedIndex: currentIndex,
+  onDestinationSelected: onTap,
+  backgroundColor: DojoWalkerColors.white,
+  indicatorColor: DojoWalkerColors.primarySoft,
+  elevation: 0,
+  height: 70,
+  destinations: items
+      .map(
+        (BottomNavigationBarItem item) {
+          return NavigationDestination(
+            icon: item.icon,
+            selectedIcon: item.activeIcon,
+            label: item.label ?? '',
+          );
+        },
+      )
+      .toList(),
+),
