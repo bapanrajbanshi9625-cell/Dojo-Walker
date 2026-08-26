@@ -1,197 +1,367 @@
-// File location:
+// File:
 // lib/core/constants/app_colors.dart
 
 import 'package:flutter/material.dart';
-
-import '../theme/colors/dojo_walker_colors.dart';
 
 class AppColors {
   AppColors._();
 
   // ==========================================================
-  // BRAND
+  // PRIMARY BRAND — ORANGE
   // ==========================================================
 
-  static const Color primary =
-      DojoWalkerColors.primary;
+  /// Main Dojo brand color
+  static const Color primary = Color(0xFFFF5A3B);
 
-  static const Color primaryDark =
-      DojoWalkerColors.primaryDark;
+  /// Dark orange for pressed / deeper brand states
+  static const Color primaryDark = Color(0xFFE6452A);
 
-  static const Color primaryLight =
-      DojoWalkerColors.primaryLight;
+  /// Light orange for soft backgrounds
+  static const Color primaryLight = Color(0xFFFF8A70);
 
-  static const Color secondary =
-      DojoWalkerColors.secondary;
+  /// Compatibility alias
+  static const Color orange = primary;
 
-  static const Color secondaryDark =
-      DojoWalkerColors.secondaryDark;
+  /// Soft orange background
+  static const Color orangeSoft = Color(0xFFFFF1ED);
 
-  static const Color secondaryLight =
-      DojoWalkerColors.secondaryLight;
+  /// Orange border
+  static const Color orangeBorder = Color(0xFFFFD5CC);
+
+  // ==========================================================
+  // SECONDARY BRAND — CYAN
+  // ==========================================================
+
+  /// Electric Cyan
+  static const Color secondary = Color(0xFF06B6D4);
+
+  static const Color secondaryDark = Color(0xFF0891B2);
+
+  static const Color secondaryLight = Color(0xFF67E8F9);
+
+  /// Compatibility alias
+  static const Color cyan = secondary;
+
+  static const Color cyanSoft = Color(0xFFE6F9FC);
+
+  // ==========================================================
+  // HERO / DARK BRAND
+  // ==========================================================
+
+  /// Obsidian Slate
+  static const Color hero = Color(0xFF0F172A);
+
+  /// Midnight Slate
+  static const Color heroDark = Color(0xFF020617);
+
+  /// Slate banner secondary
+  static const Color heroLight = Color(0xFF1E293B);
+
+  /// Compatibility aliases
+  static const Color obsidian = hero;
+
+  static const Color midnight = heroDark;
+
+  static const Color darkSlate = heroLight;
+
+  // ==========================================================
+  // CTA — EMERALD GREEN
+  // ==========================================================
+
+  /// Main CTA / Search / Next
+  static const Color buttonPrimary = Color(0xFF10B981);
+
+  /// Pressed CTA
+  static const Color buttonPrimaryPressed = Color(0xFF059669);
+
+  /// Soft CTA background
+  static const Color buttonPrimarySoft = Color(0xFFECFDF5);
+
+  /// Secondary CTA
+  static const Color buttonSecondary = secondary;
+
+  static const Color buttonSecondaryPressed = secondaryDark;
+
+  /// Text on colored buttons
+  static const Color buttonText = Colors.white;
+
+  /// Compatibility alias
+  static const Color green = buttonPrimary;
+
+  static const Color greenDark = buttonPrimaryPressed;
+
+  static const Color greenSoft = buttonPrimarySoft;
 
   // ==========================================================
   // BACKGROUND
   // ==========================================================
 
-  static const Color scaffoldBackground =
-      DojoWalkerColors.background;
+  /// Ice White
+  static const Color background = Color(0xFFF8FAFC);
 
-  static const Color background =
-      DojoWalkerColors.background;
+  /// Main scaffold background
+  static const Color scaffoldBackground = background;
 
-  static const Color cardBackground =
-      DojoWalkerColors.surface;
+  /// White cards
+  static const Color surface = Color(0xFFFFFFFF);
 
-  static const Color surface =
-      DojoWalkerColors.surface;
+  static const Color cardBackground = surface;
 
-  static const Color surfaceSoft =
-      DojoWalkerColors.surfaceSoft;
+  /// Slightly darker soft surface
+  static const Color surfaceSoft = Color(0xFFF1F5F9);
+
+  /// Very soft surface
+  static const Color surfaceMuted = Color(0xFFEFF3F7);
 
   // ==========================================================
   // TEXT
   // ==========================================================
 
-  static const Color textDark =
-      DojoWalkerColors.textPrimary;
+  /// Main text
+  static const Color textPrimary = Color(0xFF0F172A);
 
-  static const Color textPrimary =
-      DojoWalkerColors.textPrimary;
+  static const Color textDark = textPrimary;
 
-  static const Color textGrey =
-      DojoWalkerColors.textSecondary;
+  /// Secondary text
+  static const Color textSecondary = Color(0xFF475569);
 
-  static const Color textSecondary =
-      DojoWalkerColors.textSecondary;
+  static const Color textGrey = textSecondary;
 
-  static const Color textMuted =
-      DojoWalkerColors.textMuted;
+  /// Muted text
+  static const Color textMuted = Color(0xFF94A3B8);
 
-  // ==========================================================
-  // BORDERS / DIVIDERS
-  // ==========================================================
+  /// Compatibility alias
+  static const Color muted = textMuted;
 
-  static const Color border =
-      DojoWalkerColors.border;
+  /// Text on dark hero
+  static const Color textOnDark = Color(0xFFF8FAFC);
 
-  static const Color borderStrong =
-      DojoWalkerColors.borderStrong;
-
-  static const Color divider =
-      DojoWalkerColors.divider;
+  /// Text on brand color
+  static const Color textOnPrimary = Colors.white;
 
   // ==========================================================
-  // BUTTONS
+  // BORDERS
   // ==========================================================
 
-  static const Color buttonPrimary =
-      DojoWalkerColors.buttonPrimary;
+  static const Color border = Color(0xFFE2E8F0);
 
-  static const Color buttonPrimaryPressed =
-      DojoWalkerColors.buttonPrimaryPressed;
+  static const Color borderStrong = Color(0xFFCBD5E1);
 
-  static const Color buttonSecondary =
-      DojoWalkerColors.buttonSecondary;
+  static const Color borderLight = Color(0xFFF1F5F9);
 
-  static const Color buttonSecondaryPressed =
-      DojoWalkerColors.buttonSecondaryPressed;
-
-  static const Color buttonText =
-      DojoWalkerColors.buttonText;
-
-  // ==========================================================
-  // NAVIGATION
-  // ==========================================================
-
-  static const Color bottomBar =
-      DojoWalkerColors.bottomBar;
-
-  static const Color bottomBarBorder =
-      DojoWalkerColors.bottomBarBorder;
-
-  static const Color navSelected =
-      DojoWalkerColors.navSelected;
-
-  static const Color navUnselected =
-      DojoWalkerColors.navUnselected;
+  static const Color divider = Color(0xFFE2E8F0);
 
   // ==========================================================
   // ICONS
   // ==========================================================
 
-  static const Color iconPrimary =
-      DojoWalkerColors.iconPrimary;
+  static const Color iconPrimary = Color(0xFF0F172A);
 
-  static const Color iconSecondary =
-      DojoWalkerColors.iconSecondary;
+  static const Color iconSecondary = Color(0xFF475569);
 
-  static const Color iconMuted =
-      DojoWalkerColors.iconMuted;
+  static const Color iconMuted = Color(0xFF94A3B8);
 
-  static const Color iconOnPrimary =
-      DojoWalkerColors.iconOnPrimary;
+  static const Color iconOnPrimary = Colors.white;
 
-  // ==========================================================
-  // STATUS
-  // ==========================================================
+  /// Brand icon
+  static const Color iconBrand = primary;
 
-  static const Color success =
-      DojoWalkerColors.success;
-
-  static const Color successSoft =
-      DojoWalkerColors.successSoft;
-
-  static const Color warning =
-      DojoWalkerColors.warning;
-
-  static const Color warningSoft =
-      DojoWalkerColors.warningSoft;
-
-  static const Color error =
-      DojoWalkerColors.error;
-
-  static const Color errorSoft =
-      DojoWalkerColors.errorSoft;
-
-  static const Color info =
-      DojoWalkerColors.info;
-
-  static const Color infoSoft =
-      DojoWalkerColors.infoSoft;
+  /// Active icon
+  static const Color iconActive = secondary;
 
   // ==========================================================
-  // RAINBOW
+  // STATUS — SUCCESS
   // ==========================================================
 
-  static const Color rainbowRed =
-      DojoWalkerColors.rainbowRed;
+  static const Color success = Color(0xFF10B981);
 
-  static const Color rainbowOrange =
-      DojoWalkerColors.rainbowOrange;
+  static const Color successDark = Color(0xFF047857);
 
-  static const Color rainbowYellow =
-      DojoWalkerColors.rainbowYellow;
+  static const Color successSoft = Color(0xFFECFDF5);
 
-  static const Color rainbowGreen =
-      DojoWalkerColors.rainbowGreen;
+  // ==========================================================
+  // STATUS — WARNING
+  // ==========================================================
 
-  static const Color rainbowBlue =
-      DojoWalkerColors.rainbowBlue;
+  static const Color warning = Color(0xFFF59E0B);
 
-  static const Color rainbowPurple =
-      DojoWalkerColors.rainbowPurple;
+  static const Color warningDark = Color(0xFFD97706);
 
-  static const Color rainbowPink =
-      DojoWalkerColors.rainbowPink;
+  static const Color warningSoft = Color(0xFFFFFBEB);
 
-  static const List<Color> rainbow =
-      DojoWalkerColors.rainbow;
+  // ==========================================================
+  // STATUS — ERROR
+  // ==========================================================
+
+  static const Color error = Color(0xFFEF4444);
+
+  static const Color errorDark = Color(0xFFDC2626);
+
+  static const Color errorSoft = Color(0xFFFEF2F2);
+
+  /// Compatibility alias
+  static const Color red = error;
+
+  static const Color redSoft = errorSoft;
+
+  // ==========================================================
+  // STATUS — INFO
+  // ==========================================================
+
+  static const Color info = Color(0xFF06B6D4);
+
+  static const Color infoDark = Color(0xFF0891B2);
+
+  static const Color infoSoft = Color(0xFFECFEFF);
+
+  /// Compatibility alias
+  static const Color blue = info;
+
+  static const Color blueDark = infoDark;
+
+  static const Color blueSoft = infoSoft;
+
+  // ==========================================================
+  // SPECIAL PET / WALK COLORS
+  // ==========================================================
+
+  /// Insta Walk active glow
+  static const Color instaWalk = Color(0xFF06B6D4);
+
+  static const Color instaWalkSoft = Color(0xFFE6F9FC);
+
+  /// Live walk
+  static const Color liveWalk = Color(0xFF10B981);
+
+  static const Color liveWalkSoft = Color(0xFFECFDF5);
+
+  /// Location
+  static const Color location = Color(0xFF06B6D4);
+
+  /// Dog / pet accent
+  static const Color pet = Color(0xFFFF5A3B);
+
+  static const Color petSoft = Color(0xFFFFF1ED);
+
+  /// Verification
+  static const Color verification = Color(0xFF10B981);
+
+  /// Pending
+  static const Color pending = Color(0xFFF59E0B);
+
+  // ==========================================================
+  // NAVIGATION
+  // ==========================================================
+
+  static const Color bottomBar = Colors.white;
+
+  static const Color bottomBarBorder = Color(0xFFE2E8F0);
+
+  /// Selected bottom navigation item
+  static const Color navSelected = primary;
+
+  /// Unselected bottom navigation item
+  static const Color navUnselected = Color(0xFF94A3B8);
 
   // ==========================================================
   // OVERLAY
   // ==========================================================
 
-  static const Color overlay =
-      DojoWalkerColors.overlay;
+  static const Color overlay = Color(0x660F172A);
+
+  static const Color overlayLight = Color(0x330F172A);
+
+  // ==========================================================
+  // DARK CARD GRADIENT
+  // ==========================================================
+
+  static const Color gradientStart = Color(0xFF0F172A);
+
+  static const Color gradientEnd = Color(0xFF1E293B);
+
+  // ==========================================================
+  // GLOW
+  // ==========================================================
+
+  static const Color glowCyan = Color(0xFF06B6D4);
+
+  static const Color glowOrange = Color(0xFFFF5A3B);
+
+  static const Color glowGreen = Color(0xFF10B981);
+
+  // ==========================================================
+  // RAINBOW
+  // ==========================================================
+
+  static const Color rainbowRed = Color(0xFFEF4444);
+
+  static const Color rainbowOrange = Color(0xFFFF5A3B);
+
+  static const Color rainbowYellow = Color(0xFFF59E0B);
+
+  static const Color rainbowGreen = Color(0xFF10B981);
+
+  static const Color rainbowBlue = Color(0xFF06B6D4);
+
+  static const Color rainbowPurple = Color(0xFF8B5CF6);
+
+  static const Color rainbowPink = Color(0xFFEC4899);
+
+  static const List<Color> rainbow = <Color>[
+    rainbowRed,
+    rainbowOrange,
+    rainbowYellow,
+    rainbowGreen,
+    rainbowBlue,
+    rainbowPurple,
+    rainbowPink,
+  ];
+
+  // ==========================================================
+  // COMMON GRADIENTS
+  // ==========================================================
+
+  /// Premium dark hero gradient
+  static const LinearGradient heroGradient =
+      LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: <Color>[
+      hero,
+      heroLight,
+    ],
+  );
+
+  /// Orange brand gradient
+  static const LinearGradient primaryGradient =
+      LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: <Color>[
+      primary,
+      primaryDark,
+    ],
+  );
+
+  /// Insta Walk cyan gradient
+  static const LinearGradient cyanGradient =
+      LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: <Color>[
+      secondary,
+      secondaryDark,
+    ],
+  );
+
+  /// CTA green gradient
+  static const LinearGradient greenGradient =
+      LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: <Color>[
+      buttonPrimary,
+      buttonPrimaryPressed,
+    ],
+  );
 }
