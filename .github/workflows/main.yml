@@ -9,48 +9,112 @@ on:
     branches:
       - main
 
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dojo-walker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build_and_test:
     name: Build and Test Flutter App
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
 
     steps:
+
+      # ==========================================================
+      # CHECKOUT
+      # ==========================================================
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: zulu
-          java-version: "17"
 
-      - name: Set up Flutter SDK
+      # ==========================================================
+      # JAVA 17
+      # ==========================================================
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+
+      # ==========================================================
+      # FLUTTER
+      # ==========================================================
+
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.44.8"
           channel: stable
           cache: true
 
+
+      # ==========================================================
+      # TOOLCHAIN CHECK
+      # ==========================================================
+
       - name: Check Flutter version
         run: flutter --version
+
+      - name: Check Dart version
+        run: dart --version
+
+      - name: Check Java version
+        run: java -version
+
+
+      # ==========================================================
+      # CLEAN
+      # ==========================================================
+
+      - name: Flutter clean
+        run: flutter clean
+
+
+      # ==========================================================
+      # DEPENDENCIES
+      # ==========================================================
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Generate app icon
-        run: flutter pub run flutter_launcher_icons
+
+      # ==========================================================
+      # APP ICON
+      # ==========================================================
+
+      - name: Generate app icons
+        run: dart run flutter_launcher_icons
+
+
+      # ==========================================================
+      # ANALYZE
+      # ==========================================================
 
       - name: Analyze code
         run: flutter analyze --no-fatal-infos
 
+
+      # ==========================================================
+      # TEST
+      # ==========================================================
+
       - name: Run tests
         run: flutter test
 
-      - name: Clean Flutter
-        run: flutter clean
 
-      - name: Install dependencies again
-        run: flutter pub get
+      # ==========================================================
+      # BUILD RELEASE APK
+      # ==========================================================
 
       - name: Build Release APK
         env:
@@ -61,22 +125,62 @@ jobs:
             -Dorg.gradle.jvmargs=-Xmx4g
         run: flutter build apk --release
 
+
+      # ==========================================================
+      # FIND APK
+      # ==========================================================
+
       - name: Find Release APK
         run: |
-          find build -type f -name "*.apk" -exec ls -lh {} \;
+          echo "======================================"
+          echo "Generated APK files"
+          echo "======================================"
+
+          find build \
+            -type f \
+            -name "*.apk" \
+            -exec ls -lh {} \;
+
+
+      # ==========================================================
+      # PREPARE APK
+      # ==========================================================
 
       - name: Prepare Release APK
+        shell: bash
         run: |
-          mkdir -p build/release-apk
-          APK=$(find build -type f -name "app-release.apk" | head -n 1)
+          set -e
 
-          if [ -z "$APK" ]; then
+          mkdir -p build/release-apk
+
+          APK="build/app/outputs/flutter-apk/app-release.apk"
+
+          if [ ! -f "$APK" ]; then
             echo "ERROR: Release APK was not generated."
+
+            echo "Available APK files:"
+            find build \
+              -type f \
+              -name "*.apk" \
+              -print || true
+
             exit 1
           fi
 
-          cp "$APK" build/release-apk/Dojo-Walker-release.apk
-          ls -lh build/release-apk/
+          cp "$APK" \
+            build/release-apk/Dojo-Walker-release.apk
+
+          echo "======================================"
+          echo "Final Dojo Walker APK"
+          echo "======================================"
+
+          ls -lh \
+            build/release-apk/Dojo-Walker-release.apk
+
+
+      # ==========================================================
+      # UPLOAD APK
+      # ==========================================================
 
       - name: Upload Dojo Walker Release APK
         uses: actions/upload-artifact@v4
@@ -84,3 +188,4 @@ jobs:
           name: Dojo-Walker-release-apk
           path: build/release-apk/Dojo-Walker-release.apk
           if-no-files-found: error
+          retention-days: 7
