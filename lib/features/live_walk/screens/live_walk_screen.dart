@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../controllers/live_walk_controller.dart';
-import '../widgets/live_walk_bottom_sheet.dart';
 import '../widgets/live_walk_complete_slider.dart';
 import '../widgets/live_walk_map_layer.dart';
 import '../widgets/live_walk_sos_sheet.dart';
@@ -43,12 +42,6 @@ class _LiveWalkScreenState
   // ============================================================
 
   late final LiveWalkController _controller;
-
-  // ============================================================
-  // LOCAL UI
-  // ============================================================
-
-  bool _showingEndDialog = false;
 
   // ============================================================
   // INIT
@@ -168,11 +161,14 @@ class _LiveWalkScreenState
             !_controller.ending;
 
         // ======================================================
-        // WALK STARTED
+        // COMPLETE SLIDER
+        //
+        // Walk started होने के बाद यही नीचे दिखाई देगा.
         // ======================================================
 
-        final bool showBottomSheet =
-            _controller.walkStarted;
+        final bool showCompleteSlider =
+            _controller.walkStarted &&
+            !_controller.ending;
 
         // ======================================================
         // LIVE SCREEN
@@ -279,29 +275,87 @@ class _LiveWalkScreenState
                 ),
 
               // ------------------------------------------------
-              // NORMAL WALK BOTTOM SHEET
+              // COMPLETE SLIDER
+              //
+              // Walk start होने के बाद नीचे दिखाई देगा.
+              // कोई extra bottom sheet नहीं.
               // ------------------------------------------------
 
-              if (showBottomSheet)
-                Align(
-                  alignment:
-                      Alignment.bottomCenter,
-                  child:
-                      LiveWalkBottomSheet(
-                    ownerName:
-                        widget.ownerName,
-                    dogName:
-                        widget.dogName,
-                    dogBreed:
-                        widget.dogBreed,
-                    ownerPhone:
-                        widget.ownerPhone,
-                    sessionData:
-                        data,
-                    ending:
-                        _controller.ending,
-                    onEndWalk:
-                        _confirmEndWalk,
+              if (showCompleteSlider)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 20,
+                  child: SafeArea(
+                    child:
+                        LiveWalkCompleteSlider(
+                      enabled:
+                          !_controller.ending,
+                      onCompleted: () {
+                        unawaited(
+                          _endWalk(),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+              // ------------------------------------------------
+              // ENDING OVERLAY
+              // ------------------------------------------------
+
+              if (_controller.ending)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 20,
+                  child: SafeArea(
+                    child: Container(
+                      height: 66,
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            AppColors.error,
+                        borderRadius:
+                            BorderRadius.circular(
+                          20,
+                        ),
+                      ),
+                      alignment:
+                          Alignment.center,
+                      child: const Row(
+                        mainAxisAlignment:
+                            MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 22,
+                            height: 22,
+                            child:
+                                CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor:
+                                  AlwaysStoppedAnimation<
+                                      Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 10,
+                          ),
+                          Text(
+                            'Completing Walk...',
+                            style: TextStyle(
+                              color:
+                                  Colors.white,
+                              fontSize: 14,
+                              fontWeight:
+                                  FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -344,222 +398,16 @@ class _LiveWalkScreenState
   }
 
   // ============================================================
-  // CONFIRM END WALK
-  //
-  // IMPORTANT:
-  //
-  // यहां direct "End Walk" नहीं होगा.
-  //
-  // पहले confirmation dialog.
-  // उसके बाद Complete Slider.
-  // ============================================================
-
-  void _confirmEndWalk() {
-    if (_controller.ending ||
-        _showingEndDialog) {
-      return;
-    }
-
-    if (!_controller.walkStarted) {
-      _showError(
-        'Start the walk first.',
-      );
-      return;
-    }
-
-    _showingEndDialog = true;
-
-    showDialog<void>(
-      context: context,
-      builder: (
-        BuildContext dialogContext,
-      ) {
-        return AlertDialog(
-          backgroundColor:
-              AppColors.cardBackground,
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(20),
-          ),
-
-          title: const Text(
-            'Complete Walk?',
-            style: TextStyle(
-              color:
-                  AppColors.secondary,
-              fontWeight:
-                  FontWeight.w900,
-            ),
-          ),
-
-          content: const Text(
-            'Slide to complete this walk. '
-            'GPS tracking will stop after the walk is completed.',
-            style: TextStyle(
-              color: Colors.grey,
-              height: 1.4,
-            ),
-          ),
-
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop();
-              },
-              child: const Text(
-                'Keep Walking',
-                style: TextStyle(
-                  color:
-                      AppColors.secondary,
-                  fontWeight:
-                      FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    ).whenComplete(() {
-      _showingEndDialog = false;
-
-      if (!mounted ||
-          !_controller.walkStarted ||
-          _controller.ending) {
-        return;
-      }
-
-      // --------------------------------------------------------
-      // COMPLETE SLIDER
-      // --------------------------------------------------------
-
-      _openCompleteSlider();
-    });
-  }
-
-  // ============================================================
-  // COMPLETE SLIDER
-  // ============================================================
-
-  void _openCompleteSlider() {
-    if (!mounted ||
-        _controller.ending ||
-        !_controller.walkStarted) {
-      return;
-    }
-
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor:
-          Colors.transparent,
-      isScrollControlled: true,
-      isDismissible: false,
-      enableDrag: false,
-      builder: (_) {
-        return SafeArea(
-          child: Container(
-            padding:
-                const EdgeInsets.fromLTRB(
-              16,
-              14,
-              16,
-              18,
-            ),
-            decoration:
-                const BoxDecoration(
-              color:
-                  AppColors.cardBackground,
-              borderRadius:
-                  BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-            ),
-            child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
-              children: [
-                // --------------------------------------------
-                // HANDLE
-                // --------------------------------------------
-
-                Container(
-                  width: 42,
-                  height: 5,
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        AppColors.border,
-                    borderRadius:
-                        BorderRadius.circular(
-                      10,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 14,
-                ),
-
-                const Text(
-                  'Complete Walk',
-                  style: TextStyle(
-                    color:
-                        AppColors.secondary,
-                    fontSize: 18,
-                    fontWeight:
-                        FontWeight.w900,
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 6,
-                ),
-
-                const Text(
-                  'Slide to confirm that the walk is complete.',
-                  textAlign:
-                      TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: 12,
-                    fontWeight:
-                        FontWeight.w600,
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 16,
-                ),
-
-                // --------------------------------------------
-                // COMPLETE SLIDER
-                // --------------------------------------------
-
-                LiveWalkCompleteSlider(
-                  enabled:
-                      !_controller.ending,
-                  onCompleted: () {
-                    Navigator.of(
-                      context,
-                    ).pop();
-
-                    unawaited(
-                      _endWalk(),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ============================================================
   // END WALK
+  //
+  // Complete Slider से call होगा.
+  //
+  // Controller order:
+  //
+  // 1. Final distance/steps
+  // 2. Firestore session completed
+  // 3. Walk request completed
+  // 4. GPS stopped
   // ============================================================
 
   Future<void> _endWalk() async {
@@ -575,24 +423,15 @@ class _LiveWalkScreenState
         return;
       }
 
-      // --------------------------------------------------------
-      // Controller ने:
-      //
-      // 1. Firestore completed
-      // 2. Walk request completed
-      // 3. GPS stopped
-      //
-      // कर दिया है.
-      // --------------------------------------------------------
-
       _showMessage(
         'Walk completed.',
       );
 
       // --------------------------------------------------------
-      // Firestore stream completed state दिखाएगा.
+      // यहां Navigator.pop नहीं करना है.
       //
-      // यहां direct pop नहीं करेंगे.
+      // Firestore stream status = completed होने पर
+      // Completed Screen automatically दिखाई जाएगी.
       // --------------------------------------------------------
 
     } catch (e) {
