@@ -22,6 +22,10 @@ class DojoWalkerColors {
   static const Color primaryLight =
       Color(0xFFFFB067);
 
+  /// Compatibility alias for soft primary
+  static const Color primarySoft =
+      primaryLight;
+
   /// Secondary brand color
   static const Color secondary =
       Color(0xFF0E7490);
@@ -33,12 +37,28 @@ class DojoWalkerColors {
       Color(0xFF38BDF8);
 
   // ==========================================================
+  // BASIC
+  // ==========================================================
+
+  /// Pure white
+  static const Color white =
+      Colors.white;
+
+  /// Pure black
+  static const Color black =
+      Colors.black;
+
+  // ==========================================================
   // HERO / DARK BRAND
   // ==========================================================
 
   /// Premium dark hero background
   static const Color hero =
       Color(0xFF0A252C);
+
+  /// Compatibility alias for dark hero
+  static const Color heroDark =
+      hero;
 
   /// Dark slate
   static const Color slate =
@@ -63,6 +83,10 @@ class DojoWalkerColors {
   /// Aqua glow
   static const Color glow =
       Color(0xFF06B6D4);
+
+  /// Compatibility alias for cyan
+  static const Color cyan =
+      glow;
 
   /// Soft sky aqua
   static const Color aqua =
@@ -209,6 +233,10 @@ class DojoWalkerColors {
 
   static const Color borderStrong =
       Color(0xFFCBD5E1);
+
+  /// Compatibility alias for medium border
+  static const Color borderMedium =
+      borderStrong;
 
   static const Color borderLight =
       Color(0xFFF1F5F9);
