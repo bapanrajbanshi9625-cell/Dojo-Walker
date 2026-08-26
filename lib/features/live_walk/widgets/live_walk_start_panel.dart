@@ -25,9 +25,9 @@ class LiveWalkStartPanel extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ==================================================
-            // GPS STATUS
-            // ==================================================
+            // ====================================================
+            // GPS ACTIVE INFO
+            // ====================================================
 
             Container(
               padding: const EdgeInsets.symmetric(
@@ -68,18 +68,18 @@ class LiveWalkStartPanel extends StatelessWidget {
 
             const SizedBox(height: 9),
 
-            // ==================================================
+            // ====================================================
             // START SLIDER
-            // ==================================================
+            // ====================================================
 
             LiveWalkStartSlider(
               enabled: enabled && !starting,
               onStarted: onStarted,
             ),
 
-            // ==================================================
-            // STARTING INDICATOR
-            // ==================================================
+            // ====================================================
+            // STARTING LOADER
+            // ====================================================
 
             if (starting)
               const Padding(
