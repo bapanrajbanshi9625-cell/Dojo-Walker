@@ -70,7 +70,7 @@ class _DojoWalkerAppState extends State<DojoWalkerApp>
     return MaterialApp(
       title: 'Dojo Walker - Buddy',
       debugShowCheckedModeBanner: false,
-      theme: DojoWalkerTheme.light(),
+      theme: DojoWalkerTheme.light,
       home: NetworkMonitor(
         child: startScreen,
       ),
