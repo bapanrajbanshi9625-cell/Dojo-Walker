@@ -1,27 +1,13 @@
-// File:
-// lib/features/insta_walk/services/insta_walk_accept_service.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 /// ============================================================
 /// INSTA WALK ACCEPT SERVICE
 ///
-/// जिम्मेदारी:
-///
-/// सिर्फ Insta Walk ACCEPT करना.
-///
-/// Firestore:
-///
-/// walk_requests/{walkId}
+/// Collection:
+///     walk_request
 ///
 /// searching → accepted
-///
-/// Walker information:
-///     walkerId
-///     walkerUid
-///     acceptedBy
-///     acceptedAt
 /// ============================================================
 
 class InstaWalkAcceptService {
@@ -37,19 +23,16 @@ class InstaWalkAcceptService {
       FirebaseAuth.instance;
 
   // ============================================================
-  // WALK REQUESTS
+  // COLLECTION
   // ============================================================
 
   CollectionReference<Map<String, dynamic>>
       get _walkRequests {
-    return _firestore.collection('walk_requests');
+    return _firestore.collection('walk_request');
   }
 
   // ============================================================
   // CURRENT WALKER ID
-  //
-  // walkers/{FirebaseAuthUID}
-  //     walkerId: WALKER001
   // ============================================================
 
   Future<String?> getCurrentWalkerId() async {
@@ -100,18 +83,66 @@ class InstaWalkAcceptService {
   }
 
   // ============================================================
+  // CURRENT WALKER NAME
+  // ============================================================
+
+  Future<String> getCurrentWalkerName() async {
+    final User? user =
+        _auth.currentUser;
+
+    if (user == null) {
+      return '';
+    }
+
+    final String uid =
+        user.uid.trim();
+
+    if (uid.isEmpty) {
+      return '';
+    }
+
+    final DocumentSnapshot<
+            Map<String, dynamic>>
+        snapshot =
+        await _firestore
+            .collection('walkers')
+            .doc(uid)
+            .get();
+
+    if (!snapshot.exists) {
+      return '';
+    }
+
+    final Map<String, dynamic>? data =
+        snapshot.data();
+
+    if (data == null) {
+      return '';
+    }
+
+    final String walkerName =
+        data['walkerName']
+                ?.toString()
+                .trim() ??
+            '';
+
+    if (walkerName.isNotEmpty) {
+      return walkerName;
+    }
+
+    return data['name']
+                ?.toString()
+                .trim() ??
+        '';
+  }
+
+  // ============================================================
   // ACCEPT WALK
-  //
-  // searching → accepted
   // ============================================================
 
   Future<void> acceptWalk(
     String walkId,
   ) async {
-    // ----------------------------------------------------------
-    // AUTH
-    // ----------------------------------------------------------
-
     final User? user =
         _auth.currentUser;
 
@@ -130,10 +161,6 @@ class InstaWalkAcceptService {
       );
     }
 
-    // ----------------------------------------------------------
-    // WALKER ID
-    // ----------------------------------------------------------
-
     final String? walkerId =
         await getCurrentWalkerId();
 
@@ -144,9 +171,8 @@ class InstaWalkAcceptService {
       );
     }
 
-    // ----------------------------------------------------------
-    // WALK ID
-    // ----------------------------------------------------------
+    final String walkerName =
+        await getCurrentWalkerName();
 
     final String id =
         walkId.trim();
@@ -161,10 +187,6 @@ class InstaWalkAcceptService {
             Map<String, dynamic>>
         walkRef =
         _walkRequests.doc(id);
-
-    // ----------------------------------------------------------
-    // TRANSACTION
-    // ----------------------------------------------------------
 
     await _firestore.runTransaction(
       (
@@ -192,10 +214,6 @@ class InstaWalkAcceptService {
           );
         }
 
-        // ------------------------------------------------------
-        // STATUS
-        // ------------------------------------------------------
-
         final String status =
             data['status']
                     ?.toString()
@@ -208,24 +226,19 @@ class InstaWalkAcceptService {
           );
         }
 
-        // ------------------------------------------------------
-        // ACCEPT
-        // ------------------------------------------------------
-
         transaction.update(
           walkRef,
           <String, dynamic>{
             'status': 'accepted',
-
             'walkerId': walkerId,
-
             'walkerUid': walkerUid,
-
+            'walkerName':
+                walkerName.isEmpty
+                    ? null
+                    : walkerName,
             'acceptedBy': walkerId,
-
             'acceptedAt':
                 FieldValue.serverTimestamp(),
-
             'updatedAt':
                 FieldValue.serverTimestamp(),
           },
