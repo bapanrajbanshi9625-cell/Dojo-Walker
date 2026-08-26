@@ -16,7 +16,7 @@ class AppColors {
   /// Dark orange for pressed / deeper brand states
   static const Color primaryDark = Color(0xFFE6452A);
 
-  /// Light orange for soft backgrounds
+  /// Light orange for soft brand states
   static const Color primaryLight = Color(0xFFFF8A70);
 
   /// Compatibility alias
@@ -29,19 +29,22 @@ class AppColors {
   static const Color orangeBorder = Color(0xFFFFD5CC);
 
   // ==========================================================
-  // SECONDARY BRAND — CYAN
+  // SECONDARY BRAND — ELECTRIC CYAN
   // ==========================================================
 
   /// Electric Cyan
   static const Color secondary = Color(0xFF06B6D4);
 
+  /// Dark cyan
   static const Color secondaryDark = Color(0xFF0891B2);
 
+  /// Light cyan
   static const Color secondaryLight = Color(0xFF67E8F9);
 
   /// Compatibility alias
   static const Color cyan = secondary;
 
+  /// Soft cyan background
   static const Color cyanSoft = Color(0xFFE6F9FC);
 
   // ==========================================================
@@ -80,12 +83,13 @@ class AppColors {
   /// Secondary CTA
   static const Color buttonSecondary = secondary;
 
+  /// Secondary CTA pressed
   static const Color buttonSecondaryPressed = secondaryDark;
 
   /// Text on colored buttons
   static const Color buttonText = Colors.white;
 
-  /// Compatibility alias
+  /// Compatibility aliases
   static const Color green = buttonPrimary;
 
   static const Color greenDark = buttonPrimaryPressed;
@@ -120,11 +124,13 @@ class AppColors {
   /// Main text
   static const Color textPrimary = Color(0xFF0F172A);
 
+  /// Compatibility alias
   static const Color textDark = textPrimary;
 
   /// Secondary text
   static const Color textSecondary = Color(0xFF475569);
 
+  /// Compatibility alias
   static const Color textGrey = textSecondary;
 
   /// Muted text
@@ -136,11 +142,14 @@ class AppColors {
   /// Text on dark hero
   static const Color textOnDark = Color(0xFFF8FAFC);
 
-  /// Text on brand color
+  /// Text on primary brand color
   static const Color textOnPrimary = Colors.white;
 
+  /// Compatibility alias used by existing screens
+  static const Color onPrimary = Colors.white;
+
   // ==========================================================
-  // BORDERS
+  // BORDERS / DIVIDERS
   // ==========================================================
 
   static const Color border = Color(0xFFE2E8F0);
@@ -214,7 +223,7 @@ class AppColors {
 
   static const Color infoSoft = Color(0xFFECFEFF);
 
-  /// Compatibility alias
+  /// Compatibility aliases
   static const Color blue = info;
 
   static const Color blueDark = infoDark;
@@ -275,18 +284,23 @@ class AppColors {
   // DARK CARD GRADIENT
   // ==========================================================
 
+  /// Premium dark hero gradient start
   static const Color gradientStart = Color(0xFF0F172A);
 
+  /// Premium dark hero gradient end
   static const Color gradientEnd = Color(0xFF1E293B);
 
   // ==========================================================
   // GLOW
   // ==========================================================
 
+  /// Insta Walk / active cyan glow
   static const Color glowCyan = Color(0xFF06B6D4);
 
+  /// Brand orange glow
   static const Color glowOrange = Color(0xFFFF5A3B);
 
+  /// CTA green glow
   static const Color glowGreen = Color(0xFF10B981);
 
   // ==========================================================
@@ -322,8 +336,7 @@ class AppColors {
   // ==========================================================
 
   /// Premium dark hero gradient
-  static const LinearGradient heroGradient =
-      LinearGradient(
+  static const LinearGradient heroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
@@ -333,8 +346,7 @@ class AppColors {
   );
 
   /// Orange brand gradient
-  static const LinearGradient primaryGradient =
-      LinearGradient(
+  static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
@@ -344,8 +356,7 @@ class AppColors {
   );
 
   /// Insta Walk cyan gradient
-  static const LinearGradient cyanGradient =
-      LinearGradient(
+  static const LinearGradient cyanGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
@@ -355,8 +366,7 @@ class AppColors {
   );
 
   /// CTA green gradient
-  static const LinearGradient greenGradient =
-      LinearGradient(
+  static const LinearGradient greenGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: <Color>[
