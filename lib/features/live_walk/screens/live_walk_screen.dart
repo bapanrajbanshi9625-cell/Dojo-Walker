@@ -1,13 +1,13 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../controllers/live_walk_controller.dart';
+import '../widgets/live_walk_app_bar.dart';
 import '../widgets/live_walk_bottom_sheet.dart';
-import '../widgets/live_walk_completed_view.dart';
-import '../widgets/live_walk_map.dart';
+import '../widgets/live_walk_completed_screen.dart';
+import '../widgets/live_walk_map_layer.dart';
 import '../widgets/live_walk_sos_sheet.dart';
 import '../widgets/live_walk_start_panel.dart';
 
@@ -36,11 +36,17 @@ class LiveWalkScreen extends StatefulWidget {
       _LiveWalkScreenState();
 }
 
-class _LiveWalkScreenState extends State<LiveWalkScreen> {
+class _LiveWalkScreenState
+    extends State<LiveWalkScreen> {
+  // ============================================================
+  // CONTROLLER
+  // ============================================================
+
   late final LiveWalkController _controller;
 
-  Stream<DocumentSnapshot<Map<String, dynamic>>>
-      get _sessionStream => _controller.sessionStream;
+  // ============================================================
+  // INIT
+  // ============================================================
 
   @override
   void initState() {
@@ -59,6 +65,338 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     unawaited(
       _controller.initialize(),
     );
+
+    _controller.addListener(
+      _onControllerChanged,
+    );
+  }
+
+  // ============================================================
+  // CONTROLLER UPDATE
+  // ============================================================
+
+  void _onControllerChanged() {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {});
+  }
+
+  // ============================================================
+  // SESSION DATA
+  // ============================================================
+
+  Map<String, dynamic> _sessionData =
+      <String, dynamic>{};
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: _controller.sessionStream,
+      builder: (
+        BuildContext context,
+        AsyncSnapshot snapshot,
+      ) {
+        final Map<String, dynamic> data =
+            snapshot.data?.data()
+                    as Map<String, dynamic>? ??
+                <String, dynamic>{};
+
+        _sessionData = data;
+
+        // --------------------------------------------------------
+        // UPDATE CONTROLLER FROM FIRESTORE
+        // --------------------------------------------------------
+
+        if (data.isNotEmpty) {
+          WidgetsBinding.instance
+              .addPostFrameCallback(
+            (_) {
+              if (!mounted) {
+                return;
+              }
+
+              _controller.updateFromSession(
+                data,
+              );
+            },
+          );
+        }
+
+        final String status =
+            data['status']
+                    ?.toString()
+                    .trim()
+                    .toLowerCase() ??
+                '';
+
+        // ========================================================
+        // COMPLETED
+        // ========================================================
+
+        if (status == 'completed' ||
+            status == 'ended') {
+          return LiveWalkCompletedScreen(
+            dogName: widget.dogName,
+            distanceKm:
+                _controller.totalDistanceKm,
+            steps: _controller.steps,
+            onBack: () {
+              Navigator.of(context).pop(true);
+            },
+          );
+        }
+
+        // ========================================================
+        // WALK STARTED
+        // ========================================================
+
+        final bool walkStarted =
+            _controller.walkStarted ||
+                status == 'active' ||
+                status == 'started';
+
+        // ========================================================
+        // START SLIDER
+        // ========================================================
+
+        final bool showStartPanel =
+            !walkStarted &&
+                !_controller.ending;
+
+        // ========================================================
+        // LIVE WALK SCREEN
+        // ========================================================
+
+        return Scaffold(
+          backgroundColor:
+              AppColors.cardBackground,
+
+          // ======================================================
+          // APP BAR
+          // ======================================================
+
+          appBar: LiveWalkAppBar(
+            enabled:
+                !_controller.ending,
+            onSos: _openSos,
+            onSupport: _openSupport,
+          ),
+
+          // ======================================================
+          // BODY
+          // ======================================================
+
+          body: Stack(
+            children: [
+              // ==================================================
+              // MAP
+              // ==================================================
+
+              Positioned.fill(
+                child: LiveWalkMapLayer(
+                  sessionData: data,
+                  gpsReady:
+                      _controller.gpsReady,
+                ),
+              ),
+
+              // ==================================================
+              // START PANEL
+              //
+              // Reach के बाद दिखाई देगा.
+              //
+              // GPS पहले से active रहेगा.
+              // ==================================================
+
+              if (showStartPanel)
+                LiveWalkStartPanel(
+                  enabled:
+                      !_controller.startingWalk &&
+                          !_controller.ending,
+                  starting:
+                      _controller.startingWalk,
+                  onStarted:
+                      _startWalk,
+                ),
+
+              // ==================================================
+              // BOTTOM WALK INFORMATION
+              //
+              // Slider complete होने के बाद दिखाई देगा.
+              // ==================================================
+
+              if (walkStarted)
+                Align(
+                  alignment:
+                      Alignment.bottomCenter,
+                  child:
+                      LiveWalkBottomSheet(
+                    ownerName:
+                        widget.ownerName,
+                    dogName:
+                        widget.dogName,
+                    dogBreed:
+                        widget.dogBreed,
+                    ownerPhone:
+                        widget.ownerPhone,
+                    sessionData:
+                        data,
+                    ending:
+                        _controller.ending,
+                    onEndWalk:
+                        _confirmEndWalk,
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // START WALK
+  // ============================================================
+
+  Future<void> _startWalk() async {
+    if (_controller.startingWalk ||
+        _controller.walkStarted ||
+        _controller.ending) {
+      return;
+    }
+
+    try {
+      await _controller.startWalk();
+    } catch (e) {
+      _showError(
+        e.toString().replaceFirst(
+          'Exception: ',
+          '',
+        ),
+      );
+    }
+  }
+
+  // ============================================================
+  // END WALK CONFIRMATION
+  // ============================================================
+
+  void _confirmEndWalk() {
+    if (_controller.ending) {
+      return;
+    }
+
+    if (!_controller.walkStarted) {
+      _showError(
+        'Start the walk before ending it.',
+      );
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (
+        BuildContext dialogContext,
+      ) {
+        return AlertDialog(
+          backgroundColor:
+              AppColors.cardBackground,
+          shape:
+              RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'End Walk?',
+            style: TextStyle(
+              color: AppColors.secondary,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          content: const Text(
+            'Are you sure you want to end this walk?',
+            style: TextStyle(
+              color: Colors.grey,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(
+                  dialogContext,
+                ).pop();
+              },
+              child: const Text(
+                'Keep Walking',
+                style: TextStyle(
+                  color: AppColors.secondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(
+                  dialogContext,
+                ).pop();
+
+                unawaited(
+                  _endWalk(),
+                );
+              },
+              style:
+                  ElevatedButton.styleFrom(
+                backgroundColor:
+                    AppColors.error,
+                foregroundColor:
+                    Colors.white,
+                elevation: 0,
+              ),
+              child: const Text(
+                'End Walk',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // END WALK
+  // ============================================================
+
+  Future<void> _endWalk() async {
+    try {
+      await _controller.endWalk();
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      _showError(
+        e.toString().replaceFirst(
+          'Exception: ',
+          '',
+        ),
+      );
+    }
   }
 
   // ============================================================
@@ -72,32 +410,40 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor:
+          Colors.transparent,
       builder: (_) {
         return Container(
-          padding: const EdgeInsets.fromLTRB(
+          padding:
+              const EdgeInsets.fromLTRB(
             20,
             14,
             20,
             25,
           ),
-          decoration: const BoxDecoration(
+          decoration:
+              const BoxDecoration(
             color: AppColors.cardBackground,
-            borderRadius: BorderRadius.vertical(
+            borderRadius:
+                BorderRadius.vertical(
               top: Radius.circular(25),
             ),
           ),
           child: SafeArea(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize:
+                  MainAxisSize.min,
               children: [
                 Container(
                   width: 42,
                   height: 5,
-                  decoration: BoxDecoration(
+                  decoration:
+                      BoxDecoration(
                     color: AppColors.border,
                     borderRadius:
-                        BorderRadius.circular(10),
+                        BorderRadius.circular(
+                      10,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -110,15 +456,18 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 const Text(
                   'Walk Support',
                   style: TextStyle(
-                    color: AppColors.secondary,
+                    color:
+                        AppColors.secondary,
                     fontSize: 19,
-                    fontWeight: FontWeight.w900,
+                    fontWeight:
+                        FontWeight.w900,
                   ),
                 ),
                 const SizedBox(height: 6),
                 const Text(
                   'Need help during this walk?',
-                  textAlign: TextAlign.center,
+                  textAlign:
+                      TextAlign.center,
                   style: TextStyle(
                     color: Colors.grey,
                     fontSize: 12,
@@ -128,9 +477,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 SizedBox(
                   width: double.infinity,
                   height: 50,
-                  child: ElevatedButton.icon(
+                  child:
+                      ElevatedButton.icon(
                     onPressed: () {
-                      Navigator.of(context).pop();
+                      Navigator.of(
+                        context,
+                      ).pop();
 
                       _showMessage(
                         'Support contact will be connected soon.',
@@ -142,15 +494,19 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                     label: const Text(
                       'Contact Support',
                     ),
-                    style: ElevatedButton.styleFrom(
+                    style:
+                        ElevatedButton.styleFrom(
                       backgroundColor:
                           AppColors.primary,
-                      foregroundColor: Colors.white,
+                      foregroundColor:
+                          Colors.white,
                       elevation: 0,
                       shape:
                           RoundedRectangleBorder(
                         borderRadius:
-                            BorderRadius.circular(14),
+                            BorderRadius.circular(
+                          14,
+                        ),
                       ),
                     ),
                   ),
@@ -174,7 +530,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor:
+          Colors.transparent,
       isScrollControlled: true,
       builder: (_) {
         return const LiveWalkSosSheet();
@@ -186,7 +543,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ERROR
   // ============================================================
 
-  void _showError(String message) {
+  void _showError(
+    String message,
+  ) {
     if (!mounted) {
       return;
     }
@@ -196,8 +555,10 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
+          backgroundColor:
+              AppColors.error,
+          behavior:
+              SnackBarBehavior.floating,
         ),
       );
   }
@@ -206,7 +567,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // MESSAGE
   // ============================================================
 
-  void _showMessage(String message) {
+  void _showMessage(
+    String message,
+  ) {
     if (!mounted) {
       return;
     }
@@ -216,339 +579,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
+          behavior:
+              SnackBarBehavior.floating,
+          duration:
+              const Duration(seconds: 2),
         ),
       );
-  }
-
-  // ============================================================
-  // BUILD
-  // ============================================================
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (
-        BuildContext context,
-        Widget? child,
-      ) {
-        return StreamBuilder<
-            DocumentSnapshot<Map<String, dynamic>>>(
-          stream: _sessionStream,
-          builder: (
-            BuildContext context,
-            AsyncSnapshot<
-                    DocumentSnapshot<
-                        Map<String, dynamic>>>
-                snapshot,
-          ) {
-            final Map<String, dynamic> data =
-                snapshot.data?.data() ??
-                    <String, dynamic>{};
-
-            _controller.updateFromSession(
-              data,
-            );
-
-            final String status =
-                data['status']
-                        ?.toString()
-                        .trim()
-                        .toLowerCase() ??
-                    'live';
-
-            // ==================================================
-            // COMPLETED
-            // ==================================================
-
-            if (status == 'completed' ||
-                status == 'ended') {
-              return LiveWalkCompletedView(
-                dogName: widget.dogName,
-                distanceKm:
-                    _controller.totalDistanceKm,
-                steps: _controller.steps,
-                onBack: () {
-                  Navigator.of(context).pop(true);
-                },
-              );
-            }
-
-            // ==================================================
-            // WALK STARTED
-            // ==================================================
-
-            final bool walkStarted =
-                _controller.walkStarted ||
-                    status == 'active' ||
-                    status == 'started';
-
-            // ==================================================
-            // LIVE SCREEN
-            // ==================================================
-
-            return Scaffold(
-              backgroundColor:
-                  AppColors.cardBackground,
-
-              // ================================================
-              // APP BAR
-              // ================================================
-
-              appBar: AppBar(
-                backgroundColor:
-                    AppColors.primary,
-                surfaceTintColor:
-                    AppColors.primary,
-                elevation: 0,
-                centerTitle: true,
-                automaticallyImplyLeading: false,
-                title: const Text(
-                  'LIVE WALK',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .4,
-                  ),
-                ),
-                actions: [
-                  IconButton(
-                    tooltip: 'SOS',
-                    onPressed:
-                        _controller.ending
-                            ? null
-                            : _openSos,
-                    icon: const Icon(
-                      Icons.sos_rounded,
-                      color: Colors.white,
-                      size: 27,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Support',
-                    onPressed:
-                        _controller.ending
-                            ? null
-                            : _openSupport,
-                    icon: const Icon(
-                      Icons
-                          .support_agent_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                ],
-              ),
-
-              // ================================================
-              // BODY
-              // ================================================
-
-              body: Stack(
-                children: [
-                  // --------------------------------------------
-                  // MAP
-                  // --------------------------------------------
-
-                  Positioned.fill(
-                    child: LiveWalkMap(
-                      sessionData: data,
-                    ),
-                  ),
-
-                  // --------------------------------------------
-                  // LIVE BADGE
-                  // --------------------------------------------
-
-                  Positioned(
-                    top: 14,
-                    left: 16,
-                    child: _liveBadge(),
-                  ),
-
-                  // --------------------------------------------
-                  // GPS BADGE
-                  // --------------------------------------------
-
-                  Positioned(
-                    top: 14,
-                    right: 16,
-                    child: _gpsBadge(),
-                  ),
-
-                  // --------------------------------------------
-                  // START PANEL
-                  //
-                  // Reach के बाद दिखाई देगा.
-                  // GPS पहले से चलता रहेगा.
-                  // --------------------------------------------
-
-                  if (!walkStarted &&
-                      !_controller.ending)
-                    Positioned(
-                      left: 16,
-                      right: 16,
-                      bottom: 20,
-                      child: SafeArea(
-                        child: LiveWalkStartPanel(
-                          starting:
-                              _controller.startingWalk,
-                          onStarted:
-                              _controller.startWalk,
-                        ),
-                      ),
-                    ),
-
-                  // --------------------------------------------
-                  // WALK BOTTOM SHEET
-                  //
-                  // Start के बाद दिखाई देगा.
-                  // --------------------------------------------
-
-                  if (walkStarted)
-                    Align(
-                      alignment:
-                          Alignment.bottomCenter,
-                      child: LiveWalkBottomSheet(
-                        ownerName:
-                            widget.ownerName,
-                        dogName:
-                            widget.dogName,
-                        dogBreed:
-                            widget.dogBreed,
-                        ownerPhone:
-                            widget.ownerPhone,
-                        sessionData:
-                            data,
-                        ending:
-                            _controller.ending,
-                        onEndWalk: () async {
-                          try {
-                            await _controller.endWalk();
-
-                            if (!mounted) {
-                              return;
-                            }
-
-                            Navigator.of(
-                              context,
-                            ).pop(true);
-                          } catch (e) {
-                            _showError(
-                              e.toString()
-                                  .replaceFirst(
-                                'Exception: ',
-                                '',
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // LIVE BADGE
-  // ============================================================
-
-  Widget _liveBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 11,
-        vertical: 7,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x26000000),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.circle,
-            color: AppColors.success,
-            size: 9,
-          ),
-          SizedBox(width: 7),
-          Text(
-            'LIVE',
-            style: TextStyle(
-              color: AppColors.secondary,
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // GPS BADGE
-  // ============================================================
-
-  Widget _gpsBadge() {
-    final bool gpsReady =
-        _controller.gpsReady;
-
-    final Color color =
-        gpsReady
-            ? AppColors.success
-            : AppColors.primary;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x26000000),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.location_on_rounded,
-            color: color,
-            size: 14,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            gpsReady ? 'GPS' : 'GPS...',
-            style: const TextStyle(
-              color: AppColors.secondary,
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   // ============================================================
@@ -557,16 +593,18 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   @override
   void dispose() {
-    // IMPORTANT:
-    //
-    // यहां GPS STOP नहीं होगा.
-    //
-    // Central GPS Active Insta Walk से लेकर
-    // Walk Completed तक चलता रहेगा.
-    //
-    // Controller केवल अपनी UI/session listeners साफ करेगा.
+    _controller.removeListener(
+      _onControllerChanged,
+    );
 
     _controller.dispose();
+
+    // IMPORTANT:
+    //
+    // Controller dispose होने पर भी GPS STOP नहीं किया जाता.
+    //
+    // GPS केवल successful endWalk() के बाद
+    // controller के अंदर stop होता है.
 
     super.dispose();
   }
