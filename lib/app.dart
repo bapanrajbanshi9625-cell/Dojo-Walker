@@ -22,8 +22,7 @@ class DojoWalkerApp extends StatefulWidget {
       _DojoWalkerAppState();
 }
 
-class _DojoWalkerAppState
-    extends State<DojoWalkerApp>
+class _DojoWalkerAppState extends State<DojoWalkerApp>
     with WidgetsBindingObserver {
   @override
   void initState() {
@@ -55,11 +54,12 @@ class _DojoWalkerAppState
     final bool isNetworkError =
         _isNetworkError(widget.startupError);
 
-    Widget startScreen;
+    final Widget startScreen;
 
     if (isNetworkError) {
       startScreen = const NoNetworkScreen();
-    } else if (widget.startupError != null) {
+    } else if (widget.startupError != null &&
+        widget.startupError!.trim().isNotEmpty) {
       startScreen = StartupErrorScreen(
         error: widget.startupError!,
       );
@@ -70,19 +70,15 @@ class _DojoWalkerAppState
     return MaterialApp(
       title: 'Dojo Walker - Buddy',
       debugShowCheckedModeBanner: false,
-
       theme: DojoWalkerTheme.light(),
-
       home: NetworkMonitor(
         child: startScreen,
       ),
     );
   }
 
-  bool _isNetworkError(
-    String? error,
-  ) {
-    if (error == null) {
+  bool _isNetworkError(String? error) {
+    if (error == null || error.trim().isEmpty) {
       return false;
     }
 
@@ -113,19 +109,15 @@ class StartupErrorScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-
       body: SafeArea(
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(
                   Icons.error_outline_rounded,
