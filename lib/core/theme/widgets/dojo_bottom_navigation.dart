@@ -38,7 +38,7 @@ class DojoBottomNavigation extends StatelessWidget {
                 return NavigationDestination(
                   icon: item.icon,
                   selectedIcon: item.activeIcon,
-                  label: item.label,
+                  label: item.label ?? '', // label null होने पर खाली String पास होगी
                 );
               },
             )
