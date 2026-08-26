@@ -7,12 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// INSTA WALK REQUEST MODEL
 ///
 /// Firestore collection:
-///     walk_requests
-///
-/// Used by:
-///     InstaWalkService
-///     Insta Walk UI
-///     Walker request screen
+///     walk_request
 ///
 /// Status flow:
 ///     searching
@@ -24,8 +19,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 ///     completed
 ///
 /// Other possible status:
-///     rejected
 ///     cancelled
+///
+/// Rejection is stored privately at:
+///     walk_request/{walkId}/rejections/{walkerId}
 /// ============================================================
 
 class InstaWalkRequest {
@@ -72,13 +69,8 @@ class InstaWalkRequest {
   // ============================================================
 
   final String ownerId;
-
-  /// Firebase Auth UID of owner.
   final String ownerAuthUid;
-
-  /// Compatibility field.
   final String ownerUid;
-
   final String ownerName;
   final String ownerPhone;
 
@@ -261,10 +253,8 @@ class InstaWalkRequest {
             data['pickupLongitude'],
       ),
 
-      distanceKm: _double(
-            data['distanceKm'],
-          ) ??
-          0.0,
+      distanceKm:
+          _double(data['distanceKm']) ?? 0.0,
 
       // --------------------------------------------------------
       // WALK INFO
@@ -337,7 +327,6 @@ class InstaWalkRequest {
       'ownerId': ownerId,
       'ownerAuthUid': ownerAuthUid,
       'ownerUid': ownerUid,
-
       'ownerName': ownerName,
       'ownerPhone': ownerPhone,
 
@@ -355,7 +344,6 @@ class InstaWalkRequest {
 
       'latitude': latitude,
       'longitude': longitude,
-
       'distanceKm': distanceKm,
 
       'durationMinutes': durationMinutes,
@@ -441,10 +429,14 @@ class InstaWalkRequest {
       liveWalkSessionId:
           liveWalkSessionId ??
               this.liveWalkSessionId,
-      createdAt: createdAt ?? this.createdAt,
-      acceptedAt: acceptedAt ?? this.acceptedAt,
-      startedAt: startedAt ?? this.startedAt,
-      endedAt: endedAt ?? this.endedAt,
+      createdAt:
+          createdAt ?? this.createdAt,
+      acceptedAt:
+          acceptedAt ?? this.acceptedAt,
+      startedAt:
+          startedAt ?? this.startedAt,
+      endedAt:
+          endedAt ?? this.endedAt,
       cancelledAt:
           cancelledAt ?? this.cancelledAt,
       rejectedAt:
@@ -455,7 +447,7 @@ class InstaWalkRequest {
   }
 
   // ============================================================
-  // HELPERS
+  // STRING HELPER
   // ============================================================
 
   static String _string(
@@ -463,6 +455,10 @@ class InstaWalkRequest {
   ) {
     return value?.toString().trim() ?? '';
   }
+
+  // ============================================================
+  // FIRST NON-EMPTY STRING
+  // ============================================================
 
   static String _firstString(
     Map<String, dynamic> data,
@@ -480,6 +476,10 @@ class InstaWalkRequest {
     return '';
   }
 
+  // ============================================================
+  // DOUBLE HELPER
+  // ============================================================
+
   static double? _double(
     dynamic value,
   ) {
@@ -495,6 +495,10 @@ class InstaWalkRequest {
       value.toString().trim(),
     );
   }
+
+  // ============================================================
+  // INT HELPER
+  // ============================================================
 
   static int _int(
     dynamic value,
@@ -516,6 +520,10 @@ class InstaWalkRequest {
         ) ??
         0;
   }
+
+  // ============================================================
+  // TIMESTAMP HELPER
+  // ============================================================
 
   static Timestamp? _timestamp(
     dynamic value,
