@@ -29,15 +29,15 @@ class LiveWalkBottomSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final double distance =
         _readDouble(
-              sessionData['distanceKm'],
-            ) ??
-            0.0;
+          sessionData['distanceKm'],
+        ) ??
+        0.0;
 
     final int steps =
         _readInt(
-              sessionData['steps'],
-            ) ??
-            0;
+          sessionData['steps'],
+        ) ??
+        0;
 
     final String duration =
         _readDuration(sessionData);
@@ -80,7 +80,6 @@ class LiveWalkBottomSheet extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-
             // ==================================================
             // HANDLE
             // ==================================================
@@ -103,13 +102,12 @@ class LiveWalkBottomSheet extends StatelessWidget {
 
             Row(
               children: [
-
                 Container(
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
                     color: AppColors.primary
-                        .withValues(alpha: .10),
+                        .withOpacity(.10),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -126,7 +124,6 @@ class LiveWalkBottomSheet extends StatelessWidget {
                     crossAxisAlignment:
                         CrossAxisAlignment.start,
                     children: [
-
                       Text(
                         cleanDogName,
                         maxLines: 1,
@@ -196,7 +193,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: AppColors.success
-                        .withValues(alpha: .10),
+                        .withOpacity(.10),
                     borderRadius:
                         BorderRadius.circular(20),
                   ),
@@ -204,7 +201,6 @@ class LiveWalkBottomSheet extends StatelessWidget {
                     mainAxisSize:
                         MainAxisSize.min,
                     children: [
-
                       Icon(
                         Icons.circle,
                         color:
@@ -238,7 +234,6 @@ class LiveWalkBottomSheet extends StatelessWidget {
 
             Row(
               children: [
-
                 Expanded(
                   child: _Stat(
                     icon:
@@ -282,7 +277,6 @@ class LiveWalkBottomSheet extends StatelessWidget {
 
             Row(
               children: [
-
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed:
@@ -406,9 +400,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
                       Colors.white,
                   disabledBackgroundColor:
                       AppColors.primary
-                          .withValues(
-                    alpha: .55,
-                  ),
+                          .withOpacity(.55),
                   disabledForegroundColor:
                       Colors.white,
                   elevation: 0,
@@ -447,8 +439,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
       return;
     }
 
-    final Uri uri =
-        Uri(
+    final Uri uri = Uri(
       scheme: 'tel',
       path: phone,
     );
@@ -579,7 +570,6 @@ class _Stat extends StatelessWidget {
       ),
       child: Column(
         children: [
-
           Icon(
             icon,
             color: AppColors.primary,
