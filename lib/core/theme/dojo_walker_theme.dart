@@ -512,33 +512,26 @@ class DojoWalkerTheme {
       // Flutter 3.44.x uses DialogTheme
       // ========================================================
 
-      dialogTheme: const DialogThemeData(
-        backgroundColor:
-            DojoWalkerColors.surface,
-
-        surfaceTintColor:
-            Colors.transparent,
-
-        elevation: 8,
-
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-
-        titleTextStyle:
-            const TextStyle(
-          color: DojoWalkerColors.textPrimary,
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-        ),
-
-        contentTextStyle:
-            const TextStyle(
-          color: DojoWalkerColors.textSecondary,
-          fontSize: 14,
-          height: 1.5,
-        ),
-      ),
+dialogTheme: const DialogThemeData(
+  backgroundColor: DojoWalkerColors.surface,
+  surfaceTintColor: Colors.transparent,
+  elevation: 8,
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.all(
+      Radius.circular(20),
+    ),
+  ),
+  titleTextStyle: TextStyle(
+    color: DojoWalkerColors.textPrimary,
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
+  ),
+  contentTextStyle: TextStyle(
+    color: DojoWalkerColors.textSecondary,
+    fontSize: 14,
+    height: 1.5,
+  ),
+),
 
       // ========================================================
       // TOOLTIP
