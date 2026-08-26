@@ -95,16 +95,12 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       // ----------------------------------------------------------
 
       final Position position =
-          await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 3,
-        ),
-      );
-
+         await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+       );
+       
       _updatePosition(position);
-
+      
       // ----------------------------------------------------------
       // CONTINUOUS CURRENT POSITION
       // ----------------------------------------------------------
