@@ -72,21 +72,20 @@ class DojoWalkerTheme {
       // Flutter 3.44.x uses CardTheme
       // ========================================================
 
-      cardTheme: const CardTheme(
-        color: DojoWalkerColors.card,
-        elevation: 0,
-        margin: EdgeInsets.zero,
-        surfaceTintColor: Colors.transparent,
-
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(
-            Radius.circular(16),
-          ),
-          side: BorderSide(
-            color: DojoWalkerColors.cardBorder,
-          ),
-        ),
-      ),
+      cardTheme: const CardThemeData(
+  color: DojoWalkerColors.card,
+  elevation: 0,
+  margin: EdgeInsets.zero,
+  surfaceTintColor: Colors.transparent,
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.all(
+      Radius.circular(16),
+    ),
+    side: BorderSide(
+      color: DojoWalkerColors.cardBorder,
+    ),
+  ),
+),
 
       // ========================================================
       // DIVIDER
