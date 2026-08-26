@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
 
@@ -6,12 +7,14 @@ class LiveWalkBottomSheet extends StatelessWidget {
   const LiveWalkBottomSheet({
     super.key,
     required this.dogName,
+    required this.ownerPhone,
     required this.sessionData,
     required this.ending,
     required this.onEndWalk,
   });
 
   final String dogName;
+  final String? ownerPhone;
   final Map<String, dynamic> sessionData;
   final bool ending;
   final VoidCallback onEndWalk;
@@ -19,21 +22,13 @@ class LiveWalkBottomSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double distance =
-        _readDouble(
-              sessionData['distanceKm'],
-            ) ??
-            0.0;
+        _readDouble(sessionData['distanceKm']) ?? 0.0;
 
     final int steps =
-        _readInt(
-              sessionData['steps'],
-            ) ??
-            0;
+        _readInt(sessionData['steps']) ?? 0;
 
     final String duration =
-        _readDuration(
-      sessionData,
-    );
+        _readDuration(sessionData);
 
     return SafeArea(
       top: false,
@@ -77,15 +72,14 @@ class LiveWalkBottomSheet extends StatelessWidget {
               height: 5,
               decoration: BoxDecoration(
                 color: AppColors.border,
-                borderRadius:
-                    BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
 
             const SizedBox(height: 12),
 
             // ==================================================
-            // DOG
+            // DOG + LIVE
             // ==================================================
 
             Row(
@@ -94,8 +88,9 @@ class LiveWalkBottomSheet extends StatelessWidget {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: AppColors.primary
-                        .withValues(alpha: .10),
+                    color: AppColors.primary.withValues(
+                      alpha: .10,
+                    ),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -117,8 +112,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
                         style: TextStyle(
                           color: Colors.grey,
                           fontSize: 9,
-                          fontWeight:
-                              FontWeight.w800,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: .7,
                         ),
                       ),
@@ -126,54 +120,47 @@ class LiveWalkBottomSheet extends StatelessWidget {
                       Text(
                         dogName.trim().isEmpty
                             ? 'Dog Walk'
-                            : dogName,
+                            : dogName.trim(),
                         maxLines: 1,
-                        overflow:
-                            TextOverflow.ellipsis,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color:
-                              AppColors.secondary,
+                          color: AppColors.secondary,
                           fontSize: 17,
-                          fontWeight:
-                              FontWeight.w900,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                // LIVE STATUS
+                // LIVE
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(
+                  padding: const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.success
-                        .withValues(alpha: .10),
+                    color: AppColors.success.withValues(
+                      alpha: .10,
+                    ),
                     borderRadius:
                         BorderRadius.circular(20),
                   ),
                   child: const Row(
-                    mainAxisSize:
-                        MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         Icons.circle,
-                        color:
-                            AppColors.success,
+                        color: AppColors.success,
                         size: 8,
                       ),
                       SizedBox(width: 5),
                       Text(
                         'LIVE',
                         style: TextStyle(
-                          color:
-                              AppColors.success,
+                          color: AppColors.success,
                           fontSize: 9,
-                          fontWeight:
-                              FontWeight.w900,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ],
@@ -198,9 +185,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
                     label: 'DISTANCE',
                   ),
                 ),
-
                 const SizedBox(width: 8),
-
                 Expanded(
                   child: _Stat(
                     icon: Icons.timer_rounded,
@@ -208,9 +193,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
                     label: 'TIME',
                   ),
                 ),
-
                 const SizedBox(width: 8),
-
                 Expanded(
                   child: _Stat(
                     icon:
@@ -225,46 +208,78 @@ class LiveWalkBottomSheet extends StatelessWidget {
             const SizedBox(height: 14),
 
             // ==================================================
+            // CALL + CHAT
+            // ==================================================
+
+            Row(
+              children: [
+                Expanded(
+                  child: _ActionButton(
+                    icon: Icons.call_rounded,
+                    label: 'Call Owner',
+                    color: AppColors.success,
+                    onPressed:
+                        ending ? null : _callOwner,
+                  ),
+                ),
+
+                const SizedBox(width: 10),
+
+                Expanded(
+                  child: _ActionButton(
+                    icon: Icons.chat_bubble_rounded,
+                    label: 'Chat',
+                    color: AppColors.primary,
+                    onPressed: ending
+                        ? null
+                        : () {
+                            // Chat screen अभी बनाया नहीं गया है.
+                            // बाद में यहाँ navigation जोड़ना है.
+                          },
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // ==================================================
             // COMPLETE WALK
             // ==================================================
 
             SizedBox(
               width: double.infinity,
-              height: 52,
+              height: 54,
               child: ElevatedButton.icon(
                 onPressed:
                     ending ? null : onEndWalk,
                 icon: const Icon(
                   Icons.check_circle_rounded,
-                  size: 22,
+                  size: 23,
                 ),
                 label: Text(
                   ending
                       ? 'COMPLETING WALK...'
                       : 'COMPLETE WALK',
                 ),
-                style:
-                    ElevatedButton.styleFrom(
+                style: ElevatedButton.styleFrom(
                   backgroundColor:
                       AppColors.primary,
-                  foregroundColor:
-                      Colors.white,
+                  foregroundColor: Colors.white,
                   disabledBackgroundColor:
-                      AppColors.primary
-                          .withValues(alpha: .55),
+                      AppColors.primary.withValues(
+                    alpha: .55,
+                  ),
                   disabledForegroundColor:
                       Colors.white,
                   elevation: 0,
-                  shape:
-                      RoundedRectangleBorder(
+                  shape: RoundedRectangleBorder(
                     borderRadius:
                         BorderRadius.circular(15),
                   ),
-                  textStyle:
-                      const TextStyle(
+                  textStyle: const TextStyle(
                     fontSize: 14,
-                    fontWeight:
-                        FontWeight.w900,
+                    fontWeight: FontWeight.w900,
                     letterSpacing: .3,
                   ),
                 ),
@@ -274,6 +289,32 @@ class LiveWalkBottomSheet extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // ==========================================================
+  // CALL OWNER
+  // ==========================================================
+
+  Future<void> _callOwner() async {
+    final String phone =
+        ownerPhone?.trim() ?? '';
+
+    if (phone.isEmpty) {
+      return;
+    }
+
+    final Uri uri = Uri(
+      scheme: 'tel',
+      path: phone,
+    );
+
+    try {
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      }
+    } catch (_) {
+      // Call failure को यहाँ silently ignore किया गया है.
+    }
   }
 
   // ==========================================================
@@ -408,6 +449,58 @@ class _Stat extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ============================================================
+// ACTION BUTTON
+// ============================================================
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(
+          icon,
+          size: 20,
+        ),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: color,
+          side: BorderSide(
+            color: color.withValues(
+              alpha: .45,
+            ),
+          ),
+          backgroundColor: color.withValues(
+            alpha: .06,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(14),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
       ),
     );
   }
