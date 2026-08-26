@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'colors/dojo_walker_colors.dart';
+import 'dojo_walker_colors.dart';
 
 class DojoWalkerTheme {
   DojoWalkerTheme._();
