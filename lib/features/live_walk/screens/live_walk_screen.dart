@@ -1,12 +1,11 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../controllers/live_walk_controller.dart';
-import '../widgets/live_walk_app_bar.dart';
 import '../widgets/live_walk_bottom_sheet.dart';
-import '../widgets/live_walk_completed_screen.dart';
 import '../widgets/live_walk_map_layer.dart';
 import '../widgets/live_walk_sos_sheet.dart';
 import '../widgets/live_walk_start_panel.dart';
@@ -45,6 +44,12 @@ class _LiveWalkScreenState
   late final LiveWalkController _controller;
 
   // ============================================================
+  // LOCAL UI
+  // ============================================================
+
+  bool _showingEndDialog = false;
+
+  // ============================================================
   // INIT
   // ============================================================
 
@@ -62,17 +67,17 @@ class _LiveWalkScreenState
       sessionId: widget.sessionId,
     );
 
-    unawaited(
-      _controller.initialize(),
-    );
-
     _controller.addListener(
       _onControllerChanged,
+    );
+
+    unawaited(
+      _controller.initialize(),
     );
   }
 
   // ============================================================
-  // CONTROLLER UPDATE
+  // CONTROLLER CHANGE
   // ============================================================
 
   void _onControllerChanged() {
@@ -87,8 +92,10 @@ class _LiveWalkScreenState
   // SESSION DATA
   // ============================================================
 
-  Map<String, dynamic> _sessionData =
-      <String, dynamic>{};
+  Stream<DocumentSnapshot<Map<String, dynamic>>>
+      get _sessionStream {
+    return _controller.sessionStream;
+  }
 
   // ============================================================
   // BUILD
@@ -96,36 +103,35 @@ class _LiveWalkScreenState
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: _controller.sessionStream,
+    return StreamBuilder<
+        DocumentSnapshot<Map<String, dynamic>>>(
+      stream: _sessionStream,
       builder: (
         BuildContext context,
-        AsyncSnapshot snapshot,
+        AsyncSnapshot<
+                DocumentSnapshot<
+                    Map<String, dynamic>>>
+            snapshot,
       ) {
         final Map<String, dynamic> data =
-            snapshot.data?.data()
-                    as Map<String, dynamic>? ??
+            snapshot.data?.data() ??
                 <String, dynamic>{};
 
-        _sessionData = data;
-
-        // --------------------------------------------------------
-        // UPDATE CONTROLLER FROM FIRESTORE
-        // --------------------------------------------------------
+        // ======================================================
+        // SYNC FIRESTORE -> CONTROLLER
+        // ======================================================
 
         if (data.isNotEmpty) {
           WidgetsBinding.instance
-              .addPostFrameCallback(
-            (_) {
-              if (!mounted) {
-                return;
-              }
+              .addPostFrameCallback((_) {
+            if (!mounted) {
+              return;
+            }
 
-              _controller.updateFromSession(
-                data,
-              );
-            },
-          );
+            _controller.updateFromSession(
+              data,
+            );
+          });
         }
 
         final String status =
@@ -135,68 +141,115 @@ class _LiveWalkScreenState
                     .toLowerCase() ??
                 '';
 
-        // ========================================================
+        // ======================================================
         // COMPLETED
-        // ========================================================
+        // ======================================================
 
         if (status == 'completed' ||
             status == 'ended') {
-          return LiveWalkCompletedScreen(
-            dogName: widget.dogName,
-            distanceKm:
-                _controller.totalDistanceKm,
-            steps: _controller.steps,
-            onBack: () {
-              Navigator.of(context).pop(true);
-            },
+          return _completedScreen(
+            data,
           );
         }
 
-        // ========================================================
-        // WALK STARTED
-        // ========================================================
-
-        final bool walkStarted =
-            _controller.walkStarted ||
-                status == 'active' ||
-                status == 'started';
-
-        // ========================================================
+        // ======================================================
         // START SLIDER
-        // ========================================================
+        //
+        // Reach के बाद दिखाई देगा.
+        //
+        // GPS पहले से ACTIVE है.
+        // ======================================================
 
         final bool showStartPanel =
-            !walkStarted &&
-                !_controller.ending;
+            !_controller.walkStarted &&
+            !_controller.ending;
 
-        // ========================================================
-        // LIVE WALK SCREEN
-        // ========================================================
+        // ======================================================
+        // WALK STARTED
+        // ======================================================
+
+        final bool showBottomSheet =
+            _controller.walkStarted;
+
+        // ======================================================
+        // LIVE SCREEN
+        // ======================================================
 
         return Scaffold(
           backgroundColor:
               AppColors.cardBackground,
 
-          // ======================================================
+          // ====================================================
           // APP BAR
-          // ======================================================
+          // ====================================================
 
-          appBar: LiveWalkAppBar(
-            enabled:
-                !_controller.ending,
-            onSos: _openSos,
-            onSupport: _openSupport,
+          appBar: AppBar(
+            automaticallyImplyLeading:
+                false,
+            backgroundColor:
+                AppColors.primary,
+            surfaceTintColor:
+                AppColors.primary,
+            elevation: 0,
+            centerTitle: true,
+
+            title: const Text(
+              'LIVE WALK',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .4,
+              ),
+            ),
+
+            actions: [
+              // ------------------------------------------------
+              // SOS
+              // ------------------------------------------------
+
+              IconButton(
+                tooltip: 'SOS',
+                onPressed:
+                    _controller.ending
+                        ? null
+                        : _openSos,
+                icon: const Icon(
+                  Icons.sos_rounded,
+                  color: Colors.white,
+                  size: 27,
+                ),
+              ),
+
+              // ------------------------------------------------
+              // SUPPORT
+              // ------------------------------------------------
+
+              IconButton(
+                tooltip: 'Support',
+                onPressed:
+                    _controller.ending
+                        ? null
+                        : _openSupport,
+                icon: const Icon(
+                  Icons
+                      .support_agent_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ],
           ),
 
-          // ======================================================
+          // ====================================================
           // BODY
-          // ======================================================
+          // ====================================================
 
           body: Stack(
             children: [
-              // ==================================================
-              // MAP
-              // ==================================================
+              // ------------------------------------------------
+              // MAP + BADGES
+              // ------------------------------------------------
 
               Positioned.fill(
                 child: LiveWalkMapLayer(
@@ -206,32 +259,26 @@ class _LiveWalkScreenState
                 ),
               ),
 
-              // ==================================================
+              // ------------------------------------------------
               // START PANEL
-              //
-              // Reach के बाद दिखाई देगा.
-              //
-              // GPS पहले से active रहेगा.
-              // ==================================================
+              // ------------------------------------------------
 
               if (showStartPanel)
                 LiveWalkStartPanel(
                   enabled:
                       !_controller.startingWalk &&
-                          !_controller.ending,
+                      !_controller.ending,
                   starting:
                       _controller.startingWalk,
                   onStarted:
                       _startWalk,
                 ),
 
-              // ==================================================
-              // BOTTOM WALK INFORMATION
-              //
-              // Slider complete होने के बाद दिखाई देगा.
-              // ==================================================
+              // ------------------------------------------------
+              // WALK BOTTOM SHEET
+              // ------------------------------------------------
 
-              if (walkStarted)
+              if (showBottomSheet)
                 Align(
                   alignment:
                       Alignment.bottomCenter,
@@ -273,31 +320,43 @@ class _LiveWalkScreenState
 
     try {
       await _controller.startWalk();
+
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        'Walk started.',
+      );
     } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
       _showError(
-        e.toString().replaceFirst(
-          'Exception: ',
-          '',
-        ),
+        _cleanError(e),
       );
     }
   }
 
   // ============================================================
-  // END WALK CONFIRMATION
+  // CONFIRM END WALK
   // ============================================================
 
   void _confirmEndWalk() {
-    if (_controller.ending) {
+    if (_controller.ending ||
+        _showingEndDialog) {
       return;
     }
 
     if (!_controller.walkStarted) {
       _showError(
-        'Start the walk before ending it.',
+        'Start the walk first.',
       );
       return;
     }
+
+    _showingEndDialog = true;
 
     showDialog<void>(
       context: context,
@@ -312,13 +371,17 @@ class _LiveWalkScreenState
             borderRadius:
                 BorderRadius.circular(20),
           ),
+
           title: const Text(
             'End Walk?',
             style: TextStyle(
-              color: AppColors.secondary,
-              fontWeight: FontWeight.w900,
+              color:
+                  AppColors.secondary,
+              fontWeight:
+                  FontWeight.w900,
             ),
           ),
+
           content: const Text(
             'Are you sure you want to end this walk?',
             style: TextStyle(
@@ -326,7 +389,12 @@ class _LiveWalkScreenState
               height: 1.4,
             ),
           ),
+
           actions: [
+            // --------------------------------------------------
+            // KEEP WALKING
+            // --------------------------------------------------
+
             TextButton(
               onPressed: () {
                 Navigator.of(
@@ -336,11 +404,18 @@ class _LiveWalkScreenState
               child: const Text(
                 'Keep Walking',
                 style: TextStyle(
-                  color: AppColors.secondary,
-                  fontWeight: FontWeight.w700,
+                  color:
+                      AppColors.secondary,
+                  fontWeight:
+                      FontWeight.w700,
                 ),
               ),
             ),
+
+            // --------------------------------------------------
+            // END
+            // --------------------------------------------------
+
             ElevatedButton(
               onPressed: () {
                 Navigator.of(
@@ -362,14 +437,17 @@ class _LiveWalkScreenState
               child: const Text(
                 'End Walk',
                 style: TextStyle(
-                  fontWeight: FontWeight.w800,
+                  fontWeight:
+                      FontWeight.w800,
                 ),
               ),
             ),
           ],
         );
       },
-    );
+    ).whenComplete(() {
+      _showingEndDialog = false;
+    });
   }
 
   // ============================================================
@@ -377,12 +455,27 @@ class _LiveWalkScreenState
   // ============================================================
 
   Future<void> _endWalk() async {
+    if (_controller.ending ||
+        !_controller.walkStarted) {
+      return;
+    }
+
     try {
       await _controller.endWalk();
 
       if (!mounted) {
         return;
       }
+
+      // --------------------------------------------------------
+      // Controller ने:
+      //
+      // Firestore completed
+      // -> walk request ended
+      // -> GPS stopped
+      //
+      // कर दिया है.
+      // --------------------------------------------------------
 
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -391,12 +484,29 @@ class _LiveWalkScreenState
       }
 
       _showError(
-        e.toString().replaceFirst(
-          'Exception: ',
-          '',
-        ),
+        _cleanError(e),
       );
     }
+  }
+
+  // ============================================================
+  // SOS
+  // ============================================================
+
+  void _openSos() {
+    if (_controller.ending) {
+      return;
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor:
+          Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) {
+        return const LiveWalkSosSheet();
+      },
+    );
   }
 
   // ============================================================
@@ -423,7 +533,8 @@ class _LiveWalkScreenState
           ),
           decoration:
               const BoxDecoration(
-            color: AppColors.cardBackground,
+            color:
+                AppColors.cardBackground,
             borderRadius:
                 BorderRadius.vertical(
               top: Radius.circular(25),
@@ -439,20 +550,31 @@ class _LiveWalkScreenState
                   height: 5,
                   decoration:
                       BoxDecoration(
-                    color: AppColors.border,
+                    color:
+                        AppColors.border,
                     borderRadius:
                         BorderRadius.circular(
                       10,
                     ),
                   ),
                 ),
-                const SizedBox(height: 18),
+
+                const SizedBox(
+                  height: 18,
+                ),
+
                 const Icon(
-                  Icons.support_agent_rounded,
-                  color: AppColors.primary,
+                  Icons
+                      .support_agent_rounded,
+                  color:
+                      AppColors.primary,
                   size: 38,
                 ),
-                const SizedBox(height: 10),
+
+                const SizedBox(
+                  height: 10,
+                ),
+
                 const Text(
                   'Walk Support',
                   style: TextStyle(
@@ -463,7 +585,11 @@ class _LiveWalkScreenState
                         FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 6),
+
+                const SizedBox(
+                  height: 6,
+                ),
+
                 const Text(
                   'Need help during this walk?',
                   textAlign:
@@ -473,9 +599,14 @@ class _LiveWalkScreenState
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 18),
+
+                const SizedBox(
+                  height: 18,
+                ),
+
                 SizedBox(
-                  width: double.infinity,
+                  width:
+                      double.infinity,
                   height: 50,
                   child:
                       ElevatedButton.icon(
@@ -489,7 +620,8 @@ class _LiveWalkScreenState
                       );
                     },
                     icon: const Icon(
-                      Icons.support_agent_rounded,
+                      Icons
+                          .support_agent_rounded,
                     ),
                     label: const Text(
                       'Contact Support',
@@ -520,22 +652,253 @@ class _LiveWalkScreenState
   }
 
   // ============================================================
-  // SOS
+  // COMPLETED SCREEN
   // ============================================================
 
-  void _openSos() {
-    if (_controller.ending) {
-      return;
-    }
+  Widget _completedScreen(
+    Map<String, dynamic> data,
+  ) {
+    final double distance =
+        _readDouble(
+              data['distanceKm'],
+            ) ??
+            _controller.totalDistanceKm;
 
-    showModalBottomSheet<void>(
-      context: context,
+    final int steps =
+        _readInt(
+              data['steps'],
+            ) ??
+            _controller.steps;
+
+    return Scaffold(
       backgroundColor:
-          Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) {
-        return const LiveWalkSosSheet();
-      },
+          AppColors.background,
+
+      appBar: AppBar(
+        automaticallyImplyLeading:
+            false,
+        backgroundColor:
+            AppColors.primary,
+        foregroundColor:
+            Colors.white,
+        centerTitle: true,
+        elevation: 0,
+        title: const Text(
+          'WALK COMPLETED',
+          style: TextStyle(
+            fontWeight:
+                FontWeight.w900,
+          ),
+        ),
+      ),
+
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding:
+                const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              children: [
+                // =================================================
+                // SUCCESS ICON
+                // =================================================
+
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        AppColors.success
+                            .withValues(
+                      alpha: .10,
+                    ),
+                    shape:
+                        BoxShape.circle,
+                  ),
+                  child:
+                      const Icon(
+                    Icons
+                        .check_circle_rounded,
+                    color:
+                        AppColors.success,
+                    size: 80,
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 20,
+                ),
+
+                const Text(
+                  'Walk Completed',
+                  textAlign:
+                      TextAlign.center,
+                  style: TextStyle(
+                    color:
+                        AppColors.secondary,
+                    fontSize: 25,
+                    fontWeight:
+                        FontWeight.w900,
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 8,
+                ),
+
+                Text(
+                  '${widget.dogName}\'s walk is complete.',
+                  textAlign:
+                      TextAlign.center,
+                  style:
+                      const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 13,
+                    fontWeight:
+                        FontWeight.w600,
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 25,
+                ),
+
+                // =================================================
+                // STATS
+                // =================================================
+
+                Row(
+                  children: [
+                    Expanded(
+                      child:
+                          _completedStat(
+                        '${distance.toStringAsFixed(2)} km',
+                        'Distance',
+                      ),
+                    ),
+
+                    const SizedBox(
+                      width: 10,
+                    ),
+
+                    Expanded(
+                      child:
+                          _completedStat(
+                        '$steps',
+                        'Steps',
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(
+                  height: 25,
+                ),
+
+                SizedBox(
+                  width:
+                      double.infinity,
+                  height: 52,
+                  child:
+                      ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(
+                        context,
+                      ).pop(true);
+                    },
+                    style:
+                        ElevatedButton.styleFrom(
+                      backgroundColor:
+                          AppColors.primary,
+                      foregroundColor:
+                          Colors.white,
+                      elevation: 0,
+                      shape:
+                          RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(
+                          14,
+                        ),
+                      ),
+                    ),
+                    child:
+                        const Text(
+                      'Back to Walker Home',
+                      style:
+                          TextStyle(
+                        fontWeight:
+                            FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // COMPLETED STAT
+  // ============================================================
+
+  Widget _completedStat(
+    String value,
+    String title,
+  ) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        vertical: 15,
+        horizontal: 10,
+      ),
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.cardBackground,
+        borderRadius:
+            BorderRadius.circular(16),
+        border:
+            Border.all(
+          color:
+              AppColors.border,
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(
+            value,
+            style:
+                const TextStyle(
+              color:
+                  AppColors.secondary,
+              fontSize: 16,
+              fontWeight:
+                  FontWeight.w900,
+            ),
+          ),
+
+          const SizedBox(
+            height: 4,
+          ),
+
+          Text(
+            title,
+            style:
+                const TextStyle(
+              color: Colors.grey,
+              fontSize: 9,
+              fontWeight:
+                  FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -554,7 +917,8 @@ class _LiveWalkScreenState
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content:
+              Text(message),
           backgroundColor:
               AppColors.error,
           behavior:
@@ -578,13 +942,76 @@ class _LiveWalkScreenState
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content:
+              Text(message),
           behavior:
               SnackBarBehavior.floating,
           duration:
-              const Duration(seconds: 2),
+              const Duration(
+            seconds: 2,
+          ),
         ),
       );
+  }
+
+  // ============================================================
+  // DOUBLE
+  // ============================================================
+
+  double? _readDouble(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(
+      value.toString().trim(),
+    );
+  }
+
+  // ============================================================
+  // INT
+  // ============================================================
+
+  int? _readInt(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+      value.toString().trim(),
+    );
+  }
+
+  // ============================================================
+  // ERROR CLEANER
+  // ============================================================
+
+  String _cleanError(
+    Object error,
+  ) {
+    return error
+        .toString()
+        .replaceFirst(
+          'Exception: ',
+          '',
+        )
+        .trim();
   }
 
   // ============================================================
@@ -601,10 +1028,10 @@ class _LiveWalkScreenState
 
     // IMPORTANT:
     //
-    // Controller dispose होने पर भी GPS STOP नहीं किया जाता.
+    // Controller dispose GPS को stop नहीं करता.
     //
-    // GPS केवल successful endWalk() के बाद
-    // controller के अंदर stop होता है.
+    // Successful endWalk() ही GPS stop करता है.
+    //
 
     super.dispose();
   }
