@@ -43,3 +43,5 @@ class DojoBottomNavigation
                  selectedIcon: item.activeIcon,
                  label: item.label ?? '',
                 );
+                toList(),
+              ),
