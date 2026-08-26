@@ -1,11 +1,8 @@
-import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
+import '../../../core/constants/app_colors.dart';
 import 'pending_verification_screen.dart';
 
 class MandatoryProfileSetupScreen2 extends StatefulWidget {
@@ -14,16 +11,13 @@ class MandatoryProfileSetupScreen2 extends StatefulWidget {
     required this.name,
     required this.dateOfBirth,
     required this.gender,
-    this.selfieFile,
-    this.selfieUrl,
+    required this.selfieUrl,
   });
 
   final String name;
   final DateTime dateOfBirth;
   final String gender;
-
-  final File? selfieFile;
-  final String? selfieUrl;
+  final String selfieUrl;
 
   @override
   State<MandatoryProfileSetupScreen2> createState() =>
@@ -33,29 +27,11 @@ class MandatoryProfileSetupScreen2 extends StatefulWidget {
 class _MandatoryProfileSetupScreen2State
     extends State<MandatoryProfileSetupScreen2> {
   // ============================================================
-  // COLORS
+  // FIREBASE
   // ============================================================
-
-  static const Color orange = Color(0xFFFF6600);
-  static const Color green = Color(0xFF22A447);
-  static const Color blue = Color(0xFF1976D2);
-
-  static const Color background = Color(0xFFF5F8FC);
-  static const Color textDark = Color(0xFF263238);
-  static const Color muted = Color(0xFF7A858F);
-  static const Color red = Color(0xFFD92D20);
-
-  // ============================================================
-  // SERVICES
-  // ============================================================
-
-  final ImagePicker _picker = ImagePicker();
 
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
-
-  final FirebaseStorage _storage =
-      FirebaseStorage.instance;
 
   final FirebaseAuth _auth =
       FirebaseAuth.instance;
@@ -88,20 +64,6 @@ class _MandatoryProfileSetupScreen2State
   final TextEditingController emergencyMobileController =
       TextEditingController();
 
-  // ============================================================
-  // AADHAAR DOCUMENTS
-  // ============================================================
-
-  File? aadhaarFrontFile;
-  String? aadhaarFrontUrl;
-
-  File? aadhaarBackFile;
-  String? aadhaarBackUrl;
-
-  // ============================================================
-  // STATE
-  // ============================================================
-
   bool _saving = false;
 
   // ============================================================
@@ -116,7 +78,6 @@ class _MandatoryProfileSetupScreen2State
     districtController.dispose();
     stateController.dispose();
     pinController.dispose();
-
     emergencyNameController.dispose();
     emergencyMobileController.dispose();
 
@@ -128,32 +89,6 @@ class _MandatoryProfileSetupScreen2State
   // ============================================================
 
   User? get currentUser => _auth.currentUser;
-
-  // ============================================================
-  // FULL ADDRESS
-  // ============================================================
-
-  String get fullAddress {
-    final List<String> parts = <String>[
-      villageController.text.trim(),
-      cityController.text.trim(),
-      districtController.text.trim(),
-      stateController.text.trim(),
-      pinController.text.trim(),
-    ].where((String value) => value.isNotEmpty).toList();
-
-    return parts.join(', ');
-  }
-
-  // ============================================================
-  // DATE FORMAT
-  // ============================================================
-
-  String get formattedDateOfBirth {
-    return '${widget.dateOfBirth.year}-'
-        '${widget.dateOfBirth.month.toString().padLeft(2, '0')}-'
-        '${widget.dateOfBirth.day.toString().padLeft(2, '0')}';
-  }
 
   // ============================================================
   // WALKER ID
@@ -170,6 +105,34 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
+  // DATE
+  // ============================================================
+
+  String get formattedDateOfBirth {
+    return '${widget.dateOfBirth.year}-'
+        '${widget.dateOfBirth.month.toString().padLeft(2, '0')}-'
+        '${widget.dateOfBirth.day.toString().padLeft(2, '0')}';
+  }
+
+  // ============================================================
+  // FULL ADDRESS
+  // ============================================================
+
+  String get fullAddress {
+    final List<String> parts = <String>[
+      villageController.text.trim(),
+      cityController.text.trim(),
+      districtController.text.trim(),
+      stateController.text.trim(),
+      pinController.text.trim(),
+    ].where(
+      (String value) => value.isNotEmpty,
+    ).toList();
+
+    return parts.join(', ');
+  }
+
+  // ============================================================
   // MESSAGE
   // ============================================================
 
@@ -177,14 +140,18 @@ class _MandatoryProfileSetupScreen2State
     String message,
     bool success,
   ) {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: success ? green : red,
+          backgroundColor: success
+              ? AppColors.green
+              : AppColors.red,
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
           shape: RoundedRectangleBorder(
@@ -195,232 +162,20 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // IMAGE OPTIONS
+  // URL DIALOG
   // ============================================================
 
-  Future<void> showDocumentOptions({
+  Future<String?> enterDocumentUrl({
     required String title,
-    required bool isFront,
+    String existingUrl = '',
   }) async {
-    if (_saving) return;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
-      ),
-      builder: (BuildContext sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              20,
-              12,
-              20,
-              25,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 45,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD5DADE),
-                    borderRadius:
-                        BorderRadius.circular(20),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w900,
-                    color: textDark,
-                  ),
-                ),
-                const SizedBox(height: 7),
-                const Text(
-                  'Camera से फोटो लें या image URL दें।',
-                  style: TextStyle(
-                    color: muted,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _imageOption(
-                        icon: Icons.camera_alt_rounded,
-                        title: 'Camera',
-                        subtitle: 'Take Photo',
-                        color: orange,
-                        onTap: () {
-                          Navigator.pop(sheetContext);
-                          pickAadhaarImage(
-                            isFront: isFront,
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _imageOption(
-                        icon: Icons.link_rounded,
-                        title: 'URL',
-                        subtitle: 'Image URL',
-                        color: blue,
-                        onTap: () {
-                          Navigator.pop(sheetContext);
-                          enterAadhaarUrl(
-                            isFront: isFront,
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // IMAGE OPTION
-  // ============================================================
-
-  Widget _imageOption({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          vertical: 20,
-          horizontal: 8,
-        ),
-        decoration: BoxDecoration(
-          color: color.withOpacity(.06),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: color.withOpacity(.15),
-          ),
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: color.withOpacity(.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 25,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                color: textDark,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                fontSize: 10,
-                color: muted,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // PICK AADHAAR IMAGE
-  // ============================================================
-
-  Future<void> pickAadhaarImage({
-    required bool isFront,
-  }) async {
-    if (_saving) return;
-
-    try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
-        maxWidth: 1800,
-        maxHeight: 1200,
-      );
-
-      if (image == null || !mounted) return;
-
-      final File file = File(image.path);
-
-      setState(() {
-        if (isFront) {
-          aadhaarFrontFile = file;
-          aadhaarFrontUrl = null;
-        } else {
-          aadhaarBackFile = file;
-          aadhaarBackUrl = null;
-        }
-      });
-
-      showMessage(
-        isFront
-            ? 'Aadhaar Front added.'
-            : 'Aadhaar Back added.',
-        true,
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      showMessage(
-        'Unable to open camera. Please check camera permission.',
-        false,
-      );
-    }
-  }
-
-  // ============================================================
-  // ENTER AADHAAR URL
-  // ============================================================
-
-  Future<void> enterAadhaarUrl({
-    required bool isFront,
-  }) async {
-    if (_saving) return;
-
-    final String oldUrl = isFront
-        ? aadhaarFrontUrl ?? ''
-        : aadhaarBackUrl ?? '';
-
     final TextEditingController controller =
         TextEditingController(
-      text: oldUrl,
+      text: existingUrl,
     );
 
-    final String? result = await showDialog<String>(
+    final String? result =
+        await showDialog<String>(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
@@ -428,9 +183,7 @@ class _MandatoryProfileSetupScreen2State
             borderRadius: BorderRadius.circular(22),
           ),
           title: Text(
-            isFront
-                ? 'Aadhaar Front URL'
-                : 'Aadhaar Back URL',
+            title,
             style: const TextStyle(
               fontWeight: FontWeight.w900,
             ),
@@ -441,13 +194,13 @@ class _MandatoryProfileSetupScreen2State
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(
               hintText: 'https://...',
-              prefixIcon:
-                  const Icon(Icons.link_rounded),
+              prefixIcon: const Icon(
+                Icons.link_rounded,
+              ),
               filled: true,
-              fillColor: background,
+              fillColor: AppColors.background,
               border: OutlineInputBorder(
-                borderRadius:
-                    BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(15),
                 borderSide: BorderSide.none,
               ),
             ),
@@ -461,7 +214,8 @@ class _MandatoryProfileSetupScreen2State
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: green,
+                backgroundColor:
+                    AppColors.green,
                 foregroundColor: Colors.white,
               ),
               onPressed: () {
@@ -472,18 +226,18 @@ class _MandatoryProfileSetupScreen2State
                     Uri.tryParse(value);
 
                 if (uri == null ||
+                    uri.host.isEmpty ||
                     !(uri.scheme == 'http' ||
-                        uri.scheme == 'https') ||
-                    uri.host.isEmpty) {
-                  ScaffoldMessenger.of(dialogContext)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Enter a valid image URL.',
-                        ),
+                        uri.scheme == 'https')) {
+                  ScaffoldMessenger.of(
+                    dialogContext,
+                  ).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Enter a valid image URL.',
                       ),
-                    );
+                    ),
+                  );
                   return;
                 }
 
@@ -501,84 +255,65 @@ class _MandatoryProfileSetupScreen2State
 
     controller.dispose();
 
-    if (result == null || !mounted) return;
+    return result;
+  }
+
+  // ============================================================
+  // DOCUMENT URL
+  // ============================================================
+
+  Future<void> selectAadhaarFront() async {
+    if (_saving) return;
+
+    final String? result =
+        await enterDocumentUrl(
+      title: 'Aadhaar Front URL',
+    );
+
+    if (result == null || !mounted) {
+      return;
+    }
 
     setState(() {
-      if (isFront) {
-        aadhaarFrontUrl = result;
-        aadhaarFrontFile = null;
-      } else {
-        aadhaarBackUrl = result;
-        aadhaarBackFile = null;
-      }
+      aadhaarFrontUrl = result;
     });
 
     showMessage(
-      isFront
-          ? 'Aadhaar Front URL added.'
-          : 'Aadhaar Back URL added.',
+      'Aadhaar Front URL added.',
       true,
     );
   }
 
-  // ============================================================
-  // RESOLVE IMAGE
-  // ============================================================
+  Future<void> selectAadhaarBack() async {
+    if (_saving) return;
 
-  Future<String> _resolveImage({
-    required String uid,
-    required String folder,
-    required String fileName,
-    File? file,
-    String? url,
-  }) async {
-    final String cleanUrl =
-        url?.trim() ?? '';
+    final String? result =
+        await enterDocumentUrl(
+      title: 'Aadhaar Back URL',
+    );
 
-    // ----------------------------------------------------------
-    // EXISTING URL
-    // ----------------------------------------------------------
-
-    if (cleanUrl.isNotEmpty) {
-      return cleanUrl;
+    if (result == null || !mounted) {
+      return;
     }
 
-    // ----------------------------------------------------------
-    // UPLOAD FILE
-    // ----------------------------------------------------------
+    setState(() {
+      aadhaarBackUrl = result;
+    });
 
-    if (file != null) {
-      final Reference ref = _storage
-          .ref()
-          .child('walkers')
-          .child(uid)
-          .child(folder)
-          .child(fileName);
-
-      await ref.putFile(
-        file,
-        SettableMetadata(
-          contentType: 'image/jpeg',
-        ),
-      );
-
-      return await ref.getDownloadURL();
-    }
-
-    throw Exception(
-      'Required image is missing.',
+    showMessage(
+      'Aadhaar Back URL added.',
+      true,
     );
   }
+
+  String? aadhaarFrontUrl;
+  String? aadhaarBackUrl;
 
   // ============================================================
   // VALIDATE
   // ============================================================
 
   bool validate() {
-    // ----------------------------------------------------------
-    // AADHAAR NUMBER
-    // ----------------------------------------------------------
-
     final String aadhaar =
         aadhaarController.text.trim();
 
@@ -590,37 +325,23 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // ----------------------------------------------------------
-    // FRONT
-    // ----------------------------------------------------------
-
-    if (aadhaarFrontFile == null &&
-        (aadhaarFrontUrl == null ||
-            aadhaarFrontUrl!.trim().isEmpty)) {
+    if (aadhaarFrontUrl == null ||
+        aadhaarFrontUrl!.trim().isEmpty) {
       showMessage(
-        'Please add Aadhaar Front.',
+        'Please add Aadhaar Front URL.',
         false,
       );
       return false;
     }
 
-    // ----------------------------------------------------------
-    // BACK
-    // ----------------------------------------------------------
-
-    if (aadhaarBackFile == null &&
-        (aadhaarBackUrl == null ||
-            aadhaarBackUrl!.trim().isEmpty)) {
+    if (aadhaarBackUrl == null ||
+        aadhaarBackUrl!.trim().isEmpty) {
       showMessage(
-        'Please add Aadhaar Back.',
+        'Please add Aadhaar Back URL.',
         false,
       );
       return false;
     }
-
-    // ----------------------------------------------------------
-    // VILLAGE
-    // ----------------------------------------------------------
 
     if (villageController.text.trim().isEmpty) {
       showMessage(
@@ -630,10 +351,6 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // ----------------------------------------------------------
-    // CITY
-    // ----------------------------------------------------------
-
     if (cityController.text.trim().isEmpty) {
       showMessage(
         'Please enter City / Town.',
@@ -641,10 +358,6 @@ class _MandatoryProfileSetupScreen2State
       );
       return false;
     }
-
-    // ----------------------------------------------------------
-    // DISTRICT
-    // ----------------------------------------------------------
 
     if (districtController.text.trim().isEmpty) {
       showMessage(
@@ -654,10 +367,6 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // ----------------------------------------------------------
-    // STATE
-    // ----------------------------------------------------------
-
     if (stateController.text.trim().isEmpty) {
       showMessage(
         'Please enter State.',
@@ -665,10 +374,6 @@ class _MandatoryProfileSetupScreen2State
       );
       return false;
     }
-
-    // ----------------------------------------------------------
-    // PIN
-    // ----------------------------------------------------------
 
     final String pin =
         pinController.text.trim();
@@ -681,9 +386,9 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // ----------------------------------------------------------
-    // EMERGENCY CONTACT OPTIONAL
-    // ----------------------------------------------------------
+    // ==========================================================
+    // OPTIONAL EMERGENCY CONTACT
+    // ==========================================================
 
     final String emergencyName =
         emergencyNameController.text.trim();
@@ -691,33 +396,26 @@ class _MandatoryProfileSetupScreen2State
     final String emergencyMobile =
         emergencyMobileController.text.trim();
 
-    final bool hasEmergencyName =
-        emergencyName.isNotEmpty;
-
-    final bool hasEmergencyMobile =
-        emergencyMobile.isNotEmpty;
-
-    if (hasEmergencyName ||
-        hasEmergencyMobile) {
-      if (!hasEmergencyName) {
+    if (emergencyName.isNotEmpty ||
+        emergencyMobile.isNotEmpty) {
+      if (emergencyName.isEmpty) {
         showMessage(
-          'Please enter emergency contact name or leave the entire contact empty.',
+          'Please enter emergency contact name.',
           false,
         );
         return false;
       }
 
-      if (!hasEmergencyMobile) {
+      if (emergencyMobile.isEmpty) {
         showMessage(
-          'Please enter emergency contact mobile or leave the entire contact empty.',
+          'Please enter emergency contact mobile.',
           false,
         );
         return false;
       }
 
-      if (!RegExp(r'^\d{10}$').hasMatch(
-        emergencyMobile,
-      )) {
+      if (!RegExp(r'^\d{10}$')
+          .hasMatch(emergencyMobile)) {
         showMessage(
           'Enter a valid 10-digit emergency mobile number.',
           false,
@@ -726,29 +424,17 @@ class _MandatoryProfileSetupScreen2State
       }
     }
 
-    // ----------------------------------------------------------
-    // NAME
-    // ----------------------------------------------------------
-
     if (widget.name.trim().isEmpty) {
       showMessage(
-        'Name is missing. Please go back and enter your name.',
+        'Name is missing. Please go back.',
         false,
       );
       return false;
     }
 
-    // ----------------------------------------------------------
-    // SELFIE
-    // ----------------------------------------------------------
-
-    final String selfie =
-        widget.selfieUrl?.trim() ?? '';
-
-    if (widget.selfieFile == null &&
-        selfie.isEmpty) {
+    if (widget.selfieUrl.trim().isEmpty) {
       showMessage(
-        'Profile selfie is missing. Please go back and add your selfie.',
+        'Profile selfie URL is missing. Please go back.',
         false,
       );
       return false;
@@ -758,15 +444,19 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // SUBMIT PROFILE
+  // SUBMIT
   // ============================================================
 
   Future<void> submitProfile() async {
     FocusScope.of(context).unfocus();
 
-    if (_saving) return;
+    if (_saving) {
+      return;
+    }
 
-    if (!validate()) return;
+    if (!validate()) {
+      return;
+    }
 
     final User? user = currentUser;
 
@@ -778,77 +468,21 @@ class _MandatoryProfileSetupScreen2State
       return;
     }
 
-    if (!mounted) return;
-
     setState(() {
       _saving = true;
     });
 
     try {
-      // ========================================================
-      // UID
-      // ========================================================
-
       final String uid = user.uid;
-
-      // ========================================================
-      // WALKER ID
-      // ========================================================
 
       final String walkerId =
           createWalkerId(uid);
-
-      // ========================================================
-      // SELFIE
-      // ========================================================
-
-      final String selfieUrl =
-          await _resolveImage(
-        uid: uid,
-        folder: 'profile',
-        fileName: 'selfie.jpg',
-        file: widget.selfieFile,
-        url: widget.selfieUrl,
-      );
-
-      // ========================================================
-      // AADHAAR FRONT
-      // ========================================================
-
-      final String aadhaarFront =
-          await _resolveImage(
-        uid: uid,
-        folder: 'aadhaar',
-        fileName: 'front.jpg',
-        file: aadhaarFrontFile,
-        url: aadhaarFrontUrl,
-      );
-
-      // ========================================================
-      // AADHAAR BACK
-      // ========================================================
-
-      final String aadhaarBack =
-          await _resolveImage(
-        uid: uid,
-        folder: 'aadhaar',
-        fileName: 'back.jpg',
-        file: aadhaarBackFile,
-        url: aadhaarBackUrl,
-      );
-
-      // ========================================================
-      // BASIC VALUES
-      // ========================================================
 
       final String fullName =
           widget.name.trim();
 
       final String phoneNumber =
           user.phoneNumber ?? '';
-
-      final String dateOfBirth =
-          formattedDateOfBirth;
 
       final String gender =
           widget.gender.trim();
@@ -883,30 +517,19 @@ class _MandatoryProfileSetupScreen2State
       // ========================================================
       // FIRESTORE DATA
       // ========================================================
-      //
-      // IMPORTANT:
-      //
-      // नीचे पुराने/lowercase fields भी रखे गए हैं और
-      // तुम्हारे Admin panel वाले exact field names भी।
-      //
-      // इससे existing app/admin code टूटेगा नहीं।
-      // ========================================================
 
-      final Map<String, dynamic> data = {
+      final Map<String, dynamic> data =
+          <String, dynamic>{
         // ======================================================
-        // AUTH / IDENTITY
+        // IDENTITY
         // ======================================================
 
         'authUid': uid,
-
         'uid': uid,
-
         'Walker Uid': uid,
-
         'walkerUid': uid,
 
         'walkerId': walkerId,
-
         'Walker ID': walkerId,
 
         'role': 'walker',
@@ -916,131 +539,160 @@ class _MandatoryProfileSetupScreen2State
         // ======================================================
 
         'fullName': fullName,
-
         'Full Name': fullName,
-
         'name': fullName,
 
         'phoneNumber': phoneNumber,
-
         'Mobile number': phoneNumber,
-
         'mobileNumber': phoneNumber,
 
-        'dateofbirth': dateOfBirth,
+        'dateofbirth':
+            formattedDateOfBirth,
 
-        'Date Of Birth': dateOfBirth,
+        'Date Of Birth':
+            formattedDateOfBirth,
 
-        'dateOfBirth': dateOfBirth,
+        'dateOfBirth':
+            formattedDateOfBirth,
 
         'gender': gender,
-
         'Gender': gender,
 
         // ======================================================
-        // SELFIE
+        // PROFILE PHOTO URL
         // ======================================================
 
-        'selfie': selfieUrl,
+        'selfie':
+            widget.selfieUrl.trim(),
 
-        'Profile Selfie': selfieUrl,
+        'Profile Selfie':
+            widget.selfieUrl.trim(),
 
-        'profileSelfie': selfieUrl,
+        'profileSelfie':
+            widget.selfieUrl.trim(),
 
-        'profileImage': selfieUrl,
+        'profileImage':
+            widget.selfieUrl.trim(),
 
-        'profileImageUrl': selfieUrl,
+        'profileImageUrl':
+            widget.selfieUrl.trim(),
 
-        'selfieUrl': selfieUrl,
-
-        // ======================================================
-        // AADHAAR NUMBER
-        // ======================================================
-
-        'aadhaarNumber': aadhaarNumber,
-
-        'Aadhar Number': aadhaarNumber,
-
-        'Aadhaar Number': aadhaarNumber,
+        'selfieUrl':
+            widget.selfieUrl.trim(),
 
         // ======================================================
-        // AADHAAR DOCUMENTS
+        // AADHAAR
         // ======================================================
 
-        'aadhaarfront': aadhaarFront,
+        'aadhaarNumber':
+            aadhaarNumber,
 
-        'aadhaarFront': aadhaarFront,
+        'Aadhar Number':
+            aadhaarNumber,
 
-        'aadhaar_front': aadhaarFront,
+        'Aadhaar Number':
+            aadhaarNumber,
 
-        'Aadhaar Front': aadhaarFront,
+        'aadhaarfront':
+            aadhaarFrontUrl,
 
-        'aadhaarback': aadhaarBack,
+        'aadhaarFront':
+            aadhaarFrontUrl,
 
-        'aadhaarBack': aadhaarBack,
+        'aadhaar_front':
+            aadhaarFrontUrl,
 
-        'aadhaar_back': aadhaarBack,
+        'Aadhaar Front':
+            aadhaarFrontUrl,
 
-        'Aadhaar Back': aadhaarBack,
+        'aadhaarback':
+            aadhaarBackUrl,
+
+        'aadhaarBack':
+            aadhaarBackUrl,
+
+        'aadhaar_back':
+            aadhaarBackUrl,
+
+        'Aadhaar Back':
+            aadhaarBackUrl,
+
+        'aadhaar_front_uploaded':
+            true,
+
+        'aadhaar_back_uploaded':
+            true,
+
+        'aadhaarFrontUploaded':
+            true,
+
+        'aadhaarBackUploaded':
+            true,
 
         // ======================================================
-        // AADHAAR UPLOAD FLAGS
+        // VERIFICATION
         // ======================================================
 
-        'aadhaar_front_uploaded': true,
+        'aadhaarVerified':
+            false,
 
-        'aadhaar_back_uploaded': true,
+        'aadhaar_verified':
+            false,
 
-        'aadhaarFrontUploaded': true,
+        'nameMatched':
+            false,
 
-        'aadhaarBackUploaded': true,
-
-        // ======================================================
-        // AADHAAR VERIFICATION
-        // ======================================================
-
-        'aadhaarVerified': false,
-
-        'aadhaar_verified': false,
-
-        'nameMatched': false,
-
-        'dobMatched': false,
+        'dobMatched':
+            false,
 
         // ======================================================
         // ADDRESS
         // ======================================================
 
-        'village': village,
+        'village':
+            village,
 
-        'Village': village,
+        'Village':
+            village,
 
-        'city': city,
+        'city':
+            city,
 
-        'City': city,
+        'City':
+            city,
 
-        'district': district,
+        'district':
+            district,
 
-        'District': district,
+        'District':
+            district,
 
-        'state': state,
+        'state':
+            state,
 
-        'State': state,
+        'State':
+            state,
 
-        'pincode': pincode,
+        'pincode':
+            pincode,
 
-        'Pincode': pincode,
+        'Pincode':
+            pincode,
 
-        'pinCode': pincode,
+        'pinCode':
+            pincode,
 
-        'address': address,
+        'address':
+            address,
 
-        'Adress': address,
+        'Adress':
+            address,
 
-        'Address': address,
+        'Address':
+            address,
 
         // ======================================================
-        // OPTIONAL EMERGENCY CONTACT
+        // EMERGENCY
         // ======================================================
 
         'emergencyContactName':
@@ -1052,53 +704,56 @@ class _MandatoryProfileSetupScreen2State
         // ======================================================
         // PROFILE STATE
         // ======================================================
-        //
-        // VERY IMPORTANT:
-        //
-        // profileCompleted = true
-        // मतलब mandatory profile पूरा.
-        //
-        // verificationStatus = pending
-        // मतलब Admin approval बाकी.
-        //
-        // इसलिए app को दोबारा Step 1/Step 2 पर नहीं जाना चाहिए.
-        // ======================================================
 
-        'profileCompleted': true,
+        'profileCompleted':
+            true,
 
-        'profile_completed': true,
+        'profile_completed':
+            true,
 
-        'isProfileCompleted': true,
+        'isProfileCompleted':
+            true,
 
-        'verificationStatus': 'pending',
+        'verificationStatus':
+            'pending',
 
-        'verification_status': 'pending',
+        'verification_status':
+            'pending',
 
-        'status': 'pending',
+        'status':
+            'pending',
 
         // ======================================================
         // ADMIN STATE
         // ======================================================
 
-        'adminApproved': false,
+        'adminApproved':
+            false,
 
-        'adminRejected': false,
+        'adminRejected':
+            false,
 
-        'adminApprovedAt': null,
+        'adminApprovedAt':
+            null,
 
-        'adminRejectedAt': null,
+        'adminRejectedAt':
+            null,
 
-        'adminReviewedAt': null,
+        'adminReviewedAt':
+            null,
 
         // ======================================================
-        // WALKER ACTIVE STATE
+        // WALKER STATE
         // ======================================================
 
-        'isActive': false,
+        'isActive':
+            false,
 
-        'isVerified': false,
+        'isVerified':
+            false,
 
-        'isAvailable': false,
+        'isAvailable':
+            false,
 
         // ======================================================
         // TIMESTAMPS
@@ -1115,7 +770,7 @@ class _MandatoryProfileSetupScreen2State
       };
 
       // ========================================================
-      // SAVE WALKER DOCUMENT
+      // WALKERS
       // ========================================================
 
       await _firestore
@@ -1123,21 +778,13 @@ class _MandatoryProfileSetupScreen2State
           .doc(uid)
           .set(
             data,
-            SetOptions(merge: true),
+            SetOptions(
+              merge: true,
+            ),
           );
 
       // ========================================================
-      // ALSO UPDATE USERS DOCUMENT
-      // ========================================================
-      //
-      // अगर users/{uid} पहले से मौजूद है तो profile state
-      // वहाँ भी sync हो जाएगी.
-      //
-      // अगर rules users collection में write allow नहीं करते,
-      // तो यह failure पूरे submit को रोक सकता है.
-      //
-      // इसलिए इसे अलग try/catch में रखा गया है.
-      // Main walkers document पहले ही save हो चुका होगा.
+      // USERS SYNC
       // ========================================================
 
       try {
@@ -1145,7 +792,7 @@ class _MandatoryProfileSetupScreen2State
             .collection('users')
             .doc(uid)
             .set(
-          {
+          <String, dynamic>{
             'uid': uid,
             'walkerUid': uid,
             'walkerId': walkerId,
@@ -1157,18 +804,21 @@ class _MandatoryProfileSetupScreen2State
             'updatedAt':
                 FieldValue.serverTimestamp(),
           },
-          SetOptions(merge: true),
+          SetOptions(
+            merge: true,
+          ),
         );
       } catch (_) {
-        // users collection optional sync.
-        // Main walkers profile is already saved.
+        // Optional users sync.
       }
 
       // ========================================================
-      // SAVE SUCCESS
+      // SUCCESS
       // ========================================================
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _saving = false;
@@ -1179,18 +829,18 @@ class _MandatoryProfileSetupScreen2State
         true,
       );
 
-      // ========================================================
-      // SMALL DELAY
-      // ========================================================
-
       await Future<void>.delayed(
-        const Duration(milliseconds: 500),
+        const Duration(
+          milliseconds: 500,
+        ),
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       // ========================================================
-      // PENDING VERIFICATION SCREEN
+      // PENDING VERIFICATION
       // ========================================================
 
       Navigator.of(context).pushAndRemoveUntil(
@@ -1201,7 +851,9 @@ class _MandatoryProfileSetupScreen2State
         (Route<dynamic> route) => false,
       );
     } on FirebaseException catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _saving = false;
@@ -1212,22 +864,16 @@ class _MandatoryProfileSetupScreen2State
         false,
       );
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
 
       setState(() {
         _saving = false;
       });
 
-      final String message =
-          e.toString().replaceFirst(
-                'Exception: ',
-                '',
-              );
-
       showMessage(
-        message.isEmpty
-            ? 'Unable to submit profile. Please try again.'
-            : message,
+        'Unable to submit profile. Please try again.',
         false,
       );
     }
@@ -1242,32 +888,16 @@ class _MandatoryProfileSetupScreen2State
   ) {
     switch (e.code) {
       case 'permission-denied':
-        return 'Firebase permission denied. Check Firestore/Storage rules.';
+        return 'Firebase permission denied. Check Firestore rules.';
 
       case 'unauthenticated':
         return 'Login session expired. Please login again.';
 
       case 'network-request-failed':
-        return 'Network error. Check internet connection.';
+        return 'Network error. Check your internet connection.';
 
-      case 'object-not-found':
-        return 'Image could not be uploaded.';
-
-      case 'unauthorized':
-        return 'Firebase Storage permission denied.';
-
-      case 'quota-exceeded':
-        return 'Firebase Storage quota exceeded.';
-
-      case 'canceled':
-        return 'Upload cancelled.';
-
-      case 'retry-limit-exceeded':
-        return 'Upload failed after several attempts.';
-
-      case 'unknown':
-        return e.message ??
-            'Unknown Firebase error occurred.';
+      case 'unavailable':
+        return 'Firebase is temporarily unavailable.';
 
       default:
         return e.message ??
@@ -1285,7 +915,6 @@ class _MandatoryProfileSetupScreen2State
     required IconData icon,
     TextInputType? keyboardType,
     int? maxLength,
-    bool obscureText = false,
   }) {
     return Padding(
       padding: const EdgeInsets.only(
@@ -1295,14 +924,13 @@ class _MandatoryProfileSetupScreen2State
         controller: controller,
         keyboardType: keyboardType,
         maxLength: maxLength,
-        obscureText: obscureText,
         textInputAction:
             TextInputAction.next,
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(
             icon,
-            color: blue,
+            color: AppColors.blue,
           ),
           filled: true,
           fillColor: Colors.white,
@@ -1316,14 +944,14 @@ class _MandatoryProfileSetupScreen2State
             borderRadius:
                 BorderRadius.circular(16),
             borderSide: const BorderSide(
-              color: Color(0xFFE3E8ED),
+              color: AppColors.border,
             ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius:
                 BorderRadius.circular(16),
             borderSide: const BorderSide(
-              color: green,
+              color: AppColors.green,
               width: 1.5,
             ),
           ),
@@ -1341,27 +969,20 @@ class _MandatoryProfileSetupScreen2State
     required String subtitle,
     required bool isFront,
   }) {
-    final File? file = isFront
-        ? aadhaarFrontFile
-        : aadhaarBackFile;
-
     final String? url = isFront
         ? aadhaarFrontUrl
         : aadhaarBackUrl;
 
     final bool added =
-        file != null ||
-        (url != null && url.trim().isNotEmpty);
+        url != null &&
+        url.trim().isNotEmpty;
 
     return InkWell(
       onTap: _saving
           ? null
-          : () {
-              showDocumentOptions(
-                title: title,
-                isFront: isFront,
-              );
-            },
+          : isFront
+              ? selectAadhaarFront
+              : selectAadhaarBack,
       borderRadius:
           BorderRadius.circular(18),
       child: Container(
@@ -1374,8 +995,9 @@ class _MandatoryProfileSetupScreen2State
               BorderRadius.circular(18),
           border: Border.all(
             color: added
-                ? green.withOpacity(.45)
-                : const Color(0xFFE3E8ED),
+                ? AppColors.green
+                    .withOpacity(.45)
+                : AppColors.border,
           ),
         ),
         child: Row(
@@ -1384,65 +1006,42 @@ class _MandatoryProfileSetupScreen2State
               width: 62,
               height: 62,
               decoration: BoxDecoration(
-                color:
-                    blue.withOpacity(.08),
+                color: AppColors.blue
+                    .withOpacity(.08),
                 borderRadius:
                     BorderRadius.circular(15),
               ),
-              child: file != null
+              child: added
                   ? ClipRRect(
                       borderRadius:
                           BorderRadius.circular(
                         15,
                       ),
-                      child: Image.file(
-                        file,
+                      child: Image.network(
+                        url!,
                         fit: BoxFit.cover,
                         errorBuilder:
                             (
-                          BuildContext context,
-                          Object error,
-                          StackTrace? stackTrace,
+                          context,
+                          error,
+                          stackTrace,
                         ) {
                           return const Icon(
                             Icons
                                 .image_not_supported_rounded,
-                            color: blue,
+                            color:
+                                AppColors.blue,
                             size: 29,
                           );
                         },
                       ),
                     )
-                  : url != null &&
-                          url.trim().isNotEmpty
-                      ? ClipRRect(
-                          borderRadius:
-                              BorderRadius.circular(
-                            15,
-                          ),
-                          child:
-                              Image.network(
-                            url,
-                            fit: BoxFit.cover,
-                            errorBuilder:
-                                (
-                              BuildContext context,
-                              Object error,
-                              StackTrace? stackTrace,
-                            ) {
-                              return const Icon(
-                                Icons.badge_rounded,
-                                color: blue,
-                                size: 29,
-                              );
-                            },
-                          ),
-                        )
-                      : const Icon(
-                          Icons.badge_rounded,
-                          color: blue,
-                          size: 29,
-                        ),
+                  : const Icon(
+                      Icons.badge_rounded,
+                      color:
+                          AppColors.blue,
+                      size: 29,
+                    ),
             ),
             const SizedBox(width: 13),
             Expanded(
@@ -1456,7 +1055,8 @@ class _MandatoryProfileSetupScreen2State
                       fontSize: 14,
                       fontWeight:
                           FontWeight.w800,
-                      color: textDark,
+                      color:
+                          AppColors.textDark,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -1467,8 +1067,8 @@ class _MandatoryProfileSetupScreen2State
                     style: TextStyle(
                       fontSize: 11,
                       color: added
-                          ? green
-                          : muted,
+                          ? AppColors.green
+                          : AppColors.muted,
                     ),
                   ),
                 ],
@@ -1476,13 +1076,11 @@ class _MandatoryProfileSetupScreen2State
             ),
             Icon(
               added
-                  ? Icons
-                      .check_circle_rounded
-                  : Icons
-                      .chevron_right_rounded,
+                  ? Icons.check_circle_rounded
+                  : Icons.chevron_right_rounded,
               color: added
-                  ? green
-                  : muted,
+                  ? AppColors.green
+                  : AppColors.muted,
             ),
           ],
         ),
@@ -1491,7 +1089,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // SUMMARY CARD
+  // SUMMARY
   // ============================================================
 
   Widget summaryCard() {
@@ -1504,7 +1102,7 @@ class _MandatoryProfileSetupScreen2State
         borderRadius:
             BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFFE3E8ED),
+          color: AppColors.border,
         ),
       ),
       child: Column(
@@ -1515,7 +1113,7 @@ class _MandatoryProfileSetupScreen2State
             children: [
               Icon(
                 Icons.person_rounded,
-                color: green,
+                color: AppColors.green,
               ),
               SizedBox(width: 9),
               Text(
@@ -1524,7 +1122,8 @@ class _MandatoryProfileSetupScreen2State
                   fontSize: 16,
                   fontWeight:
                       FontWeight.w900,
-                  color: textDark,
+                  color:
+                      AppColors.textDark,
                 ),
               ),
             ],
@@ -1553,10 +1152,6 @@ class _MandatoryProfileSetupScreen2State
     );
   }
 
-  // ============================================================
-  // SUMMARY ROW
-  // ============================================================
-
   Widget _summaryRow(
     String title,
     String value,
@@ -1576,7 +1171,7 @@ class _MandatoryProfileSetupScreen2State
               title,
               style: const TextStyle(
                 fontSize: 11,
-                color: muted,
+                color: AppColors.muted,
                 fontWeight:
                     FontWeight.w700,
               ),
@@ -1588,7 +1183,8 @@ class _MandatoryProfileSetupScreen2State
               value,
               style: const TextStyle(
                 fontSize: 12,
-                color: textDark,
+                color:
+                    AppColors.textDark,
                 fontWeight:
                     FontWeight.w700,
               ),
@@ -1600,7 +1196,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // SECTION CONTAINER
+  // SECTION
   // ============================================================
 
   Widget sectionContainer({
@@ -1615,7 +1211,7 @@ class _MandatoryProfileSetupScreen2State
         borderRadius:
             BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFFE3E8ED),
+          color: AppColors.border,
         ),
       ),
       child: child,
@@ -1631,7 +1227,8 @@ class _MandatoryProfileSetupScreen2State
     return PopScope(
       canPop: !_saving,
       child: Scaffold(
-        backgroundColor: background,
+        backgroundColor:
+            AppColors.background,
         body: SafeArea(
           child: Column(
             children: [
@@ -1653,7 +1250,8 @@ class _MandatoryProfileSetupScreen2State
                   color: Colors.white,
                   border: Border(
                     bottom: BorderSide(
-                      color: Color(0xFFE8EDF1),
+                      color:
+                          AppColors.borderLight,
                     ),
                   ),
                 ),
@@ -1664,7 +1262,8 @@ class _MandatoryProfileSetupScreen2State
                       height: 46,
                       decoration:
                           BoxDecoration(
-                        color: orange,
+                        color:
+                            AppColors.orange,
                         borderRadius:
                             BorderRadius.circular(
                           14,
@@ -1676,7 +1275,9 @@ class _MandatoryProfileSetupScreen2State
                             Colors.white,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(
+                      width: 12,
+                    ),
                     const Expanded(
                       child: Column(
                         crossAxisAlignment:
@@ -1689,7 +1290,8 @@ class _MandatoryProfileSetupScreen2State
                                 TextStyle(
                               fontSize: 11,
                               color:
-                                  orange,
+                                  AppColors
+                                      .orange,
                               fontWeight:
                                   FontWeight
                                       .w800,
@@ -1702,7 +1304,8 @@ class _MandatoryProfileSetupScreen2State
                                 TextStyle(
                               fontSize: 19,
                               color:
-                                  textDark,
+                                  AppColors
+                                      .textDark,
                               fontWeight:
                                   FontWeight
                                       .w900,
@@ -1720,10 +1323,9 @@ class _MandatoryProfileSetupScreen2State
                       ),
                       decoration:
                           BoxDecoration(
-                        color:
-                            green.withOpacity(
-                          .10,
-                        ),
+                        color: AppColors
+                            .green
+                            .withOpacity(.10),
                         borderRadius:
                             BorderRadius.circular(
                           12,
@@ -1734,7 +1336,8 @@ class _MandatoryProfileSetupScreen2State
                         'STEP 2',
                         style:
                             TextStyle(
-                          color: green,
+                          color:
+                              AppColors.green,
                           fontSize: 10,
                           fontWeight:
                               FontWeight
@@ -1765,7 +1368,8 @@ class _MandatoryProfileSetupScreen2State
                   ),
                   child: Column(
                     crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                        CrossAxisAlignment
+                            .start,
                     children: [
                       const Text(
                         'Aadhaar & Address',
@@ -1773,7 +1377,8 @@ class _MandatoryProfileSetupScreen2State
                           fontSize: 23,
                           fontWeight:
                               FontWeight.w900,
-                          color: textDark,
+                          color:
+                              AppColors.textDark,
                         ),
                       ),
 
@@ -1785,7 +1390,8 @@ class _MandatoryProfileSetupScreen2State
                         'Complete your Aadhaar and address details.',
                         style: TextStyle(
                           fontSize: 12.5,
-                          color: muted,
+                          color:
+                              AppColors.muted,
                         ),
                       ),
 
@@ -1794,7 +1400,7 @@ class _MandatoryProfileSetupScreen2State
                       ),
 
                       // ==================================================
-                      // WALKER SUMMARY
+                      // SUMMARY
                       // ==================================================
 
                       summaryCard(),
@@ -1818,7 +1424,9 @@ class _MandatoryProfileSetupScreen2State
                                 Icon(
                                   Icons
                                       .badge_rounded,
-                                  color: blue,
+                                  color:
+                                      AppColors
+                                          .blue,
                                 ),
                                 SizedBox(
                                   width: 9,
@@ -1833,7 +1441,8 @@ class _MandatoryProfileSetupScreen2State
                                         FontWeight
                                             .w900,
                                     color:
-                                        textDark,
+                                        AppColors
+                                            .textDark,
                                   ),
                                 ),
                               ],
@@ -1864,7 +1473,7 @@ class _MandatoryProfileSetupScreen2State
                               title:
                                   'Aadhaar Front',
                               subtitle:
-                                  'Camera or image URL',
+                                  'Testing के लिए Image URL',
                               isFront: true,
                             ),
 
@@ -1876,7 +1485,7 @@ class _MandatoryProfileSetupScreen2State
                               title:
                                   'Aadhaar Back',
                               subtitle:
-                                  'Camera or image URL',
+                                  'Testing के लिए Image URL',
                               isFront: false,
                             ),
                           ],
@@ -1902,7 +1511,9 @@ class _MandatoryProfileSetupScreen2State
                                 Icon(
                                   Icons
                                       .location_on_rounded,
-                                  color: blue,
+                                  color:
+                                      AppColors
+                                          .blue,
                                 ),
                                 SizedBox(
                                   width: 9,
@@ -1917,7 +1528,8 @@ class _MandatoryProfileSetupScreen2State
                                         FontWeight
                                             .w900,
                                     color:
-                                        textDark,
+                                        AppColors
+                                            .textDark,
                                   ),
                                 ),
                               ],
@@ -1985,7 +1597,8 @@ class _MandatoryProfileSetupScreen2State
                               decoration:
                                   BoxDecoration(
                                 color:
-                                    background,
+                                    AppColors
+                                        .background,
                                 borderRadius:
                                     BorderRadius
                                         .circular(
@@ -2001,7 +1614,8 @@ class _MandatoryProfileSetupScreen2State
                                     Icons
                                         .home_rounded,
                                     color:
-                                        green,
+                                        AppColors
+                                            .green,
                                     size: 19,
                                   ),
                                   const SizedBox(
@@ -2020,7 +1634,8 @@ class _MandatoryProfileSetupScreen2State
                                         height:
                                             1.5,
                                         color:
-                                            textDark,
+                                            AppColors
+                                                .textDark,
                                         fontWeight:
                                             FontWeight
                                                 .w600,
@@ -2039,7 +1654,7 @@ class _MandatoryProfileSetupScreen2State
                       ),
 
                       // ==================================================
-                      // EMERGENCY CONTACT
+                      // EMERGENCY
                       // ==================================================
 
                       sectionContainer(
@@ -2053,7 +1668,9 @@ class _MandatoryProfileSetupScreen2State
                                 Icon(
                                   Icons
                                       .contact_emergency_rounded,
-                                  color: orange,
+                                  color:
+                                      AppColors
+                                          .orange,
                                 ),
                                 SizedBox(
                                   width: 9,
@@ -2070,7 +1687,8 @@ class _MandatoryProfileSetupScreen2State
                                           FontWeight
                                               .w900,
                                       color:
-                                          textDark,
+                                          AppColors
+                                              .textDark,
                                     ),
                                   ),
                                 ),
@@ -2079,7 +1697,8 @@ class _MandatoryProfileSetupScreen2State
                                   style:
                                       TextStyle(
                                     color:
-                                        muted,
+                                        AppColors
+                                            .muted,
                                     fontSize:
                                         10,
                                     fontWeight:
@@ -2095,13 +1714,14 @@ class _MandatoryProfileSetupScreen2State
                             ),
 
                             const Text(
-                              'यह जानकारी देना आपकी इच्छा है। खाली छोड़कर भी आगे बढ़ सकते हैं।',
+                              'यह जानकारी optional है। खाली छोड़कर भी आगे बढ़ सकते हैं।',
                               style:
                                   TextStyle(
                                 fontSize:
                                     11.5,
                                 color:
-                                    muted,
+                                    AppColors
+                                        .muted,
                               ),
                             ),
 
@@ -2151,9 +1771,8 @@ class _MandatoryProfileSetupScreen2State
                         decoration:
                             BoxDecoration(
                           color:
-                              const Color(
-                            0xFFF0F6FF,
-                          ),
+                              AppColors.blue
+                                  .withOpacity(.06),
                           borderRadius:
                               BorderRadius
                                   .circular(
@@ -2168,7 +1787,9 @@ class _MandatoryProfileSetupScreen2State
                             Icon(
                               Icons
                                   .info_outline_rounded,
-                              color: blue,
+                              color:
+                                  AppColors
+                                      .blue,
                               size: 21,
                             ),
                             SizedBox(
@@ -2184,9 +1805,8 @@ class _MandatoryProfileSetupScreen2State
                                   height:
                                       1.5,
                                   color:
-                                      Color(
-                                    0xFF34506E,
-                                  ),
+                                      AppColors
+                                          .textDark,
                                 ),
                               ),
                             ),
@@ -2199,7 +1819,7 @@ class _MandatoryProfileSetupScreen2State
                       ),
 
                       // ==================================================
-                      // SUBMIT BUTTON
+                      // SUBMIT
                       // ==================================================
 
                       SizedBox(
@@ -2216,9 +1836,11 @@ class _MandatoryProfileSetupScreen2State
                               ElevatedButton
                                   .styleFrom(
                             backgroundColor:
-                                green,
+                                AppColors
+                                    .green,
                             disabledBackgroundColor:
-                                green
+                                AppColors
+                                    .green
                                     .withOpacity(
                               .55,
                             ),
@@ -2304,13 +1926,10 @@ class _MandatoryProfileSetupScreen2State
                               TextAlign.center,
                           style: TextStyle(
                             fontSize: 10.5,
-                            color: muted,
+                            color:
+                                AppColors.muted,
                           ),
                         ),
-                      ),
-
-                      const SizedBox(
-                        height: 5,
                       ),
                     ],
                   ),
