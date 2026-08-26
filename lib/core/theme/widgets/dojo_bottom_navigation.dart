@@ -39,16 +39,7 @@ class DojoBottomNavigation
             .map(
               (BottomNavigationBarItem item) {
                 return NavigationDestination(
-                  icon: item.icon,
-                  selectedIcon:
-                      item.activeIcon ??
-                      item.icon,
-                  label: item.label ?? '',
+                 icon: item.icon,
+                 selectedIcon: item.activeIcon,
+                 label: item.label ?? '',
                 );
-              },
-            )
-            .toList(),
-      ),
-    );
-  }
-}
