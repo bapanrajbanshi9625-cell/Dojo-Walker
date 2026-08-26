@@ -18,30 +18,17 @@ import '../features/profile_setup/screens/mandatory_profile_setup_screen1.dart';
 ///   ↓
 /// MandatoryProfileSetupScreen2
 ///   ↓
-/// Aadhaar Verification
-///   ↓
-/// Profile Save
-///   ↓
-/// Main Navigation / Pending Verification
+/// Pending Verification
 ///
-/// IMPORTANT:
-/// ---------------------------------------------------------------
-/// Screen 1 and Screen 2 are responsible for their own state.
+/// This screen is only an entry point.
 ///
-/// This file must NOT create:
-/// - PageController
-/// - TextEditingController
-/// - ImagePicker
-/// - FirebaseAuth logic
-/// - Aadhaar verification logic
-/// - Profile save logic
-///
-/// Keeping this file as a simple entry point prevents:
-/// - duplicate controllers
-/// - duplicate PageView
-/// - duplicate Firebase calls
-/// - constructor mismatch errors
-/// - state synchronization problems
+/// Screen 1 and Screen 2 handle their own:
+/// - controllers
+/// - state
+/// - validation
+/// - navigation
+/// - Firebase operations
+/// - profile submission
 /// ===============================================================
 
 class MandatoryProfileSetupScreen extends StatelessWidget {
