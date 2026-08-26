@@ -5,16 +5,26 @@ import '../../../core/constants/app_colors.dart';
 class LiveWalkReviewBottomSheet extends StatefulWidget {
   const LiveWalkReviewBottomSheet({
     super.key,
+    required this.routePoints,
     required this.distanceKm,
+    required this.duration,
     required this.steps,
-    required this.onSubmit,
-    this.routePoints = const <Offset>[],
+    required this.walkId,
+    required this.ownerUid,
+    required this.dogName,
+    required this.onBackToHome,
   });
 
-  final double distanceKm;
-  final int steps;
   final List<Offset> routePoints;
-  final ValueChanged<int> onSubmit;
+  final double distanceKm;
+  final String duration;
+  final int steps;
+
+  final String walkId;
+  final String ownerUid;
+  final String dogName;
+
+  final VoidCallback onBackToHome;
 
   @override
   State<LiveWalkReviewBottomSheet> createState() =>
@@ -45,18 +55,45 @@ class _LiveWalkReviewBottomSheetState
       _submitting = true;
     });
 
-    widget.onSubmit(_rating);
+    // ==========================================================
+    // REVIEW BACKEND
+    //
+    // अभी review backend connect नहीं किया गया है।
+    // बाद में Firestore में rating/review save कर सकते हैं।
+    // ==========================================================
+
+    Future<void>.delayed(
+      const Duration(
+        milliseconds: 350,
+      ),
+      () {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _submitting = false;
+        });
+
+        Navigator.of(context).pop();
+
+        widget.onBackToHome();
+      },
+    );
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return SafeArea(
       child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.fromLTRB(
           16,
           10,
           16,
-          20,
+          18,
         ),
         decoration: const BoxDecoration(
           color: AppColors.cardBackground,
@@ -68,6 +105,7 @@ class _LiveWalkReviewBottomSheetState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+
               // ==================================================
               // HANDLE
               // ==================================================
@@ -77,7 +115,8 @@ class _LiveWalkReviewBottomSheetState
                 height: 5,
                 decoration: BoxDecoration(
                   color: AppColors.border,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius:
+                      BorderRadius.circular(10),
                 ),
               ),
 
@@ -91,15 +130,16 @@ class _LiveWalkReviewBottomSheetState
                 width: 68,
                 height: 68,
                 decoration: BoxDecoration(
-                  color: AppColors.success.withValues(
+                  color:
+                      AppColors.success.withValues(
                     alpha: .10,
                   ),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.thumb_up_rounded,
+                  Icons.check_circle_rounded,
                   color: AppColors.success,
-                  size: 38,
+                  size: 40,
                 ),
               ),
 
@@ -109,16 +149,19 @@ class _LiveWalkReviewBottomSheetState
                 'Walk Completed!',
                 style: TextStyle(
                   color: AppColors.secondary,
-                  fontSize: 21,
+                  fontSize: 22,
                   fontWeight: FontWeight.w900,
                 ),
               ),
 
               const SizedBox(height: 4),
 
-              const Text(
-                'How was your walk?',
-                style: TextStyle(
+              Text(
+                widget.dogName.trim().isEmpty
+                    ? 'Your walk is complete.'
+                    : '${widget.dogName.trim()}\'s walk is complete.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
                   color: Colors.grey,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -133,10 +176,11 @@ class _LiveWalkReviewBottomSheetState
 
               Container(
                 width: double.infinity,
-                height: 125,
+                height: 140,
                 decoration: BoxDecoration(
                   color: AppColors.background,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius:
+                      BorderRadius.circular(18),
                   border: Border.all(
                     color: AppColors.border,
                   ),
@@ -146,13 +190,34 @@ class _LiveWalkReviewBottomSheetState
                   painter: _RoutePainter(
                     widget.routePoints,
                   ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.route_rounded,
-                      color: AppColors.primary,
-                      size: 30,
-                    ),
-                  ),
+                  child:
+                      widget.routePoints.length < 2
+                          ? const Center(
+                              child: Column(
+                                mainAxisSize:
+                                    MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.route_rounded,
+                                    color:
+                                        AppColors.primary,
+                                    size: 32,
+                                  ),
+                                  SizedBox(height: 6),
+                                  Text(
+                                    'Walk route',
+                                    style: TextStyle(
+                                      color:
+                                          AppColors.secondary,
+                                      fontSize: 11,
+                                      fontWeight:
+                                          FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : null,
                 ),
               ),
 
@@ -164,19 +229,32 @@ class _LiveWalkReviewBottomSheetState
 
               Row(
                 children: [
+
                   Expanded(
                     child: _stat(
                       '${widget.distanceKm.toStringAsFixed(2)} km',
-                      'Distance',
-                      Icons.directions_walk_rounded,
+                      'DISTANCE',
+                      Icons.route_rounded,
                     ),
                   ),
-                  const SizedBox(width: 10),
+
+                  const SizedBox(width: 8),
+
+                  Expanded(
+                    child: _stat(
+                      widget.duration,
+                      'TIME',
+                      Icons.timer_rounded,
+                    ),
+                  ),
+
+                  const SizedBox(width: 8),
+
                   Expanded(
                     child: _stat(
                       '${widget.steps}',
-                      'Steps',
-                      Icons.directions_run_rounded,
+                      'STEPS',
+                      Icons.directions_walk_rounded,
                     ),
                   ),
                 ],
@@ -194,79 +272,116 @@ class _LiveWalkReviewBottomSheetState
                   'Rate this walk',
                   style: TextStyle(
                     color: AppColors.secondary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 7),
 
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment:
+                    MainAxisAlignment.center,
                 children: List.generate(
                   5,
-                  (index) {
-                    final int star = index + 1;
+                  (int index) {
+                    final int star =
+                        index + 1;
 
                     return IconButton(
-                      onPressed: _submitting
-                          ? null
-                          : () {
-                              setState(() {
-                                _rating = star;
-                              });
-                            },
+                      onPressed:
+                          _submitting
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _rating =
+                                        star;
+                                  });
+                                },
+                      splashRadius: 24,
                       icon: Icon(
                         star <= _rating
                             ? Icons.star_rounded
-                            : Icons.star_border_rounded,
-                        size: 38,
-                        color: star <= _rating
-                            ? AppColors.primary
-                            : AppColors.border,
+                            : Icons
+                                .star_border_rounded,
+                        size: 36,
+                        color:
+                            star <= _rating
+                                ? AppColors.primary
+                                : AppColors.border,
                       ),
                     );
                   },
                 ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
 
               // ==================================================
               // REVIEW
               // ==================================================
 
               TextField(
-                controller: _reviewController,
-                enabled: !_submitting,
+                controller:
+                    _reviewController,
+                enabled:
+                    !_submitting,
                 maxLines: 3,
                 maxLength: 300,
-                textInputAction: TextInputAction.done,
-                decoration: InputDecoration(
-                  hintText: 'Write a review (optional)',
-                  hintStyle: const TextStyle(
+                textInputAction:
+                    TextInputAction.done,
+                decoration:
+                    InputDecoration(
+                  hintText:
+                      'Write a review (optional)',
+                  hintStyle:
+                      const TextStyle(
                     color: Colors.grey,
                     fontSize: 12,
                   ),
                   filled: true,
-                  fillColor: AppColors.background,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide(
-                      color: AppColors.border,
+                  fillColor:
+                      AppColors.background,
+                  counterStyle:
+                      const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 9,
+                  ),
+                  border:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(
+                      15,
+                    ),
+                    borderSide:
+                        BorderSide(
+                      color:
+                          AppColors.border,
                     ),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide(
-                      color: AppColors.border,
+                  enabledBorder:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(
+                      15,
+                    ),
+                    borderSide:
+                        BorderSide(
+                      color:
+                          AppColors.border,
                     ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(
-                      color: AppColors.primary,
+                  focusedBorder:
+                      OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(
+                      15,
+                    ),
+                    borderSide:
+                        const BorderSide(
+                      color:
+                          AppColors.primary,
                       width: 1.5,
                     ),
                   ),
@@ -276,65 +391,90 @@ class _LiveWalkReviewBottomSheetState
               const SizedBox(height: 8),
 
               // ==================================================
-              // SUBMIT
+              // SUBMIT REVIEW
               // ==================================================
 
               SizedBox(
                 width: double.infinity,
                 height: 52,
-                child: ElevatedButton(
+                child:
+                    ElevatedButton(
                   onPressed:
-                      _rating == 0 || _submitting
+                      _rating == 0 ||
+                              _submitting
                           ? null
                           : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
+                  style:
+                      ElevatedButton.styleFrom(
+                    backgroundColor:
+                        AppColors.primary,
+                    foregroundColor:
+                        Colors.white,
                     disabledBackgroundColor:
                         AppColors.border,
+                    disabledForegroundColor:
+                        Colors.white,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
+                    shape:
+                        RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(
+                        15,
+                      ),
                     ),
                   ),
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 23,
-                          height: 23,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(
-                              Colors.white,
+                  child:
+                      _submitting
+                          ? const SizedBox(
+                              width: 23,
+                              height: 23,
+                              child:
+                                  CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor:
+                                    AlwaysStoppedAnimation<
+                                        Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                          : const Text(
+                              'Submit Review',
+                              style:
+                                  TextStyle(
+                                fontWeight:
+                                    FontWeight.w900,
+                              ),
                             ),
-                          ),
-                        )
-                      : const Text(
-                          'Submit Review',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
                 ),
               ),
 
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
 
               // ==================================================
               // SKIP
               // ==================================================
 
               TextButton(
-                onPressed: _submitting
-                    ? null
-                    : () {
-                        Navigator.of(context).pop();
-                      },
-                child: const Text(
+                onPressed:
+                    _submitting
+                        ? null
+                        : () {
+                            Navigator.of(
+                              context,
+                            ).pop();
+
+                            widget
+                                .onBackToHome();
+                          },
+                child:
+                    const Text(
                   'Skip Review',
-                  style: TextStyle(
+                  style:
+                      TextStyle(
                     color: Colors.grey,
-                    fontWeight: FontWeight.w700,
+                    fontWeight:
+                        FontWeight.w700,
                   ),
                 ),
               ),
@@ -345,55 +485,73 @@ class _LiveWalkReviewBottomSheetState
     );
   }
 
+  // ============================================================
+  // STAT
+  // ============================================================
+
   Widget _stat(
     String value,
     String title,
     IconData icon,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: 12,
-        horizontal: 10,
+      padding:
+          const EdgeInsets.symmetric(
+        vertical: 11,
+        horizontal: 5,
       ),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: AppColors.border,
+      decoration:
+          BoxDecoration(
+        color:
+            AppColors.background,
+        borderRadius:
+            BorderRadius.circular(14),
+        border:
+            Border.all(
+          color:
+              AppColors.border,
         ),
       ),
-      child: Row(
+      child: Column(
         children: [
+
           Icon(
             icon,
-            color: AppColors.primary,
-            size: 25,
+            color:
+                AppColors.primary,
+            size: 22,
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.secondary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+
+          const SizedBox(height: 5),
+
+          Text(
+            value,
+            maxLines: 1,
+            overflow:
+                TextOverflow.ellipsis,
+            textAlign:
+                TextAlign.center,
+            style:
+                const TextStyle(
+              color:
+                  AppColors.secondary,
+              fontSize: 13,
+              fontWeight:
+                  FontWeight.w900,
+            ),
+          ),
+
+          const SizedBox(height: 2),
+
+          Text(
+            title,
+            style:
+                const TextStyle(
+              color: Colors.grey,
+              fontSize: 7.5,
+              fontWeight:
+                  FontWeight.w800,
+              letterSpacing: .3,
             ),
           ),
         ],
@@ -406,8 +564,11 @@ class _LiveWalkReviewBottomSheetState
 // ROUTE PAINTER
 // ============================================================
 
-class _RoutePainter extends CustomPainter {
-  const _RoutePainter(this.points);
+class _RoutePainter
+    extends CustomPainter {
+  const _RoutePainter(
+    this.points,
+  );
 
   final List<Offset> points;
 
@@ -420,24 +581,100 @@ class _RoutePainter extends CustomPainter {
       return;
     }
 
-    final Paint linePaint = Paint()
-      ..color = AppColors.primary
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
+    double minX =
+        points.first.dx;
+    double maxX =
+        points.first.dx;
+    double minY =
+        points.first.dy;
+    double maxY =
+        points.first.dy;
 
-    final Path path = Path();
+    for (final Offset point
+        in points) {
+      if (point.dx < minX) {
+        minX = point.dx;
+      }
+
+      if (point.dx > maxX) {
+        maxX = point.dx;
+      }
+
+      if (point.dy < minY) {
+        minY = point.dy;
+      }
+
+      if (point.dy > maxY) {
+        maxY = point.dy;
+      }
+    }
+
+    final double width =
+        (maxX - minX) == 0
+            ? 1
+            : maxX - minX;
+
+    final double height =
+        (maxY - minY) == 0
+            ? 1
+            : maxY - minY;
+
+    final double scaleX =
+        (size.width - 40) / width;
+
+    final double scaleY =
+        (size.height - 40) / height;
+
+    final double scale =
+        scaleX < scaleY
+            ? scaleX
+            : scaleY;
+
+    Offset convert(
+      Offset point,
+    ) {
+      return Offset(
+        20 +
+            (point.dx - minX) *
+                scale,
+        20 +
+            (maxY - point.dy) *
+                scale,
+      );
+    }
+
+    final Paint linePaint =
+        Paint()
+          ..color =
+              AppColors.primary
+          ..strokeWidth = 5
+          ..strokeCap =
+              StrokeCap.round
+          ..strokeJoin =
+              StrokeJoin.round
+          ..style =
+              PaintingStyle.stroke;
+
+    final Path path =
+        Path();
+
+    final Offset first =
+        convert(points.first);
 
     path.moveTo(
-      points.first.dx,
-      points.first.dy,
+      first.dx,
+      first.dy,
     );
 
-    for (int i = 1; i < points.length; i++) {
+    for (int i = 1;
+        i < points.length;
+        i++) {
+      final Offset point =
+          convert(points[i]);
+
       path.lineTo(
-        points[i].dx,
-        points[i].dy,
+        point.dx,
+        point.dy,
       );
     }
 
@@ -446,20 +683,30 @@ class _RoutePainter extends CustomPainter {
       linePaint,
     );
 
-    final Paint startPaint = Paint()
-      ..color = AppColors.success;
+    final Paint startPaint =
+        Paint()
+          ..color =
+              AppColors.success;
 
-    final Paint endPaint = Paint()
-      ..color = AppColors.error;
+    final Paint endPaint =
+        Paint()
+          ..color =
+              AppColors.error;
+
+    final Offset start =
+        convert(points.first);
+
+    final Offset end =
+        convert(points.last);
 
     canvas.drawCircle(
-      points.first,
+      start,
       7,
       startPaint,
     );
 
     canvas.drawCircle(
-      points.last,
+      end,
       7,
       endPaint,
     );
@@ -469,6 +716,7 @@ class _RoutePainter extends CustomPainter {
   bool shouldRepaint(
     covariant _RoutePainter oldDelegate,
   ) {
-    return oldDelegate.points != points;
+    return oldDelegate.points !=
+        points;
   }
 }
