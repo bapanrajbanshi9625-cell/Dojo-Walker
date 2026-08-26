@@ -8,6 +8,7 @@ import '../controllers/live_walk_controller.dart';
 import '../widgets/live_walk_bottom_sheet.dart';
 import '../widgets/live_walk_complete_slider.dart';
 import '../widgets/live_walk_map_layer.dart';
+import '../widgets/live_walk_review_bottom_sheet.dart';
 import '../widgets/live_walk_sos_sheet.dart';
 import '../widgets/live_walk_start_panel.dart';
 
@@ -41,6 +42,7 @@ class _LiveWalkScreenState
   late final LiveWalkController _controller;
 
   bool _showingEndDialog = false;
+  bool _showingReview = false;
 
   @override
   void initState() {
@@ -107,36 +109,24 @@ class _LiveWalkScreenState
           });
         }
 
-        final String status =
-            data['status']
-                    ?.toString()
-                    .trim()
-                    .toLowerCase() ??
-                '';
-
-        // ======================================================
-        // WALK COMPLETED
-        // ======================================================
-
-        if (status == 'completed' ||
-            status == 'ended') {
-          return _completedScreen(data);
-        }
-
         final bool showStartPanel =
             !_controller.walkStarted &&
             !_controller.ending;
 
-        final bool showBottomSheet =
-            _controller.walkStarted;
+        final bool showLiveBottom =
+            _controller.walkStarted &&
+            !_controller.ending;
 
         return Scaffold(
           backgroundColor:
               AppColors.cardBackground,
 
+          // ======================================================
+          // TOP BAR
+          // ======================================================
+
           appBar: AppBar(
-            automaticallyImplyLeading:
-                false,
+            automaticallyImplyLeading: false,
             backgroundColor:
                 AppColors.primary,
             surfaceTintColor:
@@ -180,11 +170,12 @@ class _LiveWalkScreenState
             ],
           ),
 
+          // ======================================================
+          // LIVE MAP
+          // ======================================================
+
           body: Stack(
             children: [
-              // ==================================================
-              // LIVE MAP
-              // ==================================================
 
               Positioned.fill(
                 child: LiveWalkMapLayer(
@@ -194,9 +185,9 @@ class _LiveWalkScreenState
                 ),
               ),
 
-              // ==================================================
-              // START
-              // ==================================================
+              // ====================================================
+              // START PANEL
+              // ====================================================
 
               if (showStartPanel)
                 LiveWalkStartPanel(
@@ -209,11 +200,20 @@ class _LiveWalkScreenState
                       _startWalk,
                 ),
 
-              // ==================================================
-              // LIVE WALK BOTTOM
-              // ==================================================
+              // ====================================================
+              // LIVE BOTTOM PANEL
+              //
+              // Dog
+              // Distance
+              // Time
+              // Steps
+              // Complete Walk
+              //
+              // No heart.
+              // No End Walk.
+              // ====================================================
 
-              if (showBottomSheet)
+              if (showLiveBottom)
                 Align(
                   alignment:
                       Alignment.bottomCenter,
@@ -232,7 +232,7 @@ class _LiveWalkScreenState
                     ending:
                         _controller.ending,
                     onEndWalk:
-                        _confirmEndWalk,
+                        _confirmCompleteWalk,
                   ),
                 ),
             ],
@@ -260,21 +260,25 @@ class _LiveWalkScreenState
         return;
       }
 
-      _showMessage('Walk started.');
+      _showMessage(
+        'Walk started.',
+      );
     } catch (e) {
       if (!mounted) {
         return;
       }
 
-      _showError(_cleanError(e));
+      _showError(
+        _cleanError(e),
+      );
     }
   }
 
   // ============================================================
-  // END CONFIRMATION
+  // COMPLETE CONFIRMATION
   // ============================================================
 
-  void _confirmEndWalk() {
+  void _confirmCompleteWalk() {
     if (_controller.ending ||
         _showingEndDialog) {
       return;
@@ -420,8 +424,10 @@ class _LiveWalkScreenState
                 const SizedBox(height: 16),
 
                 const Icon(
-                  Icons.check_circle_outline_rounded,
-                  color: AppColors.primary,
+                  Icons
+                      .check_circle_outline_rounded,
+                  color:
+                      AppColors.primary,
                   size: 42,
                 ),
 
@@ -463,7 +469,7 @@ class _LiveWalkScreenState
                     ).pop();
 
                     unawaited(
-                      _endWalk(),
+                      _completeWalk(),
                     );
                   },
                 ),
@@ -476,10 +482,10 @@ class _LiveWalkScreenState
   }
 
   // ============================================================
-  // END WALK
+  // COMPLETE WALK
   // ============================================================
 
-  Future<void> _endWalk() async {
+  Future<void> _completeWalk() async {
     if (_controller.ending ||
         !_controller.walkStarted) {
       return;
@@ -495,6 +501,21 @@ class _LiveWalkScreenState
       _showMessage(
         'Walk completed.',
       );
+
+      // Give Firestore/controller a moment
+      // to finish the final state update.
+      await Future<void>.delayed(
+        const Duration(
+          milliseconds: 250,
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      await _openReviewBottomSheet();
+
     } catch (e) {
       if (!mounted) {
         return;
@@ -507,12 +528,20 @@ class _LiveWalkScreenState
   }
 
   // ============================================================
-  // COMPLETED SCREEN
+  // REVIEW BOTTOM SHEET
   // ============================================================
 
-  Widget _completedScreen(
-    Map<String, dynamic> data,
-  ) {
+  Future<void> _openReviewBottomSheet() async {
+    if (!mounted ||
+        _showingReview) {
+      return;
+    }
+
+    _showingReview = true;
+
+    final Map<String, dynamic> data =
+        _controller.currentSessionData;
+
     final double distance =
         _readDouble(
               data['distanceKm'],
@@ -528,290 +557,45 @@ class _LiveWalkScreenState
     final String duration =
         _readDuration(data);
 
-    return Scaffold(
+    final List<Offset> routePoints =
+        _extractRoutePoints(data);
+
+    await showModalBottomSheet<void>(
+      context: context,
       backgroundColor:
-          AppColors.background,
-
-      appBar: AppBar(
-        automaticallyImplyLeading:
-            false,
-        backgroundColor:
-            AppColors.primary,
-        surfaceTintColor:
-            AppColors.primary,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'WALK COMPLETED',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight:
-                FontWeight.w900,
-          ),
-        ),
-      ),
-
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding:
-              const EdgeInsets.fromLTRB(
-            16,
-            18,
-            16,
-            24,
-          ),
-          child: Column(
-            children: [
-              // ==================================================
-              // SUCCESS HEADER
-              // ==================================================
-
-              Container(
-                width: 82,
-                height: 82,
-                decoration:
-                    BoxDecoration(
-                  color:
-                      AppColors.success
-                          .withValues(
-                    alpha: .12,
-                  ),
-                  shape:
-                      BoxShape.circle,
-                ),
-                child:
-                    const Icon(
-                  Icons
-                      .thumb_up_alt_rounded,
-                  color:
-                      AppColors.success,
-                  size: 46,
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              const Text(
-                'Walk Completed!',
-                textAlign:
-                    TextAlign.center,
-                style: TextStyle(
-                  color:
-                      AppColors.secondary,
-                  fontSize: 25,
-                  fontWeight:
-                      FontWeight.w900,
-                ),
-              ),
-
-              const SizedBox(height: 4),
-
-              const Text(
-                'Great job! Your walk has been completed.',
-                textAlign:
-                    TextAlign.center,
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
-                  fontWeight:
-                      FontWeight.w600,
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // ==================================================
-              // POLYLINE ROUTE
-              // ==================================================
-
-              Container(
-                width: double.infinity,
-                height: 220,
-                decoration:
-                    BoxDecoration(
-                  color:
-                      Colors.white,
-                  borderRadius:
-                      BorderRadius.circular(20),
-                  border:
-                      Border.all(
-                    color:
-                        AppColors.border,
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius:
-                      BorderRadius.circular(20),
-                  child:
-                      _WalkRoutePreview(
-                    routePoints:
-                        _extractRoutePoints(
-                      data,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              // ==================================================
-              // STATS
-              // ==================================================
-
-              Row(
-                children: [
-                  Expanded(
-                    child:
-                        _completedStat(
-                      Icons.route_rounded,
-                      distance
-                          .toStringAsFixed(2),
-                      'KM',
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child:
-                        _completedStat(
-                      Icons.timer_rounded,
-                      duration,
-                      'DURATION',
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child:
-                        _completedStat(
-                      Icons.directions_walk_rounded,
-                      '$steps',
-                      'STEPS',
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 22),
-
-              // ==================================================
-              // REVIEW
-              // ==================================================
-
-              _ReviewCard(),
-
-              const SizedBox(height: 20),
-
-              // ==================================================
-              // HOME
-              // ==================================================
-
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child:
-                    ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(
-                      context,
-                    ).pop(true);
-                  },
-                  icon: const Icon(
-                    Icons.home_rounded,
-                  ),
-                  label: const Text(
-                    'Back to Walker Home',
-                  ),
-                  style:
-                      ElevatedButton.styleFrom(
-                    backgroundColor:
-                        AppColors.primary,
-                    foregroundColor:
-                        Colors.white,
-                    elevation: 0,
-                    shape:
-                        RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(
-                        15,
-                      ),
-                    ),
-                    textStyle:
-                        const TextStyle(
-                      fontWeight:
-                          FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+          Colors.transparent,
+      isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
+      builder: (_) {
+        return LiveWalkReviewBottomSheet(
+          routePoints: routePoints,
+          distanceKm: distance,
+          duration: duration,
+          steps: steps,
+          walkId: widget.walkId,
+          ownerUid: widget.ownerUid,
+          dogName: widget.dogName,
+          onBackToHome: () {
+            Navigator.of(
+              context,
+            ).pop();
+          },
+        );
+      },
     );
-  }
 
-  // ============================================================
-  // STAT
-  // ============================================================
+    _showingReview = false;
 
-  Widget _completedStat(
-    IconData icon,
-    String value,
-    String title,
-  ) {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        vertical: 14,
-        horizontal: 6,
-      ),
-      decoration:
-          BoxDecoration(
-        color:
-            AppColors.cardBackground,
-        borderRadius:
-            BorderRadius.circular(16),
-        border:
-            Border.all(
-          color:
-              AppColors.border,
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            color:
-                AppColors.primary,
-            size: 22,
-          ),
-          const SizedBox(height: 7),
-          Text(
-            value,
-            textAlign:
-                TextAlign.center,
-            style:
-                const TextStyle(
-              color:
-                  AppColors.secondary,
-              fontSize: 15,
-              fontWeight:
-                  FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            title,
-            style:
-                const TextStyle(
-              color: Colors.grey,
-              fontSize: 8,
-              fontWeight:
-                  FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
+    if (!mounted) {
+      return;
+    }
+
+    // Review can be skipped.
+    // After closing it, leave Live Walk screen.
+    Navigator.of(
+      context,
+    ).pop(true);
   }
 
   // ============================================================
@@ -1058,52 +842,8 @@ class _LiveWalkScreenState
   }
 
   // ============================================================
-  // ERROR
+  // HELPERS
   // ============================================================
-
-  void _showError(
-    String message,
-  ) {
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content:
-              Text(message),
-          backgroundColor:
-              AppColors.error,
-          behavior:
-              SnackBarBehavior.floating,
-        ),
-      );
-  }
-
-  void _showMessage(
-    String message,
-  ) {
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content:
-              Text(message),
-          behavior:
-              SnackBarBehavior.floating,
-          duration:
-              const Duration(
-            seconds: 2,
-          ),
-        ),
-      );
-  }
 
   double? _readDouble(
     dynamic value,
@@ -1153,6 +893,50 @@ class _LiveWalkScreenState
         .trim();
   }
 
+  void _showError(
+    String message,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content:
+              Text(message),
+          backgroundColor:
+              AppColors.error,
+          behavior:
+              SnackBarBehavior.floating,
+        ),
+      );
+  }
+
+  void _showMessage(
+    String message,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content:
+              Text(message),
+          behavior:
+              SnackBarBehavior.floating,
+          duration:
+              const Duration(
+            seconds: 2,
+          ),
+        ),
+      );
+  }
+
   @override
   void dispose() {
     _controller.removeListener(
@@ -1162,311 +946,5 @@ class _LiveWalkScreenState
     _controller.dispose();
 
     super.dispose();
-  }
-}
-
-// ============================================================
-// REVIEW CARD
-// ============================================================
-
-class _ReviewCard extends StatefulWidget {
-  @override
-  State<_ReviewCard> createState() =>
-      _ReviewCardState();
-}
-
-class _ReviewCardState
-    extends State<_ReviewCard> {
-  int _rating = 0;
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Container(
-      width: double.infinity,
-      padding:
-          const EdgeInsets.fromLTRB(
-        16,
-        16,
-        16,
-        14,
-      ),
-      decoration:
-          BoxDecoration(
-        color:
-            AppColors.cardBackground,
-        borderRadius:
-            BorderRadius.circular(18),
-        border:
-            Border.all(
-          color:
-              AppColors.border,
-        ),
-      ),
-      child: Column(
-        children: [
-          const Text(
-            'Rate this walk',
-            style: TextStyle(
-              color:
-                  AppColors.secondary,
-              fontSize: 16,
-              fontWeight:
-                  FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'How was your walk experience?',
-            style: TextStyle(
-              color: Colors.grey,
-              fontSize: 11,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment:
-                MainAxisAlignment.center,
-            children: List.generate(
-              5,
-              (int index) {
-                final int star =
-                    index + 1;
-
-                return IconButton(
-                  onPressed: () {
-                    setState(() {
-                      _rating = star;
-                    });
-                  },
-                  splashRadius: 22,
-                  icon: Icon(
-                    star <= _rating
-                        ? Icons.star_rounded
-                        : Icons
-                            .star_border_rounded,
-                    color:
-                        star <= _rating
-                            ? AppColors.primary
-                            : Colors.grey,
-                    size: 32,
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// SIMPLE POLYLINE PREVIEW
-// ============================================================
-
-class _WalkRoutePreview
-    extends StatelessWidget {
-  const _WalkRoutePreview({
-    required this.routePoints,
-  });
-
-  final List<Offset> routePoints;
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return CustomPaint(
-      painter:
-          _WalkRoutePainter(
-        routePoints,
-      ),
-      child: Center(
-        child:
-            routePoints.isEmpty
-                ? Column(
-                    mainAxisSize:
-                        MainAxisSize.min,
-                    children: const [
-                      Icon(
-                        Icons.route_rounded,
-                        color:
-                            AppColors.primary,
-                        size: 38,
-                      ),
-                      SizedBox(
-                        height: 8,
-                      ),
-                      Text(
-                        'Walk route',
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors.secondary,
-                          fontWeight:
-                              FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  )
-                : null,
-      ),
-    );
-  }
-}
-
-class _WalkRoutePainter
-    extends CustomPainter {
-  const _WalkRoutePainter(
-    this.points,
-  );
-
-  final List<Offset> points;
-
-  @override
-  void paint(
-    Canvas canvas,
-    Size size,
-  ) {
-    if (points.length < 2) {
-      return;
-    }
-
-    double minX =
-        points.first.dx;
-    double maxX =
-        points.first.dx;
-    double minY =
-        points.first.dy;
-    double maxY =
-        points.first.dy;
-
-    for (final Offset point
-        in points) {
-      if (point.dx < minX) {
-        minX = point.dx;
-      }
-
-      if (point.dx > maxX) {
-        maxX = point.dx;
-      }
-
-      if (point.dy < minY) {
-        minY = point.dy;
-      }
-
-      if (point.dy > maxY) {
-        maxY = point.dy;
-      }
-    }
-
-    final double width =
-        maxX - minX == 0
-            ? 1
-            : maxX - minX;
-
-    final double height =
-        maxY - minY == 0
-            ? 1
-            : maxY - minY;
-
-    final double scaleX =
-        (size.width - 40) / width;
-
-    final double scaleY =
-        (size.height - 40) / height;
-
-    final double scale =
-        scaleX < scaleY
-            ? scaleX
-            : scaleY;
-
-    Offset convert(
-      Offset point,
-    ) {
-      return Offset(
-        20 +
-            (point.dx - minX) *
-                scale,
-        20 +
-            (maxY - point.dy) *
-                scale,
-      );
-    }
-
-    final Paint routePaint =
-        Paint()
-          ..color =
-              AppColors.primary
-          ..style =
-              PaintingStyle.stroke
-          ..strokeWidth = 5
-          ..strokeCap =
-              StrokeCap.round
-          ..strokeJoin =
-              StrokeJoin.round;
-
-    final Path path =
-        Path();
-
-    path.moveTo(
-      convert(points.first).dx,
-      convert(points.first).dy,
-    );
-
-    for (int i = 1;
-        i < points.length;
-        i++) {
-      final Offset point =
-          convert(points[i]);
-
-      path.lineTo(
-        point.dx,
-        point.dy,
-      );
-    }
-
-    canvas.drawPath(
-      path,
-      routePaint,
-    );
-
-    final Paint startPaint =
-        Paint()
-          ..color =
-              AppColors.success;
-
-    final Paint endPaint =
-        Paint()
-          ..color =
-              AppColors.error;
-
-    final Offset start =
-        convert(points.first);
-
-    final Offset end =
-        convert(points.last);
-
-    canvas.drawCircle(
-      start,
-      7,
-      startPaint,
-    );
-
-    canvas.drawCircle(
-      end,
-      7,
-      endPaint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(
-    covariant _WalkRoutePainter oldDelegate,
-  ) {
-    return oldDelegate.points !=
-        points;
   }
 }
