@@ -4,7 +4,7 @@ import '../core/constants/app_colors.dart';
 import '../core/services/app_state_service.dart';
 import '../features/insta_walk/models/insta_walk_request.dart';
 import '../features/insta_walk/screens/active_walk_details_screen.dart';
-import '../features/walks/screens/live_walk_screen.dart';
+import '../features/live_walk/screens/live_walk_screen.dart';
 import '../widgets/active_walk_strip.dart';
 import 'walker_home_screen.dart';
 import 'walks_screen.dart';
