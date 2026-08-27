@@ -1,6 +1,3 @@
-// File:
-// lib/features/insta_walk/services/insta_walk_request_service.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -9,17 +6,12 @@ import '../models/insta_walk_request.dart';
 /// ============================================================
 /// INSTA WALK REQUEST SERVICE
 ///
-/// Main collection:
-///     walk_request
-///
 /// RESPONSIBILITIES:
 ///
 /// - Find searching Insta Walk requests
 /// - Hide requests rejected by current Walker
 /// - Return available requests
-/// - Watch searching requests
 /// - Get single walk request
-/// - Watch single walk request
 /// - Watch accepted walks
 ///
 /// NOT RESPONSIBLE FOR:
@@ -29,6 +21,7 @@ import '../models/insta_walk_request.dart';
 /// - Cancel
 /// - Start
 /// - Complete
+/// - Active walk document watching
 ///
 /// ACCEPT:
 ///     InstaWalkAcceptService
@@ -61,6 +54,11 @@ class InstaWalkRequestService {
     return _firestore.collection('walk_request');
   }
 
+  CollectionReference<Map<String, dynamic>>
+      get _walkers {
+    return _firestore.collection('walkers');
+  }
+
   // ============================================================
   // CURRENT USER
   // ============================================================
@@ -70,7 +68,8 @@ class InstaWalkRequestService {
   }
 
   String? get currentWalkerUid {
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     final String uid =
         user?.uid.trim() ?? '';
@@ -84,8 +83,6 @@ class InstaWalkRequestService {
 
   // ============================================================
   // CURRENT WALKER DOCUMENT
-  //
-  // walkers/{FirebaseAuthUID}
   // ============================================================
 
   Future<DocumentSnapshot<Map<String, dynamic>>?>
@@ -100,8 +97,7 @@ class InstaWalkRequestService {
     final DocumentSnapshot<
             Map<String, dynamic>>
         snapshot =
-        await _firestore
-            .collection('walkers')
+        await _walkers
             .doc(uid)
             .get();
 
@@ -180,7 +176,7 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
-  // SEARCHING REQUESTS
+  // PENDING / SEARCHING REQUESTS
   //
   // Only:
   //
@@ -256,9 +252,42 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
+  // GET SINGLE WALK REQUEST
+  //
+  // Used after accepting a request.
+  // ============================================================
+
+  Future<InstaWalkRequest?>
+      getWalkRequest(
+    String walkId,
+  ) async {
+    final String id =
+        walkId.trim();
+
+    if (id.isEmpty) {
+      return null;
+    }
+
+    final DocumentSnapshot<
+            Map<String, dynamic>>
+        snapshot =
+        await _walkRequests
+            .doc(id)
+            .get();
+
+    if (!snapshot.exists) {
+      return null;
+    }
+
+    return InstaWalkRequest.fromFirestore(
+      snapshot,
+    );
+  }
+
+  // ============================================================
   // ACCEPTED WALKS
   //
-  // Current Walker's:
+  // Current Walker:
   //
   // walkerUid == FirebaseAuth UID
   //
@@ -315,96 +344,6 @@ class InstaWalkRequestService {
                   },
                 )
                 .toList();
-          },
-        );
-  }
-
-  // ============================================================
-  // GET SINGLE WALK REQUEST
-  // ============================================================
-
-  Future<InstaWalkRequest?>
-      getWalkRequest(
-    String walkId,
-  ) async {
-    final String id =
-        walkId.trim();
-
-    if (id.isEmpty) {
-      return null;
-    }
-
-    final DocumentSnapshot<
-            Map<String, dynamic>>
-        snapshot =
-        await _walkRequests
-            .doc(id)
-            .get();
-
-    if (!snapshot.exists) {
-      return null;
-    }
-
-    return InstaWalkRequest.fromFirestore(
-      snapshot,
-    );
-  }
-
-  // ============================================================
-  // WATCH SINGLE WALK DOCUMENT
-  // ============================================================
-
-  Stream<DocumentSnapshot<
-          Map<String, dynamic>>>
-      watchWalk(
-    String walkId,
-  ) {
-    final String id =
-        walkId.trim();
-
-    if (id.isEmpty) {
-      return const Stream<
-          DocumentSnapshot<
-              Map<String, dynamic>>>.empty();
-    }
-
-    return _walkRequests
-        .doc(id)
-        .snapshots();
-  }
-
-  // ============================================================
-  // WATCH SINGLE WALK AS MODEL
-  // ============================================================
-
-  Stream<InstaWalkRequest?>
-      watchWalkRequest(
-    String walkId,
-  ) {
-    final String id =
-        walkId.trim();
-
-    if (id.isEmpty) {
-      return Stream.value(null);
-    }
-
-    return _walkRequests
-        .doc(id)
-        .snapshots()
-        .map(
-          (
-            DocumentSnapshot<
-                    Map<String, dynamic>>
-                snapshot,
-          ) {
-            if (!snapshot.exists) {
-              return null;
-            }
-
-            return InstaWalkRequest
-                .fromFirestore(
-              snapshot,
-            );
           },
         );
   }
