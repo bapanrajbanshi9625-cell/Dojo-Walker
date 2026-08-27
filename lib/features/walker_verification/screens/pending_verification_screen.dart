@@ -1,6 +1,3 @@
-// File:
-// lib/features/walker_verification/screens/pending_verification_screen.dart
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -110,14 +107,7 @@ class _PendingVerificationScreenState
       return;
     }
 
-    final String uid = user.uid.trim();
-
-    if (uid.isEmpty) {
-      debugPrint(
-        'PendingVerification: Firebase UID is empty.',
-      );
-      return;
-    }
+    final String uid = user.uid;
 
     debugPrint(
       'PendingVerification: listening walkers/$uid',
@@ -179,17 +169,14 @@ class _PendingVerificationScreenState
       'PendingVerification status=$status active=$active',
     );
 
-    if (verificationStatus != status ||
-        walkerIdActive != active) {
-      setState(() {
-        verificationStatus = status;
-        walkerIdActive = active;
-      });
-    }
+    setState(() {
+      verificationStatus = status;
+      walkerIdActive = active;
+    });
 
-    // ==========================================================
+    // ----------------------------------------------------------
     // APPROVED
-    // ==========================================================
+    // ----------------------------------------------------------
 
     if (_isApprovedState(
       data,
@@ -200,9 +187,9 @@ class _PendingVerificationScreenState
       return;
     }
 
-    // ==========================================================
+    // ----------------------------------------------------------
     // REJECTED
-    // ==========================================================
+    // ----------------------------------------------------------
 
     if (status == 'rejected') {
       _handleRejected();
@@ -210,7 +197,7 @@ class _PendingVerificationScreenState
   }
 
   // ============================================================
-  // READ VERIFICATION STATUS
+  // READ STATUS
   // ============================================================
 
   String _readVerificationStatus(
@@ -261,35 +248,11 @@ class _PendingVerificationScreenState
       return normalized;
     }
 
-    // ==========================================================
-    // BOOLEAN FALLBACK
-    // ==========================================================
-
-    if (_readBool(
-      data,
-      'approved',
-    )) {
+    if (_readBool(data, 'approved')) {
       return 'approved';
     }
 
-    if (_readBool(
-      data,
-      'isApproved',
-    )) {
-      return 'approved';
-    }
-
-    if (_readBool(
-      data,
-      'rejected',
-    )) {
-      return 'rejected';
-    }
-
-    if (_readBool(
-      data,
-      'isRejected',
-    )) {
+    if (_readBool(data, 'rejected')) {
       return 'rejected';
     }
 
@@ -297,7 +260,7 @@ class _PendingVerificationScreenState
   }
 
   // ============================================================
-  // READ WALKER ACTIVE
+  // READ ACTIVE
   // ============================================================
 
   bool _readWalkerActive(
@@ -320,17 +283,7 @@ class _PendingVerificationScreenState
       }
     }
 
-    if (_readBool(
-      data,
-      'approved',
-    )) {
-      return true;
-    }
-
-    if (_readBool(
-      data,
-      'isApproved',
-    )) {
+    if (_readBool(data, 'approved')) {
       return true;
     }
 
@@ -370,7 +323,7 @@ class _PendingVerificationScreenState
   }
 
   // ============================================================
-  // APPROVAL STATE
+  // APPROVAL CHECK
   // ============================================================
 
   bool _isApprovedState(
@@ -382,17 +335,7 @@ class _PendingVerificationScreenState
       return true;
     }
 
-    if (_readBool(
-      data,
-      'approved',
-    )) {
-      return true;
-    }
-
-    if (_readBool(
-      data,
-      'isApproved',
-    )) {
+    if (_readBool(data, 'approved')) {
       return true;
     }
 
@@ -407,7 +350,7 @@ class _PendingVerificationScreenState
   }
 
   // ============================================================
-  // OPEN MAIN NAVIGATION
+  // OPEN MAIN
   // ============================================================
 
   void _openMainNavigation() {
@@ -458,9 +401,7 @@ class _PendingVerificationScreenState
     _animationController.stop();
 
     Future<void>.delayed(
-      const Duration(
-        seconds: 3,
-      ),
+      const Duration(seconds: 3),
       () async {
         if (!mounted) {
           return;
@@ -490,7 +431,7 @@ class _PendingVerificationScreenState
   }
 
   // ============================================================
-  // STATE HELPERS
+  // STATE
   // ============================================================
 
   bool get isApproved =>
@@ -511,64 +452,50 @@ class _PendingVerificationScreenState
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor:
-            AppColors.background,
-
+        backgroundColor: AppColors.background,
         appBar: _buildAppBar(),
-
-        // ======================================================
-        // IMPORTANT:
-        // NO LayoutBuilder
-        // NO ConstrainedBox
-        //
-        // Entire verification page is one scrollable column.
-        // ======================================================
-
         body: SafeArea(
-          child: SingleChildScrollView(
-            physics:
-                const BouncingScrollPhysics(),
-
-            keyboardDismissBehavior:
-                ScrollViewKeyboardDismissBehavior
-                    .onDrag,
-
-            padding:
-                const EdgeInsets.fromLTRB(
-              16,
-              16,
-              16,
-              40,
-            ),
-
-            child: PendingVerificationContent(
-              isApproved:
-                  isApproved,
-
-              isRejected:
-                  isRejected,
-
-              isPending:
-                  isPending,
-
-              verificationStatus:
-                  verificationStatus,
-
-              walkerIdActive:
-                  walkerIdActive,
-
-              animationController:
-                  _animationController,
-
-              pulseAnimation:
-                  _pulseAnimation,
-
-              scaleAnimation:
-                  _scaleAnimation,
-
-              onSupport:
-                  _showSupport,
-            ),
+          child: LayoutBuilder(
+            builder: (
+              BuildContext context,
+              BoxConstraints constraints,
+            ) {
+              return SingleChildScrollView(
+                physics:
+                    const BouncingScrollPhysics(),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior
+                        .onDrag,
+                padding: const EdgeInsets.fromLTRB(
+                  16,
+                  16,
+                  16,
+                  40,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight:
+                        constraints.maxHeight - 32,
+                  ),
+                  child: PendingVerificationContent(
+                    isApproved: isApproved,
+                    isRejected: isRejected,
+                    isPending: isPending,
+                    verificationStatus:
+                        verificationStatus,
+                    walkerIdActive:
+                        walkerIdActive,
+                    animationController:
+                        _animationController,
+                    pulseAnimation:
+                        _pulseAnimation,
+                    scaleAnimation:
+                        _scaleAnimation,
+                    onSupport: _showSupport,
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -582,91 +509,49 @@ class _PendingVerificationScreenState
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       automaticallyImplyLeading: false,
-
-      backgroundColor:
-          Colors.white,
-
-      surfaceTintColor:
-          Colors.white,
-
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
       elevation: 0,
-
       titleSpacing: 16,
-
       toolbarHeight: 68,
-
       title: Row(
         children: [
-          // ====================================================
-          // LOGO
-          // ====================================================
-
           Container(
             width: 42,
             height: 42,
-            decoration:
-                BoxDecoration(
-              color:
-                  AppColors.orange,
+            decoration: BoxDecoration(
+              color: AppColors.orange,
               borderRadius:
-                  BorderRadius.circular(
-                13,
-              ),
+                  BorderRadius.circular(13),
             ),
             child: const Icon(
               Icons.pets_rounded,
-              color:
-                  Colors.white,
+              color: Colors.white,
               size: 24,
             ),
           ),
-
-          const SizedBox(
-            width: 10,
-          ),
-
-          // ====================================================
-          // TITLE
-          // ====================================================
-
-          const Expanded(
-            child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'DOJO Platform',
-                  overflow:
-                      TextOverflow.ellipsis,
-                  style:
-                      TextStyle(
-                    fontSize: 18,
-                    fontWeight:
-                        FontWeight.w900,
-                    color:
-                        AppColors.textDark,
-                  ),
+          const SizedBox(width: 10),
+          const Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              Text(
+                'DOJO Platform',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textDark,
                 ),
-
-                SizedBox(
-                  height: 1,
+              ),
+              SizedBox(height: 1),
+              Text(
+                'DOJO Walker',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: AppColors.muted,
                 ),
-
-                Text(
-                  'DOJO Walker',
-                  overflow:
-                      TextOverflow.ellipsis,
-                  style:
-                      TextStyle(
-                    fontSize: 10.5,
-                    color:
-                        AppColors.muted,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -678,9 +563,7 @@ class _PendingVerificationScreenState
   // ============================================================
 
   void _showSupport() {
-    showPendingVerificationSupport(
-      context,
-    );
+    showPendingVerificationSupport(context);
   }
 
   // ============================================================
@@ -690,7 +573,6 @@ class _PendingVerificationScreenState
   @override
   void dispose() {
     _verificationSubscription?.cancel();
-
     _verificationSubscription = null;
 
     _animationController.dispose();
