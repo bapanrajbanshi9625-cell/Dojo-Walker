@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import 'pending_verification_screen.dart';
-import 'aadhaar_section2.dart';
 
 class MandatoryProfileSetupScreen2 extends StatefulWidget {
   const MandatoryProfileSetupScreen2({
@@ -44,6 +43,15 @@ class _MandatoryProfileSetupScreen2State
   final TextEditingController aadhaarController =
       TextEditingController();
 
+  final TextEditingController aadhaarFrontUrlController =
+      TextEditingController();
+
+  final TextEditingController aadhaarBackUrlController =
+      TextEditingController();
+
+  final TextEditingController panCardUrlController =
+      TextEditingController();
+
   final TextEditingController villageController =
       TextEditingController();
 
@@ -66,14 +74,6 @@ class _MandatoryProfileSetupScreen2State
       TextEditingController();
 
   // ============================================================
-  // DOCUMENT URLS
-  // ============================================================
-
-  String? aadhaarFrontUrl;
-  String? aadhaarBackUrl;
-  String? panCardUrl;
-
-  // ============================================================
   // STATE
   // ============================================================
 
@@ -92,6 +92,9 @@ class _MandatoryProfileSetupScreen2State
   @override
   void dispose() {
     aadhaarController.dispose();
+    aadhaarFrontUrlController.dispose();
+    aadhaarBackUrlController.dispose();
+    panCardUrlController.dispose();
     villageController.dispose();
     cityController.dispose();
     districtController.dispose();
@@ -138,9 +141,11 @@ class _MandatoryProfileSetupScreen2State
       districtController.text.trim(),
       stateController.text.trim(),
       pinController.text.trim(),
-    ].where(
-      (String value) => value.isNotEmpty,
-    ).toList();
+    ]
+        .where(
+          (String value) => value.isNotEmpty,
+        )
+        .toList();
 
     return parts.join(', ');
   }
@@ -196,210 +201,62 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // DOCUMENT URL DIALOG
+  // URL FIELD
   // ============================================================
 
-  Future<String?> enterDocumentUrl({
-    required String title,
-    String existingUrl = '',
-  }) async {
-    final TextEditingController controller =
-        TextEditingController(
-      text: existingUrl,
-    );
-
-    final String? result =
-        await showDialog<String>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+  Widget urlField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(
+        bottom: 2,
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: TextInputType.url,
+        textInputAction: TextInputAction.next,
+        style: const TextStyle(
+          color: AppColors.textDark,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+        ),
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: 'https://...',
+          labelStyle: const TextStyle(
+            color: AppColors.muted,
           ),
-          title: Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              color: AppColors.textDark,
-            ),
+          hintStyle: const TextStyle(
+            color: AppColors.muted,
+            fontSize: 12,
           ),
-          content: TextField(
-            controller: controller,
-            keyboardType: TextInputType.url,
-            textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              hintText: 'https://...',
-              prefixIcon: const Icon(
-                Icons.link_rounded,
-                color: AppColors.blue,
-              ),
-              filled: true,
-              fillColor: AppColors.background,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: const BorderSide(
-                  color: AppColors.border,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: const BorderSide(
-                  color: AppColors.green,
-                  width: 1.5,
-                ),
-              ),
+          prefixIcon: Icon(
+            icon,
+            color: AppColors.blue,
+          ),
+          filled: true,
+          fillColor: AppColors.surface,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: AppColors.border,
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text(
-                'CANCEL',
-                style: TextStyle(
-                  color: AppColors.muted,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: AppColors.green,
+              width: 1.5,
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.green,
-                foregroundColor: AppColors.onPrimary,
-                elevation: 0,
-              ),
-              onPressed: () {
-                final String value =
-                    controller.text.trim();
-
-                if (!isValidUrl(value)) {
-                  ScaffoldMessenger.of(dialogContext)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(
-                      SnackBar(
-                        content: const Text(
-                          'Enter a valid image URL.',
-                        ),
-                        backgroundColor:
-                            AppColors.red,
-                      ),
-                    );
-
-                  return;
-                }
-
-                Navigator.pop(
-                  dialogContext,
-                  value,
-                );
-              },
-              child: const Text(
-                'USE URL',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    controller.dispose();
-
-    return result;
-  }
-
-  // ============================================================
-  // AADHAAR FRONT
-  // ============================================================
-
-  Future<void> selectAadhaarFront() async {
-    if (_saving) {
-      return;
-    }
-
-    final String? result =
-        await enterDocumentUrl(
-      title: 'Aadhaar Front URL',
-      existingUrl: aadhaarFrontUrl ?? '',
-    );
-
-    if (result == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      aadhaarFrontUrl = result;
-    });
-
-    showMessage(
-      'Aadhaar Front URL added.',
-      true,
-    );
-  }
-
-  // ============================================================
-  // AADHAAR BACK
-  // ============================================================
-
-  Future<void> selectAadhaarBack() async {
-    if (_saving) {
-      return;
-    }
-
-    final String? result =
-        await enterDocumentUrl(
-      title: 'Aadhaar Back URL',
-      existingUrl: aadhaarBackUrl ?? '',
-    );
-
-    if (result == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      aadhaarBackUrl = result;
-    });
-
-    showMessage(
-      'Aadhaar Back URL added.',
-      true,
-    );
-  }
-
-  // ============================================================
-  // PAN CARD
-  // ============================================================
-
-  Future<void> selectPanCard() async {
-    if (_saving) {
-      return;
-    }
-
-    final String? result =
-        await enterDocumentUrl(
-      title: 'PAN Card URL',
-      existingUrl: panCardUrl ?? '',
-    );
-
-    if (result == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      panCardUrl = result;
-    });
-
-    showMessage(
-      'PAN Card URL added.',
-      true,
+          ),
+        ),
+      ),
     );
   }
 
@@ -424,63 +281,69 @@ class _MandatoryProfileSetupScreen2State
     }
 
     // ==========================================================
-    // AADHAAR FRONT
+    // AADHAAR FRONT URL
     // ==========================================================
 
-    if (aadhaarFrontUrl == null ||
-        aadhaarFrontUrl!.trim().isEmpty) {
+    final String aadhaarFrontUrl =
+        aadhaarFrontUrlController.text.trim();
+
+    if (aadhaarFrontUrl.isEmpty) {
       showMessage(
-        'Please add Aadhaar Front URL.',
+        'Please enter Aadhaar Front Image URL.',
         false,
       );
       return false;
     }
 
-    if (!isValidUrl(aadhaarFrontUrl!)) {
+    if (!isValidUrl(aadhaarFrontUrl)) {
       showMessage(
-        'Aadhaar Front URL is invalid.',
-        false,
-      );
-      return false;
-    }
-
-    // ==========================================================
-    // AADHAAR BACK
-    // ==========================================================
-
-    if (aadhaarBackUrl == null ||
-        aadhaarBackUrl!.trim().isEmpty) {
-      showMessage(
-        'Please add Aadhaar Back URL.',
-        false,
-      );
-      return false;
-    }
-
-    if (!isValidUrl(aadhaarBackUrl!)) {
-      showMessage(
-        'Aadhaar Back URL is invalid.',
+        'Aadhaar Front Image URL is invalid.',
         false,
       );
       return false;
     }
 
     // ==========================================================
-    // PAN CARD
+    // AADHAAR BACK URL
     // ==========================================================
 
-    if (panCardUrl == null ||
-        panCardUrl!.trim().isEmpty) {
+    final String aadhaarBackUrl =
+        aadhaarBackUrlController.text.trim();
+
+    if (aadhaarBackUrl.isEmpty) {
       showMessage(
-        'Please add PAN Card URL.',
+        'Please enter Aadhaar Back Image URL.',
         false,
       );
       return false;
     }
 
-    if (!isValidUrl(panCardUrl!)) {
+    if (!isValidUrl(aadhaarBackUrl)) {
       showMessage(
-        'PAN Card URL is invalid.',
+        'Aadhaar Back Image URL is invalid.',
+        false,
+      );
+      return false;
+    }
+
+    // ==========================================================
+    // PAN CARD URL
+    // ==========================================================
+
+    final String panCardUrl =
+        panCardUrlController.text.trim();
+
+    if (panCardUrl.isEmpty) {
+      showMessage(
+        'Please enter PAN Card Image URL.',
+        false,
+      );
+      return false;
+    }
+
+    if (!isValidUrl(panCardUrl)) {
+      showMessage(
+        'PAN Card Image URL is invalid.',
         false,
       );
       return false;
@@ -661,6 +524,15 @@ class _MandatoryProfileSetupScreen2State
       final String aadhaarNumber =
           aadhaarController.text.trim();
 
+      final String cleanAadhaarFrontUrl =
+          aadhaarFrontUrlController.text.trim();
+
+      final String cleanAadhaarBackUrl =
+          aadhaarBackUrlController.text.trim();
+
+      final String cleanPanCardUrl =
+          panCardUrlController.text.trim();
+
       final String village =
           villageController.text.trim();
 
@@ -687,15 +559,6 @@ class _MandatoryProfileSetupScreen2State
 
       final String cleanSelfieUrl =
           widget.selfieUrl.trim();
-
-      final String cleanAadhaarFrontUrl =
-          aadhaarFrontUrl!.trim();
-
-      final String cleanAadhaarBackUrl =
-          aadhaarBackUrl!.trim();
-
-      final String cleanPanCardUrl =
-          panCardUrl!.trim();
 
       // ========================================================
       // FIRESTORE DATA
@@ -1055,20 +918,17 @@ class _MandatoryProfileSetupScreen2State
           fillColor: AppColors.surface,
           counterText: '',
           border: OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(
               color: AppColors.border,
             ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(
               color: AppColors.green,
               width: 1.5,
@@ -1080,260 +940,14 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // DOCUMENT CARD
-  // ============================================================
-
-  Widget documentCard({
-    required String title,
-    required String subtitle,
-    required bool isFront,
-  }) {
-    final String? url =
-        isFront
-            ? aadhaarFrontUrl
-            : aadhaarBackUrl;
-
-    final bool added =
-        url != null &&
-        url.trim().isNotEmpty;
-
-    return InkWell(
-      onTap: _saving
-          ? null
-          : isFront
-              ? selectAadhaarFront
-              : selectAadhaarBack,
-      borderRadius:
-          BorderRadius.circular(18),
-      child: Container(
-        width: double.infinity,
-        padding:
-            const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius:
-              BorderRadius.circular(18),
-          border: Border.all(
-            color: added
-                ? AppColors.green
-                    .withOpacity(.45)
-                : AppColors.border,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 62,
-              height: 62,
-              decoration:
-                  BoxDecoration(
-                color: AppColors.blue
-                    .withOpacity(.08),
-                borderRadius:
-                    BorderRadius.circular(15),
-              ),
-              child: added
-                  ? ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(
-                        15,
-                      ),
-                      child:
-                          Image.network(
-                        url!,
-                        fit: BoxFit.cover,
-                        errorBuilder:
-                            (
-                          BuildContext context,
-                          Object error,
-                          StackTrace? stackTrace,
-                        ) {
-                          return const Icon(
-                            Icons
-                                .image_not_supported_rounded,
-                            color:
-                                AppColors.blue,
-                            size: 29,
-                          );
-                        },
-                      ),
-                    )
-                  : const Icon(
-                      Icons.badge_rounded,
-                      color:
-                          AppColors.blue,
-                      size: 29,
-                    ),
-            ),
-            const SizedBox(
-              width: 13,
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style:
-                        const TextStyle(
-                      fontSize: 14,
-                      fontWeight:
-                          FontWeight.w800,
-                      color:
-                          AppColors.textDark,
-                    ),
-                  ),
-                  const SizedBox(
-                    height: 4,
-                  ),
-                  Text(
-                    added
-                        ? 'Document added • Tap to replace'
-                        : subtitle,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: added
-                          ? AppColors.green
-                          : AppColors.muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              added
-                  ? Icons.check_circle_rounded
-                  : Icons.chevron_right_rounded,
-              color: added
-                  ? AppColors.green
-                  : AppColors.muted,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
   // PAN CARD
   // ============================================================
 
   Widget panCard() {
-    final String? url = panCardUrl;
-
-    final bool added =
-        url != null &&
-        url.trim().isNotEmpty;
-
-    return InkWell(
-      onTap:
-          _saving ? null : selectPanCard,
-      borderRadius:
-          BorderRadius.circular(18),
-      child: Container(
-        width: double.infinity,
-        padding:
-            const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius:
-              BorderRadius.circular(18),
-          border: Border.all(
-            color: added
-                ? AppColors.green
-                    .withOpacity(.45)
-                : AppColors.border,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 62,
-              height: 62,
-              decoration:
-                  BoxDecoration(
-                color: AppColors.orange
-                    .withOpacity(.08),
-                borderRadius:
-                    BorderRadius.circular(15),
-              ),
-              child: added
-                  ? ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(
-                        15,
-                      ),
-                      child:
-                          Image.network(
-                        url!,
-                        fit: BoxFit.cover,
-                        errorBuilder:
-                            (
-                          BuildContext context,
-                          Object error,
-                          StackTrace? stackTrace,
-                        ) {
-                          return const Icon(
-                            Icons
-                                .image_not_supported_rounded,
-                            color:
-                                AppColors.orange,
-                            size: 29,
-                          );
-                        },
-                      ),
-                    )
-                  : const Icon(
-                      Icons.credit_card_rounded,
-                      color:
-                          AppColors.orange,
-                      size: 29,
-                    ),
-            ),
-            const SizedBox(
-              width: 13,
-            ),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'PAN Card',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight:
-                          FontWeight.w800,
-                      color:
-                          AppColors.textDark,
-                    ),
-                  ),
-                  SizedBox(
-                    height: 4,
-                  ),
-                  Text(
-                    'Testing के लिए Image URL',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color:
-                          AppColors.muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              added
-                  ? Icons.check_circle_rounded
-                  : Icons.chevron_right_rounded,
-              color: added
-                  ? AppColors.green
-                  : AppColors.muted,
-            ),
-          ],
-        ),
-      ),
+    return urlField(
+      controller: panCardUrlController,
+      label: 'PAN Card Image URL',
+      icon: Icons.credit_card_rounded,
     );
   }
 
@@ -1344,12 +958,10 @@ class _MandatoryProfileSetupScreen2State
   Widget summaryCard() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(17),
+      padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius:
-            BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: AppColors.border,
         ),
@@ -1364,24 +976,18 @@ class _MandatoryProfileSetupScreen2State
                 Icons.person_rounded,
                 color: AppColors.green,
               ),
-              SizedBox(
-                width: 9,
-              ),
+              SizedBox(width: 9),
               Text(
                 'Walker Information',
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight:
-                      FontWeight.w900,
-                  color:
-                      AppColors.textDark,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textDark,
                 ),
               ),
             ],
           ),
-          const SizedBox(
-            height: 14,
-          ),
+          const SizedBox(height: 14),
           _summaryRow(
             'Full Name',
             widget.name,
@@ -1414,8 +1020,7 @@ class _MandatoryProfileSetupScreen2State
     String value,
   ) {
     return Padding(
-      padding:
-          const EdgeInsets.only(
+      padding: const EdgeInsets.only(
         bottom: 9,
       ),
       child: Row(
@@ -1426,29 +1031,21 @@ class _MandatoryProfileSetupScreen2State
             width: 105,
             child: Text(
               title,
-              style:
-                  const TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
-                color:
-                    AppColors.muted,
-                fontWeight:
-                    FontWeight.w700,
+                color: AppColors.muted,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          const SizedBox(
-            width: 8,
-          ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
-              style:
-                  const TextStyle(
+              style: const TextStyle(
                 fontSize: 12,
-                color:
-                    AppColors.textDark,
-                fontWeight:
-                    FontWeight.w700,
+                color: AppColors.textDark,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -1466,12 +1063,10 @@ class _MandatoryProfileSetupScreen2State
   }) {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius:
-            BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: AppColors.border,
         ),
@@ -1500,20 +1095,17 @@ class _MandatoryProfileSetupScreen2State
 
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.fromLTRB(
+                padding: const EdgeInsets.fromLTRB(
                   20,
                   18,
                   20,
                   18,
                 ),
-                decoration:
-                    const BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppColors.surface,
                   border: Border(
                     bottom: BorderSide(
-                      color:
-                          AppColors.borderLight,
+                      color: AppColors.borderLight,
                     ),
                   ),
                 ),
@@ -1522,57 +1114,40 @@ class _MandatoryProfileSetupScreen2State
                     Container(
                       width: 46,
                       height: 46,
-                      decoration:
-                          BoxDecoration(
-                        color:
-                            AppColors.orange,
+                      decoration: BoxDecoration(
+                        color: AppColors.orange,
                         borderRadius:
-                            BorderRadius.circular(
-                          14,
-                        ),
+                            BorderRadius.circular(14),
                       ),
                       child: const Icon(
                         Icons.pets_rounded,
-                        color:
-                            AppColors.onPrimary,
+                        color: AppColors.onPrimary,
                       ),
                     ),
-                    const SizedBox(
-                      width: 12,
-                    ),
+                    const SizedBox(width: 12),
                     const Expanded(
                       child: Column(
                         crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
+                            CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Walker',
-                            style:
-                                TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color:
-                                  AppColors
-                                      .orange,
+                              color: AppColors.orange,
                               fontWeight:
-                                  FontWeight
-                                      .w800,
+                                  FontWeight.w800,
                             ),
                           ),
-                          SizedBox(
-                            height: 2,
-                          ),
+                          SizedBox(height: 2),
                           Text(
                             'Aadhaar, PAN & Address',
-                            style:
-                                TextStyle(
+                            style: TextStyle(
                               fontSize: 19,
                               color:
-                                  AppColors
-                                      .textDark,
+                                  AppColors.textDark,
                               fontWeight:
-                                  FontWeight
-                                      .w900,
+                                  FontWeight.w900,
                             ),
                           ),
                         ],
@@ -1580,31 +1155,23 @@ class _MandatoryProfileSetupScreen2State
                     ),
                     Container(
                       padding:
-                          const EdgeInsets
-                              .symmetric(
+                          const EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 7,
                       ),
-                      decoration:
-                          BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AppColors.green
                             .withOpacity(.10),
                         borderRadius:
-                            BorderRadius.circular(
-                          12,
-                        ),
+                            BorderRadius.circular(12),
                       ),
-                      child:
-                          const Text(
+                      child: const Text(
                         'STEP 2',
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors.green,
+                        style: TextStyle(
+                          color: AppColors.green,
                           fontSize: 10,
                           fontWeight:
-                              FontWeight
-                                  .w900,
+                              FontWeight.w900,
                         ),
                       ),
                     ),
@@ -1617,8 +1184,7 @@ class _MandatoryProfileSetupScreen2State
               // ==================================================
 
               Expanded(
-                child:
-                    SingleChildScrollView(
+                child: SingleChildScrollView(
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior
                           .onDrag,
@@ -1631,13 +1197,11 @@ class _MandatoryProfileSetupScreen2State
                   ),
                   child: Column(
                     crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
+                        CrossAxisAlignment.start,
                     children: [
                       const Text(
                         'Aadhaar, PAN & Address',
-                        style:
-                            TextStyle(
+                        style: TextStyle(
                           fontSize: 23,
                           fontWeight:
                               FontWeight.w900,
@@ -1646,23 +1210,17 @@ class _MandatoryProfileSetupScreen2State
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 5,
-                      ),
+                      const SizedBox(height: 5),
 
                       const Text(
                         'Complete your identity and address details.',
-                        style:
-                            TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
-                          color:
-                              AppColors.muted,
+                          color: AppColors.muted,
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
                       // SUMMARY
@@ -1670,9 +1228,7 @@ class _MandatoryProfileSetupScreen2State
 
                       summaryCard(),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
                       // AADHAAR
@@ -1681,41 +1237,30 @@ class _MandatoryProfileSetupScreen2State
                       sectionContainer(
                         child: Column(
                           crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
+                              CrossAxisAlignment.start,
                           children: [
                             const Row(
                               children: [
                                 Icon(
-                                  Icons
-                                      .badge_rounded,
+                                  Icons.badge_rounded,
                                   color:
-                                      AppColors
-                                          .blue,
+                                      AppColors.blue,
                                 ),
-                                SizedBox(
-                                  width: 9,
-                                ),
+                                SizedBox(width: 9),
                                 Text(
                                   'Aadhaar',
-                                  style:
-                                      TextStyle(
-                                    fontSize:
-                                        16,
+                                  style: TextStyle(
+                                    fontSize: 16,
                                     fontWeight:
-                                        FontWeight
-                                            .w900,
-                                    color:
-                                        AppColors
-                                            .textDark,
+                                        FontWeight.w900,
+                                    color: AppColors
+                                        .textDark,
                                   ),
                                 ),
                               ],
                             ),
 
-                            const SizedBox(
-                              height: 14,
-                            ),
+                            const SizedBox(height: 14),
 
                             field(
                               controller:
@@ -1729,36 +1274,51 @@ class _MandatoryProfileSetupScreen2State
                               maxLength: 12,
                             ),
 
-                            const SizedBox(
-                              height: 2,
+                            const SizedBox(height: 2),
+
+                            // ==================================================
+                            // AADHAAR FRONT URL
+                            // ==================================================
+
+                            urlField(
+                              controller:
+                                  aadhaarFrontUrlController,
+                              label:
+                                  'Aadhaar Front Image URL',
+                              icon: Icons
+                                  .credit_card_rounded,
                             ),
 
-                            documentCard(
-                              title:
-                                  'Aadhaar Front',
-                              subtitle:
-                                  'Testing के लिए Image URL',
-                              isFront: true,
+                            const SizedBox(height: 12),
+
+                            // ==================================================
+                            // AADHAAR BACK URL
+                            // ==================================================
+
+                            urlField(
+                              controller:
+                                  aadhaarBackUrlController,
+                              label:
+                                  'Aadhaar Back Image URL',
+                              icon: Icons
+                                  .credit_card_rounded,
                             ),
 
-                            const SizedBox(
-                              height: 12,
-                            ),
+                            const SizedBox(height: 2),
 
-                            documentCard(
-                              title:
-                                  'Aadhaar Back',
-                              subtitle:
-                                  'Testing के लिए Image URL',
-                              isFront: false,
+                            const Text(
+                              'Testing के लिए valid image URL डालें।',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color:
+                                    AppColors.muted,
+                              ),
                             ),
                           ],
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
                       // PAN
@@ -1767,8 +1327,7 @@ class _MandatoryProfileSetupScreen2State
                       sectionContainer(
                         child: Column(
                           crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
+                              CrossAxisAlignment.start,
                           children: [
                             const Row(
                               children: [
@@ -1776,41 +1335,41 @@ class _MandatoryProfileSetupScreen2State
                                   Icons
                                       .credit_card_rounded,
                                   color:
-                                      AppColors
-                                          .orange,
+                                      AppColors.orange,
                                 ),
-                                SizedBox(
-                                  width: 9,
-                                ),
+                                SizedBox(width: 9),
                                 Text(
                                   'PAN Card',
-                                  style:
-                                      TextStyle(
-                                    fontSize:
-                                        16,
+                                  style: TextStyle(
+                                    fontSize: 16,
                                     fontWeight:
-                                        FontWeight
-                                            .w900,
-                                    color:
-                                        AppColors
-                                            .textDark,
+                                        FontWeight.w900,
+                                    color: AppColors
+                                        .textDark,
                                   ),
                                 ),
                               ],
                             ),
 
-                            const SizedBox(
-                              height: 14,
-                            ),
+                            const SizedBox(height: 14),
 
                             panCard(),
+
+                            const SizedBox(height: 2),
+
+                            const Text(
+                              'Testing के लिए valid image URL डालें।',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color:
+                                    AppColors.muted,
+                              ),
+                            ),
                           ],
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
                       // ADDRESS
@@ -1819,8 +1378,7 @@ class _MandatoryProfileSetupScreen2State
                       sectionContainer(
                         child: Column(
                           crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
+                              CrossAxisAlignment.start,
                           children: [
                             const Row(
                               children: [
@@ -1828,32 +1386,23 @@ class _MandatoryProfileSetupScreen2State
                                   Icons
                                       .location_on_rounded,
                                   color:
-                                      AppColors
-                                          .blue,
+                                      AppColors.blue,
                                 ),
-                                SizedBox(
-                                  width: 9,
-                                ),
+                                SizedBox(width: 9),
                                 Text(
                                   'Address',
-                                  style:
-                                      TextStyle(
-                                    fontSize:
-                                        16,
+                                  style: TextStyle(
+                                    fontSize: 16,
                                     fontWeight:
-                                        FontWeight
-                                            .w900,
-                                    color:
-                                        AppColors
-                                            .textDark,
+                                        FontWeight.w900,
+                                    color: AppColors
+                                        .textDark,
                                   ),
                                 ),
                               ],
                             ),
 
-                            const SizedBox(
-                              height: 14,
-                            ),
+                            const SizedBox(height: 14),
 
                             field(
                               controller:
@@ -1878,15 +1427,13 @@ class _MandatoryProfileSetupScreen2State
                                   districtController,
                               label:
                                   'District',
-                              icon: Icons
-                                  .map_rounded,
+                              icon: Icons.map_rounded,
                             ),
 
                             field(
                               controller:
                                   stateController,
-                              label:
-                                  'State',
+                              label: 'State',
                               icon: Icons
                                   .public_rounded,
                             ),
@@ -1894,30 +1441,25 @@ class _MandatoryProfileSetupScreen2State
                             field(
                               controller:
                                   pinController,
-                              label:
-                                  'PIN Code',
+                              label: 'PIN Code',
                               icon: Icons
                                   .pin_drop_rounded,
                               keyboardType:
-                                  TextInputType
-                                      .number,
+                                  TextInputType.number,
                               maxLength: 6,
                             ),
 
                             Container(
-                              width:
-                                  double.infinity,
+                              width: double.infinity,
                               padding:
-                                  const EdgeInsets
-                                      .all(13),
-                              decoration:
-                                  BoxDecoration(
+                                  const EdgeInsets.all(
+                                13,
+                              ),
+                              decoration: BoxDecoration(
                                 color:
-                                    AppColors
-                                        .background,
+                                    AppColors.background,
                                 borderRadius:
-                                    BorderRadius
-                                        .circular(
+                                    BorderRadius.circular(
                                   14,
                                 ),
                               ),
@@ -1927,35 +1469,27 @@ class _MandatoryProfileSetupScreen2State
                                         .start,
                                 children: [
                                   const Icon(
-                                    Icons
-                                        .home_rounded,
+                                    Icons.home_rounded,
                                     color:
-                                        AppColors
-                                            .green,
+                                        AppColors.green,
                                     size: 19,
                                   ),
                                   const SizedBox(
                                     width: 9,
                                   ),
                                   Expanded(
-                                    child:
-                                        Text(
-                                      fullAddress
-                                              .isEmpty
+                                    child: Text(
+                                      fullAddress.isEmpty
                                           ? 'Address preview'
                                           : fullAddress,
                                       style:
                                           const TextStyle(
-                                        fontSize:
-                                            12,
-                                        height:
-                                            1.5,
-                                        color:
-                                            AppColors
-                                                .textDark,
+                                        fontSize: 12,
+                                        height: 1.5,
+                                        color: AppColors
+                                            .textDark,
                                         fontWeight:
-                                            FontWeight
-                                                .w600,
+                                            FontWeight.w600,
                                       ),
                                     ),
                                   ),
@@ -1966,9 +1500,7 @@ class _MandatoryProfileSetupScreen2State
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
                       // EMERGENCY
@@ -1977,8 +1509,7 @@ class _MandatoryProfileSetupScreen2State
                       sectionContainer(
                         child: Column(
                           crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
+                              CrossAxisAlignment.start,
                           children: [
                             const Row(
                               children: [
@@ -1986,65 +1517,46 @@ class _MandatoryProfileSetupScreen2State
                                   Icons
                                       .contact_emergency_rounded,
                                   color:
-                                      AppColors
-                                          .orange,
+                                      AppColors.orange,
                                 ),
-                                SizedBox(
-                                  width: 9,
-                                ),
+                                SizedBox(width: 9),
                                 Expanded(
-                                  child:
-                                      Text(
+                                  child: Text(
                                     'Emergency Contact',
-                                    style:
-                                        TextStyle(
-                                      fontSize:
-                                          16,
+                                    style: TextStyle(
+                                      fontSize: 16,
                                       fontWeight:
-                                          FontWeight
-                                              .w900,
-                                      color:
-                                          AppColors
-                                              .textDark,
+                                          FontWeight.w900,
+                                      color: AppColors
+                                          .textDark,
                                     ),
                                   ),
                                 ),
                                 Text(
                                   'OPTIONAL',
-                                  style:
-                                      TextStyle(
+                                  style: TextStyle(
                                     color:
-                                        AppColors
-                                            .muted,
-                                    fontSize:
-                                        10,
+                                        AppColors.muted,
+                                    fontSize: 10,
                                     fontWeight:
-                                        FontWeight
-                                            .w900,
+                                        FontWeight.w900,
                                   ),
                                 ),
                               ],
                             ),
 
-                            const SizedBox(
-                              height: 6,
-                            ),
+                            const SizedBox(height: 6),
 
                             const Text(
                               'यह जानकारी optional है। खाली छोड़कर भी आगे बढ़ सकते हैं।',
-                              style:
-                                  TextStyle(
-                                fontSize:
-                                    11.5,
+                              style: TextStyle(
+                                fontSize: 11.5,
                                 color:
-                                    AppColors
-                                        .muted,
+                                    AppColors.muted,
                               ),
                             ),
 
-                            const SizedBox(
-                              height: 16,
-                            ),
+                            const SizedBox(height: 16),
 
                             field(
                               controller:
@@ -2060,8 +1572,8 @@ class _MandatoryProfileSetupScreen2State
                                   emergencyMobileController,
                               label:
                                   'Emergency Contact Mobile (Optional)',
-                              icon: Icons
-                                  .phone_rounded,
+                              icon:
+                                  Icons.phone_rounded,
                               keyboardType:
                                   TextInputType.phone,
                               maxLength: 10,
@@ -2070,32 +1582,25 @@ class _MandatoryProfileSetupScreen2State
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
                       // INFO
                       // ==================================================
 
                       Container(
-                        width:
-                            double.infinity,
+                        width: double.infinity,
                         padding:
-                            const EdgeInsets
-                                .all(15),
-                        decoration:
-                            BoxDecoration(
+                            const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
                           color: AppColors.blue
                               .withOpacity(.06),
                           borderRadius:
-                              BorderRadius
-                                  .circular(17),
+                              BorderRadius.circular(17),
                         ),
                         child: const Row(
                           crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
+                              CrossAxisAlignment.start,
                           children: [
                             Icon(
                               Icons
@@ -2104,21 +1609,15 @@ class _MandatoryProfileSetupScreen2State
                                   AppColors.blue,
                               size: 21,
                             ),
-                            SizedBox(
-                              width: 9,
-                            ),
+                            SizedBox(width: 9),
                             Expanded(
                               child: Text(
                                 'आपकी जानकारी DOJO Platform verification के लिए भेजी जाएगी। Profile पूरा होने के बाद Admin approval तक Walker account pending रहेगा।',
-                                style:
-                                    TextStyle(
-                                  fontSize:
-                                      11.5,
-                                  height:
-                                      1.5,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  height: 1.5,
                                   color:
-                                      AppColors
-                                          .textDark,
+                                      AppColors.textDark,
                                 ),
                               ),
                             ),
@@ -2126,45 +1625,34 @@ class _MandatoryProfileSetupScreen2State
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 22,
-                      ),
+                      const SizedBox(height: 22),
 
                       // ==================================================
                       // SUBMIT
                       // ==================================================
 
                       SizedBox(
-                        width:
-                            double.infinity,
+                        width: double.infinity,
                         height: 55,
-                        child:
-                            ElevatedButton(
+                        child: ElevatedButton(
                           onPressed:
                               _saving
                                   ? null
                                   : submitProfile,
                           style:
-                              ElevatedButton
-                                  .styleFrom(
+                              ElevatedButton.styleFrom(
                             backgroundColor:
-                                AppColors
-                                    .green,
+                                AppColors.green,
                             disabledBackgroundColor:
-                                AppColors
-                                    .green
-                                    .withOpacity(
-                              .55,
-                            ),
+                                AppColors.green
+                                    .withOpacity(.55),
                             foregroundColor:
-                                AppColors
-                                    .onPrimary,
+                                AppColors.onPrimary,
                             elevation: 0,
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
-                                  BorderRadius
-                                      .circular(
+                                  BorderRadius.circular(
                                 17,
                               ),
                             ),
@@ -2180,23 +1668,17 @@ class _MandatoryProfileSetupScreen2State
                                       height: 21,
                                       child:
                                           CircularProgressIndicator(
-                                        strokeWidth:
-                                            2.5,
-                                        color:
-                                            AppColors
-                                                .onPrimary,
+                                        strokeWidth: 2.5,
+                                        color: AppColors
+                                            .onPrimary,
                                       ),
                                     ),
-                                    SizedBox(
-                                      width: 12,
-                                    ),
+                                    SizedBox(width: 12),
                                     Text(
                                       'SUBMITTING...',
-                                      style:
-                                          TextStyle(
+                                      style: TextStyle(
                                         fontWeight:
-                                            FontWeight
-                                                .w900,
+                                            FontWeight.w900,
                                       ),
                                     ),
                                   ],
@@ -2210,18 +1692,13 @@ class _MandatoryProfileSetupScreen2State
                                       Icons
                                           .verified_rounded,
                                     ),
-                                    SizedBox(
-                                      width: 9,
-                                    ),
+                                    SizedBox(width: 9),
                                     Text(
                                       'SUBMIT FOR VERIFICATION',
-                                      style:
-                                          TextStyle(
+                                      style: TextStyle(
                                         fontWeight:
-                                            FontWeight
-                                                .w900,
-                                        letterSpacing:
-                                            .3,
+                                            FontWeight.w900,
+                                        letterSpacing: .3,
                                       ),
                                     ),
                                   ],
@@ -2229,20 +1706,15 @@ class _MandatoryProfileSetupScreen2State
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 12,
-                      ),
+                      const SizedBox(height: 12),
 
                       const Center(
                         child: Text(
                           'You can continue after DOJO Platform approval.',
-                          textAlign:
-                              TextAlign.center,
-                          style:
-                              TextStyle(
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
                             fontSize: 10.5,
-                            color:
-                                AppColors.muted,
+                            color: AppColors.muted,
                           ),
                         ),
                       ),
