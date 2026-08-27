@@ -43,11 +43,10 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-          cache: gradle
 
 
       # ==========================================================
-      # FLUTTER
+      # FLUTTER 3.44.8
       # ==========================================================
 
       - name: Set up Flutter
@@ -71,13 +70,26 @@ jobs:
       - name: Check Java version
         run: java -version
 
+      - name: Check Gradle version
+        shell: bash
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew --version
+
 
       # ==========================================================
-      # CLEAN
+      # CLEAN ALL BUILD STATE
       # ==========================================================
 
-      - name: Flutter clean
-        run: flutter clean
+      - name: Clean Flutter and Gradle state
+        shell: bash
+        run: |
+          flutter clean
+
+          rm -rf android/.gradle
+          rm -rf build
+          rm -rf .dart_tool
 
 
       # ==========================================================
@@ -98,17 +110,6 @@ jobs:
 
       # ==========================================================
       # ANALYZE
-      # ==========================================================
-      #
-      # Analyzer currently reports lint/info-level issues such as:
-      # - prefer_const_constructors
-      # - prefer_const_literals_to_create_immutables
-      # - deprecated_member_use
-      # - unnecessary_brace_in_string_interps
-      #
-      # These are not build errors.
-      # Keep the analyzer visible, but do not block the CI build.
-      #
       # ==========================================================
 
       - name: Analyze code
@@ -132,7 +133,7 @@ jobs:
         env:
           GRADLE_OPTS: >-
             -Dorg.gradle.daemon=false
-            -Dorg.gradle.caching=true
+            -Dorg.gradle.caching=false
             -Dorg.gradle.parallel=false
             -Dorg.gradle.jvmargs=-Xmx4g
         run: flutter build apk --release
