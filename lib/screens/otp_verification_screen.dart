@@ -9,7 +9,7 @@ import '../features/profile_setup/services/profile_setup_service.dart';
 
 import 'main_navigation_screen.dart';
 import 'profile_setup_screen.dart';
-import '../features/profile_setup/screens/pending_verification_screen.dart';
+import '../features/walker_verification/screens/pending_verification_screen.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String verificationId;
