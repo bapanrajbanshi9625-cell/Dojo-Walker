@@ -22,13 +22,11 @@ class PendingVerificationContent
   final bool isPending;
 
   final String verificationStatus;
-
   final bool walkerIdActive;
 
   final AnimationController animationController;
 
   final Animation<double> pulseAnimation;
-
   final Animation<double> scaleAnimation;
 
   final VoidCallback onSupport;
@@ -44,7 +42,7 @@ class PendingVerificationContent
       children: [
         _verificationIcon(),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
 
         Text(
           _pageTitle(),
@@ -75,6 +73,9 @@ class PendingVerificationContent
 
         const SizedBox(height: 14),
 
+        // IMPORTANT:
+        // This complete status card remains inside the
+        // SingleChildScrollView from PendingVerificationScreen.
         _statusCard(),
 
         const SizedBox(height: 14),
@@ -112,7 +113,7 @@ class PendingVerificationContent
           ),
         ),
 
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
       ],
     );
   }
@@ -151,23 +152,21 @@ class PendingVerificationContent
   }
 
   // ============================================================
-  // ICON
+  // VERIFICATION ICON
   // ============================================================
 
   Widget _verificationIcon() {
-    final Color iconColor =
-        isApproved
-            ? AppColors.green
-            : isRejected
-                ? AppColors.red
-                : AppColors.blue;
+    final Color iconColor = isApproved
+        ? AppColors.green
+        : isRejected
+            ? AppColors.red
+            : AppColors.blue;
 
-    final Color outerColor =
-        isApproved
-            ? AppColors.green.withOpacity(.10)
-            : isRejected
-                ? AppColors.red.withOpacity(.10)
-                : AppColors.blue.withOpacity(.10);
+    final Color outerColor = isApproved
+        ? AppColors.green.withOpacity(.10)
+        : isRejected
+            ? AppColors.red.withOpacity(.10)
+            : AppColors.blue.withOpacity(.10);
 
     if (!isPending) {
       return _staticIcon(
@@ -203,12 +202,13 @@ class PendingVerificationContent
               Container(
                 width: ringSize,
                 height: ringSize,
-                decoration:
-                    BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: iconColor
-                        .withOpacity(opacity),
+                    color:
+                        iconColor.withOpacity(
+                      opacity,
+                    ),
                     width: 3,
                   ),
                 ),
@@ -217,32 +217,29 @@ class PendingVerificationContent
               Container(
                 width: 136,
                 height: 136,
-                decoration:
-                    BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: outerColor,
                   border: Border.all(
-                    color: iconColor
-                        .withOpacity(.12),
+                    color:
+                        iconColor.withOpacity(.12),
                     width: 6,
                   ),
                 ),
               ),
 
               Transform.scale(
-                scale:
-                    scaleAnimation.value,
+                scale: scaleAnimation.value,
                 child: Container(
                   width: 94,
                   height: 94,
-                  decoration:
-                      BoxDecoration(
+                  decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: iconColor,
                     boxShadow: [
                       BoxShadow(
-                        color: iconColor
-                            .withOpacity(.20),
+                        color:
+                            iconColor.withOpacity(.20),
                         blurRadius: 20,
                         spreadRadius: 1,
                       ),
@@ -274,8 +271,7 @@ class PendingVerificationContent
     return Container(
       width: 130,
       height: 130,
-      decoration:
-          BoxDecoration(
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: outerColor,
         border: Border.all(
@@ -285,8 +281,7 @@ class PendingVerificationContent
       ),
       child: Container(
         margin: const EdgeInsets.all(16),
-        decoration:
-            BoxDecoration(
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: iconColor,
           boxShadow: [
@@ -307,16 +302,15 @@ class PendingVerificationContent
   }
 
   // ============================================================
-  // MAIN STATUS
+  // MAIN STATUS CARD
   // ============================================================
 
   Widget _mainStatusCard() {
-    final Color color =
-        isApproved
-            ? AppColors.green
-            : isRejected
-                ? AppColors.red
-                : AppColors.blue;
+    final Color color = isApproved
+        ? AppColors.green
+        : isRejected
+            ? AppColors.red
+            : AppColors.blue;
 
     final Color light =
         color.withOpacity(.08);
@@ -324,8 +318,7 @@ class PendingVerificationContent
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration:
-          BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
         borderRadius:
             BorderRadius.circular(20),
@@ -350,8 +343,7 @@ class PendingVerificationContent
               Container(
                 width: 47,
                 height: 47,
-                decoration:
-                    BoxDecoration(
+                decoration: BoxDecoration(
                   color: light,
                   borderRadius:
                       BorderRadius.circular(14),
@@ -414,8 +406,7 @@ class PendingVerificationContent
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(13),
-            decoration:
-                BoxDecoration(
+            decoration: BoxDecoration(
               color: light,
               borderRadius:
                   BorderRadius.circular(13),
@@ -462,21 +453,28 @@ class PendingVerificationContent
   }
 
   // ============================================================
-  // STATUS CARD
+  // VERIFICATION STATUS CARD
   // ============================================================
 
   Widget _statusCard() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration:
-          BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
         borderRadius:
             BorderRadius.circular(20),
         border: Border.all(
           color: AppColors.border,
         ),
+        boxShadow: [
+          BoxShadow(
+            color:
+                Colors.black.withOpacity(.025),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment:
@@ -497,7 +495,8 @@ class PendingVerificationContent
             icon: Icons.check_circle_rounded,
             color: AppColors.green,
             title: 'Profile Submitted',
-            subtitle: 'Completed successfully',
+            subtitle:
+                'Completed successfully',
           ),
 
           _line(),
@@ -513,7 +512,8 @@ class PendingVerificationContent
                 : isRejected
                     ? AppColors.red
                     : AppColors.blue,
-            title: 'DOJO Platform Verification',
+            title:
+                'DOJO Platform Verification',
             subtitle: isApproved
                 ? 'Verification approved'
                 : isRejected
@@ -552,11 +552,10 @@ class PendingVerificationContent
     required String subtitle,
     bool animated = false,
   }) {
-    Widget iconWidget = Container(
+    final Widget baseIcon = Container(
       width: 42,
       height: 42,
-      decoration:
-          BoxDecoration(
+      decoration: BoxDecoration(
         color: color.withOpacity(.10),
         shape: BoxShape.circle,
       ),
@@ -567,25 +566,26 @@ class PendingVerificationContent
       ),
     );
 
-    if (animated) {
-      iconWidget = AnimatedBuilder(
-        animation: animationController,
-        builder: (
-          BuildContext context,
-          Widget? child,
-        ) {
-          return Transform.scale(
-            scale:
-                0.94 +
+    final Widget iconWidget = animated
+        ? AnimatedBuilder(
+            animation: animationController,
+            builder: (
+              BuildContext context,
+              Widget? child,
+            ) {
+              return Transform.scale(
+                scale: 0.94 +
                     (animationController.value *
                         .10),
-            child: iconWidget,
-          );
-        },
-      );
-    }
+                child: baseIcon,
+              );
+            },
+          )
+        : baseIcon;
 
     return Row(
+      crossAxisAlignment:
+          CrossAxisAlignment.center,
       children: [
         iconWidget,
 
@@ -600,10 +600,8 @@ class PendingVerificationContent
                 title,
                 style: const TextStyle(
                   fontSize: 13.5,
-                  fontWeight:
-                      FontWeight.w900,
-                  color:
-                      AppColors.textDark,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textDark,
                 ),
               ),
 
@@ -613,9 +611,9 @@ class PendingVerificationContent
                 subtitle,
                 style: TextStyle(
                   fontSize: 11,
+                  height: 1.35,
                   color: color,
-                  fontWeight:
-                      FontWeight.w700,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -633,11 +631,11 @@ class PendingVerificationContent
     return Container(
       margin: const EdgeInsets.only(
         left: 20,
-        top: 3,
-        bottom: 3,
+        top: 4,
+        bottom: 4,
       ),
       width: 2,
-      height: 20,
+      height: 24,
       color: AppColors.border,
     );
   }
@@ -650,8 +648,7 @@ class PendingVerificationContent
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(17),
-      decoration:
-          BoxDecoration(
+      decoration: BoxDecoration(
         color:
             AppColors.orange.withOpacity(.05),
         borderRadius:
@@ -675,12 +672,14 @@ class PendingVerificationContent
 
               SizedBox(width: 8),
 
-              Text(
-                'What happens next?',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.textDark,
+              Expanded(
+                child: Text(
+                  'What happens next?',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textDark,
+                  ),
                 ),
               ),
             ],
@@ -755,20 +754,18 @@ class PendingVerificationContent
   }
 
   // ============================================================
-  // LOCKED
+  // LOCKED CARD
   // ============================================================
 
   Widget _lockedCard() {
-    final Color color =
-        isRejected
-            ? AppColors.red
-            : AppColors.orange;
+    final Color color = isRejected
+        ? AppColors.red
+        : AppColors.orange;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
-      decoration:
-          BoxDecoration(
+      decoration: BoxDecoration(
         color: color.withOpacity(.07),
         borderRadius:
             BorderRadius.circular(16),
@@ -817,8 +814,7 @@ class PendingVerificationContent
   Widget _supportButton() {
     return OutlinedButton.icon(
       onPressed: onSupport,
-      style:
-          OutlinedButton.styleFrom(
+      style: OutlinedButton.styleFrom(
         minimumSize:
             const Size(
           double.infinity,
