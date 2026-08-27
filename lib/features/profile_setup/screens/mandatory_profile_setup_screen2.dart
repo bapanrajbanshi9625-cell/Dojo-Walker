@@ -1,6 +1,7 @@
 // File:
 // lib/features/profile_setup/screens/mandatory_profile_setup_screen2.dart
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -37,10 +38,14 @@ class MandatoryProfileSetupScreen2 extends StatefulWidget {
 class _MandatoryProfileSetupScreen2State
     extends State<MandatoryProfileSetupScreen2> {
   // ============================================================
-  // AUTH
+  // FIREBASE
   // ============================================================
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
 
   // ============================================================
   // CONTROLLERS
@@ -92,28 +97,26 @@ class _MandatoryProfileSetupScreen2State
   // CURRENT USER
   // ============================================================
 
-  User? get currentUser => _auth.currentUser;
+  User? get currentUser {
+    return _auth.currentUser;
+  }
 
   // ============================================================
-  // DISPOSE
+  // WALKER ID
   // ============================================================
 
-  @override
-  void dispose() {
-    aadhaarController.dispose();
-    aadhaarFrontUrlController.dispose();
-    aadhaarBackUrlController.dispose();
-    panNumberController.dispose();
-    panCardUrlController.dispose();
-    villageController.dispose();
-    cityController.dispose();
-    districtController.dispose();
-    stateController.dispose();
-    pinController.dispose();
-    emergencyNameController.dispose();
-    emergencyMobileController.dispose();
+  String createWalkerId(String uid) {
+    return ProfileSetupService.createWalkerId(uid);
+  }
 
-    super.dispose();
+  // ============================================================
+  // DOB
+  // ============================================================
+
+  String get formattedDateOfBirth {
+    return '${widget.dateOfBirth.year}-'
+        '${widget.dateOfBirth.month.toString().padLeft(2, '0')}-'
+        '${widget.dateOfBirth.day.toString().padLeft(2, '0')}';
   }
 
   // ============================================================
@@ -127,9 +130,35 @@ class _MandatoryProfileSetupScreen2State
       districtController.text.trim(),
       stateController.text.trim(),
       pinController.text.trim(),
-    ].where((String value) => value.isNotEmpty).toList();
+    ].where(
+      (String value) => value.isNotEmpty,
+    ).toList();
 
     return parts.join(', ');
+  }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
+
+  @override
+  void dispose() {
+    aadhaarController.dispose();
+    aadhaarFrontUrlController.dispose();
+    aadhaarBackUrlController.dispose();
+    panNumberController.dispose();
+    panCardUrlController.dispose();
+
+    villageController.dispose();
+    cityController.dispose();
+    districtController.dispose();
+    stateController.dispose();
+    pinController.dispose();
+
+    emergencyNameController.dispose();
+    emergencyMobileController.dispose();
+
+    super.dispose();
   }
 
   // ============================================================
@@ -167,6 +196,10 @@ class _MandatoryProfileSetupScreen2State
   bool isValidUrl(String value) {
     final String cleanValue = value.trim();
 
+    if (cleanValue.isEmpty) {
+      return false;
+    }
+
     final Uri? uri = Uri.tryParse(cleanValue);
 
     if (uri == null || uri.host.isEmpty) {
@@ -178,7 +211,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // URL DIALOG
+  // IMAGE URL DIALOG
   // ============================================================
 
   Future<String?> askForImageUrl({
@@ -193,7 +226,9 @@ class _MandatoryProfileSetupScreen2State
     final String? result =
         await showDialog<String>(
       context: context,
-      builder: (BuildContext dialogContext) {
+      builder: (
+        BuildContext dialogContext,
+      ) {
         return AlertDialog(
           backgroundColor: AppColors.surface,
           shape: RoundedRectangleBorder(
@@ -211,9 +246,6 @@ class _MandatoryProfileSetupScreen2State
             keyboardType: TextInputType.url,
             textInputAction: TextInputAction.done,
             autofocus: true,
-            style: const TextStyle(
-              color: AppColors.textDark,
-            ),
             decoration: InputDecoration(
               labelText: 'Image URL',
               hintText: 'https://...',
@@ -247,13 +279,7 @@ class _MandatoryProfileSetupScreen2State
               onPressed: () {
                 Navigator.of(dialogContext).pop();
               },
-              child: const Text(
-                'CANCEL',
-                style: TextStyle(
-                  color: AppColors.muted,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              child: const Text('CANCEL'),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -266,14 +292,15 @@ class _MandatoryProfileSetupScreen2State
                     controller.text.trim();
 
                 if (!isValidUrl(value)) {
-                  ScaffoldMessenger.of(dialogContext)
+                  ScaffoldMessenger.of(
+                    dialogContext,
+                  )
                     ..hideCurrentSnackBar()
                     ..showSnackBar(
                       const SnackBar(
                         content: Text(
                           'Please enter a valid http/https image URL.',
                         ),
-                        backgroundColor: AppColors.red,
                       ),
                     );
 
@@ -284,9 +311,6 @@ class _MandatoryProfileSetupScreen2State
               },
               child: const Text(
                 'SAVE',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                ),
               ),
             ),
           ],
@@ -348,7 +372,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // PAN CARD
+  // PAN IMAGE
   // ============================================================
 
   Future<void> selectPanCard() async {
@@ -372,7 +396,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // VALIDATE
+  // VALIDATION
   // ============================================================
 
   bool validate() {
@@ -428,8 +452,7 @@ class _MandatoryProfileSetupScreen2State
     final String aadhaar =
         aadhaarController.text.trim();
 
-    if (!RegExp(r'^\d{12}$')
-        .hasMatch(aadhaar)) {
+    if (!RegExp(r'^\d{12}$').hasMatch(aadhaar)) {
       showMessage(
         'Enter a valid 12-digit Aadhaar number.',
         false,
@@ -503,13 +526,13 @@ class _MandatoryProfileSetupScreen2State
     }
 
     // ==========================================================
-    // PAN CARD IMAGE
+    // PAN IMAGE
     // ==========================================================
 
-    final String panCard =
+    final String panImage =
         panCardUrlController.text.trim();
 
-    if (panCard.isEmpty) {
+    if (panImage.isEmpty) {
       showMessage(
         'Please add PAN Card document.',
         false,
@@ -517,7 +540,7 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    if (!isValidUrl(panCard)) {
+    if (!isValidUrl(panImage)) {
       showMessage(
         'PAN Card image URL is invalid.',
         false,
@@ -573,7 +596,7 @@ class _MandatoryProfileSetupScreen2State
     }
 
     // ==========================================================
-    // EMERGENCY CONTACT - OPTIONAL
+    // EMERGENCY CONTACT
     // ==========================================================
 
     final String emergencyName =
@@ -600,8 +623,9 @@ class _MandatoryProfileSetupScreen2State
         return false;
       }
 
-      if (!RegExp(r'^\d{10}$')
-          .hasMatch(emergencyMobile)) {
+      if (!RegExp(
+        r'^\d{10}$',
+      ).hasMatch(emergencyMobile)) {
         showMessage(
           'Enter a valid 10-digit emergency mobile number.',
           false,
@@ -614,7 +638,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // SUBMIT PROFILE
+  // SUBMIT
   // ============================================================
 
   Future<void> submitProfile() async {
@@ -643,72 +667,343 @@ class _MandatoryProfileSetupScreen2State
     });
 
     try {
+      final String uid =
+          user.uid.trim();
+
+      if (uid.isEmpty) {
+        throw Exception(
+          'Authentication UID is missing.',
+        );
+      }
+
+      final String phone =
+          (user.phoneNumber ?? '').trim();
+
+      if (phone.isEmpty) {
+        throw Exception(
+          'Phone number is missing from your login account.',
+        );
+      }
+
       // ========================================================
-      // SAVE THROUGH CENTRAL SERVICE
+      // VALUES
+      // ========================================================
+
+      final String fullName =
+          widget.name.trim();
+
+      final String gender =
+          widget.gender.trim();
+
+      final String selfie =
+          widget.selfieUrl.trim();
+
+      final String aadhaar =
+          aadhaarController.text.trim();
+
+      final String aadhaarFront =
+          aadhaarFrontUrlController.text.trim();
+
+      final String aadhaarBack =
+          aadhaarBackUrlController.text.trim();
+
+      final String panNumber =
+          panNumberController.text
+              .trim()
+              .toUpperCase();
+
+      final String panCard =
+          panCardUrlController.text.trim();
+
+      final String address =
+          fullAddress;
+
+      final String pinCode =
+          pinController.text.trim();
+
+      final String emergencyName =
+          emergencyNameController.text.trim();
+
+      final String emergencyMobile =
+          emergencyMobileController.text.trim();
+
+      // ========================================================
+      // MAIN PROFILE SAVE
+      //
+      // ProfileSetupService handles:
+      // - walkers/{uid}
+      // - selfie
+      // - Aadhaar
+      // - PAN
+      // - profileCompleted
+      // - verificationStatus=pending
+      // - approvalStatus=pending
       // ========================================================
 
       await ProfileSetupService.saveWalkerProfile(
-        authUid: user.uid,
-        phone: user.phoneNumber ?? '',
+        authUid: uid,
+        phone: phone,
 
-        // ------------------------------------------------------
-        // BASIC PROFILE
-        // ------------------------------------------------------
-
-        name: widget.name.trim(),
-
+        name: fullName,
         dateOfBirth: widget.dateOfBirth,
 
-        address: fullAddress,
+        address: address,
+        pinCode: pinCode,
 
-        pinCode:
-            pinController.text.trim(),
+        profileImageUrl: selfie,
 
-        // ------------------------------------------------------
-        // PROFILE IMAGE
-        // ------------------------------------------------------
+        aadhaarNumber: aadhaar,
 
-        profileImageUrl:
-            widget.selfieUrl.trim(),
+        aadhaarFrontUrl: aadhaarFront,
+        aadhaarBackUrl: aadhaarBack,
 
-        // ------------------------------------------------------
-        // AADHAAR
-        // ------------------------------------------------------
+        panNumber: panNumber,
+        panCardUrl: panCard,
 
-        aadhaarNumber:
-            aadhaarController.text.trim(),
-
-        aadhaarFrontUrl:
-            aadhaarFrontUrlController
-                .text
-                .trim(),
-
-        aadhaarBackUrl:
-            aadhaarBackUrlController
-                .text
-                .trim(),
-
-        // ------------------------------------------------------
-        // PAN
-        // ------------------------------------------------------
-
-        panNumber:
-            panNumberController.text
-                .trim()
-                .toUpperCase(),
-
-        panCardUrl:
-            panCardUrlController
-                .text
-                .trim(),
-
-        // ------------------------------------------------------
-        // SELFIE
-        // ------------------------------------------------------
-
-        selfieUrl:
-            widget.selfieUrl.trim(),
+        selfieUrl: selfie,
       );
+
+      // ========================================================
+      // ADDITIONAL WALKER DATA
+      //
+      // ProfileSetupService currently does not accept:
+      // - gender
+      // - emergency contact
+      //
+      // So these are synced here without replacing the profile.
+      // ========================================================
+
+      final String walkerId =
+          createWalkerId(uid);
+
+      await _firestore
+          .collection(
+            ProfileSetupService.walkersCollection,
+          )
+          .doc(uid)
+          .set(
+        <String, dynamic>{
+          // ----------------------------------------------------
+          // IDENTITY COMPATIBILITY
+          // ----------------------------------------------------
+
+          'authUid': uid,
+          'uid': uid,
+          'userId': uid,
+          'Walker Uid': uid,
+          'walkerUid': uid,
+
+          'walkerId': walkerId,
+          'Walker ID': walkerId,
+
+          'role': 'walker',
+
+          // ----------------------------------------------------
+          // BASIC PROFILE
+          // ----------------------------------------------------
+
+          'fullName': fullName,
+          'Full Name': fullName,
+          'name': fullName,
+
+          'phoneNumber': phone,
+          'Mobile number': phone,
+          'mobileNumber': phone,
+          'phone': phone,
+
+          'dateofbirth': formattedDateOfBirth,
+          'Date Of Birth': formattedDateOfBirth,
+          'dateOfBirth': formattedDateOfBirth,
+
+          'gender': gender,
+          'Gender': gender,
+
+          // ----------------------------------------------------
+          // SELFIE COMPATIBILITY
+          // ----------------------------------------------------
+
+          'selfie': selfie,
+          'Profile Selfie': selfie,
+          'profileSelfie': selfie,
+          'profileImage': selfie,
+          'profileImageUrl': selfie,
+          'selfieUrl': selfie,
+
+          // ----------------------------------------------------
+          // AADHAAR COMPATIBILITY
+          // ----------------------------------------------------
+
+          'aadhaarNumber': aadhaar,
+          'Aadhar Number': aadhaar,
+          'Aadhaar Number': aadhaar,
+
+          'aadhaarfront': aadhaarFront,
+          'aadhaarFront': aadhaarFront,
+          'aadhaar_front': aadhaarFront,
+          'Aadhaar Front': aadhaarFront,
+
+          'aadhaar_front_uploaded': true,
+          'aadhaarFrontUploaded': true,
+
+          'aadhaarback': aadhaarBack,
+          'aadhaarBack': aadhaarBack,
+          'aadhaar_back': aadhaarBack,
+          'Aadhaar Back': aadhaarBack,
+
+          'aadhaar_back_uploaded': true,
+          'aadhaarBackUploaded': true,
+
+          // ----------------------------------------------------
+          // PAN COMPATIBILITY
+          // ----------------------------------------------------
+
+          'panNumber': panNumber,
+          'panCard': panCard,
+          'pan_card': panCard,
+          'panCardUrl': panCard,
+          'pan_card_url': panCard,
+          'PAN Card': panCard,
+          'PAN Card URL': panCard,
+
+          'pan_card_uploaded': true,
+          'panCardUploaded': true,
+
+          // ----------------------------------------------------
+          // ADDRESS COMPATIBILITY
+          // ----------------------------------------------------
+
+          'village':
+              villageController.text.trim(),
+          'Village':
+              villageController.text.trim(),
+
+          'city':
+              cityController.text.trim(),
+          'City':
+              cityController.text.trim(),
+
+          'district':
+              districtController.text.trim(),
+          'District':
+              districtController.text.trim(),
+
+          'state':
+              stateController.text.trim(),
+          'State':
+              stateController.text.trim(),
+
+          'pincode': pinCode,
+          'Pincode': pinCode,
+          'pinCode': pinCode,
+
+          'address': address,
+          'Adress': address,
+          'Address': address,
+
+          // ----------------------------------------------------
+          // EMERGENCY
+          // ----------------------------------------------------
+
+          'emergencyContactName':
+              emergencyName,
+
+          'emergencyContactMobile':
+              emergencyMobile,
+
+          // ----------------------------------------------------
+          // VERIFICATION STATE
+          //
+          // IMPORTANT:
+          // Profile completion != admin approval.
+          // ----------------------------------------------------
+
+          'profileCompleted': true,
+          'profile_completed': true,
+          'isProfileCompleted': true,
+
+          'verificationStatus': 'pending',
+          'verification_status': 'pending',
+
+          'approvalStatus': 'pending',
+
+          'status': 'pending',
+
+          'adminApproved': false,
+          'adminRejected': false,
+
+          'approved': false,
+          'isApproved': false,
+
+          // ----------------------------------------------------
+          // WALKER STATE
+          // ----------------------------------------------------
+
+          'active': false,
+          'isActive': false,
+          'isAvailable': false,
+          'isOnline': false,
+
+          // ----------------------------------------------------
+          // TIMESTAMP
+          // ----------------------------------------------------
+
+          'updatedAt':
+              FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      // ========================================================
+      // USERS SYNC
+      // ========================================================
+
+      try {
+        await _firestore
+            .collection('users')
+            .doc(uid)
+            .set(
+          <String, dynamic>{
+            'uid': uid,
+            'userId': uid,
+
+            'walkerUid': uid,
+            'walkerId': walkerId,
+
+            'role': 'walker',
+
+            'name': fullName,
+            'fullName': fullName,
+
+            'phone': phone,
+            'phoneNumber': phone,
+
+            'gender': gender,
+
+            'dateOfBirth':
+                formattedDateOfBirth,
+
+            'profileImage': selfie,
+            'profileImageUrl': selfie,
+            'selfieUrl': selfie,
+
+            'profileCompleted': true,
+
+            'verificationStatus':
+                'pending',
+
+            'approvalStatus':
+                'pending',
+
+            'updatedAt':
+                FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      } catch (_) {
+        // Users sync is secondary.
+        //
+        // The main walker profile has already been saved.
+      }
 
       // ========================================================
       // SUCCESS
@@ -728,16 +1023,14 @@ class _MandatoryProfileSetupScreen2State
       );
 
       await Future<void>.delayed(
-        const Duration(milliseconds: 500),
+        const Duration(
+          milliseconds: 500,
+        ),
       );
 
       if (!mounted) {
         return;
       }
-
-      // ========================================================
-      // GO TO PENDING VERIFICATION
-      // ========================================================
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(
@@ -756,7 +1049,7 @@ class _MandatoryProfileSetupScreen2State
       });
 
       showMessage(
-        _firebaseError(e),
+        firebaseError(e),
         false,
       );
     } catch (e) {
@@ -768,11 +1061,16 @@ class _MandatoryProfileSetupScreen2State
         _saving = false;
       });
 
+      final String message =
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              );
+
       showMessage(
-        e.toString().replaceFirst(
-          'Exception: ',
-          '',
-        ),
+        message.isEmpty
+            ? 'Unable to submit profile. Please try again.'
+            : message,
         false,
       );
     }
@@ -782,7 +1080,7 @@ class _MandatoryProfileSetupScreen2State
   // FIREBASE ERROR
   // ============================================================
 
-  String _firebaseError(
+  String firebaseError(
     FirebaseException e,
   ) {
     switch (e.code) {
@@ -797,6 +1095,9 @@ class _MandatoryProfileSetupScreen2State
 
       case 'unavailable':
         return 'Firebase is temporarily unavailable.';
+
+      case 'failed-precondition':
+        return 'Firebase configuration is incomplete.';
 
       default:
         return e.message ??
@@ -820,12 +1121,11 @@ class _MandatoryProfileSetupScreen2State
             TextCapitalization.characters,
         keyboardType:
             TextInputType.text,
-        textInputAction:
-            TextInputAction.next,
         maxLength: 10,
         style: const TextStyle(
           color: AppColors.textDark,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1,
         ),
         decoration: InputDecoration(
           counterText: '',
@@ -845,16 +1145,14 @@ class _MandatoryProfileSetupScreen2State
                 BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
-          enabledBorder:
-              OutlineInputBorder(
+          enabledBorder: OutlineInputBorder(
             borderRadius:
                 BorderRadius.circular(16),
             borderSide: const BorderSide(
               color: AppColors.border,
             ),
           ),
-          focusedBorder:
-              OutlineInputBorder(
+          focusedBorder: OutlineInputBorder(
             borderRadius:
                 BorderRadius.circular(16),
             borderSide: const BorderSide(
@@ -923,11 +1221,9 @@ class _MandatoryProfileSetupScreen2State
                             AppColors.onPrimary,
                       ),
                     ),
-
                     const SizedBox(
                       width: 12,
                     ),
-
                     const Expanded(
                       child: Column(
                         crossAxisAlignment:
@@ -966,7 +1262,6 @@ class _MandatoryProfileSetupScreen2State
                         ],
                       ),
                     ),
-
                     Container(
                       padding:
                           const EdgeInsets
@@ -983,7 +1278,8 @@ class _MandatoryProfileSetupScreen2State
                             BorderRadius
                                 .circular(12),
                       ),
-                      child: const Text(
+                      child:
+                          const Text(
                         'STEP 2',
                         style:
                             TextStyle(
@@ -1092,7 +1388,8 @@ class _MandatoryProfileSetupScreen2State
                             selectAadhaarFront,
                         onAadhaarBackTap:
                             selectAadhaarBack,
-                        enabled: !_saving,
+                        enabled:
+                            !_saving,
                       ),
 
                       const SizedBox(
@@ -1106,22 +1403,22 @@ class _MandatoryProfileSetupScreen2State
                       panNumberField(),
 
                       // ==================================================
-                      // PAN CARD
+                      // PAN IMAGE
                       // ==================================================
 
                       PanCard2(
-                        url:
-                            panCardUrlController
-                                    .text
-                                    .trim()
-                                    .isEmpty
-                                ? null
-                                : panCardUrlController
-                                    .text
-                                    .trim(),
+                        url: panCardUrlController
+                                .text
+                                .trim()
+                                .isEmpty
+                            ? null
+                            : panCardUrlController
+                                .text
+                                .trim(),
                         onTap:
                             selectPanCard,
-                        enabled: !_saving,
+                        enabled:
+                            !_saving,
                       ),
 
                       const SizedBox(
@@ -1145,7 +1442,8 @@ class _MandatoryProfileSetupScreen2State
                             pinController,
                         fullAddress:
                             fullAddress,
-                        enabled: !_saving,
+                        enabled:
+                            !_saving,
                       ),
 
                       const SizedBox(
@@ -1161,7 +1459,8 @@ class _MandatoryProfileSetupScreen2State
                             emergencyNameController,
                         mobileController:
                             emergencyMobileController,
-                        enabled: !_saving,
+                        enabled:
+                            !_saving,
                       ),
 
                       const SizedBox(
