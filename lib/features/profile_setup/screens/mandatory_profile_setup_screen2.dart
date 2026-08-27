@@ -3,6 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../widgets/address_section2.dart';
+import '../widgets/aadhaar_section2.dart';
+import '../widgets/emergency_contact_section2.dart';
+import '../widgets/pan_card2.dart';
 import 'pending_verification_screen.dart';
 
 class MandatoryProfileSetupScreen2 extends StatefulWidget {
@@ -185,14 +189,9 @@ class _MandatoryProfileSetupScreen2State
 
   bool isValidUrl(String value) {
     final String cleanValue = value.trim();
-
     final Uri? uri = Uri.tryParse(cleanValue);
 
-    if (uri == null) {
-      return false;
-    }
-
-    if (uri.host.isEmpty) {
+    if (uri == null || uri.host.isEmpty) {
       return false;
     }
 
@@ -201,74 +200,10 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // URL FIELD
-  // ============================================================
-
-  Widget urlField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(
-        bottom: 2,
-      ),
-      child: TextField(
-        controller: controller,
-        keyboardType: TextInputType.url,
-        textInputAction: TextInputAction.next,
-        style: const TextStyle(
-          color: AppColors.textDark,
-          fontWeight: FontWeight.w600,
-          fontSize: 13,
-        ),
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: 'https://...',
-          labelStyle: const TextStyle(
-            color: AppColors.muted,
-          ),
-          hintStyle: const TextStyle(
-            color: AppColors.muted,
-            fontSize: 12,
-          ),
-          prefixIcon: Icon(
-            icon,
-            color: AppColors.blue,
-          ),
-          filled: true,
-          fillColor: AppColors.surface,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(
-              color: AppColors.border,
-            ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(
-              color: AppColors.green,
-              width: 1.5,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
   // VALIDATE
   // ============================================================
 
   bool validate() {
-    // ==========================================================
-    // AADHAAR NUMBER
-    // ==========================================================
-
     final String aadhaar =
         aadhaarController.text.trim();
 
@@ -280,78 +215,40 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // ==========================================================
-    // AADHAAR FRONT URL
-    // ==========================================================
-
-    final String aadhaarFrontUrl =
+    final String aadhaarFront =
         aadhaarFrontUrlController.text.trim();
 
-    if (aadhaarFrontUrl.isEmpty) {
+    if (aadhaarFront.isEmpty ||
+        !isValidUrl(aadhaarFront)) {
       showMessage(
-        'Please enter Aadhaar Front Image URL.',
+        'Enter a valid Aadhaar Front Image URL.',
         false,
       );
       return false;
     }
 
-    if (!isValidUrl(aadhaarFrontUrl)) {
-      showMessage(
-        'Aadhaar Front Image URL is invalid.',
-        false,
-      );
-      return false;
-    }
-
-    // ==========================================================
-    // AADHAAR BACK URL
-    // ==========================================================
-
-    final String aadhaarBackUrl =
+    final String aadhaarBack =
         aadhaarBackUrlController.text.trim();
 
-    if (aadhaarBackUrl.isEmpty) {
+    if (aadhaarBack.isEmpty ||
+        !isValidUrl(aadhaarBack)) {
       showMessage(
-        'Please enter Aadhaar Back Image URL.',
+        'Enter a valid Aadhaar Back Image URL.',
         false,
       );
       return false;
     }
 
-    if (!isValidUrl(aadhaarBackUrl)) {
-      showMessage(
-        'Aadhaar Back Image URL is invalid.',
-        false,
-      );
-      return false;
-    }
-
-    // ==========================================================
-    // PAN CARD URL
-    // ==========================================================
-
-    final String panCardUrl =
+    final String pan =
         panCardUrlController.text.trim();
 
-    if (panCardUrl.isEmpty) {
+    if (pan.isEmpty || !isValidUrl(pan)) {
       showMessage(
-        'Please enter PAN Card Image URL.',
+        'Enter a valid PAN Card Image URL.',
         false,
       );
       return false;
     }
-
-    if (!isValidUrl(panCardUrl)) {
-      showMessage(
-        'PAN Card Image URL is invalid.',
-        false,
-      );
-      return false;
-    }
-
-    // ==========================================================
-    // ADDRESS
-    // ==========================================================
 
     if (villageController.text.trim().isEmpty) {
       showMessage(
@@ -396,10 +293,6 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // ==========================================================
-    // EMERGENCY CONTACT
-    // ==========================================================
-
     final String emergencyName =
         emergencyNameController.text.trim();
 
@@ -416,14 +309,6 @@ class _MandatoryProfileSetupScreen2State
         return false;
       }
 
-      if (emergencyMobile.isEmpty) {
-        showMessage(
-          'Please enter emergency contact mobile.',
-          false,
-        );
-        return false;
-      }
-
       if (!RegExp(r'^\d{10}$')
           .hasMatch(emergencyMobile)) {
         showMessage(
@@ -434,10 +319,6 @@ class _MandatoryProfileSetupScreen2State
       }
     }
 
-    // ==========================================================
-    // SCREEN 1 DATA
-    // ==========================================================
-
     if (widget.name.trim().isEmpty) {
       showMessage(
         'Name is missing. Please go back.',
@@ -446,17 +327,10 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    if (widget.selfieUrl.trim().isEmpty) {
+    if (widget.selfieUrl.trim().isEmpty ||
+        !isValidUrl(widget.selfieUrl)) {
       showMessage(
-        'Profile selfie URL is missing. Please go back.',
-        false,
-      );
-      return false;
-    }
-
-    if (!isValidUrl(widget.selfieUrl)) {
-      showMessage(
-        'Profile selfie URL is invalid. Please go back.',
+        'Profile selfie URL is missing or invalid.',
         false,
       );
       return false;
@@ -474,17 +348,13 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // SUBMIT PROFILE
+  // SUBMIT
   // ============================================================
 
   Future<void> submitProfile() async {
     FocusScope.of(context).unfocus();
 
-    if (_saving) {
-      return;
-    }
-
-    if (!validate()) {
+    if (_saving || !validate()) {
       return;
     }
 
@@ -503,34 +373,22 @@ class _MandatoryProfileSetupScreen2State
     });
 
     try {
-      // ========================================================
-      // BASIC DATA
-      // ========================================================
-
       final String uid = user.uid;
+      final String walkerId = createWalkerId(uid);
+      final String fullName = widget.name.trim();
+      final String phoneNumber = user.phoneNumber ?? '';
+      final String gender = widget.gender.trim();
 
-      final String walkerId =
-          createWalkerId(uid);
-
-      final String fullName =
-          widget.name.trim();
-
-      final String phoneNumber =
-          user.phoneNumber ?? '';
-
-      final String cleanGender =
-          widget.gender.trim();
-
-      final String aadhaarNumber =
+      final String aadhaar =
           aadhaarController.text.trim();
 
-      final String cleanAadhaarFrontUrl =
+      final String aadhaarFront =
           aadhaarFrontUrlController.text.trim();
 
-      final String cleanAadhaarBackUrl =
+      final String aadhaarBack =
           aadhaarBackUrlController.text.trim();
 
-      final String cleanPanCardUrl =
+      final String pan =
           panCardUrlController.text.trim();
 
       final String village =
@@ -545,11 +403,10 @@ class _MandatoryProfileSetupScreen2State
       final String state =
           stateController.text.trim();
 
-      final String pincode =
+      final String pin =
           pinController.text.trim();
 
-      final String address =
-          fullAddress;
+      final String address = fullAddress;
 
       final String emergencyName =
           emergencyNameController.text.trim();
@@ -557,152 +414,67 @@ class _MandatoryProfileSetupScreen2State
       final String emergencyMobile =
           emergencyMobileController.text.trim();
 
-      final String cleanSelfieUrl =
+      final String selfie =
           widget.selfieUrl.trim();
-
-      // ========================================================
-      // FIRESTORE DATA
-      // ========================================================
 
       final Map<String, dynamic> data =
           <String, dynamic>{
-        // ======================================================
-        // IDENTITY
-        // ======================================================
-
         'authUid': uid,
         'uid': uid,
-        'Walker Uid': uid,
         'walkerUid': uid,
-
         'walkerId': walkerId,
-        'Walker ID': walkerId,
-
         'role': 'walker',
 
-        // ======================================================
-        // BASIC PROFILE
-        // ======================================================
-
         'fullName': fullName,
-        'Full Name': fullName,
         'name': fullName,
-
         'phoneNumber': phoneNumber,
-        'Mobile number': phoneNumber,
-        'mobileNumber': phoneNumber,
 
-        'dateofbirth': formattedDateOfBirth,
-        'Date Of Birth': formattedDateOfBirth,
         'dateOfBirth': formattedDateOfBirth,
+        'dateofbirth': formattedDateOfBirth,
 
-        'gender': cleanGender,
-        'Gender': cleanGender,
+        'gender': gender,
 
-        // ======================================================
-        // PROFILE SELFIE
-        // ======================================================
+        'selfie': selfie,
+        'selfieUrl': selfie,
+        'profileSelfie': selfie,
+        'profileImage': selfie,
+        'profileImageUrl': selfie,
 
-        'selfie': cleanSelfieUrl,
-        'Profile Selfie': cleanSelfieUrl,
-        'profileSelfie': cleanSelfieUrl,
-        'profileImage': cleanSelfieUrl,
-        'profileImageUrl': cleanSelfieUrl,
-        'selfieUrl': cleanSelfieUrl,
+        'aadhaarNumber': aadhaar,
 
-        // ======================================================
-        // AADHAAR NUMBER
-        // ======================================================
-
-        'aadhaarNumber': aadhaarNumber,
-        'Aadhar Number': aadhaarNumber,
-        'Aadhaar Number': aadhaarNumber,
-
-        // ======================================================
-        // AADHAAR FRONT
-        // ======================================================
-
-        'aadhaarfront': cleanAadhaarFrontUrl,
-        'aadhaarFront': cleanAadhaarFrontUrl,
-        'aadhaar_front': cleanAadhaarFrontUrl,
-        'Aadhaar Front': cleanAadhaarFrontUrl,
-
-        'aadhaar_front_uploaded': true,
+        'aadhaarFront': aadhaarFront,
+        'aadhaarfront': aadhaarFront,
+        'aadhaar_front': aadhaarFront,
         'aadhaarFrontUploaded': true,
 
-        // ======================================================
-        // AADHAAR BACK
-        // ======================================================
-
-        'aadhaarback': cleanAadhaarBackUrl,
-        'aadhaarBack': cleanAadhaarBackUrl,
-        'aadhaar_back': cleanAadhaarBackUrl,
-        'Aadhaar Back': cleanAadhaarBackUrl,
-
-        'aadhaar_back_uploaded': true,
+        'aadhaarBack': aadhaarBack,
+        'aadhaarback': aadhaarBack,
+        'aadhaar_back': aadhaarBack,
         'aadhaarBackUploaded': true,
 
-        // ======================================================
-        // PAN CARD
-        // ======================================================
-
-        'panCard': cleanPanCardUrl,
-        'pan_card': cleanPanCardUrl,
-        'panCardUrl': cleanPanCardUrl,
-        'pan_card_url': cleanPanCardUrl,
-        'PAN Card': cleanPanCardUrl,
-        'PAN Card URL': cleanPanCardUrl,
-
-        'pan_card_uploaded': true,
+        'panCard': pan,
+        'panCardUrl': pan,
+        'pan_card': pan,
         'panCardUploaded': true,
 
-        // ======================================================
-        // VERIFICATION
-        // ======================================================
-
         'aadhaarVerified': false,
-        'aadhaar_verified': false,
-
         'panVerified': false,
-        'pan_verified': false,
-
         'nameMatched': false,
         'dobMatched': false,
 
-        // ======================================================
-        // ADDRESS
-        // ======================================================
-
         'village': village,
-        'Village': village,
-
         'city': city,
-        'City': city,
-
         'district': district,
-        'District': district,
-
         'state': state,
-        'State': state,
-
-        'pincode': pincode,
-        'Pincode': pincode,
-        'pinCode': pincode,
+        'pincode': pin,
+        'pinCode': pin,
 
         'address': address,
         'Adress': address,
         'Address': address,
 
-        // ======================================================
-        // EMERGENCY
-        // ======================================================
-
         'emergencyContactName': emergencyName,
         'emergencyContactMobile': emergencyMobile,
-
-        // ======================================================
-        // PROFILE STATE
-        // ======================================================
 
         'profileCompleted': true,
         'profile_completed': true,
@@ -712,85 +484,47 @@ class _MandatoryProfileSetupScreen2State
         'verification_status': 'pending',
         'status': 'pending',
 
-        // ======================================================
-        // ADMIN STATE
-        // ======================================================
-
         'adminApproved': false,
         'adminRejected': false,
-
-        'adminApprovedAt': null,
-        'adminRejectedAt': null,
-        'adminReviewedAt': null,
-
-        // ======================================================
-        // WALKER STATE
-        // ======================================================
 
         'isActive': false,
         'isVerified': false,
         'isAvailable': false,
 
-        // ======================================================
-        // TIMESTAMPS
-        // ======================================================
-
         'createdAt':
             FieldValue.serverTimestamp(),
-
         'updatedAt':
             FieldValue.serverTimestamp(),
-
         'submittedAt':
             FieldValue.serverTimestamp(),
       };
-
-      // ========================================================
-      // SAVE WALKER
-      // ========================================================
 
       await _firestore
           .collection('walkers')
           .doc(uid)
           .set(
-        data,
-        SetOptions(
-          merge: true,
-        ),
-      );
+            data,
+            SetOptions(merge: true),
+          );
 
-      // ========================================================
-      // USERS SYNC
-      // ========================================================
-
-      try {
-        await _firestore
-            .collection('users')
-            .doc(uid)
-            .set(
-          <String, dynamic>{
-            'uid': uid,
-            'walkerUid': uid,
-            'walkerId': walkerId,
-            'role': 'walker',
-            'fullName': fullName,
-            'phoneNumber': phoneNumber,
-            'profileCompleted': true,
-            'verificationStatus': 'pending',
-            'updatedAt':
-                FieldValue.serverTimestamp(),
-          },
-          SetOptions(
-            merge: true,
-          ),
-        );
-      } catch (_) {
-        // Optional sync.
-      }
-
-      // ========================================================
-      // SUCCESS
-      // ========================================================
+      await _firestore
+          .collection('users')
+          .doc(uid)
+          .set(
+            <String, dynamic>{
+              'uid': uid,
+              'walkerUid': uid,
+              'walkerId': walkerId,
+              'role': 'walker',
+              'fullName': fullName,
+              'phoneNumber': phoneNumber,
+              'profileCompleted': true,
+              'verificationStatus': 'pending',
+              'updatedAt':
+                  FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true),
+          );
 
       if (!mounted) {
         return;
@@ -806,18 +540,12 @@ class _MandatoryProfileSetupScreen2State
       );
 
       await Future<void>.delayed(
-        const Duration(
-          milliseconds: 500,
-        ),
+        const Duration(milliseconds: 500),
       );
 
       if (!mounted) {
         return;
       }
-
-      // ========================================================
-      // PENDING VERIFICATION
-      // ========================================================
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(
@@ -865,90 +593,16 @@ class _MandatoryProfileSetupScreen2State
     switch (e.code) {
       case 'permission-denied':
         return 'Firebase permission denied. Check Firestore rules.';
-
       case 'unauthenticated':
         return 'Login session expired. Please login again.';
-
       case 'network-request-failed':
         return 'Network error. Check your internet connection.';
-
       case 'unavailable':
         return 'Firebase is temporarily unavailable.';
-
       default:
         return e.message ??
             'Firebase error. Please try again.';
     }
-  }
-
-  // ============================================================
-  // TEXT FIELD
-  // ============================================================
-
-  Widget field({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    TextInputType? keyboardType,
-    int? maxLength,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(
-        bottom: 14,
-      ),
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        maxLength: maxLength,
-        textInputAction: TextInputAction.next,
-        style: const TextStyle(
-          color: AppColors.textDark,
-          fontWeight: FontWeight.w600,
-        ),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(
-            color: AppColors.muted,
-          ),
-          prefixIcon: Icon(
-            icon,
-            color: AppColors.blue,
-          ),
-          filled: true,
-          fillColor: AppColors.surface,
-          counterText: '',
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(
-              color: AppColors.border,
-            ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(
-              color: AppColors.green,
-              width: 1.5,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // PAN CARD
-  // ============================================================
-
-  Widget panCard() {
-    return urlField(
-      controller: panCardUrlController,
-      label: 'PAN Card Image URL',
-      icon: Icons.credit_card_rounded,
-    );
   }
 
   // ============================================================
@@ -988,41 +642,26 @@ class _MandatoryProfileSetupScreen2State
             ],
           ),
           const SizedBox(height: 14),
-          _summaryRow(
-            'Full Name',
-            widget.name,
-          ),
+          _summaryRow('Full Name', widget.name),
           _summaryRow(
             'Date Of Birth',
             '${widget.dateOfBirth.day.toString().padLeft(2, '0')}/'
             '${widget.dateOfBirth.month.toString().padLeft(2, '0')}/'
             '${widget.dateOfBirth.year}',
           ),
-          _summaryRow(
-            'Gender',
-            widget.gender,
-          ),
-          _summaryRow(
-            'Walker Role',
-            'Walker',
-          ),
+          _summaryRow('Gender', widget.gender),
+          _summaryRow('Walker Role', 'Walker'),
         ],
       ),
     );
   }
-
-  // ============================================================
-  // SUMMARY ROW
-  // ============================================================
 
   Widget _summaryRow(
     String title,
     String value,
   ) {
     return Padding(
-      padding: const EdgeInsets.only(
-        bottom: 9,
-      ),
+      padding: const EdgeInsets.only(bottom: 9),
       child: Row(
         crossAxisAlignment:
             CrossAxisAlignment.start,
@@ -1055,27 +694,6 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // SECTION
-  // ============================================================
-
-  Widget sectionContainer({
-    required Widget child,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.border,
-        ),
-      ),
-      child: child,
-    );
-  }
-
-  // ============================================================
   // BUILD
   // ============================================================
 
@@ -1084,8 +702,7 @@ class _MandatoryProfileSetupScreen2State
     return PopScope(
       canPop: !_saving,
       child: Scaffold(
-        backgroundColor:
-            AppColors.background,
+        backgroundColor: AppColors.background,
         body: SafeArea(
           child: Column(
             children: [
@@ -1135,8 +752,7 @@ class _MandatoryProfileSetupScreen2State
                             style: TextStyle(
                               fontSize: 11,
                               color: AppColors.orange,
-                              fontWeight:
-                                  FontWeight.w800,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                           SizedBox(height: 2),
@@ -1144,10 +760,8 @@ class _MandatoryProfileSetupScreen2State
                             'Aadhaar, PAN & Address',
                             style: TextStyle(
                               fontSize: 19,
-                              color:
-                                  AppColors.textDark,
-                              fontWeight:
-                                  FontWeight.w900,
+                              color: AppColors.textDark,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                         ],
@@ -1170,8 +784,7 @@ class _MandatoryProfileSetupScreen2State
                         style: TextStyle(
                           color: AppColors.green,
                           fontSize: 10,
-                          fontWeight:
-                              FontWeight.w900,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ),
@@ -1188,8 +801,7 @@ class _MandatoryProfileSetupScreen2State
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior
                           .onDrag,
-                  padding:
-                      const EdgeInsets.fromLTRB(
+                  padding: const EdgeInsets.fromLTRB(
                     18,
                     18,
                     18,
@@ -1200,13 +812,11 @@ class _MandatoryProfileSetupScreen2State
                         CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Aadhaar, PAN & Address',
+                        'Complete Your Profile',
                         style: TextStyle(
                           fontSize: 23,
-                          fontWeight:
-                              FontWeight.w900,
-                          color:
-                              AppColors.textDark,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.textDark,
                         ),
                       ),
 
@@ -1223,7 +833,7 @@ class _MandatoryProfileSetupScreen2State
                       const SizedBox(height: 18),
 
                       // ==================================================
-                      // SUMMARY
+                      // PROFILE SUMMARY
                       // ==================================================
 
                       summaryCard(),
@@ -1234,88 +844,16 @@ class _MandatoryProfileSetupScreen2State
                       // AADHAAR
                       // ==================================================
 
-                      sectionContainer(
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(
-                                  Icons.badge_rounded,
-                                  color:
-                                      AppColors.blue,
-                                ),
-                                SizedBox(width: 9),
-                                Text(
-                                  'Aadhaar',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight:
-                                        FontWeight.w900,
-                                    color: AppColors
-                                        .textDark,
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 14),
-
-                            field(
-                              controller:
-                                  aadhaarController,
-                              label:
-                                  'Aadhaar Number',
-                              icon: Icons
-                                  .credit_card_rounded,
-                              keyboardType:
-                                  TextInputType.number,
-                              maxLength: 12,
-                            ),
-
-                            const SizedBox(height: 2),
-
-                            // ==================================================
-                            // AADHAAR FRONT URL
-                            // ==================================================
-
-                            urlField(
-                              controller:
-                                  aadhaarFrontUrlController,
-                              label:
-                                  'Aadhaar Front Image URL',
-                              icon: Icons
-                                  .credit_card_rounded,
-                            ),
-
-                            const SizedBox(height: 12),
-
-                            // ==================================================
-                            // AADHAAR BACK URL
-                            // ==================================================
-
-                            urlField(
-                              controller:
-                                  aadhaarBackUrlController,
-                              label:
-                                  'Aadhaar Back Image URL',
-                              icon: Icons
-                                  .credit_card_rounded,
-                            ),
-
-                            const SizedBox(height: 2),
-
-                            const Text(
-                              'Testing के लिए valid image URL डालें।',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color:
-                                    AppColors.muted,
-                              ),
-                            ),
-                          ],
-                        ),
+                      AadhaarSection2(
+                        aadhaarController:
+                            aadhaarController,
+                        aadhaarFrontUrl:
+                            aadhaarFrontUrlController.text,
+                        aadhaarBackUrl:
+                            aadhaarBackUrlController.text,
+                        onAadhaarFrontTap: () {},
+                        onAadhaarBackTap: () {},
+                        enabled: !_saving,
                       ),
 
                       const SizedBox(height: 18),
@@ -1324,49 +862,10 @@ class _MandatoryProfileSetupScreen2State
                       // PAN
                       // ==================================================
 
-                      sectionContainer(
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(
-                                  Icons
-                                      .credit_card_rounded,
-                                  color:
-                                      AppColors.orange,
-                                ),
-                                SizedBox(width: 9),
-                                Text(
-                                  'PAN Card',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight:
-                                        FontWeight.w900,
-                                    color: AppColors
-                                        .textDark,
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 14),
-
-                            panCard(),
-
-                            const SizedBox(height: 2),
-
-                            const Text(
-                              'Testing के लिए valid image URL डालें।',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color:
-                                    AppColors.muted,
-                              ),
-                            ),
-                          ],
-                        ),
+                      PanCard2(
+                        controller:
+                            panCardUrlController,
+                        enabled: !_saving,
                       ),
 
                       const SizedBox(height: 18),
@@ -1375,129 +874,20 @@ class _MandatoryProfileSetupScreen2State
                       // ADDRESS
                       // ==================================================
 
-                      sectionContainer(
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(
-                                  Icons
-                                      .location_on_rounded,
-                                  color:
-                                      AppColors.blue,
-                                ),
-                                SizedBox(width: 9),
-                                Text(
-                                  'Address',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight:
-                                        FontWeight.w900,
-                                    color: AppColors
-                                        .textDark,
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 14),
-
-                            field(
-                              controller:
-                                  villageController,
-                              label:
-                                  'Village / Locality',
-                              icon: Icons
-                                  .location_on_rounded,
-                            ),
-
-                            field(
-                              controller:
-                                  cityController,
-                              label:
-                                  'City / Town',
-                              icon: Icons
-                                  .location_city_rounded,
-                            ),
-
-                            field(
-                              controller:
-                                  districtController,
-                              label:
-                                  'District',
-                              icon: Icons.map_rounded,
-                            ),
-
-                            field(
-                              controller:
-                                  stateController,
-                              label: 'State',
-                              icon: Icons
-                                  .public_rounded,
-                            ),
-
-                            field(
-                              controller:
-                                  pinController,
-                              label: 'PIN Code',
-                              icon: Icons
-                                  .pin_drop_rounded,
-                              keyboardType:
-                                  TextInputType.number,
-                              maxLength: 6,
-                            ),
-
-                            Container(
-                              width: double.infinity,
-                              padding:
-                                  const EdgeInsets.all(
-                                13,
-                              ),
-                              decoration: BoxDecoration(
-                                color:
-                                    AppColors.background,
-                                borderRadius:
-                                    BorderRadius.circular(
-                                  14,
-                                ),
-                              ),
-                              child: Row(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment
-                                        .start,
-                                children: [
-                                  const Icon(
-                                    Icons.home_rounded,
-                                    color:
-                                        AppColors.green,
-                                    size: 19,
-                                  ),
-                                  const SizedBox(
-                                    width: 9,
-                                  ),
-                                  Expanded(
-                                    child: Text(
-                                      fullAddress.isEmpty
-                                          ? 'Address preview'
-                                          : fullAddress,
-                                      style:
-                                          const TextStyle(
-                                        fontSize: 12,
-                                        height: 1.5,
-                                        color: AppColors
-                                            .textDark,
-                                        fontWeight:
-                                            FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                      AddressSection2(
+                        villageController:
+                            villageController,
+                        cityController:
+                            cityController,
+                        districtController:
+                            districtController,
+                        stateController:
+                            stateController,
+                        pinController:
+                            pinController,
+                        fullAddress:
+                            fullAddress,
+                        enabled: !_saving,
                       ),
 
                       const SizedBox(height: 18),
@@ -1506,80 +896,12 @@ class _MandatoryProfileSetupScreen2State
                       // EMERGENCY
                       // ==================================================
 
-                      sectionContainer(
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
-                            const Row(
-                              children: [
-                                Icon(
-                                  Icons
-                                      .contact_emergency_rounded,
-                                  color:
-                                      AppColors.orange,
-                                ),
-                                SizedBox(width: 9),
-                                Expanded(
-                                  child: Text(
-                                    'Emergency Contact',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight:
-                                          FontWeight.w900,
-                                      color: AppColors
-                                          .textDark,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  'OPTIONAL',
-                                  style: TextStyle(
-                                    color:
-                                        AppColors.muted,
-                                    fontSize: 10,
-                                    fontWeight:
-                                        FontWeight.w900,
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 6),
-
-                            const Text(
-                              'यह जानकारी optional है। खाली छोड़कर भी आगे बढ़ सकते हैं।',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color:
-                                    AppColors.muted,
-                              ),
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            field(
-                              controller:
-                                  emergencyNameController,
-                              label:
-                                  'Emergency Contact Name (Optional)',
-                              icon: Icons
-                                  .person_outline_rounded,
-                            ),
-
-                            field(
-                              controller:
-                                  emergencyMobileController,
-                              label:
-                                  'Emergency Contact Mobile (Optional)',
-                              icon:
-                                  Icons.phone_rounded,
-                              keyboardType:
-                                  TextInputType.phone,
-                              maxLength: 10,
-                            ),
-                          ],
-                        ),
+                      EmergencyContactSection2(
+                        nameController:
+                            emergencyNameController,
+                        mobileController:
+                            emergencyMobileController,
+                        enabled: !_saving,
                       ),
 
                       const SizedBox(height: 18),
@@ -1590,8 +912,7 @@ class _MandatoryProfileSetupScreen2State
 
                       Container(
                         width: double.infinity,
-                        padding:
-                            const EdgeInsets.all(15),
+                        padding: const EdgeInsets.all(15),
                         decoration: BoxDecoration(
                           color: AppColors.blue
                               .withOpacity(.06),
@@ -1603,10 +924,8 @@ class _MandatoryProfileSetupScreen2State
                               CrossAxisAlignment.start,
                           children: [
                             Icon(
-                              Icons
-                                  .info_outline_rounded,
-                              color:
-                                  AppColors.blue,
+                              Icons.info_outline_rounded,
+                              color: AppColors.blue,
                               size: 21,
                             ),
                             SizedBox(width: 9),
@@ -1616,8 +935,7 @@ class _MandatoryProfileSetupScreen2State
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   height: 1.5,
-                                  color:
-                                      AppColors.textDark,
+                                  color: AppColors.textDark,
                                 ),
                               ),
                             ),
@@ -1652,16 +970,13 @@ class _MandatoryProfileSetupScreen2State
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
-                                  BorderRadius.circular(
-                                17,
-                              ),
+                                  BorderRadius.circular(17),
                             ),
                           ),
                           child: _saving
                               ? const Row(
                                   mainAxisAlignment:
-                                      MainAxisAlignment
-                                          .center,
+                                      MainAxisAlignment.center,
                                   children: [
                                     SizedBox(
                                       width: 21,
@@ -1669,8 +984,8 @@ class _MandatoryProfileSetupScreen2State
                                       child:
                                           CircularProgressIndicator(
                                         strokeWidth: 2.5,
-                                        color: AppColors
-                                            .onPrimary,
+                                        color:
+                                            AppColors.onPrimary,
                                       ),
                                     ),
                                     SizedBox(width: 12),
@@ -1685,12 +1000,10 @@ class _MandatoryProfileSetupScreen2State
                                 )
                               : const Row(
                                   mainAxisAlignment:
-                                      MainAxisAlignment
-                                          .center,
+                                      MainAxisAlignment.center,
                                   children: [
                                     Icon(
-                                      Icons
-                                          .verified_rounded,
+                                      Icons.verified_rounded,
                                     ),
                                     SizedBox(width: 9),
                                     Text(
