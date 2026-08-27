@@ -1,17 +1,10 @@
-// File:
-// lib/features/insta_walk/services/insta_walk_service.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 /// ============================================================
 /// INSTA WALK SERVICE
 ///
-/// Main collection:
-///     walk_request
-///
 /// RESPONSIBILITIES:
-///
 /// - Current Walker information
 /// - Watch single walk
 /// - Cancel search
@@ -26,10 +19,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 ///
 /// REJECT:
 ///     InstaWalkRejectService
-///
-/// IMPORTANT:
-/// Request discovery / pendingRequestsStream()
-/// इस service में नहीं है.
 /// ============================================================
 
 class InstaWalkService {
@@ -67,8 +56,7 @@ class InstaWalkService {
   }
 
   String? get currentWalkerUid {
-    final User? user =
-        _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     final String uid =
         user?.uid.trim() ?? '';
@@ -82,8 +70,6 @@ class InstaWalkService {
 
   // ============================================================
   // CURRENT WALKER DOCUMENT
-  //
-  // walkers/{FirebaseAuthUID}
   // ============================================================
 
   Future<DocumentSnapshot<Map<String, dynamic>>?>
@@ -183,18 +169,7 @@ class InstaWalkService {
   // ============================================================
   // WATCH SINGLE WALK
   //
-  // Watches:
-  //
-  //     walk_request/{walkId}
-  //
-  // Used by:
-  //
-  //     ActiveWalkDetailsScreen
-  //
-  // This is NOT request discovery.
-  // Request discovery is handled by:
-  //
-  //     InstaWalkRequestService
+  // Used by ActiveWalkDetailsScreen.
   // ============================================================
 
   Stream<DocumentSnapshot<Map<String, dynamic>>>
@@ -216,50 +191,9 @@ class InstaWalkService {
   }
 
   // ============================================================
-  // WATCH SINGLE WALK AS DATA
-  //
-  // Optional helper.
-  //
-  // Returns raw Firestore document data.
-  // ============================================================
-
-  Stream<Map<String, dynamic>?>
-      watchWalkData(
-    String walkId,
-  ) {
-    final String id =
-        walkId.trim();
-
-    if (id.isEmpty) {
-      return Stream.value(null);
-    }
-
-    return _walkRequests
-        .doc(id)
-        .snapshots()
-        .map(
-          (
-            DocumentSnapshot<
-                    Map<String, dynamic>>
-                snapshot,
-          ) {
-            if (!snapshot.exists) {
-              return null;
-            }
-
-            return snapshot.data();
-          },
-        );
-  }
-
-  // ============================================================
   // CANCEL SEARCH
   //
   // searching → cancelled
-  //
-  // Owner's request remains inside:
-  //
-  // walk_request/{walkId}
   // ============================================================
 
   Future<void> cancelSearch(
@@ -335,28 +269,6 @@ class InstaWalkService {
           );
         }
 
-        final String ownerAuthUid =
-            data['ownerAuthUid']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        final String ownerUid =
-            data['ownerUid']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        final String ownerId =
-            data['ownerId']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        // --------------------------------------------------------
-        // Walker must not cancel another walker's request.
-        // --------------------------------------------------------
-
         final String storedWalkerUid =
             data['walkerUid']
                     ?.toString()
@@ -367,18 +279,6 @@ class InstaWalkService {
             storedWalkerUid != walkerUid) {
           throw Exception(
             'This walk belongs to another walker.',
-          );
-        }
-
-        // --------------------------------------------------------
-        // Owner information should exist.
-        // --------------------------------------------------------
-
-        if (ownerAuthUid.isEmpty &&
-            ownerUid.isEmpty &&
-            ownerId.isEmpty) {
-          throw Exception(
-            'Owner information is missing from this walk request.',
           );
         }
 
@@ -513,7 +413,9 @@ class InstaWalkService {
         }
 
         final String sessionId =
-            liveWalkSessionId?.trim().isNotEmpty ==
+            liveWalkSessionId
+                        ?.trim()
+                        .isNotEmpty ==
                     true
                 ? liveWalkSessionId!.trim()
                 : 'session-$id';
