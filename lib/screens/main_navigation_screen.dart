@@ -405,14 +405,18 @@ class _MainNavigationScreenState
       ),
 
       liveWalkSessionId:
-          _firstNonEmpty(
-        <String>[
-          data['liveWalkSessionId'],
-          AppStateService
-              .instance
-              .activeSessionId,
-        ],
-      ),
+    _firstNonEmpty(
+  <String>[
+    _readString(
+      data['liveWalkSessionId'],
+    ),
+    _readString(
+      AppStateService
+          .instance
+          .activeSessionId,
+    ),
+  ],
+),
 
       createdAt:
           _readTimestamp(
