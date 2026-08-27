@@ -1,9 +1,8 @@
-// File location: lib/screens/main_navigation_screen.dart
-
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
 import '../core/services/app_state_service.dart';
+import '../widgets/active_walk_strip.dart';
 import 'walker_home_screen.dart';
 import 'walks_screen.dart';
 import 'menu_screen.dart';
@@ -29,27 +28,14 @@ class _MainNavigationScreenState
     MenuScreen(),
   ];
 
-  // ============================================================
-  // INIT
-  // ============================================================
-
   @override
   void initState() {
     super.initState();
 
     WidgetsBinding.instance.addObserver(this);
 
-    // ----------------------------------------------------------
-    // Recover current Firebase state when navigation screen
-    // is opened.
-    // ----------------------------------------------------------
-
     AppStateService.instance.refresh();
   }
-
-  // ============================================================
-  // APP LIFECYCLE
-  // ============================================================
 
   @override
   void didChangeAppLifecycleState(
@@ -57,100 +43,89 @@ class _MainNavigationScreenState
   ) {
     super.didChangeAppLifecycleState(state);
 
-    // ----------------------------------------------------------
-    // App वापस foreground में आने पर Firebase state refresh.
-    // ----------------------------------------------------------
-
     if (state == AppLifecycleState.resumed) {
       AppStateService.instance.refresh();
     }
   }
 
-  // ============================================================
-  // DISPOSE
-  // ============================================================
-
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-
     super.dispose();
   }
-
-  // ============================================================
-  // SELECTED COLOR
-  // ============================================================
 
   Color get _selectedColor {
     switch (_currentIndex) {
       case 0:
-        return AppColors.primary; // Home - Orange
+        return AppColors.primary;
 
       case 1:
-        return Colors.green; // Walks - Green
+        return Colors.green;
 
       case 2:
-        return Colors.deepPurple; // Menu - Purple
+        return Colors.deepPurple;
 
       default:
         return AppColors.primary;
     }
   }
 
-  // ============================================================
-  // BUILD
-  // ============================================================
-
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
       body: _screens[_currentIndex],
 
-      // ========================================================
-      // BOTTOM NAVIGATION
-      // ========================================================
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ActiveWalkStrip(
+            onTap: _openActiveWalk,
+          ),
 
-      bottomNavigationBar:
           BottomNavigationBar(
-        currentIndex: _currentIndex,
-
-        selectedItemColor:
-            _selectedColor,
-
-        unselectedItemColor:
-            AppColors.textGrey,
-
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.home,
-            ),
-            label: 'Home',
-          ),
-
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.directions_walk_rounded,
-            ),
-            label: 'Walks',
-          ),
-
-          BottomNavigationBarItem(
-            icon: Icon(
-              Icons.menu,
-            ),
-            label: 'Menu',
+            currentIndex: _currentIndex,
+            selectedItemColor: _selectedColor,
+            unselectedItemColor: AppColors.textGrey,
+            onTap: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(
+                  Icons.directions_walk_rounded,
+                ),
+                label: 'Walks',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.menu),
+                label: 'Menu',
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  void _openActiveWalk() {
+    final AppStateService state =
+        AppStateService.instance;
+
+    final String? walkId =
+        state.activeWalkId;
+
+    if (walkId == null || walkId.isEmpty) {
+      return;
+    }
+
+    // Active Walk / Live Walk navigation
+    // yahan exact existing screen constructor
+    // connect karna hai.
   }
 }
