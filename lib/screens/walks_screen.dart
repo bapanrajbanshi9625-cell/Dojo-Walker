@@ -11,11 +11,11 @@ import '../features/insta_walk/models/insta_walk_request.dart';
 import '../features/insta_walk/screens/active_walk_details_screen.dart';
 import '../features/insta_walk/services/insta_walk_accept_service.dart';
 import '../features/insta_walk/services/insta_walk_reject_service.dart';
-import '../features/insta_walk/services/insta_walk_service.dart';
+import '../features/insta_walk/services/insta_walk_request_service.dart';
 import '../features/insta_walk/widgets/insta_walk_container.dart';
 import '../features/insta_walk/widgets/insta_walk_request_card.dart';
-import '../features/walker_home/containers/walker_home_header.dart';
 import '../features/qr_walk/screens/qr_scanner_screen.dart';
+import '../features/walker_home/containers/walker_home_header.dart';
 
 class WalksScreen extends StatefulWidget {
   const WalksScreen({super.key});
@@ -40,29 +40,18 @@ class _WalksScreenState extends State<WalksScreen>
   // INSTA WALK SERVICES
   // ============================================================
 
-  /// Main Insta Walk service.
-  ///
-  /// Used for:
-  /// - current walker
-  /// - cancel search
-  /// - start walk
-  /// - complete walk
-  final InstaWalkService _instaWalkService =
-      InstaWalkService.instance;
-
-  /// Separate request service.
-  ///
-  /// Used for:
-  /// - finding pending Insta Walk requests
-  /// - loading a single walk request
+  /// Handles:
+  /// - pending/searching requests
+  /// - loading a single request
+  /// - accepted walks
   final InstaWalkRequestService _requestService =
       InstaWalkRequestService.instance;
 
-  /// Separate accept service.
+  /// Handles accepting an Insta Walk request.
   final InstaWalkAcceptService _acceptService =
       InstaWalkAcceptService.instance;
 
-  /// Separate reject service.
+  /// Handles rejecting an Insta Walk request.
   final InstaWalkRejectService _rejectService =
       InstaWalkRejectService.instance;
 
@@ -174,6 +163,10 @@ class _WalksScreenState extends State<WalksScreen>
     }
 
     try {
+      // --------------------------------------------------------
+      // LOAD WALKER ID FROM PHONE ACCOUNT
+      // --------------------------------------------------------
+
       final DocumentSnapshot<Map<String, dynamic>>
           account = await _firestore
               .collection('phoneAccounts')
@@ -192,6 +185,10 @@ class _WalksScreenState extends State<WalksScreen>
       if (savedWalkerId.isNotEmpty) {
         _walkerId = savedWalkerId;
       }
+
+      // --------------------------------------------------------
+      // LOAD SEARCHING STATE
+      // --------------------------------------------------------
 
       final DocumentSnapshot<Map<String, dynamic>>
           userDoc = await _firestore
@@ -312,6 +309,10 @@ class _WalksScreenState extends State<WalksScreen>
     });
 
     try {
+      // --------------------------------------------------------
+      // MARK WALKER AS SEARCHING
+      // --------------------------------------------------------
+
       await _firestore
           .collection('users')
           .doc(user.uid)
@@ -361,14 +362,6 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
   // REQUEST LISTENER
   // ============================================================
-  //
-  // IMPORTANT:
-  //
-  // Request खोजने का काम अब
-  // InstaWalkRequestService करता है.
-  //
-  // InstaWalkService से request methods नहीं लिए जाते.
-  // ============================================================
 
   void _startRequestListener() {
     _requestSubscription?.cancel();
@@ -392,10 +385,11 @@ class _WalksScreenState extends State<WalksScreen>
             (
               InstaWalkRequest a,
               InstaWalkRequest b,
-            ) =>
-                a.distanceKm.compareTo(
-              b.distanceKm,
-            ),
+            ) {
+              return a.distanceKm.compareTo(
+                b.distanceKm,
+              );
+            },
           );
 
         setState(() {
@@ -439,7 +433,7 @@ class _WalksScreenState extends State<WalksScreen>
 
     try {
       // --------------------------------------------------------
-      // ACCEPT SERVICE
+      // ACCEPT
       // --------------------------------------------------------
 
       await _acceptService.acceptWalk(
@@ -447,7 +441,7 @@ class _WalksScreenState extends State<WalksScreen>
       );
 
       // --------------------------------------------------------
-      // STOP WALKER SEARCH
+      // STOP SEARCH
       // --------------------------------------------------------
 
       await _stopSearchState(
@@ -456,8 +450,6 @@ class _WalksScreenState extends State<WalksScreen>
 
       // --------------------------------------------------------
       // LOAD ACCEPTED REQUEST
-      //
-      // Request service से.
       // --------------------------------------------------------
 
       final InstaWalkRequest? accepted =
@@ -479,22 +471,24 @@ class _WalksScreenState extends State<WalksScreen>
         _requests.removeWhere(
           (
             InstaWalkRequest item,
-          ) =>
-              item.id == request.id,
+          ) {
+            return item.id == request.id;
+          },
         );
       });
 
       // --------------------------------------------------------
-      // ACTIVE WALK
+      // OPEN ACTIVE WALK
       // --------------------------------------------------------
 
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) =>
-              ActiveWalkDetailsScreen(
-            request: accepted,
-          ),
+          builder: (_) {
+            return ActiveWalkDetailsScreen(
+              request: accepted,
+            );
+          },
         ),
       );
     } catch (e) {
@@ -533,8 +527,9 @@ class _WalksScreenState extends State<WalksScreen>
         _requests.removeWhere(
           (
             InstaWalkRequest item,
-          ) =>
-              item.id == request.id,
+          ) {
+            return item.id == request.id;
+          },
         );
       });
     } catch (e) {
@@ -570,6 +565,10 @@ class _WalksScreenState extends State<WalksScreen>
     }
 
     try {
+      // --------------------------------------------------------
+      // STOP SEARCH IN FIRESTORE
+      // --------------------------------------------------------
+
       await _firestore
           .collection('users')
           .doc(uid)
@@ -581,6 +580,10 @@ class _WalksScreenState extends State<WalksScreen>
         },
         SetOptions(merge: true),
       );
+
+      // --------------------------------------------------------
+      // CANCEL REQUEST LISTENER
+      // --------------------------------------------------------
 
       await _requestSubscription?.cancel();
 
@@ -675,9 +678,11 @@ class _WalksScreenState extends State<WalksScreen>
     try {
       await _stopSearchState();
     } catch (_) {
-      _showMessage(
-        'Unable to stop searching.',
-      );
+      if (mounted) {
+        _showMessage(
+          'Unable to stop searching.',
+        );
+      }
     }
   }
 
@@ -746,8 +751,9 @@ class _WalksScreenState extends State<WalksScreen>
           await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) =>
-              const QrScannerScreen(),
+          builder: (_) {
+            return const QrScannerScreen();
+          },
         ),
       );
 
@@ -851,14 +857,12 @@ class _WalksScreenState extends State<WalksScreen>
           ) {
             return InstaWalkRequestCard(
               request: request,
-              onAccept: () =>
-                  _acceptRequest(
-                request,
-              ),
-              onReject: () =>
-                  _rejectRequest(
-                request,
-              ),
+              onAccept: () {
+                _acceptRequest(request);
+              },
+              onReject: () {
+                _rejectRequest(request);
+              },
             );
           },
         ),
@@ -969,14 +973,7 @@ class _WalksScreenState extends State<WalksScreen>
     WidgetsBinding.instance
         .removeObserver(this);
 
-    if (_searching) {
-      unawaited(
-        _stopSearchState(),
-      );
-    }
-
     _requestSubscription?.cancel();
-
     _requestSubscription = null;
 
     _dotTimer?.cancel();
