@@ -14,7 +14,8 @@ import '../widgets/pan_card2.dart';
 import '../widgets/profile_info_card2.dart';
 import '../widgets/profile_submit_button2.dart';
 import '../widgets/profile_summary_card2.dart';
-import 'pending_verification_screen.dart';
+
+import '../../walker_verification/screens/pending_verification_screen.dart';
 
 class MandatoryProfileSetupScreen2 extends StatefulWidget {
   const MandatoryProfileSetupScreen2({
