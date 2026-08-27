@@ -11,7 +11,6 @@ import '../features/insta_walk/models/insta_walk_request.dart';
 import '../features/insta_walk/screens/active_walk_details_screen.dart';
 import '../features/insta_walk/services/insta_walk_accept_service.dart';
 import '../features/insta_walk/services/insta_walk_reject_service.dart';
-import '../features/insta_walk/services/insta_walk_request_service.dart';
 import '../features/insta_walk/services/insta_walk_service.dart';
 import '../features/insta_walk/widgets/insta_walk_container.dart';
 import '../features/insta_walk/widgets/insta_walk_request_card.dart';
