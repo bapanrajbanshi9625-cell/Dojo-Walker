@@ -38,6 +38,11 @@ class ProfileSetupServiceHelpers {
 
   // ============================================================
   // UPLOAD FILE
+  //
+  // Firebase Storage path:
+  //
+  // walkers/{uid}/{folder}/{fileName}
+  //
   // ============================================================
 
   static Future<String> uploadFile({
@@ -67,14 +72,40 @@ class ProfileSetupServiceHelpers {
         .child(folder)
         .child(fileName);
 
-    await storageRef.putFile(
-      file,
-      SettableMetadata(
-        contentType: 'image/jpeg',
-      ),
-    );
+    try {
+      await storageRef.putFile(
+        file,
+        SettableMetadata(
+          contentType: 'image/jpeg',
+        ),
+      );
 
-    return storageRef.getDownloadURL();
+      return await storageRef.getDownloadURL();
+    } on FirebaseException catch (e) {
+      if (e.code == 'unauthorized' ||
+          e.code == 'permission-denied') {
+        throw Exception(
+          'Firebase Storage permission denied.',
+        );
+      }
+
+      if (e.code == 'canceled') {
+        throw Exception(
+          'Image upload was cancelled.',
+        );
+      }
+
+      if (e.code == 'retry-limit-exceeded') {
+        throw Exception(
+          'Image upload timed out. Please try again.',
+        );
+      }
+
+      throw Exception(
+        e.message ??
+            'Unable to upload image.',
+      );
+    }
   }
 
   // ============================================================
@@ -82,7 +113,7 @@ class ProfileSetupServiceHelpers {
   //
   // Priority:
   //
-  // 1. Valid URL
+  // 1. URL
   // 2. Firebase Storage file
   //
   // ============================================================
@@ -94,10 +125,11 @@ class ProfileSetupServiceHelpers {
     File? file,
     String? url,
   }) async {
-    final String cleanUrl = url?.trim() ?? '';
+    final String cleanUrl =
+        url?.trim() ?? '';
 
     // ----------------------------------------------------------
-    // URL
+    // URL FALLBACK
     // ----------------------------------------------------------
 
     if (cleanUrl.isNotEmpty) {
@@ -111,7 +143,7 @@ class ProfileSetupServiceHelpers {
     }
 
     // ----------------------------------------------------------
-    // FILE
+    // FIREBASE STORAGE FILE
     // ----------------------------------------------------------
 
     if (file != null) {
@@ -129,7 +161,79 @@ class ProfileSetupServiceHelpers {
   }
 
   // ============================================================
-  // DATE FORMAT
+  // PROFILE SELFIE
+  // ============================================================
+
+  static Future<String> resolveSelfie({
+    required String authUid,
+    File? file,
+    String? url,
+  }) async {
+    return resolveImage(
+      authUid: authUid,
+      folder: 'selfie',
+      fileName: 'selfie.jpg',
+      file: file,
+      url: url,
+    );
+  }
+
+  // ============================================================
+  // AADHAAR FRONT
+  // ============================================================
+
+  static Future<String> resolveAadhaarFront({
+    required String authUid,
+    File? file,
+    String? url,
+  }) async {
+    return resolveImage(
+      authUid: authUid,
+      folder: 'aadhaar',
+      fileName: 'front.jpg',
+      file: file,
+      url: url,
+    );
+  }
+
+  // ============================================================
+  // AADHAAR BACK
+  // ============================================================
+
+  static Future<String> resolveAadhaarBack({
+    required String authUid,
+    File? file,
+    String? url,
+  }) async {
+    return resolveImage(
+      authUid: authUid,
+      folder: 'aadhaar',
+      fileName: 'back.jpg',
+      file: file,
+      url: url,
+    );
+  }
+
+  // ============================================================
+  // PAN CARD
+  // ============================================================
+
+  static Future<String> resolvePanCard({
+    required String authUid,
+    File? file,
+    String? url,
+  }) async {
+    return resolveImage(
+      authUid: authUid,
+      folder: 'pan',
+      fileName: 'pan.jpg',
+      file: file,
+      url: url,
+    );
+  }
+
+  // ============================================================
+  // DATE OF BIRTH
   // ============================================================
 
   static String formatDateOfBirth(
@@ -226,5 +330,34 @@ class ProfileSetupServiceHelpers {
     String? value,
   ) {
     return value?.trim() ?? '';
+  }
+
+  // ============================================================
+  // EMERGENCY CONTACT VALIDATION
+  // ============================================================
+
+  static bool isValidEmergencyContact({
+    required String name,
+    required String mobile,
+  }) {
+    final String cleanName =
+        name.trim();
+
+    final String cleanMobile =
+        mobile.trim();
+
+    // Both empty = optional and valid.
+    if (cleanName.isEmpty &&
+        cleanMobile.isEmpty) {
+      return true;
+    }
+
+    // If one is provided, both are required.
+    if (cleanName.isEmpty ||
+        cleanMobile.isEmpty) {
+      return false;
+    }
+
+    return isValidMobile(cleanMobile);
   }
 }
