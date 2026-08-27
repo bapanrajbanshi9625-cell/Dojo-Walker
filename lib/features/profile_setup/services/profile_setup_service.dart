@@ -22,78 +22,49 @@ class ProfileSetupService {
   // COLLECTION
   // ============================================================
 
-  static const String walkersCollection =
-      'walkers';
+  static const String walkersCollection = 'walkers';
 
   // ============================================================
   // IDENTITY
   // ============================================================
 
-  static const String userIdField =
-      'userId';
+  static const String userIdField = 'userId';
+  static const String authUidField = 'authUid';
+  static const String uidField = 'uid';
 
-  static const String authUidField =
-      'authUid';
-
-  static const String uidField =
-      'uid';
-
-  static const String walkerIdField =
-      'walkerId';
-
-  static const String roleField =
-      'role';
+  static const String walkerIdField = 'walkerId';
+  static const String roleField = 'role';
 
   // ============================================================
   // BASIC PROFILE
   // ============================================================
 
-  static const String nameField =
-      'name';
+  static const String nameField = 'name';
+  static const String fullNameField = 'fullName';
 
-  static const String fullNameField =
-      'fullName';
+  static const String phoneField = 'phone';
+  static const String phoneNumberField = 'phoneNumber';
 
-  static const String phoneField =
-      'phone';
-
-  static const String phoneNumberField =
-      'phoneNumber';
-
-  static const String dateOfBirthField =
-      'dateOfBirth';
-
-  static const String genderField =
-      'gender';
+  static const String dateOfBirthField = 'dateOfBirth';
+  static const String genderField = 'gender';
 
   // ============================================================
   // ADDRESS
   // ============================================================
 
-  static const String addressField =
-      'address';
+  static const String addressField = 'address';
+  static const String pinCodeField = 'pinCode';
 
-  static const String pinCodeField =
-      'pinCode';
-
-  static const String villageField =
-      'village';
-
-  static const String cityField =
-      'city';
-
-  static const String districtField =
-      'district';
-
-  static const String stateField =
-      'state';
+  static const String villageField = 'village';
+  static const String cityField = 'city';
+  static const String districtField = 'district';
+  static const String stateField = 'state';
 
   // ============================================================
   // PROFILE IMAGE
   // ============================================================
 
-  static const String profileImageField =
-      'profileImage';
+  static const String profileImageField = 'profileImage';
 
   static const String profileImageUrlField =
       'profileImageUrl';
@@ -102,11 +73,9 @@ class ProfileSetupService {
   // SELFIE
   // ============================================================
 
-  static const String selfieField =
-      'selfie';
+  static const String selfieField = 'selfie';
 
-  static const String selfieUrlField =
-      'selfieUrl';
+  static const String selfieUrlField = 'selfieUrl';
 
   static const String selfieVerifiedField =
       'selfieVerified';
@@ -185,20 +154,12 @@ class ProfileSetupService {
   // WALKER STATE
   // ============================================================
 
-  static const String activeField =
-      'active';
+  static const String activeField = 'active';
+  static const String isActiveField = 'isActive';
+  static const String isAvailableField = 'isAvailable';
+  static const String isOnlineField = 'isOnline';
 
-  static const String isActiveField =
-      'isActive';
-
-  static const String isAvailableField =
-      'isAvailable';
-
-  static const String isOnlineField =
-      'isOnline';
-
-  static const String statusField =
-      'status';
+  static const String statusField = 'status';
 
   static const String profileCompletedField =
       'profileCompleted';
@@ -217,14 +178,9 @@ class ProfileSetupService {
   // TIMESTAMPS
   // ============================================================
 
-  static const String createdAtField =
-      'createdAt';
-
-  static const String updatedAtField =
-      'updatedAt';
-
-  static const String submittedAtField =
-      'submittedAt';
+  static const String createdAtField = 'createdAt';
+  static const String updatedAtField = 'updatedAt';
+  static const String submittedAtField = 'submittedAt';
 
   // ============================================================
   // GET WALKER PROFILE
@@ -253,8 +209,7 @@ class ProfileSetupService {
   // CHECK PROFILE COMPLETED
   // ============================================================
 
-  static Future<bool>
-      isWalkerProfileCompleted({
+  static Future<bool> isWalkerProfileCompleted({
     required String authUid,
   }) async {
     final String uid = authUid.trim();
@@ -279,17 +234,14 @@ class ProfileSetupService {
         snapshot.data() ??
             <String, dynamic>{};
 
-    return data[
-            profileCompletedField] ==
-        true;
+    return data[profileCompletedField] == true;
   }
 
   // ============================================================
   // GET VERIFICATION STATUS
   // ============================================================
 
-  static Future<String>
-      getVerificationStatus({
+  static Future<String> getVerificationStatus({
     required String authUid,
   }) async {
     final String uid = authUid.trim();
@@ -311,8 +263,7 @@ class ProfileSetupService {
     }
 
     final dynamic value =
-        snapshot.data()?[
-            verificationStatusField];
+        snapshot.data()?[verificationStatusField];
 
     if (value == null) {
       return 'pending';
@@ -321,17 +272,14 @@ class ProfileSetupService {
     final String status =
         value.toString().trim().toLowerCase();
 
-    return status.isEmpty
-        ? 'pending'
-        : status;
+    return status.isEmpty ? 'pending' : status;
   }
 
   // ============================================================
   // GET APPROVAL STATUS
   // ============================================================
 
-  static Future<String>
-      getApprovalStatus({
+  static Future<String> getApprovalStatus({
     required String authUid,
   }) async {
     final String uid = authUid.trim();
@@ -353,8 +301,7 @@ class ProfileSetupService {
     }
 
     final dynamic value =
-        snapshot.data()?[
-            approvalStatusField];
+        snapshot.data()?[approvalStatusField];
 
     if (value == null) {
       return 'pending';
@@ -363,9 +310,7 @@ class ProfileSetupService {
     final String status =
         value.toString().trim().toLowerCase();
 
-    return status.isEmpty
-        ? 'pending'
-        : status;
+    return status.isEmpty ? 'pending' : status;
   }
 
   // ============================================================
@@ -375,8 +320,9 @@ class ProfileSetupService {
   static String createWalkerId(
     String authUid,
   ) {
-    return ProfileSetupServiceHelpers
-        .createWalkerId(authUid);
+    return ProfileSetupServiceHelpers.createWalkerId(
+      authUid,
+    );
   }
 
   // ============================================================
@@ -386,8 +332,9 @@ class ProfileSetupService {
   static bool isValidUrl(
     String value,
   ) {
-    return ProfileSetupServiceHelpers
-        .isValidUrl(value);
+    return ProfileSetupServiceHelpers.isValidUrl(
+      value,
+    );
   }
 
   // ============================================================
@@ -400,8 +347,7 @@ class ProfileSetupService {
     required String fileName,
     required File file,
   }) {
-    return ProfileSetupServiceHelpers
-        .uploadFile(
+    return ProfileSetupServiceHelpers.uploadFile(
       authUid: authUid,
       folder: folder,
       fileName: fileName,
@@ -420,11 +366,11 @@ class ProfileSetupService {
     File? file,
     String? url,
   }) {
-    return ProfileSetupServiceHelpers
-        .resolveImage(
+    return ProfileSetupServiceHelpers.resolveImage(
       authUid: authUid,
       folder: folder,
-      fileName: file,
+      fileName: fileName,
+      file: file,
       url: url,
     );
   }
@@ -490,20 +436,15 @@ class ProfileSetupService {
     // CLEAN VALUES
     // ==========================================================
 
-    final String uid =
-        authUid.trim();
+    final String uid = authUid.trim();
 
-    final String cleanPhone =
-        phone.trim();
+    final String cleanPhone = phone.trim();
 
-    final String cleanName =
-        name.trim();
+    final String cleanName = name.trim();
 
-    final String cleanAddress =
-        address.trim();
+    final String cleanAddress = address.trim();
 
-    final String cleanPinCode =
-        pinCode.trim();
+    final String cleanPinCode = pinCode.trim();
 
     final String cleanAadhaar =
         aadhaarNumber.trim();
@@ -542,9 +483,7 @@ class ProfileSetupService {
       );
     }
 
-    if (dateOfBirth.isAfter(
-      DateTime.now(),
-    )) {
+    if (dateOfBirth.isAfter(DateTime.now())) {
       throw Exception(
         'Invalid date of birth.',
       );
@@ -556,8 +495,9 @@ class ProfileSetupService {
       );
     }
 
-    if (!ProfileSetupServiceHelpers
-        .isValidPin(cleanPinCode)) {
+    if (!ProfileSetupServiceHelpers.isValidPin(
+      cleanPinCode,
+    )) {
       throw Exception(
         'Invalid PIN code.',
       );
@@ -579,8 +519,7 @@ class ProfileSetupService {
     // AADHAAR
     // ==========================================================
 
-    if (!ProfileSetupServiceHelpers
-        .isValidAadhaar(
+    if (!ProfileSetupServiceHelpers.isValidAadhaar(
       cleanAadhaar,
     )) {
       throw Exception(
@@ -592,8 +531,7 @@ class ProfileSetupService {
     // PAN
     // ==========================================================
 
-    if (!ProfileSetupServiceHelpers
-        .isValidPan(
+    if (!ProfileSetupServiceHelpers.isValidPan(
       cleanPan,
     )) {
       throw Exception(
@@ -613,8 +551,7 @@ class ProfileSetupService {
         );
       }
 
-      if (!ProfileSetupServiceHelpers
-          .isValidMobile(
+      if (!ProfileSetupServiceHelpers.isValidMobile(
         cleanEmergencyMobile,
       )) {
         throw Exception(
@@ -631,9 +568,7 @@ class ProfileSetupService {
             Map<String, dynamic>>
         walkerRef =
         _firestore
-            .collection(
-              walkersCollection,
-            )
+            .collection(walkersCollection)
             .doc(uid);
 
     // ==========================================================
@@ -645,8 +580,7 @@ class ProfileSetupService {
         existingSnapshot =
         await walkerRef.get();
 
-    final Map<String, dynamic>
-        existingData =
+    final Map<String, dynamic> existingData =
         existingSnapshot.data() ??
             <String, dynamic>{};
 
@@ -655,15 +589,13 @@ class ProfileSetupService {
     // ==========================================================
 
     String walkerId =
-        existingData[
-                walkerIdField]
-            ?.toString()
-            .trim() ??
-        '';
+        existingData[walkerIdField]
+                ?.toString()
+                .trim() ??
+            '';
 
     if (walkerId.isEmpty) {
-      walkerId =
-          createWalkerId(uid);
+      walkerId = createWalkerId(uid);
     }
 
     // ==========================================================
@@ -723,8 +655,7 @@ class ProfileSetupService {
     // ==========================================================
 
     final String dob =
-        ProfileSetupServiceHelpers
-            .formatDateOfBirth(
+        ProfileSetupServiceHelpers.formatDateOfBirth(
       dateOfBirth,
     );
 
@@ -736,16 +667,14 @@ class ProfileSetupService {
         profileImageUrl?.trim() ?? '';
 
     if (finalProfileImage.isEmpty) {
-      finalProfileImage =
-          finalSelfieUrl;
+      finalProfileImage = finalSelfieUrl;
     }
 
     // ==========================================================
     // WALKER DATA
     // ==========================================================
 
-    final Map<String, dynamic>
-        walkerData =
+    final Map<String, dynamic> walkerData =
         <String, dynamic>{
       // --------------------------------------------------------
       // IDENTITY
@@ -796,43 +725,31 @@ class ProfileSetupService {
       // PROFILE IMAGE
       // --------------------------------------------------------
 
-      profileImageField:
-          finalProfileImage,
+      profileImageField: finalProfileImage,
 
-      profileImageUrlField:
-          finalProfileImage,
+      profileImageUrlField: finalProfileImage,
 
       // --------------------------------------------------------
       // SELFIE
       // --------------------------------------------------------
 
-      selfieField:
-          finalSelfieUrl,
+      selfieField: finalSelfieUrl,
 
-      selfieUrlField:
-          finalSelfieUrl,
+      selfieUrlField: finalSelfieUrl,
 
-      'Profile Selfie':
-          finalSelfieUrl,
+      'Profile Selfie': finalSelfieUrl,
+      'profileSelfie': finalSelfieUrl,
 
-      'profileSelfie':
-          finalSelfieUrl,
-
-      selfieVerifiedField:
-          false,
+      selfieVerifiedField: false,
 
       // --------------------------------------------------------
       // AADHAAR
       // --------------------------------------------------------
 
-      aadhaarNumberField:
-          cleanAadhaar,
+      aadhaarNumberField: cleanAadhaar,
 
-      'Aadhar Number':
-          cleanAadhaar,
-
-      'Aadhaar Number':
-          cleanAadhaar,
+      'Aadhar Number': cleanAadhaar,
+      'Aadhaar Number': cleanAadhaar,
 
       aadhaarFrontUrlField:
           finalAadhaarFrontUrl,
@@ -886,8 +803,7 @@ class ProfileSetupService {
       // PAN
       // --------------------------------------------------------
 
-      panNumberField:
-          cleanPan,
+      panNumberField: cleanPan,
 
       panCardUrlField:
           finalPanCardUrl,
@@ -920,26 +836,16 @@ class ProfileSetupService {
       // ADDRESS
       // --------------------------------------------------------
 
-      addressField:
-          cleanAddress,
+      addressField: cleanAddress,
 
-      pinCodeField:
-          cleanPinCode,
+      pinCodeField: cleanPinCode,
 
-      'Adress':
-          cleanAddress,
+      'Adress': cleanAddress,
+      'Address': cleanAddress,
 
-      'Address':
-          cleanAddress,
-
-      'Pincode':
-          cleanPinCode,
-
-      'pincode':
-          cleanPinCode,
-
-      'pinCode':
-          cleanPinCode,
+      'Pincode': cleanPinCode,
+      'pincode': cleanPinCode,
+      'pinCode': cleanPinCode,
 
       // --------------------------------------------------------
       // EMERGENCY
@@ -955,14 +861,10 @@ class ProfileSetupService {
       // PROFILE COMPLETED
       // --------------------------------------------------------
 
-      profileCompletedField:
-          true,
+      profileCompletedField: true,
 
-      'profile_completed':
-          true,
-
-      'isProfileCompleted':
-          true,
+      'profile_completed': true,
+      'isProfileCompleted': true,
 
       // --------------------------------------------------------
       // VERIFICATION
@@ -971,14 +873,10 @@ class ProfileSetupService {
       verificationStatusField:
           'pending',
 
-      verifiedAtField:
-          null,
+      verifiedAtField: null,
 
       // --------------------------------------------------------
       // ADMIN APPROVAL
-      //
-      // IMPORTANT:
-      // PROFILE SUBMISSION NEVER APPROVES WALKER.
       // --------------------------------------------------------
 
       approvalStatusField:
@@ -1045,7 +943,7 @@ class ProfileSetupService {
     }
 
     // ==========================================================
-    // WRITE
+    // FIRESTORE WRITE
     // ==========================================================
 
     await walkerRef.set(
@@ -1066,8 +964,7 @@ class ProfileSetupService {
       'profileCompleted=true | '
       'verification=pending | '
       'approval=pending',
-      name:
-          'ProfileSetupService',
+      name: 'ProfileSetupService',
     );
   }
 }
