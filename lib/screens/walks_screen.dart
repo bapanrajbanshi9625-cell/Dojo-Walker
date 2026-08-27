@@ -11,6 +11,7 @@ import '../features/insta_walk/models/insta_walk_request.dart';
 import '../features/insta_walk/screens/active_walk_details_screen.dart';
 import '../features/insta_walk/services/insta_walk_accept_service.dart';
 import '../features/insta_walk/services/insta_walk_reject_service.dart';
+import '../features/insta_walk/services/insta_walk_request_service.dart';
 import '../features/insta_walk/services/insta_walk_service.dart';
 import '../features/insta_walk/widgets/insta_walk_container.dart';
 import '../features/insta_walk/widgets/insta_walk_request_card.dart';
@@ -40,14 +41,35 @@ class _WalksScreenState extends State<WalksScreen>
   // INSTA WALK SERVICES
   // ============================================================
 
+  /// Main Insta Walk service.
+  ///
+  /// Used for:
+  /// - current walker
+  /// - cancel search
+  /// - start walk
+  /// - complete walk
   final InstaWalkService _instaWalkService =
       InstaWalkService.instance;
 
+  /// Separate request service.
+  ///
+  /// Used for:
+  /// - finding pending Insta Walk requests
+  /// - loading a single walk request
+  final InstaWalkRequestService _requestService =
+      InstaWalkRequestService.instance;
+
+  /// Separate accept service.
   final InstaWalkAcceptService _acceptService =
       InstaWalkAcceptService.instance;
 
+  /// Separate reject service.
   final InstaWalkRejectService _rejectService =
       InstaWalkRejectService.instance;
+
+  // ============================================================
+  // REQUEST SUBSCRIPTION
+  // ============================================================
 
   StreamSubscription<List<InstaWalkRequest>>?
       _requestSubscription;
@@ -106,14 +128,11 @@ class _WalksScreenState extends State<WalksScreen>
 
     WidgetsBinding.instance.addObserver(this);
 
-    _walkerUid =
-        _auth.currentUser?.uid;
+    _walkerUid = _auth.currentUser?.uid;
 
-    _radarController =
-        AnimationController(
+    _radarController = AnimationController(
       vsync: this,
-      duration:
-          const Duration(seconds: 3),
+      duration: const Duration(seconds: 3),
     )..repeat();
 
     _dotTimer = Timer.periodic(
@@ -131,21 +150,12 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
   // APP LIFECYCLE
   // ============================================================
-  //
-  // Background करने पर search बंद नहीं होगी.
-  //
-  // App/Flutter engine detached होने पर search बंद करने की
-  // कोशिश की जाएगी.
-  //
-  // dispose() में भी best-effort cleanup है.
-  // ============================================================
 
   @override
   void didChangeAppLifecycleState(
     AppLifecycleState state,
   ) {
-    if (state ==
-            AppLifecycleState.detached &&
+    if (state == AppLifecycleState.detached &&
         _searching) {
       unawaited(
         _stopSearchState(),
@@ -158,24 +168,20 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
 
   Future<void> _loadWalkerState() async {
-    final String? uid =
-        _walkerUid;
+    final String? uid = _walkerUid;
 
-    if (uid == null ||
-        uid.trim().isEmpty) {
+    if (uid == null || uid.trim().isEmpty) {
       return;
     }
 
     try {
-      final DocumentSnapshot<
-          Map<String, dynamic>> account =
-          await _firestore
+      final DocumentSnapshot<Map<String, dynamic>>
+          account = await _firestore
               .collection('phoneAccounts')
               .doc(uid)
               .get();
 
-      final Map<String, dynamic>?
-          accountData =
+      final Map<String, dynamic>? accountData =
           account.data();
 
       final String savedWalkerId =
@@ -188,21 +194,17 @@ class _WalksScreenState extends State<WalksScreen>
         _walkerId = savedWalkerId;
       }
 
-      final DocumentSnapshot<
-          Map<String, dynamic>> userDoc =
-          await _firestore
+      final DocumentSnapshot<Map<String, dynamic>>
+          userDoc = await _firestore
               .collection('users')
               .doc(uid)
               .get();
 
-      final Map<String, dynamic>?
-          userData =
+      final Map<String, dynamic>? userData =
           userDoc.data();
 
       final bool searching =
-          userData?[
-                  'instaWalkSearching'] ==
-              true;
+          userData?['instaWalkSearching'] == true;
 
       if (!mounted) {
         return;
@@ -243,9 +245,8 @@ class _WalksScreenState extends State<WalksScreen>
     }
 
     try {
-      final DocumentSnapshot<
-          Map<String, dynamic>> snapshot =
-          await _firestore
+      final DocumentSnapshot<Map<String, dynamic>>
+          snapshot = await _firestore
               .collection('phoneAccounts')
               .doc(user.uid)
               .get();
@@ -364,26 +365,23 @@ class _WalksScreenState extends State<WalksScreen>
   //
   // IMPORTANT:
   //
-  // Direct walk_requests query नहीं.
+  // Request खोजने का काम अब
+  // InstaWalkRequestService करता है.
   //
-  // InstaWalkService.pendingRequestsStream()
-  // use किया गया है.
-  //
-  // यही rejected requests को filter करता है.
+  // InstaWalkService से request methods नहीं लिए जाते.
   // ============================================================
 
   void _startRequestListener() {
     _requestSubscription?.cancel();
 
     _requestSubscription =
-        _instaWalkService
+        _requestService
             .pendingRequestsStream()
             .listen(
       (
         List<InstaWalkRequest> requests,
       ) {
-        if (!mounted ||
-            !_searching) {
+        if (!mounted || !_searching) {
           return;
         }
 
@@ -459,12 +457,12 @@ class _WalksScreenState extends State<WalksScreen>
 
       // --------------------------------------------------------
       // LOAD ACCEPTED REQUEST
+      //
+      // Request service से.
       // --------------------------------------------------------
 
-      final InstaWalkRequest?
-          accepted =
-          await _instaWalkService
-              .getWalkRequest(
+      final InstaWalkRequest? accepted =
+          await _requestService.getWalkRequest(
         request.id,
       );
 
@@ -483,8 +481,7 @@ class _WalksScreenState extends State<WalksScreen>
           (
             InstaWalkRequest item,
           ) =>
-              item.id ==
-              request.id,
+              item.id == request.id,
         );
       });
 
@@ -520,15 +517,6 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
   // REJECT REQUEST
   // ============================================================
-  //
-  // Main walk request rejected नहीं होगी.
-  //
-  // Reject service:
-  //
-  // walk_requests/{walkId}/rejections/{walkerId}
-  //
-  // में rejection save करेगा.
-  // ============================================================
 
   Future<void> _rejectRequest(
     InstaWalkRequest request,
@@ -547,8 +535,7 @@ class _WalksScreenState extends State<WalksScreen>
           (
             InstaWalkRequest item,
           ) =>
-              item.id ==
-              request.id,
+              item.id == request.id,
         );
       });
     } catch (e) {
@@ -642,8 +629,7 @@ class _WalksScreenState extends State<WalksScreen>
     final bool? confirm =
         await showDialog<bool>(
       context: context,
-      builder:
-          (
+      builder: (
         BuildContext dialogContext,
       ) {
         return AlertDialog(
@@ -710,13 +696,11 @@ class _WalksScreenState extends State<WalksScreen>
     setState(() {
       _dotX =
           -.78 +
-          _random.nextDouble() *
-              1.56;
+          _random.nextDouble() * 1.56;
 
       _dotY =
           -.65 +
-          _random.nextDouble() *
-              1.30;
+          _random.nextDouble() * 1.30;
 
       _dotVisible = true;
     });
@@ -804,19 +788,17 @@ class _WalksScreenState extends State<WalksScreen>
     if (_requests.isEmpty) {
       return Container(
         width: double.infinity,
-        margin:
-            const EdgeInsets.only(
+        margin: const EdgeInsets.only(
           top: 8,
         ),
-        padding:
-            const EdgeInsets.symmetric(
+        padding: const EdgeInsets.symmetric(
           horizontal: 15,
           vertical: 14,
         ),
-        decoration:
-            BoxDecoration(
-          color:
-              Colors.white.withOpacity(.55),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(
+            alpha: .55,
+          ),
           borderRadius:
               BorderRadius.circular(16),
         ),
@@ -825,8 +807,7 @@ class _WalksScreenState extends State<WalksScreen>
             SizedBox(
               width: 18,
               height: 18,
-              child:
-                  CircularProgressIndicator(
+              child: CircularProgressIndicator(
                 strokeWidth: 2,
               ),
             ),
@@ -851,8 +832,7 @@ class _WalksScreenState extends State<WalksScreen>
           CrossAxisAlignment.start,
       children: <Widget>[
         const Padding(
-          padding:
-              EdgeInsets.only(
+          padding: EdgeInsets.only(
             left: 3,
             bottom: 9,
           ),
@@ -898,76 +878,61 @@ class _WalksScreenState extends State<WalksScreen>
       bottom: 22,
       child: Center(
         child: GestureDetector(
-          onTap:
-              _openingQrScanner
-                  ? null
-                  : _openQrScanner,
+          onTap: _openingQrScanner
+              ? null
+              : _openQrScanner,
           child: Container(
             width: 76,
             height: 76,
             decoration:
                 const BoxDecoration(
-              color:
-                  Color(0xFFF4511E),
-              shape:
-                  BoxShape.circle,
-              boxShadow:
-                  <BoxShadow>[
+              color: Color(0xFFF4511E),
+              shape: BoxShape.circle,
+              boxShadow: <BoxShadow>[
                 BoxShadow(
-                  color:
-                      Colors.black26,
+                  color: Colors.black26,
                   blurRadius: 16,
-                  offset:
-                      Offset(0, 7),
+                  offset: Offset(0, 7),
                 ),
               ],
             ),
-            child:
-                _openingQrScanner
-                    ? const SizedBox(
-                        width: 28,
-                        height: 28,
-                        child:
-                            CircularProgressIndicator(
-                          strokeWidth: 3,
-                          valueColor:
-                              AlwaysStoppedAnimation<
-                                  Color>(
-                            Colors.white,
-                          ),
-                        ),
-                      )
-                    : const Column(
-                        mainAxisAlignment:
-                            MainAxisAlignment
-                                .center,
-                        children: <Widget>[
-                          Icon(
-                            Icons
-                                .qr_code_scanner_rounded,
-                            color:
-                                Colors.white,
-                            size: 29,
-                          ),
-                          SizedBox(
-                            height: 2,
-                          ),
-                          Text(
-                            'SCAN',
-                            style:
-                                TextStyle(
-                              color:
-                                  Colors.white,
-                              fontSize: 9,
-                              fontWeight:
-                                  FontWeight
-                                      .w900,
-                              letterSpacing:
-                                  .8,
-                            ),
-                          ),
-                        ],
+            child: _openingQrScanner
+                ? const SizedBox(
+                    width: 28,
+                    height: 28,
+                    child:
+                        CircularProgressIndicator(
+                      strokeWidth: 3,
+                      valueColor:
+                          AlwaysStoppedAnimation<
+                              Color>(
+                        Colors.white,
                       ),
+                    ),
+                  )
+                : const Column(
+                    mainAxisAlignment:
+                        MainAxisAlignment.center,
+                    children: <Widget>[
+                      Icon(
+                        Icons
+                            .qr_code_scanner_rounded,
+                        color: Colors.white,
+                        size: 29,
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'SCAN',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight:
+                              FontWeight.w900,
+                          letterSpacing: .8,
+                        ),
+                      ),
+                    ],
+                  ),
           ),
         ),
       ),
@@ -989,8 +954,7 @@ class _WalksScreenState extends State<WalksScreen>
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content:
-              Text(message),
+          content: Text(message),
           behavior:
               SnackBarBehavior.floating,
         ),
@@ -1006,8 +970,6 @@ class _WalksScreenState extends State<WalksScreen>
     WidgetsBinding.instance
         .removeObserver(this);
 
-    // Best-effort cleanup.
-    // dispose async नहीं हो सकता, इसलिए unawaited().
     if (_searching) {
       unawaited(
         _stopSearchState(),
@@ -1045,24 +1007,20 @@ class _WalksScreenState extends State<WalksScreen>
 
               Expanded(
                 child: ListView(
-                  padding:
-                      const EdgeInsets.only(
+                  padding: const EdgeInsets.only(
                     bottom: 120,
                   ),
                   children: <Widget>[
                     InstaWalkContainer(
-                      searching:
-                          _searching,
-                      loading:
-                          _loading,
+                      searching: _searching,
+                      loading: _loading,
                       radarAnimation:
                           _radarController,
                       dotVisible:
                           _dotVisible,
                       dotX: _dotX,
                       dotY: _dotY,
-                      requests:
-                          _requests,
+                      requests: _requests,
                       onSearchPressed:
                           _searchButtonPressed,
                       requestListBuilder:
