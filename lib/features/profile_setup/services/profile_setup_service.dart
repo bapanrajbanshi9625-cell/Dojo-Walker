@@ -838,14 +838,13 @@ class ProfileSetupService {
 
       addressField: cleanAddress,
 
-      pinCodeField: cleanPinCode,
+pinCodeField: cleanPinCode,
 
-      'Adress': cleanAddress,
-      'Address': cleanAddress,
+'Adress': cleanAddress,
+'Address': cleanAddress,
 
-      'Pincode': cleanPinCode,
-      'pincode': cleanPinCode,
-      'pinCode': cleanPinCode,
+'Pincode': cleanPinCode,
+'pincode': cleanPinCode,
 
       // --------------------------------------------------------
       // EMERGENCY
