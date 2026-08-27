@@ -3,14 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import 'address_section2.dart';
-import 'aadhaar_section2.dart';
-import 'emergency_contact_section2.dart';
-import 'pan_card2.dart';
-import 'pending_verification_screen.dart';
-import 'profile_info_card2.dart';
-import 'profile_submit_button2.dart';
-import 'profile_summary_card2.dart';
+import '../widgets/address_section2.dart';
+import '../widgets/aadhaar_section2.dart';
+import '../widgets/emergency_contact_section2.dart';
+import '../widgets/pan_card2.dart';
+import '../widgets/profile_info_card2.dart';
+import '../widgets/profile_submit_button2.dart';
+import '../widgets/profile_summary_card2.dart';
 
 class MandatoryProfileSetupScreen2 extends StatefulWidget {
   const MandatoryProfileSetupScreen2({
