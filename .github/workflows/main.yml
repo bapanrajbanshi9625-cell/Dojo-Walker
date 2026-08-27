@@ -1,3 +1,5 @@
+Dojo Walker CI/CD Pipeline
+
 name: Dojo Walker CI/CD Pipeline
 
 on:
@@ -70,23 +72,15 @@ jobs:
       - name: Check Java version
         run: java -version
 
-      - name: Check Gradle version
-        shell: bash
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew --version
-
 
       # ==========================================================
-      # CLEAN ALL BUILD STATE
+      # CLEAN
       # ==========================================================
 
       - name: Clean Flutter and Gradle state
         shell: bash
         run: |
           flutter clean
-
           rm -rf android/.gradle
           rm -rf build
           rm -rf .dart_tool
@@ -114,7 +108,6 @@ jobs:
 
       - name: Analyze code
         run: flutter analyze --no-fatal-infos
-        continue-on-error: true
 
 
       # ==========================================================
@@ -189,8 +182,7 @@ jobs:
           echo "Final Dojo Walker APK"
           echo "======================================"
 
-          ls -lh \
-            build/release-apk/Dojo-Walker-release.apk
+          ls -lh build/release-apk/Dojo-Walker-release.apk
 
 
       # ==========================================================
