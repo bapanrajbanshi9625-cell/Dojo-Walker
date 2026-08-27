@@ -1,11 +1,11 @@
-// File location:
+// File:
 // lib/features/profile_setup/screens/mandatory_profile_setup_screen2.dart
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../services/profile_setup_service.dart';
 import '../widgets/address_section2.dart';
 import '../widgets/aadhaar_section2.dart';
 import '../widgets/emergency_contact_section2.dart';
@@ -37,14 +37,10 @@ class MandatoryProfileSetupScreen2 extends StatefulWidget {
 class _MandatoryProfileSetupScreen2State
     extends State<MandatoryProfileSetupScreen2> {
   // ============================================================
-  // FIREBASE
+  // AUTH
   // ============================================================
 
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
-
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // ============================================================
   // CONTROLLERS
@@ -57,6 +53,9 @@ class _MandatoryProfileSetupScreen2State
       TextEditingController();
 
   final TextEditingController aadhaarBackUrlController =
+      TextEditingController();
+
+  final TextEditingController panNumberController =
       TextEditingController();
 
   final TextEditingController panCardUrlController =
@@ -104,42 +103,17 @@ class _MandatoryProfileSetupScreen2State
     aadhaarController.dispose();
     aadhaarFrontUrlController.dispose();
     aadhaarBackUrlController.dispose();
+    panNumberController.dispose();
     panCardUrlController.dispose();
-
     villageController.dispose();
     cityController.dispose();
     districtController.dispose();
     stateController.dispose();
     pinController.dispose();
-
     emergencyNameController.dispose();
     emergencyMobileController.dispose();
 
     super.dispose();
-  }
-
-  // ============================================================
-  // WALKER ID
-  // ============================================================
-
-  String createWalkerId(String uid) {
-    final String cleanUid = uid.trim();
-
-    if (cleanUid.length >= 8) {
-      return 'WKR-${cleanUid.substring(0, 8).toUpperCase()}';
-    }
-
-    return 'WKR-${cleanUid.toUpperCase()}';
-  }
-
-  // ============================================================
-  // DOB
-  // ============================================================
-
-  String get formattedDateOfBirth {
-    return '${widget.dateOfBirth.year}-'
-        '${widget.dateOfBirth.month.toString().padLeft(2, '0')}-'
-        '${widget.dateOfBirth.day.toString().padLeft(2, '0')}';
   }
 
   // ============================================================
@@ -153,9 +127,7 @@ class _MandatoryProfileSetupScreen2State
       districtController.text.trim(),
       stateController.text.trim(),
       pinController.text.trim(),
-    ].where(
-      (String value) => value.isNotEmpty,
-    ).toList();
+    ].where((String value) => value.isNotEmpty).toList();
 
     return parts.join(', ');
   }
@@ -206,7 +178,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // IMAGE URL DIALOG
+  // URL DIALOG
   // ============================================================
 
   Future<String?> askForImageUrl({
@@ -304,12 +276,18 @@ class _MandatoryProfileSetupScreen2State
                         backgroundColor: AppColors.red,
                       ),
                     );
+
                   return;
                 }
 
                 Navigator.of(dialogContext).pop(value);
               },
-              child: const Text('SAVE'),
+              child: const Text(
+                'SAVE',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
           ],
         );
@@ -394,15 +372,24 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // VALIDATION
+  // VALIDATE
   // ============================================================
 
   bool validate() {
-    // ----------------------------------------------------------
-    // SCREEN 1
-    // ----------------------------------------------------------
+    // ==========================================================
+    // SCREEN 1 DATA
+    // ==========================================================
 
-    if (widget.name.trim().isEmpty) {
+    final String name =
+        widget.name.trim();
+
+    final String gender =
+        widget.gender.trim();
+
+    final String selfie =
+        widget.selfieUrl.trim();
+
+    if (name.isEmpty) {
       showMessage(
         'Name is missing. Please go back.',
         false,
@@ -410,7 +397,7 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    if (widget.gender.trim().isEmpty) {
+    if (gender.isEmpty) {
       showMessage(
         'Gender is missing. Please go back.',
         false,
@@ -418,7 +405,7 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    if (widget.selfieUrl.trim().isEmpty) {
+    if (selfie.isEmpty) {
       showMessage(
         'Profile selfie is missing. Please go back.',
         false,
@@ -426,7 +413,7 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    if (!isValidUrl(widget.selfieUrl)) {
+    if (!isValidUrl(selfie)) {
       showMessage(
         'Profile selfie URL is invalid.',
         false,
@@ -434,14 +421,15 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // AADHAAR NUMBER
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final String aadhaar =
         aadhaarController.text.trim();
 
-    if (!RegExp(r'^\d{12}$').hasMatch(aadhaar)) {
+    if (!RegExp(r'^\d{12}$')
+        .hasMatch(aadhaar)) {
       showMessage(
         'Enter a valid 12-digit Aadhaar number.',
         false,
@@ -449,9 +437,9 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // AADHAAR FRONT
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final String aadhaarFront =
         aadhaarFrontUrlController.text.trim();
@@ -472,9 +460,9 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // AADHAAR BACK
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final String aadhaarBack =
         aadhaarBackUrlController.text.trim();
@@ -495,9 +483,28 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // ----------------------------------------------------------
-    // PAN
-    // ----------------------------------------------------------
+    // ==========================================================
+    // PAN NUMBER
+    // ==========================================================
+
+    final String panNumber =
+        panNumberController.text
+            .trim()
+            .toUpperCase();
+
+    if (!RegExp(
+      r'^[A-Z]{5}[0-9]{4}[A-Z]$',
+    ).hasMatch(panNumber)) {
+      showMessage(
+        'Enter a valid PAN number.',
+        false,
+      );
+      return false;
+    }
+
+    // ==========================================================
+    // PAN CARD IMAGE
+    // ==========================================================
 
     final String panCard =
         panCardUrlController.text.trim();
@@ -518,9 +525,9 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // ADDRESS
-    // ----------------------------------------------------------
+    // ==========================================================
 
     if (villageController.text.trim().isEmpty) {
       showMessage(
@@ -565,9 +572,9 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // EMERGENCY CONTACT - OPTIONAL
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final String emergencyName =
         emergencyNameController.text.trim();
@@ -636,205 +643,72 @@ class _MandatoryProfileSetupScreen2State
     });
 
     try {
-      final String uid = user.uid.trim();
-
-      final String walkerId =
-          createWalkerId(uid);
-
-      final String fullName =
-          widget.name.trim();
-
-      final String phone =
-          user.phoneNumber?.trim() ?? '';
-
-      final String gender =
-          widget.gender.trim();
-
-      final String selfie =
-          widget.selfieUrl.trim();
-
-      final String aadhaar =
-          aadhaarController.text.trim();
-
-      final String aadhaarFront =
-          aadhaarFrontUrlController.text.trim();
-
-      final String aadhaarBack =
-          aadhaarBackUrlController.text.trim();
-
-      final String panCard =
-          panCardUrlController.text.trim();
-
-      final String village =
-          villageController.text.trim();
-
-      final String city =
-          cityController.text.trim();
-
-      final String district =
-          districtController.text.trim();
-
-      final String state =
-          stateController.text.trim();
-
-      final String pinCode =
-          pinController.text.trim();
-
-      final String emergencyName =
-          emergencyNameController.text.trim();
-
-      final String emergencyMobile =
-          emergencyMobileController.text.trim();
-
       // ========================================================
-      // CLEAN FIRESTORE DATA
-      //
-      // Only ONE canonical field for each value.
-      // Aadhaar + PAN fields intentionally retained.
+      // SAVE THROUGH CENTRAL SERVICE
       // ========================================================
 
-      final Map<String, dynamic> data =
-          <String, dynamic>{
-        // ------------------------------------------------------
-        // IDENTITY
-        // ------------------------------------------------------
-
-        'userId': uid,
-        'walkerId': walkerId,
-        'role': 'walker',
+      await ProfileSetupService.saveWalkerProfile(
+        authUid: user.uid,
+        phone: user.phoneNumber ?? '',
 
         // ------------------------------------------------------
         // BASIC PROFILE
         // ------------------------------------------------------
 
-        'name': fullName,
-        'phone': phone,
-        'dateOfBirth': formattedDateOfBirth,
-        'gender': gender,
+        name: widget.name.trim(),
+
+        dateOfBirth: widget.dateOfBirth,
+
+        address: fullAddress,
+
+        pinCode:
+            pinController.text.trim(),
 
         // ------------------------------------------------------
-        // PROFILE PHOTO
+        // PROFILE IMAGE
         // ------------------------------------------------------
 
-        'selfieUrl': selfie,
-        'profileImage': selfie,
-
-        'selfieVerified': false,
+        profileImageUrl:
+            widget.selfieUrl.trim(),
 
         // ------------------------------------------------------
         // AADHAAR
         // ------------------------------------------------------
 
-        'aadhaarNumber': aadhaar,
+        aadhaarNumber:
+            aadhaarController.text.trim(),
 
-        'aadhaarFrontUrl': aadhaarFront,
-        'aadhaarFrontVerified': false,
+        aadhaarFrontUrl:
+            aadhaarFrontUrlController
+                .text
+                .trim(),
 
-        'aadhaarBackUrl': aadhaarBack,
-        'aadhaarBackVerified': false,
+        aadhaarBackUrl:
+            aadhaarBackUrlController
+                .text
+                .trim(),
 
         // ------------------------------------------------------
         // PAN
         // ------------------------------------------------------
 
-        'panCardUrl': panCard,
-        'panVerified': false,
+        panNumber:
+            panNumberController.text
+                .trim()
+                .toUpperCase(),
+
+        panCardUrl:
+            panCardUrlController
+                .text
+                .trim(),
 
         // ------------------------------------------------------
-        // ADDRESS
+        // SELFIE
         // ------------------------------------------------------
 
-        'village': village,
-        'city': city,
-        'district': district,
-        'state': state,
-        'pinCode': pinCode,
-        'address': fullAddress,
-
-        // ------------------------------------------------------
-        // EMERGENCY CONTACT
-        // ------------------------------------------------------
-
-        'emergencyContactName': emergencyName,
-        'emergencyContactMobile': emergencyMobile,
-
-        // ------------------------------------------------------
-        // PROFILE / VERIFICATION STATE
-        // ------------------------------------------------------
-
-        'profileCompleted': true,
-
-        'verificationStatus': 'pending',
-
-        'adminApproved': false,
-        'adminRejected': false,
-
-        'approved': false,
-        'rejected': false,
-
-        'isApproved': false,
-        'isActive': false,
-        'isAvailable': false,
-        'isOnline': false,
-        'active': false,
-
-        // ------------------------------------------------------
-        // VERIFICATION TIMESTAMP
-        // ------------------------------------------------------
-
-        'verifiedAt': null,
-        'approvedAt': null,
-        'rejectedAt': null,
-
-        // ------------------------------------------------------
-        // TIMESTAMPS
-        // ------------------------------------------------------
-
-        'createdAt':
-            FieldValue.serverTimestamp(),
-
-        'updatedAt':
-            FieldValue.serverTimestamp(),
-      };
-
-      // ========================================================
-      // SAVE WALKER
-      // ========================================================
-
-      await _firestore
-          .collection('walkers')
-          .doc(uid)
-          .set(
-        data,
-        SetOptions(merge: true),
+        selfieUrl:
+            widget.selfieUrl.trim(),
       );
-
-      // ========================================================
-      // USERS SYNC
-      // ========================================================
-
-      try {
-        await _firestore
-            .collection('users')
-            .doc(uid)
-            .set(
-          <String, dynamic>{
-            'uid': uid,
-            'walkerId': walkerId,
-            'role': 'walker',
-            'name': fullName,
-            'phone': phone,
-            'profileCompleted': true,
-            'verificationStatus': 'pending',
-            'updatedAt':
-                FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
-      } catch (_) {
-        // Users sync is optional.
-        // Walker profile is already saved.
-      }
 
       // ========================================================
       // SUCCESS
@@ -860,6 +734,10 @@ class _MandatoryProfileSetupScreen2State
       if (!mounted) {
         return;
       }
+
+      // ========================================================
+      // GO TO PENDING VERIFICATION
+      // ========================================================
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(
@@ -891,7 +769,10 @@ class _MandatoryProfileSetupScreen2State
       });
 
       showMessage(
-        'Unable to submit profile. Please try again.',
+        e.toString().replaceFirst(
+          'Exception: ',
+          '',
+        ),
         false,
       );
     }
@@ -924,6 +805,69 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
+  // PAN NUMBER FIELD
+  // ============================================================
+
+  Widget panNumberField() {
+    return Padding(
+      padding: const EdgeInsets.only(
+        bottom: 14,
+      ),
+      child: TextField(
+        controller: panNumberController,
+        enabled: !_saving,
+        textCapitalization:
+            TextCapitalization.characters,
+        keyboardType:
+            TextInputType.text,
+        textInputAction:
+            TextInputAction.next,
+        maxLength: 10,
+        style: const TextStyle(
+          color: AppColors.textDark,
+          fontWeight: FontWeight.w600,
+        ),
+        decoration: InputDecoration(
+          counterText: '',
+          labelText: 'PAN Number',
+          hintText: 'ABCDE1234F',
+          labelStyle: const TextStyle(
+            color: AppColors.muted,
+          ),
+          prefixIcon: const Icon(
+            Icons.badge_rounded,
+            color: AppColors.blue,
+          ),
+          filled: true,
+          fillColor: AppColors.surface,
+          border: OutlineInputBorder(
+            borderRadius:
+                BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder:
+              OutlineInputBorder(
+            borderRadius:
+                BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: AppColors.border,
+            ),
+          ),
+          focusedBorder:
+              OutlineInputBorder(
+            borderRadius:
+                BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: AppColors.green,
+              width: 1.5,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
   // BUILD
   // ============================================================
 
@@ -932,7 +876,8 @@ class _MandatoryProfileSetupScreen2State
     return PopScope(
       canPop: !_saving,
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor:
+            AppColors.background,
         body: SafeArea(
           child: Column(
             children: [
@@ -942,17 +887,20 @@ class _MandatoryProfileSetupScreen2State
 
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(
+                padding:
+                    const EdgeInsets.fromLTRB(
                   20,
                   18,
                   20,
                   18,
                 ),
-                decoration: const BoxDecoration(
+                decoration:
+                    const BoxDecoration(
                   color: AppColors.surface,
                   border: Border(
                     bottom: BorderSide(
-                      color: AppColors.borderLight,
+                      color:
+                          AppColors.borderLight,
                     ),
                   ),
                 ),
@@ -961,42 +909,58 @@ class _MandatoryProfileSetupScreen2State
                     Container(
                       width: 46,
                       height: 46,
-                      decoration: BoxDecoration(
-                        color: AppColors.orange,
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            AppColors.orange,
                         borderRadius:
-                            BorderRadius.circular(14),
+                            BorderRadius
+                                .circular(14),
                       ),
                       child: const Icon(
                         Icons.pets_rounded,
-                        color: AppColors.onPrimary,
+                        color:
+                            AppColors.onPrimary,
                       ),
                     ),
 
-                    const SizedBox(width: 12),
+                    const SizedBox(
+                      width: 12,
+                    ),
 
                     const Expanded(
                       child: Column(
                         crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                            CrossAxisAlignment
+                                .start,
                         children: [
                           Text(
                             'Walker',
-                            style: TextStyle(
+                            style:
+                                TextStyle(
                               fontSize: 11,
-                              color: AppColors.orange,
+                              color:
+                                  AppColors
+                                      .orange,
                               fontWeight:
-                                  FontWeight.w800,
+                                  FontWeight
+                                      .w800,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          SizedBox(
+                            height: 2,
+                          ),
                           Text(
                             'Verification Details',
-                            style: TextStyle(
+                            style:
+                                TextStyle(
                               fontSize: 19,
                               color:
-                                  AppColors.textDark,
+                                  AppColors
+                                      .textDark,
                               fontWeight:
-                                  FontWeight.w900,
+                                  FontWeight
+                                      .w900,
                             ),
                           ),
                         ],
@@ -1005,23 +969,31 @@ class _MandatoryProfileSetupScreen2State
 
                     Container(
                       padding:
-                          const EdgeInsets.symmetric(
+                          const EdgeInsets
+                              .symmetric(
                         horizontal: 10,
                         vertical: 7,
                       ),
-                      decoration: BoxDecoration(
-                        color: AppColors.green
+                      decoration:
+                          BoxDecoration(
+                        color: AppColors
+                            .green
                             .withOpacity(.10),
                         borderRadius:
-                            BorderRadius.circular(12),
+                            BorderRadius
+                                .circular(12),
                       ),
                       child: const Text(
                         'STEP 2',
-                        style: TextStyle(
-                          color: AppColors.green,
+                        style:
+                            TextStyle(
+                          color:
+                              AppColors
+                                  .green,
                           fontSize: 10,
                           fontWeight:
-                              FontWeight.w900,
+                              FontWeight
+                                  .w900,
                         ),
                       ),
                     ),
@@ -1034,12 +1006,14 @@ class _MandatoryProfileSetupScreen2State
               // ==================================================
 
               Expanded(
-                child: SingleChildScrollView(
+                child:
+                    SingleChildScrollView(
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior
                           .onDrag,
                   padding:
-                      const EdgeInsets.fromLTRB(
+                      const EdgeInsets
+                          .fromLTRB(
                     18,
                     18,
                     18,
@@ -1047,30 +1021,41 @@ class _MandatoryProfileSetupScreen2State
                   ),
                   child: Column(
                     crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                        CrossAxisAlignment
+                            .start,
                     children: [
                       const Text(
                         'Complete Verification',
-                        style: TextStyle(
+                        style:
+                            TextStyle(
                           fontSize: 23,
                           fontWeight:
-                              FontWeight.w900,
+                              FontWeight
+                                  .w900,
                           color:
-                              AppColors.textDark,
+                              AppColors
+                                  .textDark,
                         ),
                       ),
 
-                      const SizedBox(height: 5),
+                      const SizedBox(
+                        height: 5,
+                      ),
 
                       const Text(
                         'Submit your identity, address and emergency details for DOJO verification.',
-                        style: TextStyle(
+                        style:
+                            TextStyle(
                           fontSize: 12.5,
-                          color: AppColors.muted,
+                          color:
+                              AppColors
+                                  .muted,
                         ),
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(
+                        height: 18,
+                      ),
 
                       // ==================================================
                       // PROFILE SUMMARY
@@ -1080,10 +1065,13 @@ class _MandatoryProfileSetupScreen2State
                         name: widget.name,
                         dateOfBirth:
                             widget.dateOfBirth,
-                        gender: widget.gender,
+                        gender:
+                            widget.gender,
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(
+                        height: 18,
+                      ),
 
                       // ==================================================
                       // AADHAAR
@@ -1107,26 +1095,38 @@ class _MandatoryProfileSetupScreen2State
                         enabled: !_saving,
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(
+                        height: 18,
+                      ),
 
                       // ==================================================
-                      // PAN
+                      // PAN NUMBER
+                      // ==================================================
+
+                      panNumberField(),
+
+                      // ==================================================
+                      // PAN CARD
                       // ==================================================
 
                       PanCard2(
-                        url: panCardUrlController
-                            .text
-                            .trim()
-                            .isEmpty
-                            ? null
-                            : panCardUrlController
-                                .text
-                                .trim(),
-                        onTap: selectPanCard,
+                        url:
+                            panCardUrlController
+                                    .text
+                                    .trim()
+                                    .isEmpty
+                                ? null
+                                : panCardUrlController
+                                    .text
+                                    .trim(),
+                        onTap:
+                            selectPanCard,
                         enabled: !_saving,
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(
+                        height: 18,
+                      ),
 
                       // ==================================================
                       // ADDRESS
@@ -1148,10 +1148,12 @@ class _MandatoryProfileSetupScreen2State
                         enabled: !_saving,
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(
+                        height: 18,
+                      ),
 
                       // ==================================================
-                      // EMERGENCY CONTACT
+                      // EMERGENCY
                       // ==================================================
 
                       EmergencyContactSection2(
@@ -1162,7 +1164,9 @@ class _MandatoryProfileSetupScreen2State
                         enabled: !_saving,
                       ),
 
-                      const SizedBox(height: 18),
+                      const SizedBox(
+                        height: 18,
+                      ),
 
                       // ==================================================
                       // INFORMATION
@@ -1170,26 +1174,35 @@ class _MandatoryProfileSetupScreen2State
 
                       const ProfileInfoCard2(),
 
-                      const SizedBox(height: 22),
+                      const SizedBox(
+                        height: 22,
+                      ),
 
                       // ==================================================
                       // SUBMIT
                       // ==================================================
 
                       ProfileSubmitButton2(
-                        onPressed: submitProfile,
+                        onPressed:
+                            submitProfile,
                         saving: _saving,
                       ),
 
-                      const SizedBox(height: 12),
+                      const SizedBox(
+                        height: 12,
+                      ),
 
                       const Center(
                         child: Text(
                           'You can continue after DOJO Platform approval.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
+                          textAlign:
+                              TextAlign.center,
+                          style:
+                              TextStyle(
                             fontSize: 10.5,
-                            color: AppColors.muted,
+                            color:
+                                AppColors
+                                    .muted,
                           ),
                         ),
                       ),
