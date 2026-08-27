@@ -13,6 +13,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 /// RESPONSIBILITIES:
 ///
 /// - Current Walker information
+/// - Watch single walk
 /// - Cancel search
 /// - Start walk
 /// - Complete walk
@@ -25,6 +26,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 ///
 /// REJECT:
 ///     InstaWalkRejectService
+///
+/// IMPORTANT:
+/// Request discovery / pendingRequestsStream()
+/// इस service में नहीं है.
 /// ============================================================
 
 class InstaWalkService {
@@ -176,6 +181,78 @@ class InstaWalkService {
   }
 
   // ============================================================
+  // WATCH SINGLE WALK
+  //
+  // Watches:
+  //
+  //     walk_request/{walkId}
+  //
+  // Used by:
+  //
+  //     ActiveWalkDetailsScreen
+  //
+  // This is NOT request discovery.
+  // Request discovery is handled by:
+  //
+  //     InstaWalkRequestService
+  // ============================================================
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>>
+      watchWalk(
+    String walkId,
+  ) {
+    final String id =
+        walkId.trim();
+
+    if (id.isEmpty) {
+      return const Stream<
+          DocumentSnapshot<
+              Map<String, dynamic>>>.empty();
+    }
+
+    return _walkRequests
+        .doc(id)
+        .snapshots();
+  }
+
+  // ============================================================
+  // WATCH SINGLE WALK AS DATA
+  //
+  // Optional helper.
+  //
+  // Returns raw Firestore document data.
+  // ============================================================
+
+  Stream<Map<String, dynamic>?>
+      watchWalkData(
+    String walkId,
+  ) {
+    final String id =
+        walkId.trim();
+
+    if (id.isEmpty) {
+      return Stream.value(null);
+    }
+
+    return _walkRequests
+        .doc(id)
+        .snapshots()
+        .map(
+          (
+            DocumentSnapshot<
+                    Map<String, dynamic>>
+                snapshot,
+          ) {
+            if (!snapshot.exists) {
+              return null;
+            }
+
+            return snapshot.data();
+          },
+        );
+  }
+
+  // ============================================================
   // CANCEL SEARCH
   //
   // searching → cancelled
@@ -277,8 +354,9 @@ class InstaWalkService {
                 '';
 
         // --------------------------------------------------------
-        // Walker must not cancel another person's request.
+        // Walker must not cancel another walker's request.
         // --------------------------------------------------------
+
         final String storedWalkerUid =
             data['walkerUid']
                     ?.toString()
@@ -293,9 +371,9 @@ class InstaWalkService {
         }
 
         // --------------------------------------------------------
-        // Search request is normally owner-created.
-        // Keep owner fields untouched.
+        // Owner information should exist.
         // --------------------------------------------------------
+
         if (ownerAuthUid.isEmpty &&
             ownerUid.isEmpty &&
             ownerId.isEmpty) {
