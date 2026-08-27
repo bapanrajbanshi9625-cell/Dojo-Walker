@@ -7,7 +7,7 @@ import 'aadhaar_section2.dart';
 import 'address_section2.dart';
 import 'emergency_contact_section2.dart';
 import 'pan_card2.dart';
-import 'pending_verification_screen.dart';
+import '../screens/pending_verification_screen.dart';
 
 class MandatoryProfileSetupScreen2 extends StatefulWidget {
   const MandatoryProfileSetupScreen2({
