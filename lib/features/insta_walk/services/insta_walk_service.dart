@@ -1,7 +1,8 @@
+// File:
+// lib/features/insta_walk/services/insta_walk_service.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
-import '../models/insta_walk_request.dart';
 
 /// ============================================================
 /// INSTA WALK SERVICE
@@ -9,17 +10,21 @@ import '../models/insta_walk_request.dart';
 /// Main collection:
 ///     walk_request
 ///
-/// Responsibilities:
+/// RESPONSIBILITIES:
+///
 /// - Current Walker information
-/// - Searching requests
-/// - Accepted walks
-/// - Watch single walk
 /// - Cancel search
 /// - Start walk
 /// - Complete walk
 ///
-/// ACCEPT / REJECT:
-/// Separate services.
+/// REQUEST DISCOVERY:
+///     InstaWalkRequestService
+///
+/// ACCEPT:
+///     InstaWalkAcceptService
+///
+/// REJECT:
+///     InstaWalkRejectService
 /// ============================================================
 
 class InstaWalkService {
@@ -57,7 +62,8 @@ class InstaWalkService {
   }
 
   String? get currentWalkerUid {
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     final String uid =
         user?.uid.trim() ?? '';
@@ -170,131 +176,24 @@ class InstaWalkService {
   }
 
   // ============================================================
-  // CHECK CURRENT WALKER REJECTION
+  // CANCEL SEARCH
   //
-  // walk_request/{walkId}/rejections/{walkerId}
+  // searching → cancelled
+  //
+  // Owner's request remains inside:
+  //
+  // walk_request/{walkId}
   // ============================================================
 
-  Future<bool> _hasRejected(
+  Future<void> cancelSearch(
     String walkId,
-    String walkerId,
   ) async {
-    final String id =
-        walkId.trim();
-
-    final String wid =
-        walkerId.trim();
-
-    if (id.isEmpty ||
-        wid.isEmpty) {
-      return false;
-    }
-
-    final DocumentSnapshot<
-            Map<String, dynamic>>
-        snapshot =
-        await _walkRequests
-            .doc(id)
-            .collection('rejections')
-            .doc(wid)
-            .get();
-
-    return snapshot.exists;
-  }
-
-  // ============================================================
-  // PENDING / SEARCHING REQUESTS
-  //
-  // IMPORTANT:
-  //
-  // Only requests with:
-  //     status == searching
-  //
-  // are shown.
-  //
-  // If current Walker rejected a request,
-  // that request is hidden only from that Walker.
-  //
-  // Only ONE request is returned.
-  // ============================================================
-
-  Stream<List<InstaWalkRequest>>
-      pendingRequestsStream() {
-    return Stream.fromFuture(
-      getCurrentWalkerId(),
-    ).asyncExpand(
-      (
-        String? walkerId,
-      ) {
-        if (walkerId == null ||
-            walkerId.trim().isEmpty) {
-          return Stream.value(
-            <InstaWalkRequest>[],
-          );
-        }
-
-        return _walkRequests
-            .where(
-              'status',
-              isEqualTo: 'searching',
-            )
-            .snapshots()
-            .asyncMap(
-              (
-                QuerySnapshot<
-                        Map<String, dynamic>>
-                    snapshot,
-              ) async {
-                final List<InstaWalkRequest>
-                    availableRequests =
-                    <InstaWalkRequest>[];
-
-                for (final QueryDocumentSnapshot<
-                        Map<String, dynamic>>
-                    doc in snapshot.docs) {
-                  final bool alreadyRejected =
-                      await _hasRejected(
-                    doc.id,
-                    walkerId,
-                  );
-
-                  if (alreadyRejected) {
-                    continue;
-                  }
-
-                  availableRequests.add(
-                    InstaWalkRequest
-                        .fromFirestore(
-                      doc,
-                    ),
-                  );
-                }
-
-                if (availableRequests.isEmpty) {
-                  return <InstaWalkRequest>[];
-                }
-
-                return <InstaWalkRequest>[
-                  availableRequests.first,
-                ];
-              },
-            );
-      },
-    );
-  }
-
-  // ============================================================
-  // ACCEPTED WALKS
-  // ============================================================
-
-  Stream<List<InstaWalkRequest>>
-      acceptedWalksStream() {
     final User? user =
         _auth.currentUser;
 
     if (user == null) {
-      return Stream.value(
-        <InstaWalkRequest>[],
+      throw Exception(
+        'Walker is not logged in.',
       );
     }
 
@@ -302,144 +201,11 @@ class InstaWalkService {
         user.uid.trim();
 
     if (walkerUid.isEmpty) {
-      return Stream.value(
-        <InstaWalkRequest>[],
+      throw Exception(
+        'Walker UID is missing.',
       );
     }
 
-    return _walkRequests
-        .where(
-          'walkerUid',
-          isEqualTo: walkerUid,
-        )
-        .where(
-          'status',
-          isEqualTo: 'accepted',
-        )
-        .snapshots()
-        .map(
-          (
-            QuerySnapshot<
-                    Map<String, dynamic>>
-                snapshot,
-          ) {
-            return snapshot.docs
-                .map(
-                  (
-                    QueryDocumentSnapshot<
-                            Map<String, dynamic>>
-                        doc,
-                  ) {
-                    return InstaWalkRequest
-                        .fromFirestore(
-                      doc,
-                    );
-                  },
-                )
-                .toList();
-          },
-        );
-  }
-
-  // ============================================================
-  // GET WALK REQUEST
-  // ============================================================
-
-  Future<InstaWalkRequest?>
-      getWalkRequest(
-    String walkId,
-  ) async {
-    final String id =
-        walkId.trim();
-
-    if (id.isEmpty) {
-      return null;
-    }
-
-    final DocumentSnapshot<
-            Map<String, dynamic>>
-        snapshot =
-        await _walkRequests
-            .doc(id)
-            .get();
-
-    if (!snapshot.exists) {
-      return null;
-    }
-
-    return InstaWalkRequest.fromFirestore(
-      snapshot,
-    );
-  }
-
-  // ============================================================
-  // WATCH SINGLE WALK
-  // ============================================================
-
-  Stream<DocumentSnapshot<
-          Map<String, dynamic>>>
-      watchWalk(
-    String walkId,
-  ) {
-    final String id =
-        walkId.trim();
-
-    if (id.isEmpty) {
-      return const Stream<
-          DocumentSnapshot<
-              Map<String, dynamic>>>.empty();
-    }
-
-    return _walkRequests
-        .doc(id)
-        .snapshots();
-  }
-
-  // ============================================================
-  // WATCH SINGLE WALK AS MODEL
-  // ============================================================
-
-  Stream<InstaWalkRequest?>
-      watchWalkRequest(
-    String walkId,
-  ) {
-    final String id =
-        walkId.trim();
-
-    if (id.isEmpty) {
-      return Stream.value(null);
-    }
-
-    return _walkRequests
-        .doc(id)
-        .snapshots()
-        .map(
-          (
-            DocumentSnapshot<
-                    Map<String, dynamic>>
-                snapshot,
-          ) {
-            if (!snapshot.exists) {
-              return null;
-            }
-
-            return InstaWalkRequest
-                .fromFirestore(
-              snapshot,
-            );
-          },
-        );
-  }
-
-  // ============================================================
-  // CANCEL SEARCH
-  //
-  // searching → cancelled
-  // ============================================================
-
-  Future<void> cancelSearch(
-    String walkId,
-  ) async {
     final String id =
         walkId.trim();
 
@@ -489,6 +255,52 @@ class InstaWalkService {
         if (status != 'searching') {
           throw Exception(
             'This walk is no longer searching.',
+          );
+        }
+
+        final String ownerAuthUid =
+            data['ownerAuthUid']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        final String ownerUid =
+            data['ownerUid']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        final String ownerId =
+            data['ownerId']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        // --------------------------------------------------------
+        // Walker must not cancel another person's request.
+        // --------------------------------------------------------
+        final String storedWalkerUid =
+            data['walkerUid']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        if (storedWalkerUid.isNotEmpty &&
+            storedWalkerUid != walkerUid) {
+          throw Exception(
+            'This walk belongs to another walker.',
+          );
+        }
+
+        // --------------------------------------------------------
+        // Search request is normally owner-created.
+        // Keep owner fields untouched.
+        // --------------------------------------------------------
+        if (ownerAuthUid.isEmpty &&
+            ownerUid.isEmpty &&
+            ownerId.isEmpty) {
+          throw Exception(
+            'Owner information is missing from this walk request.',
           );
         }
 
