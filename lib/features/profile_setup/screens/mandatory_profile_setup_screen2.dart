@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../services/profile_setup_service.dart';
+import '../services/profile_setup_service.dart';
 import '../widgets/address_section2.dart';
 import '../widgets/aadhaar_section2.dart';
 import '../widgets/emergency_contact_section2.dart';
