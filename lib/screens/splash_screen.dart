@@ -6,7 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
-import '../features/profile_setup/screens/pending_verification_screen.dart';
+import '../features/walker_verification/screens/pending_verification_screen.dart';
 import 'main_navigation_screen.dart';
 import 'mobile_login_screen.dart';
 import 'profile_setup_screen.dart';
