@@ -20,14 +20,13 @@ class ActiveWalkStrip extends StatefulWidget {
 
 class _ActiveWalkStripState
     extends State<ActiveWalkStrip> {
-
-  Timer? _refreshTimer;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
 
-    _refreshTimer = Timer.periodic(
+    _timer = Timer.periodic(
       const Duration(seconds: 2),
       (_) {
         if (mounted) {
@@ -39,7 +38,7 @@ class _ActiveWalkStripState
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
+    _timer?.cancel();
     super.dispose();
   }
 
@@ -48,29 +47,38 @@ class _ActiveWalkStripState
     final AppStateService state =
         AppStateService.instance;
 
-    if (!state.hasActiveWalk) {
+    final Map<String, dynamic>? walkData =
+        state.activeWalkData;
+
+    final Map<String, dynamic>? sessionData =
+        state.activeSessionData;
+
+    if (!state.hasActiveWalk ||
+        walkData == null ||
+        walkData.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final String sessionStatus =
-        _readStatus(
-      state.activeSessionData?['status'],
-    );
-
     final String walkStatus =
-        _readStatus(
-      state.activeWalkData?['status'],
-    );
+        _status(walkData['status']);
+
+    final String sessionStatus =
+        _status(sessionData?['status']);
+
+    final bool isVisible =
+        walkStatus == 'ACCEPTED' ||
+        walkStatus == 'ACTIVE' ||
+        sessionStatus == 'ACTIVE' ||
+        sessionStatus == 'LIVE' ||
+        sessionStatus == 'STARTED';
+
+    if (!isVisible) {
+      return const SizedBox.shrink();
+    }
 
     final bool isLive =
         sessionStatus == 'LIVE' ||
-        sessionStatus == 'ACTIVE' ||
-        walkStatus == 'LIVE' ||
-        walkStatus == 'ACTIVE';
-
-    if (!isLive) {
-      return const SizedBox.shrink();
-    }
+        sessionStatus == 'STARTED';
 
     return Material(
       color: Colors.transparent,
@@ -78,16 +86,16 @@ class _ActiveWalkStripState
         onTap: widget.onTap,
         child: Container(
           width: double.infinity,
-          height: 48,
+          height: 46,
           margin: EdgeInsets.zero,
           padding: const EdgeInsets.symmetric(
-            horizontal: 16,
+            horizontal: 14,
           ),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
-              colors: [
+              colors: const [
                 AppColors.primary,
                 AppColors.secondary,
               ],
@@ -95,13 +103,17 @@ class _ActiveWalkStripState
           ),
           child: Row(
             children: [
-              const Icon(
-                Icons.directions_walk_rounded,
+              Icon(
+                isLive
+                    ? Icons
+                        .location_on_rounded
+                    : Icons
+                        .directions_walk_rounded,
                 color: Colors.white,
-                size: 22,
+                size: 21,
               ),
 
-              const SizedBox(width: 10),
+              const SizedBox(width: 9),
 
               Expanded(
                 child: Text(
@@ -109,20 +121,23 @@ class _ActiveWalkStripState
                       ? 'LIVE WALK'
                       : 'ACTIVE WALK',
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  overflow:
+                      TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 13,
-                    fontWeight: FontWeight.w900,
+                    fontWeight:
+                        FontWeight.w900,
                     letterSpacing: .4,
                   ),
                 ),
               ),
 
               const Icon(
-                Icons.chevron_right_rounded,
+                Icons
+                    .arrow_forward_ios_rounded,
                 color: Colors.white,
-                size: 25,
+                size: 15,
               ),
             ],
           ),
@@ -131,14 +146,11 @@ class _ActiveWalkStripState
     );
   }
 
-  String _readStatus(dynamic value) {
-    if (value == null) {
-      return '';
-    }
-
+  String _status(dynamic value) {
     return value
-        .toString()
-        .trim()
-        .toUpperCase();
+            ?.toString()
+            .trim()
+            .toUpperCase() ??
+        '';
   }
 }
