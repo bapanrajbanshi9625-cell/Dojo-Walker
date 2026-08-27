@@ -1,3 +1,6 @@
+// File:
+// lib/features/walker_verification/screens/pending_verification_screen.dart
+
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -107,7 +110,14 @@ class _PendingVerificationScreenState
       return;
     }
 
-    final String uid = user.uid;
+    final String uid = user.uid.trim();
+
+    if (uid.isEmpty) {
+      debugPrint(
+        'PendingVerification: Firebase UID is empty.',
+      );
+      return;
+    }
 
     debugPrint(
       'PendingVerification: listening walkers/$uid',
@@ -169,14 +179,17 @@ class _PendingVerificationScreenState
       'PendingVerification status=$status active=$active',
     );
 
-    setState(() {
-      verificationStatus = status;
-      walkerIdActive = active;
-    });
+    if (verificationStatus != status ||
+        walkerIdActive != active) {
+      setState(() {
+        verificationStatus = status;
+        walkerIdActive = active;
+      });
+    }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // APPROVED
-    // ----------------------------------------------------------
+    // ==========================================================
 
     if (_isApprovedState(
       data,
@@ -187,18 +200,17 @@ class _PendingVerificationScreenState
       return;
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // REJECTED
-    // ----------------------------------------------------------
+    // ==========================================================
 
     if (status == 'rejected') {
       _handleRejected();
-      return;
     }
   }
 
   // ============================================================
-  // READ STATUS
+  // READ VERIFICATION STATUS
   // ============================================================
 
   String _readVerificationStatus(
@@ -249,9 +261,20 @@ class _PendingVerificationScreenState
       return normalized;
     }
 
+    // ==========================================================
+    // BOOLEAN FALLBACK
+    // ==========================================================
+
     if (_readBool(
       data,
       'approved',
+    )) {
+      return 'approved';
+    }
+
+    if (_readBool(
+      data,
+      'isApproved',
     )) {
       return 'approved';
     }
@@ -263,11 +286,18 @@ class _PendingVerificationScreenState
       return 'rejected';
     }
 
+    if (_readBool(
+      data,
+      'isRejected',
+    )) {
+      return 'rejected';
+    }
+
     return 'pending';
   }
 
   // ============================================================
-  // READ ACTIVE
+  // READ WALKER ACTIVE
   // ============================================================
 
   bool _readWalkerActive(
@@ -293,6 +323,13 @@ class _PendingVerificationScreenState
     if (_readBool(
       data,
       'approved',
+    )) {
+      return true;
+    }
+
+    if (_readBool(
+      data,
+      'isApproved',
     )) {
       return true;
     }
@@ -333,7 +370,7 @@ class _PendingVerificationScreenState
   }
 
   // ============================================================
-  // APPROVAL
+  // APPROVAL STATE
   // ============================================================
 
   bool _isApprovedState(
@@ -352,6 +389,13 @@ class _PendingVerificationScreenState
       return true;
     }
 
+    if (_readBool(
+      data,
+      'isApproved',
+    )) {
+      return true;
+    }
+
     if (active &&
         (status == 'verified' ||
             status == 'accepted' ||
@@ -363,7 +407,7 @@ class _PendingVerificationScreenState
   }
 
   // ============================================================
-  // OPEN MAIN
+  // OPEN MAIN NAVIGATION
   // ============================================================
 
   void _openMainNavigation() {
@@ -472,56 +516,59 @@ class _PendingVerificationScreenState
 
         appBar: _buildAppBar(),
 
+        // ======================================================
+        // IMPORTANT:
+        // NO LayoutBuilder
+        // NO ConstrainedBox
+        //
+        // Entire verification page is one scrollable column.
+        // ======================================================
+
         body: SafeArea(
-          child: LayoutBuilder(
-            builder: (
-              BuildContext context,
-              BoxConstraints constraints,
-            ) {
-              return SingleChildScrollView(
-                primary: true,
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior
-                        .onDrag,
-                physics:
-                    const BouncingScrollPhysics(),
-                padding:
-                    const EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  top: 16,
-                  bottom: 40,
-                ),
-                child: ConstrainedBox(
-                  constraints:
-                      BoxConstraints(
-                    minHeight:
-                        constraints.maxHeight -
-                            32,
-                  ),
-                  child: PendingVerificationContent(
-                    isApproved:
-                        isApproved,
-                    isRejected:
-                        isRejected,
-                    isPending:
-                        isPending,
-                    verificationStatus:
-                        verificationStatus,
-                    walkerIdActive:
-                        walkerIdActive,
-                    animationController:
-                        _animationController,
-                    pulseAnimation:
-                        _pulseAnimation,
-                    scaleAnimation:
-                        _scaleAnimation,
-                    onSupport:
-                        _showSupport,
-                  ),
-                ),
-              );
-            },
+          child: SingleChildScrollView(
+            physics:
+                const BouncingScrollPhysics(),
+
+            keyboardDismissBehavior:
+                ScrollViewKeyboardDismissBehavior
+                    .onDrag,
+
+            padding:
+                const EdgeInsets.fromLTRB(
+              16,
+              16,
+              16,
+              40,
+            ),
+
+            child: PendingVerificationContent(
+              isApproved:
+                  isApproved,
+
+              isRejected:
+                  isRejected,
+
+              isPending:
+                  isPending,
+
+              verificationStatus:
+                  verificationStatus,
+
+              walkerIdActive:
+                  walkerIdActive,
+
+              animationController:
+                  _animationController,
+
+              pulseAnimation:
+                  _pulseAnimation,
+
+              scaleAnimation:
+                  _scaleAnimation,
+
+              onSupport:
+                  _showSupport,
+            ),
           ),
         ),
       ),
@@ -535,55 +582,91 @@ class _PendingVerificationScreenState
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       automaticallyImplyLeading: false,
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
+
+      backgroundColor:
+          Colors.white,
+
+      surfaceTintColor:
+          Colors.white,
+
       elevation: 0,
+
       titleSpacing: 16,
+
       toolbarHeight: 68,
+
       title: Row(
         children: [
+          // ====================================================
+          // LOGO
+          // ====================================================
+
           Container(
             width: 42,
             height: 42,
             decoration:
                 BoxDecoration(
-              color: AppColors.orange,
+              color:
+                  AppColors.orange,
               borderRadius:
-                  BorderRadius.circular(13),
+                  BorderRadius.circular(
+                13,
+              ),
             ),
             child: const Icon(
               Icons.pets_rounded,
-              color: Colors.white,
+              color:
+                  Colors.white,
               size: 24,
             ),
           ),
 
-          const SizedBox(width: 10),
+          const SizedBox(
+            width: 10,
+          ),
 
-          const Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-            children: [
-              Text(
-                'DOJO Platform',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight:
-                      FontWeight.w900,
-                  color:
-                      AppColors.textDark,
+          // ====================================================
+          // TITLE
+          // ====================================================
+
+          const Expanded(
+            child: Column(
+              mainAxisSize:
+                  MainAxisSize.min,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'DOJO Platform',
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style:
+                      TextStyle(
+                    fontSize: 18,
+                    fontWeight:
+                        FontWeight.w900,
+                    color:
+                        AppColors.textDark,
+                  ),
                 ),
-              ),
-              SizedBox(height: 1),
-              Text(
-                'DOJO Walker',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  color:
-                      AppColors.muted,
+
+                SizedBox(
+                  height: 1,
                 ),
-              ),
-            ],
+
+                Text(
+                  'DOJO Walker',
+                  overflow:
+                      TextOverflow.ellipsis,
+                  style:
+                      TextStyle(
+                    fontSize: 10.5,
+                    color:
+                        AppColors.muted,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
