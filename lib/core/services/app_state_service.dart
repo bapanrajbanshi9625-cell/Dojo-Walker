@@ -9,21 +9,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 /// DOJO WALKER - CENTRAL APP STATE SERVICE
 /// ============================================================
 ///
-/// Firebase active walk state का central runtime cache.
-///
 /// Primary source:
 ///   walk_request
 ///
-/// Optional live session:
+/// Optional:
+///   active_walk
 ///   liveWalkSessions
 ///
-/// Optional active walk:
-///   active_walk
-///
-/// IMPORTANT:
-/// ActiveWalkStrip को दिखाने के लिए active_walk document
-/// मौजूद होना जरूरी नहीं है.
-/// Accepted / active walk_request itself is enough.
+/// ActiveWalkStrip के लिए accepted / active request
+/// walk_request से सीधे recover होती है.
 /// ============================================================
 
 class AppStateService {
@@ -151,12 +145,6 @@ class AppStateService {
   // ============================================================
   // RECOVER CURRENT STATE
   // ============================================================
-  //
-  // walk_request is the PRIMARY source.
-  //
-  // Accepted / active request मिलने पर वही request
-  // ActiveWalkStrip के लिए active state बनेगी.
-  // ============================================================
 
   Future<void> recoverCurrentState() async {
     final User? user =
@@ -192,7 +180,7 @@ class AppStateService {
       }
 
       // --------------------------------------------------------
-      // Prefer active/live/started over accepted.
+      // Select highest-priority active request.
       // --------------------------------------------------------
 
       DocumentSnapshot<Map<String, dynamic>>
@@ -207,9 +195,12 @@ class AppStateService {
       for (final DocumentSnapshot<
               Map<String, dynamic>> doc
           in snapshot.docs) {
+        final Map<String, dynamic>
+            data = doc.data();
+
         final int priority =
             _statusPriority(
-          doc.data()['status'],
+          data['status'],
         );
 
         if (priority > selectedPriority) {
@@ -218,14 +209,30 @@ class AppStateService {
         }
       }
 
-      final Map<String, dynamic> data =
+      // --------------------------------------------------------
+      // SAFE NULL HANDLING
+      // --------------------------------------------------------
+
+      final Map<String, dynamic>?
+          selectedData =
+          selected.data();
+
+      if (selectedData == null) {
+        await _clearIfNoActiveRequest();
+        return;
+      }
+
+      final Map<String, dynamic>
+          data =
           Map<String, dynamic>.from(
-        selected.data(),
+        selectedData,
       );
 
-      _activeWalkId = selected.id;
+      _activeWalkId =
+          selected.id;
 
-      _activeWalkData = data;
+      _activeWalkData =
+          data;
 
       _activeSessionId =
           _firstNonEmpty(
@@ -242,10 +249,8 @@ class AppStateService {
       await _startSessionListener();
 
     } catch (_) {
-      // --------------------------------------------------------
-      // Do NOT destroy existing runtime state because of a
-      // temporary Firebase/network error.
-      // --------------------------------------------------------
+      // Temporary Firebase/network error.
+      // Existing cached state is preserved.
     }
   }
 
@@ -254,14 +259,6 @@ class AppStateService {
   // ============================================================
 
   Future<void> _startRequestListener() async {
-    final String? walkId =
-        _activeWalkId;
-
-    if (walkId == null ||
-        walkId.isEmpty) {
-      return;
-    }
-
     await _walkSubscription?.cancel();
 
     final User? user =
@@ -284,41 +281,44 @@ class AppStateService {
                 Map<String, dynamic>>?
             selected;
 
-        int selectedPriority = 0;
+        int bestPriority = 0;
 
         for (final DocumentSnapshot<
                 Map<String, dynamic>> doc
             in snapshot.docs) {
           final Map<String, dynamic>
-              data =
-              doc.data();
+              data = doc.data();
 
           final int priority =
               _statusPriority(
             data['status'],
           );
 
-          if (priority > selectedPriority ||
-              (priority == selectedPriority &&
+          if (priority > bestPriority ||
+              (priority == bestPriority &&
                   doc.id == _activeWalkId)) {
             selected = doc;
-            selectedPriority = priority;
+            bestPriority = priority;
           }
         }
-
-        // ------------------------------------------------------
-        // No accepted/active request left.
-        // ------------------------------------------------------
 
         if (selected == null) {
           _clearIfNoActiveRequest();
           return;
         }
 
+        final Map<String, dynamic>?
+            selectedData =
+            selected.data();
+
+        if (selectedData == null) {
+          return;
+        }
+
         final Map<String, dynamic>
             data =
             Map<String, dynamic>.from(
-          selected.data(),
+          selectedData,
         );
 
         _activeWalkId =
@@ -326,10 +326,6 @@ class AppStateService {
 
         _activeWalkData =
             data;
-
-        // ------------------------------------------------------
-        // Session ID may appear later after walk starts.
-        // ------------------------------------------------------
 
         final String newSessionId =
             _firstNonEmpty(
@@ -342,15 +338,21 @@ class AppStateService {
         if (newSessionId !=
             (_activeSessionId ?? '')) {
           _activeSessionId =
-              newSessionId;
+              newSessionId.isEmpty
+                  ? null
+                  : newSessionId;
 
-          _startSessionListener();
+          unawaited(
+            _startSessionListener(),
+          );
         }
 
-        _startOptionalActiveWalkListener();
+        unawaited(
+          _startOptionalActiveWalkListener(),
+        );
       },
       onError: (_) {
-        // Keep current cached state.
+        // Keep cached state.
       },
     );
   }
@@ -358,17 +360,11 @@ class AppStateService {
   // ============================================================
   // OPTIONAL ACTIVE WALK LISTENER
   // ============================================================
-  //
-  // activeWalkId अगर walk_request में मौजूद है,
-  // तभी active_walk document listen करेंगे.
-  //
-  // walk_request ID को automatically active_walk ID नहीं
-  // माना जाएगा.
-  // ============================================================
 
   Future<void>
       _startOptionalActiveWalkListener() async {
-    final Map<String, dynamic>? data =
+    final Map<String, dynamic>?
+        data =
         _activeWalkData;
 
     if (data == null) {
@@ -385,7 +381,9 @@ class AppStateService {
 
     if (activeWalkId.isEmpty) {
       await _activeWalkSubscription?.cancel();
+
       _activeWalkSubscription = null;
+
       return;
     }
 
@@ -409,19 +407,21 @@ class AppStateService {
           return;
         }
 
-        // ------------------------------------------------------
-        // Merge optional active_walk information into the
-        // primary walk_request cache.
-        // ------------------------------------------------------
+        final Map<String, dynamic>
+            currentData =
+            _activeWalkData == null
+                ? <String, dynamic>{}
+                : Map<String, dynamic>.from(
+                    _activeWalkData!,
+                  );
 
         _activeWalkData = <String, dynamic>{
-          ...?_activeWalkData,
+          ...currentData,
           ...activeData,
         };
       },
       onError: (_) {
         // Optional listener.
-        // walk_request remains the source of truth.
       },
     );
   }
@@ -472,10 +472,6 @@ class AppStateService {
           data['status'],
         ).toLowerCase();
 
-        // ------------------------------------------------------
-        // Completed session
-        // ------------------------------------------------------
-
         if (status == 'completed' ||
             status == 'cancelled' ||
             status == 'ended') {
@@ -489,7 +485,7 @@ class AppStateService {
   }
 
   // ============================================================
-  // START WALK REQUEST MONITOR
+  // WALK REQUEST MONITOR
   // ============================================================
 
   void startWalkRequestMonitor() {
@@ -521,8 +517,7 @@ class AppStateService {
                 Map<String, dynamic>> doc
             in snapshot.docs) {
           final Map<String, dynamic>
-              data =
-              doc.data();
+              data = doc.data();
 
           final int priority =
               _statusPriority(
@@ -538,14 +533,24 @@ class AppStateService {
         }
 
         if (selected == null) {
-          _clearIfNoActiveRequest();
+          unawaited(
+            _clearIfNoActiveRequest(),
+          );
+          return;
+        }
+
+        final Map<String, dynamic>?
+            selectedData =
+            selected.data();
+
+        if (selectedData == null) {
           return;
         }
 
         final Map<String, dynamic>
             data =
             Map<String, dynamic>.from(
-          selected.data(),
+          selectedData,
         );
 
         _activeWalkId =
@@ -565,15 +570,21 @@ class AppStateService {
         if (sessionId !=
             (_activeSessionId ?? '')) {
           _activeSessionId =
-              sessionId;
+              sessionId.isEmpty
+                  ? null
+                  : sessionId;
 
-          _startSessionListener();
+          unawaited(
+            _startSessionListener(),
+          );
         }
 
-        _startOptionalActiveWalkListener();
+        unawaited(
+          _startOptionalActiveWalkListener(),
+        );
       },
       onError: (_) {
-        // Do not clear cached state.
+        // Keep cached state.
       },
     );
   }
@@ -586,24 +597,30 @@ class AppStateService {
     required String walkId,
     String? sessionId,
   }) async {
-    if (walkId.trim().isEmpty) {
+    final String cleanWalkId =
+        walkId.trim();
+
+    if (cleanWalkId.isEmpty) {
       return;
     }
 
     _activeWalkId =
-        walkId.trim();
+        cleanWalkId;
+
+    final String cleanSessionId =
+        sessionId?.trim() ?? '';
 
     _activeSessionId =
-        sessionId?.trim().isEmpty == true
+        cleanSessionId.isEmpty
             ? null
-            : sessionId?.trim();
+            : cleanSessionId;
 
     try {
       final DocumentSnapshot<
               Map<String, dynamic>>
           snapshot =
           await _walkRequests
-              .doc(_activeWalkId)
+              .doc(cleanWalkId)
               .get();
 
       if (snapshot.exists) {
@@ -617,7 +634,8 @@ class AppStateService {
             data,
           );
 
-          final String resolvedSessionId =
+          final String
+              resolvedSessionId =
               _firstNonEmpty(
             <dynamic>[
               _activeSessionId,
@@ -640,7 +658,7 @@ class AppStateService {
       await _startSessionListener();
 
     } catch (_) {
-      // Keep manually-set runtime state.
+      // Keep cached active state.
     }
   }
 
