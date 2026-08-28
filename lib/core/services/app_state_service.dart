@@ -45,7 +45,7 @@ class AppStateService {
 
   CollectionReference<Map<String, dynamic>>
       get _walkRequests =>
-          _firestore.collection('walk_requests');
+          _firestore.collection('walk_request');
 
   CollectionReference<Map<String, dynamic>>
       get _activeWalks =>
