@@ -8,10 +8,11 @@ import 'package:latlong2/latlong.dart';
 import '../../../core/constants/app_colors.dart';
 import '../models/insta_walk_request.dart';
 import '../services/insta_walk_service.dart';
-import '../controllers/live_walk_controller.dart';
 import '../widgets/active_walk_bottom_sheet.dart';
 import '../widgets/active_walk_map.dart';
 import '../widgets/active_walk_top_bar.dart';
+
+import '../../live_walk/controllers/live_walk_controller.dart';
 
 class ActiveWalkDetailsScreen extends StatefulWidget {
   final InstaWalkRequest request;
