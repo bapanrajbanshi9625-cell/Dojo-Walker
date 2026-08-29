@@ -22,11 +22,12 @@ class LiveWalkStartPanel extends StatelessWidget {
       right: 16,
       bottom: 20,
       child: SafeArea(
+        top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             // ====================================================
-            // GPS ACTIVE INFO
+            // GPS ACTIVE
             // ====================================================
 
             Container(
@@ -69,7 +70,7 @@ class LiveWalkStartPanel extends StatelessWidget {
             const SizedBox(height: 9),
 
             // ====================================================
-            // START SLIDER
+            // START WALK SLIDER
             // ====================================================
 
             LiveWalkStartSlider(
@@ -78,7 +79,7 @@ class LiveWalkStartPanel extends StatelessWidget {
             ),
 
             // ====================================================
-            // STARTING LOADER
+            // STARTING
             // ====================================================
 
             if (starting)
@@ -89,6 +90,10 @@ class LiveWalkStartPanel extends StatelessWidget {
                   height: 22,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(
+                      AppColors.primary,
+                    ),
                   ),
                 ),
               ),
