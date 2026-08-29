@@ -14,6 +14,7 @@ import '../features/insta_walk/services/insta_walk_reject_service.dart';
 import '../features/insta_walk/services/insta_walk_request_service.dart';
 import '../features/insta_walk/widgets/insta_walk_container.dart';
 import '../features/insta_walk/widgets/insta_walk_request_card.dart';
+import '../features/live_walk/screens/live_walk_screen.dart';
 import '../features/qr_walk/screens/qr_scanner_screen.dart';
 import '../features/walker_home/containers/walker_home_header.dart';
 
