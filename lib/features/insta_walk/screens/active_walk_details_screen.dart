@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../core/constants/app_colors.dart';
 import '../models/insta_walk_request.dart';
 import '../services/insta_walk_service.dart';
+import '../controllers/live_walk_controller.dart';
 import '../widgets/active_walk_bottom_sheet.dart';
 import '../widgets/active_walk_map.dart';
 import '../widgets/active_walk_top_bar.dart';
@@ -37,10 +38,17 @@ class _ActiveWalkDetailsScreenState
       InstaWalkService.instance;
 
   // ============================================================
+  // CONTROLLER
+  // ============================================================
+
+  late final LiveWalkController _liveWalkController;
+
+  // ============================================================
   // MAP
   // ============================================================
 
-  final MapController _mapController = MapController();
+  final MapController _mapController =
+      MapController();
 
   LatLng? _walkerLocation;
   LatLng? _pickupLocation;
@@ -60,7 +68,8 @@ class _ActiveWalkDetailsScreenState
   // SUBSCRIPTION
   // ============================================================
 
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+  StreamSubscription<
+          DocumentSnapshot<Map<String, dynamic>>>?
       _walkSubscription;
 
   // ============================================================
@@ -73,7 +82,8 @@ class _ActiveWalkDetailsScreenState
   // SHEET
   // ============================================================
 
-  final DraggableScrollableController _sheetController =
+  final DraggableScrollableController
+      _sheetController =
       DraggableScrollableController();
 
   bool _sheetExpanded = false;
@@ -86,6 +96,8 @@ class _ActiveWalkDetailsScreenState
   void initState() {
     super.initState();
 
+    _createController();
+
     _loadInitialData();
 
     _sheetController.addListener(
@@ -93,6 +105,49 @@ class _ActiveWalkDetailsScreenState
     );
 
     _listenToWalk();
+
+    _initializeController();
+  }
+
+  // ============================================================
+  // CREATE LIVE WALK CONTROLLER
+  // ============================================================
+
+  void _createController() {
+    _liveWalkController =
+        LiveWalkController(
+      ownerUid: widget.request.ownerUid,
+      ownerName: widget.request.ownerName,
+      walkId: widget.request.id,
+      dogName: widget.request.dogName,
+      dogBreed: widget.request.dogBreed,
+      ownerPhone: widget.request.ownerPhone,
+      sessionId: widget.request.sessionId,
+    );
+
+    _liveWalkController.addListener(
+      _onControllerChanged,
+    );
+  }
+
+  // ============================================================
+  // CONTROLLER LISTENER
+  // ============================================================
+
+  void _onControllerChanged() {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {});
+  }
+
+  // ============================================================
+  // INITIALIZE CONTROLLER
+  // ============================================================
+
+  Future<void> _initializeController() async {
+    await _liveWalkController.initialize();
   }
 
   // ============================================================
@@ -100,7 +155,8 @@ class _ActiveWalkDetailsScreenState
   // ============================================================
 
   void _loadInitialData() {
-    final InstaWalkRequest request = widget.request;
+    final InstaWalkRequest request =
+        widget.request;
 
     final double latitude =
         request.latitude ?? 0.0;
@@ -118,10 +174,12 @@ class _ActiveWalkDetailsScreenState
       );
     }
 
-    _distanceKm = request.distanceKm;
+    _distanceKm =
+        request.distanceKm;
 
     if (request.status.trim().isNotEmpty) {
-      _liveStatus = request.status.trim();
+      _liveStatus =
+          request.status.trim();
     }
   }
 
@@ -142,9 +200,12 @@ class _ActiveWalkDetailsScreenState
       walkId,
     ).listen(
       (
-        DocumentSnapshot<Map<String, dynamic>> snapshot,
+        DocumentSnapshot<
+                Map<String, dynamic>>
+            snapshot,
       ) {
-        if (!mounted || !snapshot.exists) {
+        if (!mounted ||
+            !snapshot.exists) {
           return;
         }
 
@@ -176,10 +237,14 @@ class _ActiveWalkDetailsScreenState
         _readString(data['status']);
 
     final double distance =
-        _readDouble(data['distanceKm']);
+        _readDouble(
+      data['distanceKm'],
+    );
 
     final int elapsed =
-        _readInt(data['elapsedSeconds']);
+        _readInt(
+      data['elapsedSeconds'],
+    );
 
     final int steps =
         _readInt(data['steps']);
@@ -188,13 +253,15 @@ class _ActiveWalkDetailsScreenState
     // PICKUP
     // ----------------------------------------------------------
 
-    final double pickupLat = _readDouble(
+    final double pickupLat =
+        _readDouble(
       data['latitude'] ??
           data['lat'] ??
           data['pickupLatitude'],
     );
 
-    final double pickupLng = _readDouble(
+    final double pickupLng =
+        _readDouble(
       data['longitude'] ??
           data['lng'] ??
           data['pickupLongitude'],
@@ -206,44 +273,51 @@ class _ActiveWalkDetailsScreenState
 
     LatLng? destination;
 
-    final Map<String, dynamic>? destinationMap =
+    final Map<String, dynamic>?
+        destinationMap =
         _readMap(
       data['destinationLocation'],
     );
 
     if (destinationMap != null) {
-      final double lat = _readDouble(
+      final double lat =
+          _readDouble(
         destinationMap['lat'] ??
             destinationMap['latitude'],
       );
 
-      final double lng = _readDouble(
+      final double lng =
+          _readDouble(
         destinationMap['lng'] ??
             destinationMap['longitude'],
       );
 
-      if (_validCoordinate(lat, lng)) {
-        destination = LatLng(
-          lat,
-          lng,
-        );
+      if (_validCoordinate(
+        lat,
+        lng,
+      )) {
+        destination =
+            LatLng(lat, lng);
       }
     } else {
-      final double lat = _readDouble(
+      final double lat =
+          _readDouble(
         data['destinationLatitude'] ??
             data['destinationLat'],
       );
 
-      final double lng = _readDouble(
+      final double lng =
+          _readDouble(
         data['destinationLongitude'] ??
             data['destinationLng'],
       );
 
-      if (_validCoordinate(lat, lng)) {
-        destination = LatLng(
-          lat,
-          lng,
-        );
+      if (_validCoordinate(
+        lat,
+        lng,
+      )) {
+        destination =
+            LatLng(lat, lng);
       }
     }
 
@@ -253,50 +327,66 @@ class _ActiveWalkDetailsScreenState
 
     LatLng? walker;
 
-    final Map<String, dynamic>? currentLocation =
+    final Map<String, dynamic>?
+        currentLocation =
         _readMap(
       data['currentLocation'],
     );
 
     if (currentLocation != null) {
-      final double lat = _readDouble(
+      final double lat =
+          _readDouble(
         currentLocation['lat'] ??
             currentLocation['latitude'],
       );
 
-      final double lng = _readDouble(
+      final double lng =
+          _readDouble(
         currentLocation['lng'] ??
             currentLocation['longitude'],
       );
 
-      if (_validCoordinate(lat, lng)) {
-        walker = LatLng(
-          lat,
-          lng,
-        );
+      if (_validCoordinate(
+        lat,
+        lng,
+      )) {
+        walker =
+            LatLng(lat, lng);
       }
     }
 
     if (walker == null) {
-      final double lat = _readDouble(
+      final double lat =
+          _readDouble(
         data['currentLat'] ??
             data['walkerLat'] ??
             data['liveLatitude'],
       );
 
-      final double lng = _readDouble(
+      final double lng =
+          _readDouble(
         data['currentLng'] ??
             data['walkerLng'] ??
             data['liveLongitude'],
       );
 
-      if (_validCoordinate(lat, lng)) {
-        walker = LatLng(
-          lat,
-          lng,
-        );
+      if (_validCoordinate(
+        lat,
+        lng,
+      )) {
+        walker =
+            LatLng(lat, lng);
       }
     }
+
+    // ----------------------------------------------------------
+    // REACHED STATE FROM FIRESTORE
+    // ----------------------------------------------------------
+
+    final bool firestoreReached =
+        data['reached'] == true ||
+            data['walkerReached'] == true ||
+            data['ownerReached'] == true;
 
     // ----------------------------------------------------------
     // UPDATE
@@ -308,29 +398,34 @@ class _ActiveWalkDetailsScreenState
 
     setState(() {
       if (walker != null) {
-        _walkerLocation = walker;
+        _walkerLocation =
+            walker;
       }
 
       if (_validCoordinate(
         pickupLat,
         pickupLng,
       )) {
-        _pickupLocation = LatLng(
+        _pickupLocation =
+            LatLng(
           pickupLat,
           pickupLng,
         );
       }
 
       if (destination != null) {
-        _destinationLocation = destination;
+        _destinationLocation =
+            destination;
       }
 
       if (distance > 0) {
-        _distanceKm = distance;
+        _distanceKm =
+            distance;
       }
 
       if (elapsed >= 0) {
-        _elapsedSeconds = elapsed;
+        _elapsedSeconds =
+            elapsed;
       }
 
       if (steps >= 0) {
@@ -338,9 +433,115 @@ class _ActiveWalkDetailsScreenState
       }
 
       if (status.isNotEmpty) {
-        _liveStatus = status;
+        _liveStatus =
+            status;
+      }
+
+      if (firestoreReached) {
+        _reached = true;
       }
     });
+
+    // Controller session data भी update करें.
+    _liveWalkController
+        .updateFromSession(data);
+  }
+
+  // ============================================================
+  // REACHED
+  // ============================================================
+
+  void _handleReached() {
+    if (_reached) {
+      return;
+    }
+
+    setState(() {
+      _reached = true;
+    });
+
+    widget.onReached?.call();
+  }
+
+  // ============================================================
+  // START WALK
+  // ============================================================
+
+  Future<void> _startWalk() async {
+    if (!_reached) {
+      _showMessage(
+        'Reach the owner before starting the walk.',
+      );
+      return;
+    }
+
+    if (_liveWalkController.walkStarted) {
+      return;
+    }
+
+    try {
+      await _liveWalkController.startWalk();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _liveStatus = 'active';
+      });
+
+      _showMessage(
+        'Live walk started.',
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        e.toString().replaceFirst(
+          'Exception: ',
+          '',
+        ),
+      );
+    }
+  }
+
+  // ============================================================
+  // END WALK
+  //
+  // अगर इस screen से End button बाद में connect करना हो,
+  // तो इसी method को call करना है.
+  // ============================================================
+
+  Future<void> endWalk() async {
+    try {
+      await _liveWalkController.endWalk();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _liveStatus =
+            'completed';
+      });
+
+      _showMessage(
+        'Walk completed successfully.',
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(
+        e.toString().replaceFirst(
+          'Exception: ',
+          '',
+        ),
+      );
+    }
   }
 
   // ============================================================
@@ -358,7 +559,8 @@ class _ActiveWalkDetailsScreenState
     if (_sheetExpanded != expanded &&
         mounted) {
       setState(() {
-        _sheetExpanded = expanded;
+        _sheetExpanded =
+            expanded;
       });
     }
   }
@@ -371,8 +573,11 @@ class _ActiveWalkDetailsScreenState
     _sheetController.animateTo(
       .90,
       duration:
-          const Duration(milliseconds: 350),
-      curve: Curves.easeOut,
+          const Duration(
+        milliseconds: 350,
+      ),
+      curve:
+          Curves.easeOut,
     );
   }
 
@@ -384,8 +589,11 @@ class _ActiveWalkDetailsScreenState
     _sheetController.animateTo(
       .25,
       duration:
-          const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
+          const Duration(
+        milliseconds: 300,
+      ),
+      curve:
+          Curves.easeOut,
     );
   }
 
@@ -419,22 +627,6 @@ class _ActiveWalkDetailsScreenState
   }
 
   // ============================================================
-  // REACHED
-  // ============================================================
-
-  void _handleReached() {
-    if (_reached) {
-      return;
-    }
-
-    setState(() {
-      _reached = true;
-    });
-
-    widget.onReached?.call();
-  }
-
-  // ============================================================
   // BUILD
   // ============================================================
 
@@ -449,7 +641,8 @@ class _ActiveWalkDetailsScreenState
         children: [
           Positioned.fill(
             child: ActiveWalkMap(
-              mapController: _mapController,
+              mapController:
+                  _mapController,
               walkerLocation:
                   _walkerLocation,
               pickupLocation:
@@ -469,20 +662,28 @@ class _ActiveWalkDetailsScreenState
           Positioned(
             right: 16,
             bottom:
-                _sheetExpanded ? 700 : 190,
-            child: _MapLocationButton(
-              onPressed: _moveToWalker,
+                _sheetExpanded
+                    ? 700
+                    : 190,
+            child:
+                _MapLocationButton(
+              onPressed:
+                  _moveToWalker,
             ),
           ),
 
           DraggableScrollableSheet(
             controller:
                 _sheetController,
-            initialChildSize: .25,
-            minChildSize: .25,
-            maxChildSize: .90,
+            initialChildSize:
+                .25,
+            minChildSize:
+                .25,
+            maxChildSize:
+                .90,
             snap: true,
-            snapSizes: const [
+            snapSizes:
+                const [
               .25,
               .90,
             ],
@@ -491,20 +692,31 @@ class _ActiveWalkDetailsScreenState
               ScrollController controller,
             ) {
               return ActiveWalkBottomSheet(
-                controller: controller,
-                request: widget.request,
-                liveStatus: _liveStatus,
-                distanceKm: _distanceKm,
+                controller:
+                    controller,
+                request:
+                    widget.request,
+                liveStatus:
+                    _liveStatus,
+                distanceKm:
+                    _distanceKm,
                 elapsedSeconds:
                     _elapsedSeconds,
-                steps: _steps,
-                reached: _reached,
+                steps:
+                    _steps,
+                reached:
+                    _reached,
+                starting:
+                    _liveWalkController
+                        .startingWalk,
                 onExpand:
                     _expandSheet,
                 onToggleSheet:
                     _toggleSheet,
                 onReached:
                     _handleReached,
+                onStarted:
+                    _startWalk,
                 onMessage:
                     _showMessage,
               );
@@ -530,9 +742,12 @@ class _ActiveWalkDetailsScreenState
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content:
+              Text(message),
           duration:
-              const Duration(seconds: 2),
+              const Duration(
+            seconds: 2,
+          ),
         ),
       );
   }
@@ -544,7 +759,10 @@ class _ActiveWalkDetailsScreenState
   static String _readString(
     dynamic value,
   ) {
-    return value?.toString().trim() ?? '';
+    return value
+            ?.toString()
+            .trim() ??
+        '';
   }
 
   static double _readDouble(
@@ -559,7 +777,9 @@ class _ActiveWalkDetailsScreenState
     }
 
     return double.tryParse(
-          value.toString().trim(),
+          value
+              .toString()
+              .trim(),
         ) ??
         0.0;
   }
@@ -580,12 +800,15 @@ class _ActiveWalkDetailsScreenState
     }
 
     return int.tryParse(
-          value.toString().trim(),
+          value
+              .toString()
+              .trim(),
         ) ??
         0;
   }
 
-  static Map<String, dynamic>? _readMap(
+  static Map<String, dynamic>?
+      _readMap(
     dynamic value,
   ) {
     if (value is Map<String, dynamic>) {
@@ -593,7 +816,9 @@ class _ActiveWalkDetailsScreenState
     }
 
     if (value is Map) {
-      return Map<String, dynamic>.from(value);
+      return Map<String, dynamic>.from(
+        value,
+      );
     }
 
     return null;
@@ -619,11 +844,19 @@ class _ActiveWalkDetailsScreenState
   void dispose() {
     _walkSubscription?.cancel();
 
-    _sheetController.removeListener(
+    _sheetController
+        .removeListener(
       _onSheetChanged,
     );
 
     _sheetController.dispose();
+
+    _liveWalkController
+        .removeListener(
+      _onControllerChanged,
+    );
+
+    _liveWalkController.dispose();
 
     super.dispose();
   }
@@ -633,7 +866,8 @@ class _ActiveWalkDetailsScreenState
 // MAP LOCATION BUTTON
 // ============================================================================
 
-class _MapLocationButton extends StatelessWidget {
+class _MapLocationButton
+    extends StatelessWidget {
   final VoidCallback onPressed;
 
   const _MapLocationButton({
@@ -645,19 +879,22 @@ class _MapLocationButton extends StatelessWidget {
     BuildContext context,
   ) {
     return Material(
-      color: AppColors.cardBackground,
+      color:
+          AppColors.cardBackground,
       elevation: 5,
-      shape: const CircleBorder(),
+      shape:
+          const CircleBorder(),
       child: InkWell(
         onTap: onPressed,
         customBorder:
             const CircleBorder(),
-        child: SizedBox(
+        child: const SizedBox(
           width: 46,
           height: 46,
           child: Icon(
             Icons.my_location_rounded,
-            color: AppColors.primary,
+            color:
+                AppColors.primary,
             size: 20,
           ),
         ),
