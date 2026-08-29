@@ -10,10 +10,8 @@ class QrWalkService {
   QrWalkService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-  })  : _firestore =
-            firestore ?? FirebaseFirestore.instance,
-        _auth =
-            auth ?? FirebaseAuth.instance;
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
@@ -22,73 +20,65 @@ class QrWalkService {
   // COLLECTIONS
   // ==========================================================
 
-  CollectionReference<Map<String, dynamic>>
-      get _qrConnections =>
-          _firestore.collection('qr_connections');
+  CollectionReference<Map<String, dynamic>> get _qrConnections =>
+      _firestore.collection('qr_connections');
 
-  CollectionReference<Map<String, dynamic>>
-      get _liveWalkSessions =>
-          _firestore.collection('liveWalkSessions');
+  CollectionReference<Map<String, dynamic>> get _liveWalkSessions =>
+      _firestore.collection('liveWalkSessions');
 
   // ==========================================================
   // PROCESS OWNER QR
+  //
+  // QR FLOW:
+  //
+  // QR SCAN
+  //    ↓
+  // LIVE WALK DIRECTLY
+  //
+  // No Active Walk screen in QR flow.
   // ==========================================================
 
-  Future<Map<String, dynamic>>
-      processOwnerQr({
+  Future<Map<String, dynamic>> processOwnerQr({
     required String rawData,
   }) async {
     // ========================================================
     // 1. VALIDATE QR
     // ========================================================
 
-    final String cleanData =
-        rawData.trim();
+    final String cleanData = rawData.trim();
 
     if (cleanData.isEmpty) {
-      throw Exception(
-        'Invalid QR code.',
-      );
+      throw Exception('Invalid QR code.');
     }
 
     // ========================================================
     // 2. CURRENT WALKER
     // ========================================================
 
-    final User? walker =
-        _auth.currentUser;
+    final User? walker = _auth.currentUser;
 
     if (walker == null) {
-      throw Exception(
-        'Walker is not logged in.',
-      );
+      throw Exception('Walker is not logged in.');
     }
 
-    final String walkerUid =
-        walker.uid.trim();
+    final String walkerUid = walker.uid.trim();
 
     if (walkerUid.isEmpty) {
-      throw Exception(
-        'Walker Firebase UID is missing.',
-      );
+      throw Exception('Walker Firebase UID is missing.');
     }
 
     // ========================================================
-    // 3. PARSE QR PAYLOAD
+    // 3. DECODE QR
     // ========================================================
 
-    final Map<String, dynamic>
-        qrData =
-        _decodeQrPayload(
-      cleanData,
-    );
+    final Map<String, dynamic> qrData =
+        _decodeQrPayload(cleanData);
 
     // ========================================================
     // 4. OWNER BUSINESS ID
     // ========================================================
 
-    final String ownerId =
-        _readString(
+    final String ownerId = _readString(
       qrData,
       <String>[
         'ownerId',
@@ -104,11 +94,10 @@ class QrWalkService {
     }
 
     // ========================================================
-    // 5. QR WALK ID
+    // 5. WALK ID
     // ========================================================
 
-    final String qrWalkId =
-        _readString(
+    final String qrWalkId = _readString(
       qrData,
       <String>[
         'walkId',
@@ -123,18 +112,15 @@ class QrWalkService {
     }
 
     // ========================================================
-    // 6. FIND QR CONNECTION
+    // 6. QR CONNECTION
     //
     // qr_connections/{ownerId}
     // ========================================================
 
-    final DocumentReference<
-            Map<String, dynamic>>
-        connectionRef =
+    final DocumentReference<Map<String, dynamic>> connectionRef =
         _qrConnections.doc(ownerId);
 
-    final DocumentSnapshot<
-            Map<String, dynamic>>
+    final DocumentSnapshot<Map<String, dynamic>>
         connectionSnapshot =
         await connectionRef.get();
 
@@ -144,8 +130,7 @@ class QrWalkService {
       );
     }
 
-    final Map<String, dynamic>
-        connectionData =
+    final Map<String, dynamic> connectionData =
         connectionSnapshot.data() ??
             <String, dynamic>{};
 
@@ -153,8 +138,7 @@ class QrWalkService {
     // 7. VERIFY OWNER ID
     // ========================================================
 
-    final String firebaseOwnerId =
-        _readString(
+    final String firebaseOwnerId = _readString(
       connectionData,
       <String>[
         'ownerId',
@@ -177,8 +161,7 @@ class QrWalkService {
     // 8. VERIFY WALK ID
     // ========================================================
 
-    final String firebaseWalkId =
-        _readString(
+    final String firebaseWalkId = _readString(
       connectionData,
       <String>[
         'walkId',
@@ -198,11 +181,10 @@ class QrWalkService {
     }
 
     // ========================================================
-    // 9. OWNER UID
+    // 9. OWNER FIREBASE UID
     // ========================================================
 
-    final String ownerUid =
-        _readString(
+    final String ownerUid = _readString(
       connectionData,
       <String>[
         'ownerUid',
@@ -234,16 +216,14 @@ class QrWalkService {
     final bool connected =
         connectionData['connected'] == true;
 
-    final String existingWalkerUid =
-        _readString(
+    final String existingWalkerUid = _readString(
       connectionData,
       <String>[
         'walkerUid',
       ],
     );
 
-    final String existingLiveSessionId =
-        _readString(
+    final String existingLiveSessionId = _readString(
       connectionData,
       <String>[
         'liveSessionId',
@@ -251,7 +231,7 @@ class QrWalkService {
     );
 
     // ========================================================
-    // ANOTHER WALKER ALREADY CONNECTED
+    // ANOTHER WALKER
     // ========================================================
 
     if (connected &&
@@ -263,7 +243,7 @@ class QrWalkService {
     }
 
     // ========================================================
-    // SAME WALKER ALREADY CONNECTED
+    // SAME WALKER / EXISTING SESSION
     // ========================================================
 
     if (connected &&
@@ -275,38 +255,32 @@ class QrWalkService {
     }
 
     // ========================================================
-    // 12. GET WALKER BUSINESS ID
+    // 12. GET WALKER ACCOUNT
     // ========================================================
 
-    final DocumentSnapshot<
-            Map<String, dynamic>>
+    final DocumentSnapshot<Map<String, dynamic>>
         walkerAccountSnapshot =
         await _firestore
             .collection('phoneAccounts')
             .doc(walkerUid)
             .get();
 
-    final Map<String, dynamic>?
-        walkerAccountData =
+    final Map<String, dynamic>? walkerAccountData =
         walkerAccountSnapshot.data();
 
-    final String walkerId =
-        _firstNonEmpty(
+    // ========================================================
+    // 13. WALKER BUSINESS ID
+    // ========================================================
+
+    final String walkerId = _firstNonEmpty(
       <String?>[
-        walkerAccountData?['walkerId']
-            ?.toString(),
-        walkerAccountData?['Walker Id']
-            ?.toString(),
-        walkerAccountData?['Walker ID']
-            ?.toString(),
-        walkerAccountData?['walkerBusinessId']
-            ?.toString(),
-        walkerAccountData?['walkerBusinessID']
-            ?.toString(),
-        walkerAccountData?['businessId']
-            ?.toString(),
-        walkerAccountData?['Business ID']
-            ?.toString(),
+        walkerAccountData?['walkerId']?.toString(),
+        walkerAccountData?['Walker Id']?.toString(),
+        walkerAccountData?['Walker ID']?.toString(),
+        walkerAccountData?['walkerBusinessId']?.toString(),
+        walkerAccountData?['walkerBusinessID']?.toString(),
+        walkerAccountData?['businessId']?.toString(),
+        walkerAccountData?['Business ID']?.toString(),
       ],
     );
 
@@ -317,20 +291,15 @@ class QrWalkService {
     }
 
     // ========================================================
-    // 13. WALKER NAME
+    // 14. WALKER NAME
     // ========================================================
 
-    String walkerName =
-        _firstNonEmpty(
+    String walkerName = _firstNonEmpty(
       <String?>[
-        walkerAccountData?['walkerName']
-            ?.toString(),
-        walkerAccountData?['name']
-            ?.toString(),
-        walkerAccountData?['Full Name']
-            ?.toString(),
-        walkerAccountData?['Name']
-            ?.toString(),
+        walkerAccountData?['walkerName']?.toString(),
+        walkerAccountData?['name']?.toString(),
+        walkerAccountData?['Full Name']?.toString(),
+        walkerAccountData?['Name']?.toString(),
         walker.displayName,
       ],
     );
@@ -340,16 +309,13 @@ class QrWalkService {
     }
 
     // ========================================================
-    // 14. OWNER DATA
+    // 15. OWNER DATA
     // ========================================================
 
-    String ownerName =
-        _firstNonEmpty(
+    String ownerName = _firstNonEmpty(
       <String?>[
-        connectionData['ownerName']
-            ?.toString(),
-        qrData['ownerName']
-            ?.toString(),
+        connectionData['ownerName']?.toString(),
+        qrData['ownerName']?.toString(),
       ],
     );
 
@@ -357,27 +323,21 @@ class QrWalkService {
       ownerName = 'Owner';
     }
 
-    final String ownerPhone =
-        _firstNonEmpty(
+    final String ownerPhone = _firstNonEmpty(
       <String?>[
-        connectionData['ownerPhone']
-            ?.toString(),
-        qrData['ownerPhone']
-            ?.toString(),
+        connectionData['ownerPhone']?.toString(),
+        qrData['ownerPhone']?.toString(),
       ],
     );
 
     // ========================================================
-    // 15. DOG DATA
+    // 16. DOG DATA
     // ========================================================
 
-    String dogName =
-        _firstNonEmpty(
+    String dogName = _firstNonEmpty(
       <String?>[
-        connectionData['dogName']
-            ?.toString(),
-        qrData['dogName']
-            ?.toString(),
+        connectionData['dogName']?.toString(),
+        qrData['dogName']?.toString(),
       ],
     );
 
@@ -385,51 +345,47 @@ class QrWalkService {
       dogName = 'Dog';
     }
 
-    final String dogBreed =
-        _firstNonEmpty(
+    final String dogBreed = _firstNonEmpty(
       <String?>[
-        connectionData['dogBreed']
-            ?.toString(),
-        qrData['dogBreed']
-            ?.toString(),
+        connectionData['dogBreed']?.toString(),
+        qrData['dogBreed']?.toString(),
       ],
     );
 
     // ========================================================
-    // 16. GENERATE LIVE SESSION ID
+    // 17. CREATE LIVE SESSION
     // ========================================================
 
-    final DocumentReference<
-            Map<String, dynamic>>
+    final DocumentReference<Map<String, dynamic>>
         sessionRef =
         _liveWalkSessions.doc();
 
-    final String liveSessionId =
-        sessionRef.id;
+    final String liveSessionId = sessionRef.id;
 
     // ========================================================
-    // 17. SERVER TIMESTAMP
+    // 18. SERVER TIMESTAMP
     // ========================================================
 
     final FieldValue serverTimestamp =
         FieldValue.serverTimestamp();
 
     // ========================================================
-    // 18. CREATE BATCH
+    // 19. FIRESTORE BATCH
     // ========================================================
 
-    final WriteBatch batch =
-        _firestore.batch();
+    final WriteBatch batch = _firestore.batch();
 
     // ========================================================
-    // 19. UPDATE QR CONNECTION
-    //
-    // qr_connections/{ownerId}
+    // 20. UPDATE QR CONNECTION
     // ========================================================
 
     batch.set(
       connectionRef,
       <String, dynamic>{
+        // ----------------------------------------------------
+        // TYPE
+        // ----------------------------------------------------
+
         'type': 'dojo_owner_qr',
         'version': 1,
 
@@ -484,15 +440,13 @@ class QrWalkService {
         'connectedAt': serverTimestamp,
         'updatedAt': serverTimestamp,
       },
-      SetOptions(
-        merge: true,
-      ),
+      SetOptions(merge: true),
     );
 
     // ========================================================
-    // 20. CREATE LIVE WALK SESSION
+    // 21. CREATE LIVE WALK SESSION
     //
-    // liveWalkSessions/{liveSessionId}
+    // QR FLOW DIRECTLY STARTS LIVE WALK.
     // ========================================================
 
     batch.set(
@@ -503,8 +457,6 @@ class QrWalkService {
         // ----------------------------------------------------
 
         'sessionId': liveSessionId,
-
-        // Original Owner walk ID
         'walkId': firebaseWalkId,
 
         // ----------------------------------------------------
@@ -548,12 +500,12 @@ class QrWalkService {
         },
 
         // ----------------------------------------------------
-        // WALK STATS
+        // STATS
         // ----------------------------------------------------
 
         'distanceKm': 0.0,
         'elapsedSeconds': 0,
-
+        'steps': 0,
         'peeCount': 0,
         'poopCount': 0,
 
@@ -572,12 +524,19 @@ class QrWalkService {
 
         // ----------------------------------------------------
         // STATUS
+        //
+        // QR SCAN = LIVE WALK DIRECTLY
         // ----------------------------------------------------
 
         'status': 'ACTIVE',
-
         'walkStarted': true,
         'walkEnded': false,
+
+        // ----------------------------------------------------
+        // GPS TRACKING
+        //
+        // GPS can be started by central tracking service.
+        // ----------------------------------------------------
 
         'trackingStarted': false,
         'trackingEnded': false,
@@ -594,13 +553,15 @@ class QrWalkService {
     );
 
     // ========================================================
-    // 21. COMMIT BOTH WRITES
+    // 22. COMMIT
     // ========================================================
 
     await batch.commit();
 
     // ========================================================
-    // 22. RETURN RESULT
+    // 23. RETURN LIVE WALK DATA
+    //
+    // QR SCREEN MUST NAVIGATE USING liveSessionId.
     // ========================================================
 
     return <String, dynamic>{
@@ -636,10 +597,12 @@ class QrWalkService {
       'dogBreed': dogBreed,
 
       // ------------------------------------------------------
-      // STATUS
+      // LIVE STATUS
       // ------------------------------------------------------
 
       'status': 'ACTIVE',
+      'walkStarted': true,
+      'walkEnded': false,
 
       // ------------------------------------------------------
       // SOURCE
@@ -657,27 +620,25 @@ class QrWalkService {
   Map<String, dynamic> _decodeQrPayload(
     String rawData,
   ) {
+    // --------------------------------------------------------
+    // JSON QR
+    // --------------------------------------------------------
+
     try {
-      final dynamic decoded =
-          jsonDecode(rawData);
+      final dynamic decoded = jsonDecode(rawData);
 
       if (decoded is Map) {
-        return Map<String, dynamic>.from(
-          decoded,
-        );
+        return Map<String, dynamic>.from(decoded);
       }
     } catch (_) {
-      // ------------------------------------------------------
-      // QR may not be JSON.
-      // ------------------------------------------------------
+      // Not JSON.
     }
 
-    // ========================================================
-    // FALLBACK
-    // ========================================================
+    // --------------------------------------------------------
+    // URL / QUERY PARAMETER QR
+    // --------------------------------------------------------
 
-    final Uri? uri =
-        Uri.tryParse(rawData);
+    final Uri? uri = Uri.tryParse(rawData);
 
     if (uri != null &&
         uri.queryParameters.isNotEmpty) {
@@ -700,15 +661,13 @@ class QrWalkService {
     List<String> keys,
   ) {
     for (final String key in keys) {
-      final dynamic value =
-          data[key];
+      final dynamic value = data[key];
 
       if (value == null) {
         continue;
       }
 
-      final String text =
-          value.toString().trim();
+      final String text = value.toString().trim();
 
       if (text.isNotEmpty) {
         return text;
@@ -726,8 +685,7 @@ class QrWalkService {
     List<String?> values,
   ) {
     for (final String? value in values) {
-      final String text =
-          value?.trim() ?? '';
+      final String text = value?.trim() ?? '';
 
       if (text.isNotEmpty) {
         return text;
