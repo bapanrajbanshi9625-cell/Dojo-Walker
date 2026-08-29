@@ -1,3 +1,6 @@
+// File:
+// lib/features/live_walk/controllers/live_walk_controller.dart
+
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -98,11 +101,9 @@ class LiveWalkController extends ChangeNotifier {
   // ============================================================
 
   String get cleanSessionId {
-    final String? value =
-        sessionId?.trim();
+    final String? value = sessionId?.trim();
 
-    if (value != null &&
-        value.isNotEmpty) {
+    if (value != null && value.isNotEmpty) {
       return value;
     }
 
@@ -134,10 +135,10 @@ class LiveWalkController extends ChangeNotifier {
   //
   // IMPORTANT:
   //
-  // यहां GPS START नहीं किया जाता.
+  // यहां नया GPS START नहीं किया जाता.
   //
-  // Insta Walk Active/Search flow से GPS पहले ही
-  // शुरू हो चुका होगा.
+  // अगर central GPS पहले से चल रहा है,
+  // तो केवल उसका stream attach किया जाता है.
   // ============================================================
 
   Future<void> initialize() async {
@@ -146,7 +147,15 @@ class LiveWalkController extends ChangeNotifier {
     }
 
     try {
+      // --------------------------------------------------------
+      // ATTACH EXISTING CENTRAL GPS
+      // --------------------------------------------------------
+
       await _attachExistingGps();
+
+      // --------------------------------------------------------
+      // READ SESSION
+      // --------------------------------------------------------
 
       final DocumentSnapshot<
               Map<String, dynamic>>
@@ -161,11 +170,15 @@ class LiveWalkController extends ChangeNotifier {
       }
 
       _initialized = true;
+
       notifyListeners();
     } catch (e) {
       debugPrint(
         'LiveWalkController initialize error: $e',
       );
+
+      _initialized = true;
+      notifyListeners();
     }
   }
 
@@ -221,7 +234,7 @@ class LiveWalkController extends ChangeNotifier {
   }
 
   // ============================================================
-  // DISTANCE
+  // DISTANCE + STEPS
   // ============================================================
 
   void _updateDistance() {
@@ -242,6 +255,17 @@ class LiveWalkController extends ChangeNotifier {
 
   // ============================================================
   // UPDATE FROM FIRESTORE
+  //
+  // STATUS:
+  //
+  // READY
+  //   → Walk screen opened but walk not started.
+  //
+  // ACTIVE / STARTED
+  //   → Official walk is running.
+  //
+  // COMPLETED / ENDED
+  //   → Walk finished.
   // ============================================================
 
   void updateFromSession(
@@ -281,18 +305,40 @@ class LiveWalkController extends ChangeNotifier {
                 .toLowerCase() ??
             '';
 
-    if (status == 'active' ||
-        status == 'started') {
-      _walkStarted = true;
-    }
+    switch (status) {
+      case 'active':
+      case 'started':
+        _walkStarted = true;
+        break;
 
-    if (status == 'completed' ||
-        status == 'ended') {
-      _walkStarted = false;
+      case 'ready':
+      case 'pending':
+      case 'created':
+        _walkStarted = false;
+        break;
+
+      case 'completed':
+      case 'ended':
+      case 'cancelled':
+        _walkStarted = false;
+        break;
     }
 
     // ----------------------------------------------------------
-    // GPS
+    // EXPLICIT WALK START FLAG
+    //
+    // This protects against status/flag mismatch.
+    // ----------------------------------------------------------
+
+    final dynamic walkStartedValue =
+        data['walkStarted'];
+
+    if (walkStartedValue is bool) {
+      _walkStarted = walkStartedValue;
+    }
+
+    // ----------------------------------------------------------
+    // GPS LOCATION
     // ----------------------------------------------------------
 
     final dynamic currentLocation =
@@ -321,9 +367,15 @@ class LiveWalkController extends ChangeNotifier {
   // ============================================================
   // START WALK
   //
-  // GPS पहले से RUNNING है.
+  // QR:
+  // READY → ACTIVE
   //
-  // यहां सिर्फ Firestore/session को START किया जाएगा.
+  // INSTA:
+  // Active Walk → Live Walk → ACTIVE
+  //
+  // GPS:
+  // पहले से central service से चल रहा हो तो वही continue होगा.
+  // यहां नया GPS START नहीं किया जाता.
   // ============================================================
 
   Future<void> startWalk() async {
@@ -334,9 +386,14 @@ class LiveWalkController extends ChangeNotifier {
     }
 
     _startingWalk = true;
+
     notifyListeners();
 
     try {
+      // --------------------------------------------------------
+      // ACTUAL WALK START
+      // --------------------------------------------------------
+
       await _sessionService.startWalk(
         sessionId: cleanSessionId,
         walkId: walkId,
@@ -345,6 +402,10 @@ class LiveWalkController extends ChangeNotifier {
         dogName: dogName,
         dogBreed: dogBreed,
       );
+
+      // --------------------------------------------------------
+      // LOCAL STATE
+      // --------------------------------------------------------
 
       _walkStarted = true;
 
@@ -359,6 +420,7 @@ class LiveWalkController extends ChangeNotifier {
       rethrow;
     } finally {
       _startingWalk = false;
+
       notifyListeners();
     }
   }
@@ -368,9 +430,11 @@ class LiveWalkController extends ChangeNotifier {
   //
   // ORDER:
   //
-  // 1. Firestore completed
-  // 2. Walk request completed
-  // 3. GPS STOP
+  // 1. Capture final GPS values
+  // 2. Complete live session
+  // 3. Complete walk request
+  // 4. Stop GPS
+  // 5. Clear local state
   // ============================================================
 
   Future<void> endWalk() async {
@@ -385,6 +449,7 @@ class LiveWalkController extends ChangeNotifier {
     }
 
     _ending = true;
+
     notifyListeners();
 
     try {
@@ -395,7 +460,7 @@ class LiveWalkController extends ChangeNotifier {
       _updateDistance();
 
       // --------------------------------------------------------
-      // COMPLETE SESSION
+      // COMPLETE LIVE SESSION
       // --------------------------------------------------------
 
       await _sessionService.completeWalk(
@@ -403,7 +468,7 @@ class LiveWalkController extends ChangeNotifier {
       );
 
       // --------------------------------------------------------
-      // END WALK REQUEST
+      // COMPLETE ORIGINAL WALK REQUEST
       // --------------------------------------------------------
 
       await _walkRequestService.endLiveWalk(
@@ -412,12 +477,17 @@ class LiveWalkController extends ChangeNotifier {
       );
 
       // --------------------------------------------------------
-      // ONLY NOW STOP GPS
+      // STOP GPS ONLY AFTER SUCCESS
       // --------------------------------------------------------
 
       await _stopGps();
 
+      // --------------------------------------------------------
+      // LOCAL STATE
+      // --------------------------------------------------------
+
       _walkStarted = false;
+
       _gpsReady = false;
 
       notifyListeners();
@@ -427,14 +497,16 @@ class LiveWalkController extends ChangeNotifier {
       );
 
       // --------------------------------------------------------
-      // ERROR:
+      // IMPORTANT:
       //
-      // GPS चलता रहेगा.
+      // अगर completion fail हुआ तो GPS बंद नहीं होगा.
+      // User retry कर सकता है.
       // --------------------------------------------------------
 
       rethrow;
     } finally {
       _ending = false;
+
       notifyListeners();
     }
   }
@@ -462,10 +534,10 @@ class LiveWalkController extends ChangeNotifier {
   //
   // IMPORTANT:
   //
-  // यहां GPS STOP नहीं करना है.
+  // Screen close होने पर central GPS STOP नहीं होगा.
   //
-  // Screen बंद होने पर भी central GPS चलता रहेगा.
-  // केवल successful endWalk() के बाद GPS stop होगा.
+  // केवल local listener detach होगा.
+  // Actual GPS stop endWalk() में होगा.
   // ============================================================
 
   @override
