@@ -137,9 +137,7 @@ class ActiveWalkBottomSheet extends StatelessWidget {
                   value: _pickupText,
                 ),
               ),
-
               const SizedBox(width: 8),
-
               Expanded(
                 child: ActiveWalkAddressCard(
                   icon: Icons.flag_rounded,
@@ -158,10 +156,6 @@ class ActiveWalkBottomSheet extends StatelessWidget {
 
           Row(
             children: [
-              // --------------------------------------------------
-              // DISTANCE
-              // --------------------------------------------------
-
               Expanded(
                 child: ActiveWalkStatCard(
                   value: _distanceText,
@@ -173,10 +167,6 @@ class ActiveWalkBottomSheet extends StatelessWidget {
 
               const SizedBox(width: 7),
 
-              // --------------------------------------------------
-              // ETA
-              // --------------------------------------------------
-
               Expanded(
                 child: ActiveWalkStatCard(
                   value: _etaText,
@@ -187,10 +177,6 @@ class ActiveWalkBottomSheet extends StatelessWidget {
               ),
 
               const SizedBox(width: 7),
-
-              // --------------------------------------------------
-              // STEPS
-              // --------------------------------------------------
 
               Expanded(
                 child: ActiveWalkStatCard(
@@ -244,6 +230,7 @@ class ActiveWalkBottomSheet extends StatelessWidget {
           if (!reached)
             ActiveWalkReachSlider(
               reached: false,
+              starting: starting,
               onReached: onReached,
             ),
 
@@ -259,6 +246,7 @@ class ActiveWalkBottomSheet extends StatelessWidget {
           if (reached)
             ActiveWalkReachSlider(
               reached: true,
+              starting: starting,
               onReached: onReached,
             ),
 
