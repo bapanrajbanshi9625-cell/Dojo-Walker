@@ -16,6 +16,10 @@ class ActiveWalkCallChat extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        // ========================================================
+        // CALL
+        // ========================================================
+
         Expanded(
           flex: 6,
           child: SizedBox(
@@ -28,7 +32,7 @@ class ActiveWalkCallChat extends StatelessWidget {
                 size: 19,
               ),
               label: const Text(
-                'Call',
+                'Call Owner',
                 style: TextStyle(
                   color: AppColors.buttonText,
                   fontSize: 14,
@@ -36,17 +40,31 @@ class ActiveWalkCallChat extends StatelessWidget {
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.buttonPrimary,
-                foregroundColor: AppColors.buttonText,
+                backgroundColor:
+                    AppColors.buttonPrimary,
+                foregroundColor:
+                    AppColors.buttonText,
                 elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                padding:
+                    const EdgeInsets.symmetric(
+                  horizontal: 12,
+                ),
+                shape:
+                    RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(16),
                 ),
               ),
             ),
           ),
         ),
+
         const SizedBox(width: 10),
+
+        // ========================================================
+        // CHAT
+        // ========================================================
+
         Expanded(
           flex: 5,
           child: SizedBox(
@@ -67,14 +85,18 @@ class ActiveWalkCallChat extends StatelessWidget {
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.secondary,
-                backgroundColor: AppColors.cardBackground,
+                foregroundColor:
+                    AppColors.secondary,
+                backgroundColor:
+                    AppColors.cardBackground,
                 side: const BorderSide(
                   color: AppColors.border,
                   width: 1.3,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                shape:
+                    RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(16),
                 ),
               ),
             ),
