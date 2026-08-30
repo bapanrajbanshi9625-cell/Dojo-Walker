@@ -55,8 +55,7 @@ class LiveWalkController extends ChangeNotifier {
   // GPS
   // ============================================================
 
-  StreamSubscription<Position>?
-      _locationSubscription;
+  StreamSubscription<Position>? _locationSubscription;
 
   // ============================================================
   // STATE
@@ -76,16 +75,16 @@ class LiveWalkController extends ChangeNotifier {
   // ============================================================
 
   bool get initialized => _initialized;
-  bool get ending => _ending;
-  bool get startingWalk =>
-      _startingWalk;
-  bool get walkStarted =>
-      _walkStarted;
-  bool get gpsReady =>
-      _gpsReady;
 
-  double get totalDistanceKm =>
-      _totalDistanceKm;
+  bool get ending => _ending;
+
+  bool get startingWalk => _startingWalk;
+
+  bool get walkStarted => _walkStarted;
+
+  bool get gpsReady => _gpsReady;
+
+  double get totalDistanceKm => _totalDistanceKm;
 
   int get steps => _steps;
 
@@ -102,8 +101,7 @@ class LiveWalkController extends ChangeNotifier {
   // ============================================================
 
   String get cleanSessionId {
-    final String value =
-        sessionId?.trim() ?? '';
+    final String value = sessionId?.trim() ?? '';
 
     if (value.isNotEmpty) {
       return value;
@@ -116,9 +114,7 @@ class LiveWalkController extends ChangeNotifier {
   // SESSION REF
   // ============================================================
 
-  DocumentReference<
-          Map<String, dynamic>>
-      get sessionRef {
+  DocumentReference<Map<String, dynamic>> get sessionRef {
     return _firestore
         .collection('liveWalkSessions')
         .doc(cleanSessionId);
@@ -128,10 +124,7 @@ class LiveWalkController extends ChangeNotifier {
   // SESSION STREAM
   // ============================================================
 
-  Stream<
-          DocumentSnapshot<
-              Map<String, dynamic>>>
-      get sessionStream {
+  Stream<DocumentSnapshot<Map<String, dynamic>>> get sessionStream {
     return sessionRef.snapshots();
   }
 
@@ -147,46 +140,42 @@ class LiveWalkController extends ChangeNotifier {
     try {
       await _attachExistingGps();
 
-      final DocumentSnapshot<
-              Map<String, dynamic>>
-          snapshot =
+      final DocumentSnapshot<Map<String, dynamic>> snapshot =
           await sessionRef.get();
 
       if (snapshot.exists) {
-        final Map<String, dynamic>?
-            data =
-            snapshot.data();
+        final Map<String, dynamic>? data = snapshot.data();
 
         if (data != null) {
-          updateFromSession(data);
+          updateFromSession(
+            data,
+            notify: false,
+          );
         }
       }
-
-      _initialized = true;
-      notifyListeners();
     } catch (e) {
       debugPrint(
         'LiveWalkController initialize error: $e',
       );
-
-      _initialized = true;
-      notifyListeners();
     }
+
+    _initialized = true;
+    _safeNotify();
   }
 
   // ============================================================
   // ATTACH EXISTING GPS
+  //
+  // IMPORTANT:
+  // Controller uses ONLY background service GPS.
+  // No second Geolocator stream is created here.
   // ============================================================
 
   Future<void> _attachExistingGps() async {
     try {
-      await _locationSubscription
-          ?.cancel();
+      await _locationSubscription?.cancel();
 
-      _locationSubscription =
-          _backgroundService
-              .locationStream
-              .listen(
+      _locationSubscription = _backgroundService.locationStream.listen(
         _handlePosition,
         onError: (Object error) {
           debugPrint(
@@ -196,9 +185,7 @@ class LiveWalkController extends ChangeNotifier {
         cancelOnError: false,
       );
 
-      final Position? position =
-          _backgroundService
-              .lastPosition;
+      final Position? position = _backgroundService.lastPosition;
 
       if (position != null) {
         _gpsReady = true;
@@ -210,21 +197,19 @@ class LiveWalkController extends ChangeNotifier {
       );
     }
 
-    notifyListeners();
+    _safeNotify();
   }
 
   // ============================================================
   // POSITION
   // ============================================================
 
-  void _handlePosition(
-    Position position,
-  ) {
+  void _handlePosition(Position position) {
     _gpsReady = true;
 
     _updateDistance();
 
-    notifyListeners();
+    _safeNotify();
   }
 
   // ============================================================
@@ -232,16 +217,13 @@ class LiveWalkController extends ChangeNotifier {
   // ============================================================
 
   void _updateDistance() {
-    final double distance =
-        _backgroundService
-            .totalDistanceKm;
+    final double distance = _backgroundService.totalDistanceKm;
 
-    if (distance >= 0) {
+    if (distance.isFinite && distance >= 0) {
       _totalDistanceKm = distance;
     }
 
-    final int currentSteps =
-        _backgroundService.steps;
+    final int currentSteps = _backgroundService.steps;
 
     if (currentSteps >= 0) {
       _steps = currentSteps;
@@ -253,29 +235,43 @@ class LiveWalkController extends ChangeNotifier {
   // ============================================================
 
   void updateFromSession(
-    Map<String, dynamic> data,
-  ) {
-    final dynamic rawDistance =
-        data['distanceKm'];
+    Map<String, dynamic> data, {
+    bool notify = true,
+  }) {
+    // ----------------------------------------------------------
+    // DISTANCE
+    // ----------------------------------------------------------
+
+    final dynamic rawDistance = data['distanceKm'];
 
     if (rawDistance is num) {
-      _totalDistanceKm =
-          rawDistance.toDouble();
+      final double distance = rawDistance.toDouble();
+
+      if (distance.isFinite && distance >= 0) {
+        _totalDistanceKm = distance;
+      }
     }
 
-    final dynamic rawSteps =
-        data['steps'];
+    // ----------------------------------------------------------
+    // STEPS
+    // ----------------------------------------------------------
+
+    final dynamic rawSteps = data['steps'];
 
     if (rawSteps is num) {
-      _steps = rawSteps.toInt();
+      final int steps = rawSteps.toInt();
+
+      if (steps >= 0) {
+        _steps = steps;
+      }
     }
 
+    // ----------------------------------------------------------
+    // STATUS
+    // ----------------------------------------------------------
+
     final String status =
-        data['status']
-                ?.toString()
-                .trim()
-                .toLowerCase() ??
-            '';
+        data['status']?.toString().trim().toLowerCase() ?? '';
 
     if (status == 'active' ||
         status == 'started' ||
@@ -289,54 +285,86 @@ class LiveWalkController extends ChangeNotifier {
       _walkStarted = false;
     }
 
-    final dynamic currentLocation =
-        data['currentLocation'];
+    // ----------------------------------------------------------
+    // CURRENT LOCATION
+    // ----------------------------------------------------------
+
+    final dynamic currentLocation = data['currentLocation'];
 
     if (currentLocation is Map) {
       final dynamic lat =
-          currentLocation['lat'] ??
-              currentLocation[
-                  'latitude'];
+          currentLocation['lat'] ?? currentLocation['latitude'];
 
       final dynamic lng =
-          currentLocation['lng'] ??
-              currentLocation[
-                  'longitude'];
+          currentLocation['lng'] ?? currentLocation['longitude'];
 
-      if (lat is num &&
-          lng is num &&
-          lat != 0 &&
-          lng != 0) {
-        _gpsReady = true;
+      if (lat is num && lng is num) {
+        final double latitude = lat.toDouble();
+        final double longitude = lng.toDouble();
+
+        if (latitude != 0 &&
+            longitude != 0 &&
+            latitude.isFinite &&
+            longitude.isFinite) {
+          _gpsReady = true;
+        }
       }
     }
 
-    notifyListeners();
+    if (notify) {
+      _safeNotify();
+    }
   }
 
   // ============================================================
   // START WALK
   // ============================================================
 
-  Future<void> startWalk() async {
+  Future<bool> startWalk() async {
     if (_startingWalk ||
         _ending ||
         _walkStarted) {
-      return;
+      return _walkStarted;
     }
 
     _startingWalk = true;
-    notifyListeners();
+    _safeNotify();
 
     try {
-      final String walkerUid =
-          currentWalkerUid;
+      final String walkerUid = currentWalkerUid;
 
       if (walkerUid.isEmpty) {
-        throw Exception(
-          'Walker UID is missing.',
+        debugPrint(
+          'Live walk start skipped: Walker UID is missing.',
         );
+
+        return false;
       }
+
+      // --------------------------------------------------------
+      // START BACKGROUND GPS
+      //
+      // If service is already running, this should remain safe.
+      // --------------------------------------------------------
+
+      try {
+        await _backgroundService.start();
+      } catch (e) {
+        debugPrint(
+          'Background GPS start warning: $e',
+        );
+        // Do not crash the walk UI.
+      }
+
+      // --------------------------------------------------------
+      // MAKE SURE CONTROLLER IS LISTENING
+      // --------------------------------------------------------
+
+      await _ensureGpsListener();
+
+      // --------------------------------------------------------
+      // START FIRESTORE SESSION
+      // --------------------------------------------------------
 
       await _sessionService.startWalk(
         sessionId: cleanSessionId,
@@ -352,16 +380,53 @@ class LiveWalkController extends ChangeNotifier {
 
       _updateDistance();
 
-      notifyListeners();
+      return true;
     } catch (e) {
       debugPrint(
         'Live walk start error: $e',
       );
 
-      rethrow;
+      _walkStarted = false;
+
+      return false;
     } finally {
       _startingWalk = false;
-      notifyListeners();
+      _safeNotify();
+    }
+  }
+
+  // ============================================================
+  // ENSURE GPS LISTENER
+  // ============================================================
+
+  Future<void> _ensureGpsListener() async {
+    if (_locationSubscription != null) {
+      return;
+    }
+
+    try {
+      _locationSubscription =
+          _backgroundService.locationStream.listen(
+        _handlePosition,
+        onError: (Object error) {
+          debugPrint(
+            'Live GPS stream error: $error',
+          );
+        },
+        cancelOnError: false,
+      );
+
+      final Position? position =
+          _backgroundService.lastPosition;
+
+      if (position != null) {
+        _gpsReady = true;
+        _updateDistance();
+      }
+    } catch (e) {
+      debugPrint(
+        'GPS listener setup error: $e',
+      );
     }
   }
 
@@ -369,43 +434,75 @@ class LiveWalkController extends ChangeNotifier {
   // END WALK
   // ============================================================
 
-  Future<void> endWalk() async {
+  Future<bool> endWalk() async {
     if (_ending) {
-      return;
+      return false;
     }
 
+    // ----------------------------------------------------------
+    // If already stopped, do nothing.
+    // ----------------------------------------------------------
+
     if (!_walkStarted) {
-      throw Exception(
-        'Start the walk before ending it.',
+      debugPrint(
+        'Live walk end ignored: walk is not active.',
       );
+
+      return false;
     }
 
     _ending = true;
-    notifyListeners();
+    _safeNotify();
+
+    bool sessionCompleted = false;
+    bool requestCompleted = false;
 
     try {
+      // --------------------------------------------------------
+      // GET FINAL LOCAL STATS
+      // --------------------------------------------------------
+
       _updateDistance();
 
       // --------------------------------------------------------
-      // 1. COMPLETE SESSION + ACTIVE WALK
+      // 1. COMPLETE LIVE SESSION
       // --------------------------------------------------------
 
-      await _sessionService.completeWalk(
-        sessionId: cleanSessionId,
-        walkId: walkId,
-      );
+      try {
+        await _sessionService.completeWalk(
+          sessionId: cleanSessionId,
+          walkId: walkId,
+        );
+
+        sessionCompleted = true;
+      } catch (e) {
+        debugPrint(
+          'Live session completion error: $e',
+        );
+      }
 
       // --------------------------------------------------------
       // 2. COMPLETE WALK REQUEST
       // --------------------------------------------------------
 
-      await _walkRequestService.endLiveWalk(
-        walkId,
-        sessionId: cleanSessionId,
-      );
+      try {
+        await _walkRequestService.endLiveWalk(
+          walkId,
+          sessionId: cleanSessionId,
+        );
+
+        requestCompleted = true;
+      } catch (e) {
+        debugPrint(
+          'Walk request completion error: $e',
+        );
+      }
 
       // --------------------------------------------------------
-      // 3. STOP GPS
+      // IMPORTANT:
+      //
+      // Even if one backend operation has an issue,
+      // always stop local GPS and reset UI state.
       // --------------------------------------------------------
 
       await _stopGps();
@@ -413,16 +510,33 @@ class LiveWalkController extends ChangeNotifier {
       _walkStarted = false;
       _gpsReady = false;
 
-      notifyListeners();
+      _safeNotify();
+
+      // --------------------------------------------------------
+      // Consider local walk completion successful once the
+      // completion flow has been attempted and local state
+      // has been safely stopped.
+      // --------------------------------------------------------
+
+      return sessionCompleted || requestCompleted;
     } catch (e) {
       debugPrint(
         'Live walk end error: $e',
       );
 
-      rethrow;
+      // --------------------------------------------------------
+      // Never leave GPS running because of an unexpected error.
+      // --------------------------------------------------------
+
+      await _stopGps();
+
+      _walkStarted = false;
+      _gpsReady = false;
+
+      return false;
     } finally {
       _ending = false;
-      notifyListeners();
+      _safeNotify();
     }
   }
 
@@ -431,8 +545,13 @@ class LiveWalkController extends ChangeNotifier {
   // ============================================================
 
   Future<void> _stopGps() async {
-    await _locationSubscription
-        ?.cancel();
+    try {
+      await _locationSubscription?.cancel();
+    } catch (e) {
+      debugPrint(
+        'GPS subscription stop error: $e',
+      );
+    }
 
     _locationSubscription = null;
 
@@ -440,9 +559,21 @@ class LiveWalkController extends ChangeNotifier {
       await _backgroundService.stop();
     } catch (e) {
       debugPrint(
-        'GPS stop error: $e',
+        'GPS background service stop error: $e',
       );
     }
+  }
+
+  // ============================================================
+  // SAFE NOTIFY
+  // ============================================================
+
+  void _safeNotify() {
+    if (!hasListeners) {
+      return;
+    }
+
+    notifyListeners();
   }
 
   // ============================================================
@@ -451,9 +582,7 @@ class LiveWalkController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _locationSubscription
-        ?.cancel();
-
+    _locationSubscription?.cancel();
     _locationSubscription = null;
 
     super.dispose();
