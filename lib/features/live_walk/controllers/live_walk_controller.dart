@@ -413,13 +413,13 @@ class LiveWalkController extends ChangeNotifier {
       // --------------------------------------------------------
 
       try {
-        await _backgroundService.start();
-      } catch (e) {
-        debugPrint(
-          'Background GPS start warning: $e',
-        );
-      }
-
+       await _backgroundService.start();
+     } catch (e) {
+       debugPrint(
+       'Background GPS start warning: $e',
+      );
+     }   
+      
       // --------------------------------------------------------
       // MAKE SURE CONTROLLER IS LISTENING
       // --------------------------------------------------------
