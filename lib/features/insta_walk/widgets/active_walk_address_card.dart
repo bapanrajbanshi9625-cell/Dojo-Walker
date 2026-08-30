@@ -19,12 +19,10 @@ class ActiveWalkAddressCard extends StatelessWidget {
     BuildContext context,
   ) {
     return Container(
-      padding:
-          const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppColors.surfaceSoft,
-        borderRadius:
-            BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(15),
       ),
       child: Row(
         children: [
@@ -33,7 +31,9 @@ class ActiveWalkAddressCard extends StatelessWidget {
             color: AppColors.primary,
             size: 17,
           ),
+
           const SizedBox(width: 7),
+
           Expanded(
             child: Column(
               crossAxisAlignment:
@@ -41,24 +41,23 @@ class ActiveWalkAddressCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppColors.textMuted,
                     fontSize: 7,
-                    fontWeight:
-                        FontWeight.w900,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
+
                 const SizedBox(height: 3),
+
                 Text(
                   value,
                   maxLines: 2,
-                  overflow:
-                      TextOverflow.ellipsis,
-                  style: TextStyle(
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     color: AppColors.secondary,
                     fontSize: 9,
-                    fontWeight:
-                        FontWeight.w800,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
