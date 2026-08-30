@@ -11,7 +11,6 @@ import '../controllers/live_walk_session_controller.dart';
 import '../widgets/live_walk_complete_slider.dart';
 import '../widgets/live_walk_map_layer.dart';
 import '../widgets/live_walk_review_bottom_sheet.dart';
-import '../widgets/live_walk_start_panel.dart';
 
 class LiveWalkScreen extends StatefulWidget {
   const LiveWalkScreen({
