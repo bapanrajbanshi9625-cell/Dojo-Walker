@@ -4,7 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../controllers/live_walk_controller.dart';
 import '../widgets/live_walk_bottom_sheet.dart';
 import '../widgets/live_walk_complete_slider.dart';
 import '../widgets/live_walk_map_layer.dart';
