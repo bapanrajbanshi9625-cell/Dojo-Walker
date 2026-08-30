@@ -33,8 +33,7 @@ class LiveWalkScreen extends StatefulWidget {
   final String? sessionId;
 
   @override
-  State<LiveWalkScreen> createState() =>
-      _LiveWalkScreenState();
+  State<LiveWalkScreen> createState() => _LiveWalkScreenState();
 }
 
 class _LiveWalkScreenState extends State<LiveWalkScreen> {
@@ -61,9 +60,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     _controller.addListener(_onControllerChanged);
 
-    unawaited(
-      _controller.initialize(),
-    );
+    unawaited(_controller.initialize());
   }
 
   void _onControllerChanged() {
@@ -74,30 +71,23 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     setState(() {});
   }
 
-  Stream<DocumentSnapshot<Map<String, dynamic>>>
-      get _sessionStream {
+  Stream<DocumentSnapshot<Map<String, dynamic>>> get _sessionStream {
     return _controller.sessionStream;
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<
-        DocumentSnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: _sessionStream,
       builder: (
         BuildContext context,
-        AsyncSnapshot<
-                DocumentSnapshot<
-                    Map<String, dynamic>>>
-            snapshot,
+        AsyncSnapshot<DocumentSnapshot<Map<String, dynamic>>> snapshot,
       ) {
         final Map<String, dynamic> data =
-            snapshot.data?.data() ??
-                <String, dynamic>{};
+            snapshot.data?.data() ?? <String, dynamic>{};
 
         if (data.isNotEmpty) {
-          _lastSessionData =
-              Map<String, dynamic>.from(data);
+          _lastSessionData = Map<String, dynamic>.from(data);
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) {
@@ -109,22 +99,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         }
 
         final Map<String, dynamic> sessionData =
-            data.isNotEmpty
-                ? data
-                : _lastSessionData;
+            data.isNotEmpty ? data : _lastSessionData;
 
-        final bool walkStarted =
-            _controller.walkStarted;
-
-        final bool ending =
-            _controller.ending;
-
-        final bool starting =
-            _controller.startingWalk;
+        final bool walkStarted = _controller.walkStarted;
+        final bool ending = _controller.ending;
+        final bool starting = _controller.startingWalk;
 
         return Scaffold(
-          backgroundColor:
-              AppColors.cardBackground,
+          backgroundColor: AppColors.cardBackground,
 
           // ======================================================
           // APP BAR
@@ -132,10 +114,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
           appBar: AppBar(
             automaticallyImplyLeading: true,
-            backgroundColor:
-                AppColors.primary,
-            surfaceTintColor:
-                AppColors.primary,
+            backgroundColor: AppColors.primary,
+            surfaceTintColor: AppColors.primary,
             elevation: 0,
             centerTitle: true,
             title: const Text(
@@ -150,8 +130,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             actions: [
               IconButton(
                 tooltip: 'SOS',
-                onPressed:
-                    ending ? null : _openSos,
+                onPressed: ending ? null : _openSos,
                 icon: const Icon(
                   Icons.sos_rounded,
                   color: Colors.white,
@@ -160,8 +139,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               ),
               IconButton(
                 tooltip: 'Support',
-                onPressed:
-                    ending ? null : _openSupport,
+                onPressed: ending ? null : _openSupport,
                 icon: const Icon(
                   Icons.support_agent_rounded,
                   color: Colors.white,
@@ -177,54 +155,42 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
           body: SafeArea(
             child: SingleChildScrollView(
-              physics:
-                  const BouncingScrollPhysics(),
+              physics: const BouncingScrollPhysics(),
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-
                   // ==================================================
                   // OSM MAP
                   // ==================================================
 
                   Padding(
-                    padding:
-                        const EdgeInsets.fromLTRB(
+                    padding: const EdgeInsets.fromLTRB(
                       12,
                       12,
                       12,
                       0,
                     ),
                     child: ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(20),
                       child: SizedBox(
                         height: 340,
                         child: Stack(
                           children: [
                             Positioned.fill(
-                              child:
-                                  LiveWalkMapLayer(
-                                sessionData:
-                                    sessionData,
-                                gpsReady:
-                                    _controller.gpsReady,
+                              child: LiveWalkMapLayer(
+                                sessionData: sessionData,
+                                gpsReady: _controller.gpsReady,
                               ),
                             ),
-
                             Positioned(
                               top: 12,
                               left: 12,
-                              child:
-                                  _liveMapBadge(),
+                              child: _liveMapBadge(),
                             ),
-
                             Positioned(
                               top: 12,
                               right: 12,
-                              child:
-                                  _gpsBadge(),
+                              child: _gpsBadge(),
                             ),
                           ],
                         ),
@@ -237,72 +203,39 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                   // ==================================================
 
                   Padding(
-                    padding:
-                        const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(16),
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-
-                        // ------------------------------------------
-                        // DOG / OWNER
-                        // ------------------------------------------
-
                         _buildDogOwnerCard(),
 
-                        const SizedBox(
-                          height: 14,
-                        ),
+                        const SizedBox(height: 14),
 
-                        // ------------------------------------------
                         // BEFORE START
-                        // ------------------------------------------
+                        if (!walkStarted && !ending)
+                          _buildStartSection(starting),
 
-                        if (!walkStarted &&
-                            !ending)
-                          _buildStartSection(
-                            starting,
-                          ),
-
-                        // ------------------------------------------
                         // AFTER START
-                        // ------------------------------------------
-
-                        if (walkStarted &&
-                            !ending) ...[
+                        if (walkStarted && !ending) ...[
                           _buildWalkingStatus(),
 
-                          const SizedBox(
-                            height: 14,
-                          ),
+                          const SizedBox(height: 14),
 
-                          _buildLiveStats(
-                            sessionData,
-                          ),
+                          _buildLiveStats(sessionData),
 
-                          const SizedBox(
-                            height: 14,
-                          ),
+                          const SizedBox(height: 14),
 
                           _buildWalkInfo(),
 
-                          const SizedBox(
-                            height: 18,
-                          ),
+                          const SizedBox(height: 18),
 
                           _buildCompleteSection(),
                         ],
 
-                        // ------------------------------------------
                         // ENDING
-                        // ------------------------------------------
+                        if (ending) _buildEndingSection(),
 
-                        if (ending)
-                          _buildEndingSection(),
-
-                        const SizedBox(
-                          height: 20,
-                        ),
+                        const SizedBox(height: 20),
                       ],
                     ),
                   ),
@@ -316,18 +249,25 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   }
 
   // ============================================================
-  // DOG OWNER CARD
+  // DOG / OWNER CARD
   // ============================================================
 
   Widget _buildDogOwnerCard() {
+    final String dogName = widget.dogName.trim().isEmpty
+        ? 'Dog'
+        : widget.dogName.trim();
+
+    final String ownerName = widget.ownerName.trim().isEmpty
+        ? 'Owner'
+        : widget.ownerName.trim();
+
+    final String breed = widget.dogBreed.trim();
+
     return Container(
-      padding:
-          const EdgeInsets.all(16),
-      decoration:
-          BoxDecoration(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
@@ -341,55 +281,37 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           Container(
             width: 58,
             height: 58,
-            decoration:
-                BoxDecoration(
-              color:
-                  AppColors.primary.withValues(
-                alpha: .10,
-              ),
-              shape:
-                  BoxShape.circle,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: .10),
+              shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.pets_rounded,
-              color:
-                  AppColors.primary,
+              color: AppColors.primary,
               size: 30,
             ),
           ),
 
-          const SizedBox(
-            width: 12,
-          ),
+          const SizedBox(width: 12),
 
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.dogName.trim().isEmpty
-                      ? 'Dog'
-                      : widget.dogName,
-                  style:
-                      const TextStyle(
+                  dogName,
+                  style: const TextStyle(
                     fontSize: 19,
-                    fontWeight:
-                        FontWeight.w900,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                if (widget.dogBreed
-                    .trim()
-                    .isNotEmpty)
+                if (breed.isNotEmpty)
                   Text(
-                    widget.dogBreed,
-                    style:
-                        const TextStyle(
-                      color:
-                          Colors.black54,
+                    breed,
+                    style: const TextStyle(
+                      color: Colors.black54,
                       fontSize: 12,
-                      fontWeight:
-                          FontWeight.w600,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
               ],
@@ -397,27 +319,19 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           ),
 
           Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               const Icon(
                 Icons.person_rounded,
                 size: 19,
-                color:
-                    Colors.black45,
+                color: Colors.black45,
               ),
-              const SizedBox(
-                height: 3,
-              ),
+              const SizedBox(height: 3),
               Text(
-                widget.ownerName.trim().isEmpty
-                    ? 'Owner'
-                    : widget.ownerName,
-                style:
-                    const TextStyle(
+                ownerName,
+                style: const TextStyle(
                   fontSize: 12,
-                  fontWeight:
-                      FontWeight.w800,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
@@ -431,80 +345,59 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // START SECTION
   // ============================================================
 
-  Widget _buildStartSection(
-    bool starting,
-  ) {
+  Widget _buildStartSection(bool starting) {
     return Container(
-      padding:
-          const EdgeInsets.all(16),
-      decoration:
-          BoxDecoration(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
             blurRadius: 10,
-            offset:
-                Offset(0, 3),
+            offset: Offset(0, 3),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
               Container(
                 width: 44,
                 height: 44,
-                decoration:
-                    BoxDecoration(
-                  color:
-                      AppColors.primary.withValues(
-                    alpha: .10,
-                  ),
-                  shape:
-                      BoxShape.circle,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: .10),
+                  shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.play_arrow_rounded,
-                  color:
-                      AppColors.primary,
+                  color: AppColors.primary,
                   size: 28,
                 ),
               ),
-              const SizedBox(
-                width: 11,
-              ),
+
+              const SizedBox(width: 11),
+
               const Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Ready to Start?',
-                      style:
-                          TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
-                        fontWeight:
-                            FontWeight.w900,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                    SizedBox(
-                      height: 3,
-                    ),
+                    SizedBox(height: 3),
                     Text(
                       'Start the walk when you are ready.',
-                      style:
-                          TextStyle(
-                        color:
-                            Colors.black54,
+                      style: TextStyle(
+                        color: Colors.black54,
                         fontSize: 12,
-                        fontWeight:
-                            FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -513,70 +406,49 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             ],
           ),
 
-          const SizedBox(
-            height: 16,
-          ),
+          const SizedBox(height: 16),
 
           SizedBox(
             width: double.infinity,
             height: 58,
             child: ElevatedButton(
               onPressed:
-                  starting ||
-                          _controller.ending
-                      ? null
-                      : _startWalk,
-              style:
-                  ElevatedButton.styleFrom(
-                backgroundColor:
-                    AppColors.primary,
-                foregroundColor:
-                    Colors.white,
-                disabledBackgroundColor:
-                    Colors.black12,
-                disabledForegroundColor:
-                    Colors.black38,
+                  starting || _controller.ending ? null : _startWalk,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.black12,
+                disabledForegroundColor: Colors.black38,
                 elevation: 0,
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
               child: starting
                   ? const SizedBox(
                       width: 25,
                       height: 25,
-                      child:
-                          CircularProgressIndicator(
+                      child: CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        valueColor:
-                            AlwaysStoppedAnimation<
-                                Color>(
+                        valueColor: AlwaysStoppedAnimation<Color>(
                           Colors.white,
                         ),
                       ),
                     )
                   : const Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.play_arrow_rounded,
                           size: 25,
                         ),
-                        SizedBox(
-                          width: 7,
-                        ),
+                        SizedBox(width: 7),
                         Text(
                           'START WALK',
-                          style:
-                              TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
-                            fontWeight:
-                                FontWeight.w900,
-                            letterSpacing:
-                                .5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: .5,
                           ),
                         ),
                       ],
@@ -594,25 +466,15 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   Widget _buildWalkingStatus() {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 15,
         vertical: 13,
       ),
-      decoration:
-          BoxDecoration(
-        color:
-            Colors.green.withValues(
-          alpha: .08,
-        ),
-        borderRadius:
-            BorderRadius.circular(15),
-        border:
-            Border.all(
-          color:
-              Colors.green.withValues(
-            alpha: .25,
-          ),
+      decoration: BoxDecoration(
+        color: Colors.green.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: Colors.green.withValues(alpha: .25),
         ),
       ),
       child: Row(
@@ -620,36 +482,30 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           Container(
             width: 11,
             height: 11,
-            decoration:
-                const BoxDecoration(
+            decoration: const BoxDecoration(
               color: Colors.green,
-              shape:
-                  BoxShape.circle,
+              shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(
-            width: 9,
-          ),
+
+          const SizedBox(width: 9),
+
           const Expanded(
             child: Text(
               'WALKING • LIVE',
-              style:
-                  TextStyle(
-                color:
-                    Colors.green,
+              style: TextStyle(
+                color: Colors.green,
                 fontSize: 13,
-                fontWeight:
-                    FontWeight.w900,
-                letterSpacing:
-                    .3,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .3,
               ),
             ),
           ),
+
           if (_controller.gpsReady)
             const Icon(
               Icons.gps_fixed_rounded,
-              color:
-                  Colors.green,
+              color: Colors.green,
               size: 19,
             ),
         ],
@@ -660,61 +516,50 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ============================================================
   // LIVE STATS
   // ============================================================
-  
-  Widget _buildLiveStats(
-  Map<String, dynamic> data,
-) {
-  final double distance =
-      _readDouble(
-            data['distanceKm'],
-          ) ??
-          _controller.totalDistanceKm;
 
-  final int steps =
-      _readInt(
-            data['steps'],
-          ) ??
-          _controller.steps;
+  Widget _buildLiveStats(Map<String, dynamic> data) {
+    final double distance =
+        _readDouble(data['distanceKm']) ??
+        _controller.totalDistanceKm;
 
-  final String duration =
-      _readDuration(data);
-  return Row(
-    children: [
-      Expanded(
-        child: _statCard(
-          Icons.route_rounded,
-          distance < 1
-              ? '${(distance * 1000).round()} m'
-              : '${distance.toStringAsFixed(2)} km',
-          'Distance',
+    final int steps =
+        _readInt(data['steps']) ?? _controller.steps;
+
+    final String duration = _readDuration(data);
+
+    return Row(
+      children: [
+        Expanded(
+          child: _statCard(
+            Icons.route_rounded,
+            distance < 1
+                ? '${(distance * 1000).round()} m'
+                : '${distance.toStringAsFixed(2)} km',
+            'Distance',
+          ),
         ),
-      ),
 
-      const SizedBox(
-        width: 10,
-      ),
+        const SizedBox(width: 10),
 
-      Expanded(
-        child: _statCard(
-          Icons.timer_rounded,
-          duration,
-          'Duration',
+        Expanded(
+          child: _statCard(
+            Icons.timer_rounded,
+            duration,
+            'Duration',
+          ),
         ),
-      ),
 
-      const SizedBox(
-        width: 10,
-      ),
+        const SizedBox(width: 10),
 
-      Expanded(
-        child: _statCard(
-          Icons.directions_walk_rounded,
-          steps.toString(),
-          'Steps',
+        Expanded(
+          child: _statCard(
+            Icons.directions_walk_rounded,
+            steps.toString(),
+            'Steps',
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
   }
 
   Widget _statCard(
@@ -723,16 +568,13 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     String label,
   ) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         vertical: 15,
         horizontal: 7,
       ),
-      decoration:
-          BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
@@ -744,36 +586,29 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         children: [
           Icon(
             icon,
-            color:
-                AppColors.primary,
+            color: AppColors.primary,
             size: 23,
           ),
-          const SizedBox(
-            height: 7,
-          ),
+
+          const SizedBox(height: 7),
+
           Text(
             value,
-            textAlign:
-                TextAlign.center,
-            style:
-                const TextStyle(
+            textAlign: TextAlign.center,
+            style: const TextStyle(
               fontSize: 14,
-              fontWeight:
-                  FontWeight.w900,
+              fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(
-            height: 3,
-          ),
+
+          const SizedBox(height: 3),
+
           Text(
             label,
-            style:
-                const TextStyle(
+            style: const TextStyle(
               fontSize: 10,
-              color:
-                  Colors.black54,
-              fontWeight:
-                  FontWeight.w600,
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -786,14 +621,22 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ============================================================
 
   Widget _buildWalkInfo() {
+    final String ownerName = widget.ownerName.trim().isEmpty
+        ? 'Owner'
+        : widget.ownerName.trim();
+
+    final String dogName = widget.dogName.trim().isEmpty
+        ? 'Dog'
+        : widget.dogName.trim();
+
+    final String breed = widget.dogBreed.trim();
+    final String? phone = _cleanOptional(widget.ownerPhone);
+
     return Container(
-      padding:
-          const EdgeInsets.all(15),
-      decoration:
-          BoxDecoration(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
@@ -806,7 +649,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           _infoRow(
             Icons.person_rounded,
             'Owner',
-            widget.ownerName,
+            ownerName,
           ),
 
           _infoDivider(),
@@ -814,34 +657,43 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           _infoRow(
             Icons.pets_rounded,
             'Dog',
-            widget.dogName,
+            dogName,
           ),
 
-          if (widget.dogBreed
-              .trim()
-              .isNotEmpty) ...[
+          if (breed.isNotEmpty) ...[
             _infoDivider(),
             _infoRow(
               Icons.category_rounded,
               'Breed',
-              widget.dogBreed,
+              breed,
             ),
           ],
 
-          if (widget.ownerPhone
-                  ?.trim()
-                  .isNotEmpty ==
-              true) ...[
+          if (phone != null) ...[
             _infoDivider(),
             _infoRow(
               Icons.phone_rounded,
               'Phone',
-              widget.ownerPhone!,
+              phone,
             ),
           ],
         ],
       ),
     );
+  }
+
+  String? _cleanOptional(String? value) {
+    if (value == null) {
+      return null;
+    }
+
+    final String trimmed = value.trim();
+
+    if (trimmed.isEmpty) {
+      return null;
+    }
+
+    return trimmed;
   }
 
   Widget _infoRow(
@@ -854,34 +706,29 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         Icon(
           icon,
           size: 20,
-          color:
-              AppColors.primary,
+          color: AppColors.primary,
         ),
-        const SizedBox(
-          width: 10,
-        ),
+
+        const SizedBox(width: 10),
+
         Text(
           title,
-          style:
-              const TextStyle(
-            color:
-                Colors.black54,
+          style: const TextStyle(
+            color: Colors.black54,
             fontSize: 12,
-            fontWeight:
-                FontWeight.w700,
+            fontWeight: FontWeight.w700,
           ),
         ),
+
         const Spacer(),
+
         Flexible(
           child: Text(
             value,
-            textAlign:
-                TextAlign.right,
-            style:
-                const TextStyle(
+            textAlign: TextAlign.right,
+            style: const TextStyle(
               fontSize: 12,
-              fontWeight:
-                  FontWeight.w800,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),
@@ -891,13 +738,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   Widget _infoDivider() {
     return const Padding(
-      padding:
-          EdgeInsets.symmetric(
-        vertical: 10,
-      ),
-      child: Divider(
-        height: 1,
-      ),
+      padding: EdgeInsets.symmetric(vertical: 10),
+      child: Divider(height: 1),
     );
   }
 
@@ -907,18 +749,15 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   Widget _buildCompleteSection() {
     return Container(
-      padding:
-          const EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         16,
         18,
         16,
         18,
       ),
-      decoration:
-          BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
@@ -931,69 +770,48 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           Container(
             width: 46,
             height: 46,
-            decoration:
-                BoxDecoration(
-              color:
-                  AppColors.primary.withValues(
-                alpha: .10,
-              ),
-              shape:
-                  BoxShape.circle,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: .10),
+              shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.check_rounded,
-              color:
-                  AppColors.primary,
+              color: AppColors.primary,
               size: 28,
             ),
           ),
 
-          const SizedBox(
-            height: 10,
-          ),
+          const SizedBox(height: 10),
 
           const Text(
             'Finish Walk',
-            style:
-                TextStyle(
+            style: TextStyle(
               fontSize: 19,
-              fontWeight:
-                  FontWeight.w900,
-              color:
-                  AppColors.secondary,
+              fontWeight: FontWeight.w900,
+              color: AppColors.secondary,
             ),
           ),
 
-          const SizedBox(
-            height: 5,
-          ),
+          const SizedBox(height: 5),
 
           const Text(
             'When you reach the destination, slide to complete the walk.',
-            textAlign:
-                TextAlign.center,
-            style:
-                TextStyle(
+            textAlign: TextAlign.center,
+            style: TextStyle(
               fontSize: 12,
-              color:
-                  Colors.black54,
-              fontWeight:
-                  FontWeight.w600,
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
               height: 1.35,
             ),
           ),
 
-          const SizedBox(
-            height: 18,
-          ),
+          const SizedBox(height: 18),
 
           LiveWalkCompleteSlider(
             enabled:
                 !_controller.ending &&
                 _controller.walkStarted,
-            onCompleted: () {
-              _confirmCompleteWalk();
-            },
+            onCompleted: _confirmCompleteWalk,
           ),
         ],
       ),
@@ -1006,34 +824,28 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   Widget _buildEndingSection() {
     return Container(
-      padding:
-          const EdgeInsets.all(20),
-      decoration:
-          BoxDecoration(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: const Column(
         children: [
           SizedBox(
             width: 35,
             height: 35,
-            child:
-                CircularProgressIndicator(
+            child: CircularProgressIndicator(
               strokeWidth: 3,
             ),
           ),
-          SizedBox(
-            height: 12,
-          ),
+
+          SizedBox(height: 12),
+
           Text(
             'Completing walk...',
-            style:
-                TextStyle(
+            style: TextStyle(
               fontSize: 16,
-              fontWeight:
-                  FontWeight.w900,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ],
@@ -1059,17 +871,13 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         return;
       }
 
-      _showMessage(
-        'Walk started.',
-      );
+      _showMessage('Walk started.');
     } catch (error) {
       if (!mounted) {
         return;
       }
 
-      _showError(
-        _cleanError(error),
-      );
+      _showError(_cleanError(error));
     }
   }
 
@@ -1078,15 +886,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ============================================================
 
   void _confirmCompleteWalk() {
-    if (_controller.ending ||
-        _showingEndDialog) {
+    if (_controller.ending || _showingEndDialog) {
       return;
     }
 
     if (!_controller.walkStarted) {
-      _showError(
-        'Start the walk first.',
-      );
+      _showError('Start the walk first.');
       return;
     }
 
@@ -1094,80 +899,55 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     showDialog<void>(
       context: context,
-      builder:
-          (BuildContext dialogContext) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
-          backgroundColor:
-              AppColors.cardBackground,
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(20),
+          backgroundColor: AppColors.cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
           title: const Text(
             'Complete Walk?',
-            style:
-                TextStyle(
-              color:
-                  AppColors.secondary,
-              fontWeight:
-                  FontWeight.w900,
+            style: TextStyle(
+              color: AppColors.secondary,
+              fontWeight: FontWeight.w900,
             ),
           ),
           content: const Text(
             'Are you sure you want to complete this walk?',
-            style:
-                TextStyle(
-              color:
-                  Colors.grey,
+            style: TextStyle(
+              color: Colors.grey,
               height: 1.4,
             ),
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop();
+                Navigator.of(dialogContext).pop();
               },
               child: const Text(
                 'Cancel',
-                style:
-                    TextStyle(
-                  color:
-                      AppColors.secondary,
-                  fontWeight:
-                      FontWeight.w800,
+                style: TextStyle(
+                  color: AppColors.secondary,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
 
             ElevatedButton(
               onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop();
+                Navigator.of(dialogContext).pop();
 
-                unawaited(
-                  _completeWalk(),
-                );
+                unawaited(_completeWalk());
               },
-              style:
-                  ElevatedButton.styleFrom(
-                backgroundColor:
-                    AppColors.primary,
-                foregroundColor:
-                    Colors.white,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
                 elevation: 0,
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text(
-                'Complete',
-              ),
+              child: const Text('Complete'),
             ),
           ],
         );
@@ -1182,8 +962,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ============================================================
 
   Future<void> _completeWalk() async {
-    if (_controller.ending ||
-        !_controller.walkStarted) {
+    if (_controller.ending || !_controller.walkStarted) {
       return;
     }
 
@@ -1194,14 +973,10 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         return;
       }
 
-      _showMessage(
-        'Walk completed.',
-      );
+      _showMessage('Walk completed.');
 
       await Future<void>.delayed(
-        const Duration(
-          milliseconds: 300,
-        ),
+        const Duration(milliseconds: 300),
       );
 
       if (!mounted) {
@@ -1214,9 +989,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         return;
       }
 
-      _showError(
-        _cleanError(error),
-      );
+      _showError(_cleanError(error));
     }
   }
 
@@ -1225,61 +998,45 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ============================================================
 
   Future<void> _openReviewBottomSheet() async {
-    if (!mounted ||
-        _showingReview) {
+    if (!mounted || _showingReview) {
       return;
     }
 
     _showingReview = true;
 
     final Map<String, dynamic> data =
-        _lastSessionData;
+        Map<String, dynamic>.from(_lastSessionData);
 
     final double distance =
-        _readDouble(
-              data['distanceKm'],
-            ) ??
-            _controller.totalDistanceKm;
+        _readDouble(data['distanceKm']) ??
+        _controller.totalDistanceKm;
 
     final int steps =
-        _readInt(
-              data['steps'],
-            ) ??
-            _controller.steps;
+        _readInt(data['steps']) ??
+        _controller.steps;
 
-    final String duration =
-        _readDuration(data);
+    final String duration = _readDuration(data);
 
     final List<Offset> routePoints =
         _extractRoutePoints(data);
 
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor:
-          Colors.transparent,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       isDismissible: false,
       enableDrag: false,
-      builder: (_) {
+      builder: (BuildContext sheetContext) {
         return LiveWalkReviewBottomSheet(
-          routePoints:
-              routePoints,
-          distanceKm:
-              distance,
-          duration:
-              duration,
-          steps:
-              steps,
-          walkId:
-              widget.walkId,
-          ownerUid:
-              widget.ownerUid,
-          dogName:
-              widget.dogName,
+          routePoints: routePoints,
+          distanceKm: distance,
+          duration: duration,
+          steps: steps,
+          walkId: widget.walkId,
+          ownerUid: widget.ownerUid,
+          dogName: widget.dogName,
           onBackToHome: () {
-            Navigator.of(
-              context,
-            ).pop();
+            Navigator.of(sheetContext).pop();
           },
         );
       },
@@ -1291,9 +1048,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       return;
     }
 
-    Navigator.of(
-      context,
-    ).pop(true);
+    Navigator.of(context).pop(true);
   }
 
   // ============================================================
@@ -1302,16 +1057,13 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   Widget _liveMapBadge() {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 12,
         vertical: 8,
       ),
-      decoration:
-          BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(
             color: Colors.black26,
@@ -1320,29 +1072,24 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         ],
       ),
       child: Row(
-        mainAxisSize:
-            MainAxisSize.min,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             width: 9,
             height: 9,
-            decoration:
-                const BoxDecoration(
+            decoration: const BoxDecoration(
               color: Colors.green,
-              shape:
-                  BoxShape.circle,
+              shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(
-            width: 7,
-          ),
+
+          const SizedBox(width: 7),
+
           const Text(
             'LIVE LOCATION',
-            style:
-                TextStyle(
+            style: TextStyle(
               fontSize: 10,
-              fontWeight:
-                  FontWeight.w900,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ],
@@ -1351,14 +1098,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   }
 
   Widget _gpsBadge() {
+    final bool gpsReady = _controller.gpsReady;
+
     return Container(
       width: 42,
       height: 42,
-      decoration:
-          const BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        shape:
-            BoxShape.circle,
+        shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
             color: Colors.black26,
@@ -1367,13 +1114,10 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         ],
       ),
       child: Icon(
-        _controller.gpsReady
+        gpsReady
             ? Icons.gps_fixed_rounded
             : Icons.gps_off_rounded,
-        color:
-            _controller.gpsReady
-                ? Colors.green
-                : Colors.red,
+        color: gpsReady ? Colors.green : Colors.red,
         size: 20,
       ),
     );
@@ -1390,14 +1134,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor:
-          Colors.transparent,
-      builder: (_) {
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext sheetContext) {
         return _SosSheet(
-          ownerName:
-              widget.ownerName,
-          ownerPhone:
-              widget.ownerPhone,
+          ownerName: widget.ownerName,
+          ownerPhone: widget.ownerPhone,
         );
       },
     );
@@ -1414,99 +1155,72 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor:
-          Colors.transparent,
-      builder: (_) {
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext sheetContext) {
         return Container(
-          padding:
-              const EdgeInsets.fromLTRB(
+          padding: const EdgeInsets.fromLTRB(
             20,
             14,
             20,
             25,
           ),
-          decoration:
-              const BoxDecoration(
-            color:
-                AppColors.cardBackground,
-            borderRadius:
-                BorderRadius.vertical(
+          decoration: const BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.vertical(
               top: Radius.circular(25),
             ),
           ),
           child: SafeArea(
             child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
                   width: 42,
                   height: 5,
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        AppColors.border,
-                    borderRadius:
-                        BorderRadius.circular(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
 
-                const SizedBox(
-                  height: 18,
-                ),
+                const SizedBox(height: 18),
 
                 const Icon(
                   Icons.support_agent_rounded,
-                  color:
-                      AppColors.primary,
+                  color: AppColors.primary,
                   size: 38,
                 ),
 
-                const SizedBox(
-                  height: 10,
-                ),
+                const SizedBox(height: 10),
 
                 const Text(
                   'Walk Support',
-                  style:
-                      TextStyle(
-                    color:
-                        AppColors.secondary,
+                  style: TextStyle(
+                    color: AppColors.secondary,
                     fontSize: 19,
-                    fontWeight:
-                        FontWeight.w900,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
 
-                const SizedBox(
-                  height: 6,
-                ),
+                const SizedBox(height: 6),
 
                 const Text(
                   'Need help during this walk?',
-                  textAlign:
-                      TextAlign.center,
-                  style:
-                      TextStyle(
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
                     color: Colors.grey,
                     fontSize: 12,
                   ),
                 ),
 
-                const SizedBox(
-                  height: 18,
-                ),
+                const SizedBox(height: 18),
 
                 SizedBox(
-                  width:
-                      double.infinity,
+                  width: double.infinity,
                   height: 50,
-                  child:
-                      ElevatedButton.icon(
+                  child: ElevatedButton.icon(
                     onPressed: () {
-                      Navigator.of(
-                        context,
-                      ).pop();
+                      Navigator.of(sheetContext).pop();
 
                       _showMessage(
                         'Support contact will be connected soon.',
@@ -1518,17 +1232,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                     label: const Text(
                       'Contact Support',
                     ),
-                    style:
-                        ElevatedButton.styleFrom(
-                      backgroundColor:
-                          AppColors.primary,
-                      foregroundColor:
-                          Colors.white,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
                       elevation: 0,
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                   ),
@@ -1550,16 +1259,15 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   ) {
     final dynamic raw =
         data['routePoints'] ??
-            data['polylinePoints'] ??
-            data['locations'] ??
-            data['routeCoordinates'];
+        data['polylinePoints'] ??
+        data['locations'] ??
+        data['routeCoordinates'];
 
     if (raw is! List) {
       return <Offset>[];
     }
 
-    final List<Offset> points =
-        <Offset>[];
+    final List<Offset> points = <Offset>[];
 
     for (final dynamic item in raw) {
       if (item is GeoPoint) {
@@ -1574,22 +1282,17 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
       if (item is Map) {
         final dynamic lat =
-            item['latitude'] ??
-                item['lat'];
+            item['latitude'] ?? item['lat'];
 
         final dynamic lng =
             item['longitude'] ??
-                item['lng'] ??
-                item['lon'];
+            item['lng'] ??
+            item['lon'];
 
-        final double? latitude =
-            _readDouble(lat);
+        final double? latitude = _readDouble(lat);
+        final double? longitude = _readDouble(lng);
 
-        final double? longitude =
-            _readDouble(lng);
-
-        if (latitude != null &&
-            longitude != null) {
+        if (latitude != null && longitude != null) {
           points.add(
             Offset(
               latitude,
@@ -1612,29 +1315,24 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   ) {
     final dynamic value =
         data['durationMinutes'] ??
-            data['duration'] ??
-            data['elapsedMinutes'];
+        data['duration'] ??
+        data['elapsedMinutes'];
 
     if (value is num) {
-      final int minutes =
-          value.toInt();
+      final int minutes = value.toInt();
 
       if (minutes < 60) {
         return '${minutes}m';
       }
 
-      final int hours =
-          minutes ~/ 60;
-
-      final int remaining =
-          minutes % 60;
+      final int hours = minutes ~/ 60;
+      final int remaining = minutes % 60;
 
       return '${hours}h ${remaining}m';
     }
 
-    if (value != null) {
-      final String text =
-          value.toString().trim();
+    if (value is String) {
+      final String text = value.trim();
 
       if (text.isNotEmpty) {
         return text;
@@ -1648,9 +1346,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // DOUBLE
   // ============================================================
 
-  double? _readDouble(
-    dynamic value,
-  ) {
+  double? _readDouble(dynamic value) {
     if (value == null) {
       return null;
     }
@@ -1659,18 +1355,20 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       return value.toDouble();
     }
 
-    return double.tryParse(
-      value.toString().trim(),
-    );
+    final String text = value.toString().trim();
+
+    if (text.isEmpty) {
+      return null;
+    }
+
+    return double.tryParse(text);
   }
 
   // ============================================================
   // INT
   // ============================================================
 
-  int _readInt(
-    dynamic value,
-  ) {
+  int _readInt(dynamic value) {
     if (value == null) {
       return 0;
     }
@@ -1693,21 +1391,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ERROR
   // ============================================================
 
-  String _cleanError(
-    Object error,
-  ) {
+  String _cleanError(Object error) {
     return error
         .toString()
-        .replaceFirst(
-          'Exception: ',
-          '',
-        )
+        .replaceFirst('Exception: ', '')
         .trim();
   }
 
-  void _showError(
-    String message,
-  ) {
+  void _showError(String message) {
     if (!mounted) {
       return;
     }
@@ -1716,19 +1407,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content:
-              Text(message),
-          backgroundColor:
-              AppColors.error,
-          behavior:
-              SnackBarBehavior.floating,
+          content: Text(message),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
         ),
       );
   }
 
-  void _showMessage(
-    String message,
-  ) {
+  void _showMessage(String message) {
     if (!mounted) {
       return;
     }
@@ -1737,12 +1423,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content:
-              Text(message),
-          behavior:
-              SnackBarBehavior.floating,
-          duration:
-              const Duration(seconds: 2),
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
         ),
       );
   }
@@ -1753,10 +1436,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   @override
   void dispose() {
-    _controller.removeListener(
-      _onControllerChanged,
-    );
-
+    _controller.removeListener(_onControllerChanged);
     _controller.dispose();
 
     super.dispose();
@@ -1778,98 +1458,74 @@ class _SosSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String trimmedOwnerName = ownerName.trim();
+
     return Container(
-      padding:
-          const EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         20,
         14,
         20,
         25,
       ),
-      decoration:
-          const BoxDecoration(
-        color:
-            AppColors.cardBackground,
-        borderRadius:
-            BorderRadius.vertical(
+      decoration: const BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.vertical(
           top: Radius.circular(25),
         ),
       ),
       child: SafeArea(
         child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 42,
               height: 5,
-              decoration:
-                  BoxDecoration(
-                color:
-                    AppColors.border,
-                borderRadius:
-                    BorderRadius.circular(10),
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
 
-            const SizedBox(
-              height: 18,
-            ),
+            const SizedBox(height: 18),
 
             const Icon(
               Icons.sos_rounded,
-              color:
-                  AppColors.error,
+              color: AppColors.error,
               size: 48,
             ),
 
-            const SizedBox(
-              height: 10,
-            ),
+            const SizedBox(height: 10),
 
             const Text(
               'Emergency SOS',
-              style:
-                  TextStyle(
-                color:
-                    AppColors.secondary,
+              style: TextStyle(
+                color: AppColors.secondary,
                 fontSize: 20,
-                fontWeight:
-                    FontWeight.w900,
+                fontWeight: FontWeight.w900,
               ),
             ),
 
-            const SizedBox(
-              height: 6,
-            ),
+            const SizedBox(height: 6),
 
             Text(
-              ownerName.trim().isEmpty
+              trimmedOwnerName.isEmpty
                   ? 'Emergency assistance'
-                  : 'Emergency assistance for ${ownerName.trim()}',
-              textAlign:
-                  TextAlign.center,
-              style:
-                  const TextStyle(
+                  : 'Emergency assistance for $trimmedOwnerName',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
                 color: Colors.grey,
                 fontSize: 12,
               ),
             ),
 
-            const SizedBox(
-              height: 18,
-            ),
+            const SizedBox(height: 18),
 
             SizedBox(
-              width:
-                  double.infinity,
+              width: double.infinity,
               height: 50,
-              child:
-                  ElevatedButton.icon(
+              child: ElevatedButton.icon(
                 onPressed: () {
-                  Navigator.of(
-                    context,
-                  ).pop();
+                  Navigator.of(context).pop();
                 },
                 icon: const Icon(
                   Icons.emergency_rounded,
@@ -1877,17 +1533,12 @@ class _SosSheet extends StatelessWidget {
                 label: const Text(
                   'Emergency Assistance',
                 ),
-                style:
-                    ElevatedButton.styleFrom(
-                  backgroundColor:
-                      AppColors.error,
-                  foregroundColor:
-                      Colors.white,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
                   elevation: 0,
-                  shape:
-                      RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
               ),
