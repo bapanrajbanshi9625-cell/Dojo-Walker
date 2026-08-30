@@ -660,19 +660,24 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ============================================================
   // LIVE STATS
   // ============================================================
-
+  
   Widget _buildLiveStats(
   Map<String, dynamic> data,
 ) {
   final double distance =
-      _readDouble(data['distanceKm']);
+      _readDouble(
+            data['distanceKm'],
+          ) ??
+          _controller.totalDistanceKm;
 
   final int steps =
-      _readInt(data['steps']);
+      _readInt(
+            data['steps'],
+          ) ??
+          _controller.steps;
 
   final String duration =
       _readDuration(data);
-
   return Row(
     children: [
       Expanded(
