@@ -1,10 +1,9 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
+import '../core/services/active_walk_strip_service.dart';
 
 class ActiveWalkStrip extends StatefulWidget {
   const ActiveWalkStrip({
@@ -21,326 +20,37 @@ class ActiveWalkStrip extends StatefulWidget {
 
 class _ActiveWalkStripState
     extends State<ActiveWalkStrip> {
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+  StreamSubscription<ActiveWalkStripState>?
+      _subscription;
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
-
-  StreamSubscription<
-          QuerySnapshot<Map<String, dynamic>>>?
-      _activeWalkSubscription;
-
-  StreamSubscription<
-          QuerySnapshot<Map<String, dynamic>>>?
-      _liveSessionSubscription;
-
-  // ============================================================
-  // STATE
-  // ============================================================
-
-  bool _activeWalkFound = false;
-  bool _liveSessionFound = false;
-
-  String _activeWalkId = '';
-  String _sessionWalkId = '';
+  ActiveWalkStripState _state =
+      const ActiveWalkStripState.hidden();
 
   @override
   void initState() {
     super.initState();
 
-    _listenToActiveWalks();
-    _listenToLiveSessions();
+    _startListening();
   }
 
-  // ============================================================
-  // CURRENT WALKER UID
-  // ============================================================
+  void _startListening() {
+    _subscription =
+        ActiveWalkStripService.instance.watch().listen(
+      (ActiveWalkStripState state) {
+        if (!mounted) {
+          return;
+        }
 
-  String get _walkerUid {
-    return _auth.currentUser?.uid.trim() ?? '';
-  }
-
-  // ============================================================
-  // ACTIVE WALKS
-  //
-  // Collection:
-  // active_walks
-  //
-  // Required field:
-  // walkerUid
-  //
-  // Status:
-  // ACCEPTED
-  // ACTIVE
-  // ON_THE_WAY
-  // ============================================================
-
-  void _listenToActiveWalks() {
-    final String uid = _walkerUid;
-
-    if (uid.isEmpty) {
-      debugPrint(
-        'ActiveWalkStrip: Walker UID is empty.',
-      );
-      return;
-    }
-
-    _activeWalkSubscription = _firestore
-        .collection('active_walks')
-        .where(
-          'walkerUid',
-          isEqualTo: uid,
-        )
-        .snapshots()
-        .listen(
-      _handleActiveWalks,
+        setState(() {
+          _state = state;
+        });
+      },
       onError: (Object error) {
         debugPrint(
-          'ActiveWalkStrip active_walks error: $error',
+          'ActiveWalkStrip service error: $error',
         );
       },
     );
-  }
-
-  // ============================================================
-  // LIVE WALK SESSIONS
-  //
-  // Collection:
-  // liveWalkSessions
-  //
-  // Required field:
-  // walkerUid
-  //
-  // Status:
-  // ACTIVE
-  // STARTED
-  // LIVE
-  // ============================================================
-
-  void _listenToLiveSessions() {
-    final String uid = _walkerUid;
-
-    if (uid.isEmpty) {
-      debugPrint(
-        'ActiveWalkStrip: Walker UID is empty.',
-      );
-      return;
-    }
-
-    _liveSessionSubscription = _firestore
-        .collection('liveWalkSessions')
-        .where(
-          'walkerUid',
-          isEqualTo: uid,
-        )
-        .snapshots()
-        .listen(
-      _handleLiveSessions,
-      onError: (Object error) {
-        debugPrint(
-          'ActiveWalkStrip liveWalkSessions error: $error',
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // ACTIVE WALK DATA
-  // ============================================================
-
-  void _handleActiveWalks(
-    QuerySnapshot<Map<String, dynamic>>
-        snapshot,
-  ) {
-    bool found = false;
-    String foundWalkId = '';
-
-    for (final QueryDocumentSnapshot<
-            Map<String, dynamic>>
-        doc in snapshot.docs) {
-      final Map<String, dynamic> data =
-          doc.data();
-
-      final String status =
-          _status(data['status']);
-
-      final String walkId =
-          _string(data['walkId']);
-
-      // --------------------------------------------------------
-      // ACTIVE WALK STATUSES
-      // --------------------------------------------------------
-
-      final bool isActive =
-          status == 'ACCEPTED' ||
-          status == 'ACTIVE' ||
-          status == 'ON_THE_WAY';
-
-      // --------------------------------------------------------
-      // ENDED STATUSES
-      // --------------------------------------------------------
-
-      final bool isEnded =
-          status == 'COMPLETED' ||
-          status == 'ENDED' ||
-          status == 'CANCELLED';
-
-      // --------------------------------------------------------
-      // ONLY CURRENT ACTIVE WALK
-      // --------------------------------------------------------
-
-      if (isActive && !isEnded) {
-        found = true;
-
-        foundWalkId =
-            walkId.isNotEmpty
-                ? walkId
-                : doc.id;
-
-        break;
-      }
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _activeWalkFound = found;
-      _activeWalkId = foundWalkId;
-    });
-
-    debugPrint(
-      'ActiveWalkStrip: '
-      'activeWalkFound=$_activeWalkFound '
-      'activeWalkId=$_activeWalkId',
-    );
-  }
-
-  // ============================================================
-  // LIVE SESSION DATA
-  // ============================================================
-
-  void _handleLiveSessions(
-    QuerySnapshot<Map<String, dynamic>>
-        snapshot,
-  ) {
-    bool found = false;
-    String foundWalkId = '';
-
-    for (final QueryDocumentSnapshot<
-            Map<String, dynamic>>
-        doc in snapshot.docs) {
-      final Map<String, dynamic> data =
-          doc.data();
-
-      final String status =
-          _status(data['status']);
-
-      final String walkId =
-          _string(data['walkId']);
-
-      // --------------------------------------------------------
-      // LIVE SESSION ENDED?
-      // --------------------------------------------------------
-
-      final bool isCompleted =
-          status == 'COMPLETED' ||
-          status == 'ENDED' ||
-          status == 'CANCELLED';
-
-      if (isCompleted) {
-        continue;
-      }
-
-      // --------------------------------------------------------
-      // CURRENT LIVE SESSION
-      // --------------------------------------------------------
-
-      final bool isLive =
-          status == 'ACTIVE' ||
-          status == 'STARTED' ||
-          status == 'LIVE';
-
-      if (isLive) {
-        found = true;
-
-        foundWalkId =
-            walkId.isNotEmpty
-                ? walkId
-                : doc.id;
-
-        break;
-      }
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _liveSessionFound = found;
-      _sessionWalkId = foundWalkId;
-    });
-
-    debugPrint(
-      'ActiveWalkStrip: '
-      'liveSessionFound=$_liveSessionFound '
-      'sessionWalkId=$_sessionWalkId',
-    );
-  }
-
-  // ============================================================
-  // SHOULD SHOW STRIP
-  // ============================================================
-
-  bool get _shouldShow {
-    // ----------------------------------------------------------
-    // LIVE SESSION ACTIVE
-    // Highest priority
-    // ----------------------------------------------------------
-
-    if (_liveSessionFound) {
-      return true;
-    }
-
-    // ----------------------------------------------------------
-    // ACTIVE WALK
-    // ----------------------------------------------------------
-
-    if (_activeWalkFound) {
-      return true;
-    }
-
-    // ----------------------------------------------------------
-    // NOTHING ACTIVE
-    // ----------------------------------------------------------
-
-    return false;
-  }
-
-  // ============================================================
-  // IS LIVE?
-  // ============================================================
-
-  bool get _isLive {
-    return _liveSessionFound;
-  }
-
-  // ============================================================
-  // CURRENT WALK ID
-  //
-  // Live session ID first.
-  // Otherwise active walk ID.
-  // ============================================================
-
-  String get _currentWalkId {
-    if (_sessionWalkId.isNotEmpty) {
-      return _sessionWalkId;
-    }
-
-    return _activeWalkId;
   }
 
   // ============================================================
@@ -348,14 +58,14 @@ class _ActiveWalkStripState
   // ============================================================
 
   void _handleTap() {
-    if (!_shouldShow) {
+    if (!_state.show) {
       return;
     }
 
     debugPrint(
-      'ActiveWalkStrip tapped: '
-      'isLive=$_isLive '
-      'walkId=$_currentWalkId',
+      'ActiveWalkStrip tapped '
+      'isLive=${_state.isLive} '
+      'walkId=${_state.walkId}',
     );
 
     widget.onTap();
@@ -366,10 +76,8 @@ class _ActiveWalkStripState
   // ============================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    if (!_shouldShow) {
+  Widget build(BuildContext context) {
+    if (!_state.show) {
       return const SizedBox.shrink();
     }
 
@@ -379,18 +87,14 @@ class _ActiveWalkStripState
         onTap: _handleTap,
         child: Container(
           width: double.infinity,
-          height: 46,
-          padding:
-              const EdgeInsets.symmetric(
-            horizontal: 14,
+          height: 60,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 18,
           ),
-          decoration:
-              const BoxDecoration(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(
-              begin:
-                  Alignment.centerLeft,
-              end:
-                  Alignment.centerRight,
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
               colors: <Color>[
                 AppColors.primary,
                 AppColors.secondary,
@@ -399,41 +103,73 @@ class _ActiveWalkStripState
           ),
           child: Row(
             children: [
-              Icon(
-                _isLive
-                    ? Icons.location_on_rounded
-                    : Icons.directions_walk_rounded,
-                color: Colors.white,
-                size: 21,
-              ),
-
-              const SizedBox(
-                width: 9,
-              ),
-
-              Expanded(
-                child: Text(
-                  _isLive
-                      ? 'LIVE WALK'
-                      : 'ACTIVE WALK',
-                  maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight:
-                        FontWeight.w900,
-                    letterSpacing: .4,
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(
+                    alpha: 0.18,
                   ),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _state.isLive
+                      ? Icons.location_on_rounded
+                      : Icons.directions_walk_rounded,
+                  color: Colors.white,
+                  size: 21,
                 ),
               ),
+
+              const SizedBox(width: 12),
+
+              Expanded(
+                child: Column(
+                  mainAxisAlignment:
+                      MainAxisAlignment.center,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _state.isLive
+                          ? 'LIVE WALK'
+                          : 'ACTIVE WALK',
+                      maxLines: 1,
+                      overflow:
+                          TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight:
+                            FontWeight.w900,
+                        letterSpacing: .5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _state.isLive
+                          ? 'Tap to open live walk'
+                          : 'Tap to open active walk',
+                      maxLines: 1,
+                      overflow:
+                          TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight:
+                            FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 10),
 
               const Icon(
                 Icons.arrow_forward_ios_rounded,
                 color: Colors.white,
-                size: 15,
+                size: 17,
               ),
             ],
           ),
@@ -442,44 +178,9 @@ class _ActiveWalkStripState
     );
   }
 
-  // ============================================================
-  // STATUS HELPER
-  // ============================================================
-
-  String _status(dynamic value) {
-    if (value == null) {
-      return '';
-    }
-
-    return value
-        .toString()
-        .trim()
-        .toUpperCase();
-  }
-
-  // ============================================================
-  // STRING HELPER
-  // ============================================================
-
-  String _string(dynamic value) {
-    if (value == null) {
-      return '';
-    }
-
-    return value
-        .toString()
-        .trim();
-  }
-
-  // ============================================================
-  // DISPOSE
-  // ============================================================
-
   @override
   void dispose() {
-    _activeWalkSubscription?.cancel();
-    _liveSessionSubscription?.cancel();
-
+    _subscription?.cancel();
     super.dispose();
   }
 }
