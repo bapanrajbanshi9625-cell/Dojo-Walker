@@ -115,22 +115,22 @@ class _ActiveWalkDetailsScreenState
   // ============================================================
 
   void _createController() {
-    _liveWalkController =
-        LiveWalkController(
-      ownerUid: widget.request.ownerUid,
-      ownerName: widget.request.ownerName,
-      walkId: widget.request.id,
-      dogName: widget.request.dogName,
-      dogBreed: widget.request.dogBreed,
-      ownerPhone: widget.request.ownerPhone,
-      sessionId: widget.request.sessionId,
-    );
+  _liveWalkController =
+      LiveWalkController(
+    ownerUid: widget.request.ownerUid,
+    ownerName: widget.request.ownerName,
+    walkId: widget.request.id,
+    dogName: widget.request.dogName,
+    dogBreed: widget.request.dogBreed,
+    ownerPhone: widget.request.ownerPhone,
+    sessionId: widget.request.liveWalkSessionId,
+  );
 
-    _liveWalkController.addListener(
-      _onControllerChanged,
-    );
+  _liveWalkController.addListener(
+    _onControllerChanged,
+  );
   }
-
+  
   // ============================================================
   // CONTROLLER LISTENER
   // ============================================================
