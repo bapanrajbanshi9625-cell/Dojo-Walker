@@ -523,9 +523,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         _controller.totalDistanceKm;
 
     final int steps =
-        _readInt(data['steps']) ?? _controller.steps;
+        _readInt(data['steps']) ??
+        _controller.steps;
 
-    final String duration = _readDuration(data);
+    final String duration =
+        _readDuration(data);
 
     return Row(
       children: [
@@ -1007,15 +1009,24 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     final Map<String, dynamic> data =
         Map<String, dynamic>.from(_lastSessionData);
 
+    final double? sessionDistance =
+        _readDouble(data['distanceKm']);
+
     final double distance =
-        _readDouble(data['distanceKm']) ??
-        _controller.totalDistanceKm;
+        sessionDistance == null
+            ? _controller.totalDistanceKm
+            : sessionDistance;
+
+    final int? sessionSteps =
+        _readInt(data['steps']);
 
     final int steps =
-        _readInt(data['steps']) ??
-        _controller.steps;
+        sessionSteps == null
+            ? _controller.steps
+            : sessionSteps;
 
-    final String duration = _readDuration(data);
+    final String duration =
+        _readDuration(data);
 
     final List<Offset> routePoints =
         _extractRoutePoints(data);
@@ -1041,6 +1052,15 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         );
       },
     );
+
+    _showingReview = false;
+
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.of(context).pop(true);
+  }
 
     _showingReview = false;
 
