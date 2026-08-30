@@ -87,14 +87,6 @@ class InstaWalkRejectService {
   // Structure:
   //
   // walk_request/{walkId}/rejections/{walkerId}
-  //
-  // Example:
-  //
-  // walk_request
-  //   └── 3j77TvgUwxwrEnZQlxYW
-  //        └── rejections
-  //             └── WALKER001
-  //
   // ============================================================
 
   CollectionReference<Map<String, dynamic>>
@@ -107,29 +99,11 @@ class InstaWalkRejectService {
   // ============================================================
   // REJECT WALK
   //
-  // IMPORTANT:
-  //
-  // Main walk_request remains:
+  // Main request remains:
   //
   //     status = searching
   //
-  // We DO NOT update the main request.
-  //
-  // Only this Walker is recorded:
-  //
-  //     rejections/{walkerId}
-  //
-  // Therefore:
-  //
-  // Walker 001 rejects
-  //        ↓
-  // WALKER001 rejection saved
-  //        ↓
-  // request remains searching
-  //        ↓
-  // Walker 002 can receive it
-  //
-  // The same Walker cannot reject the same walk twice.
+  // Only this Walker's rejection is saved.
   // ============================================================
 
   Future<void> rejectWalk(String walkId) async {
@@ -290,9 +264,19 @@ class InstaWalkRejectService {
         //
         //     searching
         //
-        // This allows another Walker to receive the request.
+        // Another Walker can still receive this request.
         // ======================================================
       },
     );
+
+    // ==========================================================
+    // REJECT SUCCESS → STOP REQUEST SOUND
+    //
+    // This is intentionally OUTSIDE the transaction.
+    // Firestore rejection must succeed first.
+    // ==========================================================
+
+    await WalkRequestSoundService.instance
+        .stopRequest(id);
   }
 }
