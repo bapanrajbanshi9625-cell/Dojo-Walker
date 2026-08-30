@@ -14,7 +14,6 @@ import '../widgets/active_walk_map.dart';
 import '../widgets/active_walk_top_bar.dart';
 
 import '../../live_walk/screens/live_walk_screen.dart';
-import '../../live_walk/controllers/live_walk_session_controller.dart';
 
 class ActiveWalkDetailsScreen extends StatefulWidget {
   final InstaWalkRequest request;
@@ -39,12 +38,6 @@ class _ActiveWalkDetailsScreenState
 
   final InstaWalkService _instaWalkService =
       InstaWalkService.instance;
-
-  // ============================================================
-  // LIVE WALK CONTROLLER
-  // ============================================================
-
-  late final LiveWalkController _liveWalkController;
 
   // ============================================================
   // MAP
@@ -97,7 +90,6 @@ class _ActiveWalkDetailsScreenState
   void initState() {
     super.initState();
 
-    _createController();
     _loadInitialData();
 
     _sheetController.addListener(
@@ -105,53 +97,6 @@ class _ActiveWalkDetailsScreenState
     );
 
     _listenToWalk();
-    _initializeController();
-  }
-
-  // ============================================================
-  // CREATE CONTROLLER
-  // ============================================================
-
-  void _createController() {
-    _liveWalkController = LiveWalkController(
-      ownerUid: widget.request.ownerUid,
-      ownerName: widget.request.ownerName,
-      walkId: widget.request.id,
-      dogName: widget.request.dogName,
-      dogBreed: widget.request.dogBreed,
-      ownerPhone: widget.request.ownerPhone,
-      sessionId: widget.request.liveWalkSessionId,
-    );
-
-    _liveWalkController.addListener(
-      _onControllerChanged,
-    );
-  }
-
-  // ============================================================
-  // CONTROLLER LISTENER
-  // ============================================================
-
-  void _onControllerChanged() {
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {});
-  }
-
-  // ============================================================
-  // INITIALIZE CONTROLLER
-  // ============================================================
-
-  Future<void> _initializeController() async {
-    try {
-      await _liveWalkController.initialize();
-    } catch (e) {
-      debugPrint(
-        'LiveWalkController initialize error: $e',
-      );
-    }
   }
 
   // ============================================================
@@ -429,83 +374,39 @@ class _ActiveWalkDetailsScreenState
         _reached = true;
       }
     });
-
-    // ==========================================================
-    // UPDATE LIVE SESSION CONTROLLER
-    // ==========================================================
-
-    _liveWalkController.updateFromSession(
-      data,
-    );
   }
 
   // ============================================================
   // REACHED → OPEN LIVE WALK
   // ============================================================
 
-void _handleReached() {
-  if (_reached) {
-    return;
-  }
-
-  setState(() {
-    _reached = true;
-    _liveStatus = 'reached';
-  });
-
-  widget.onReached?.call();
-
-  Navigator.of(context).pushReplacement(
-    MaterialPageRoute<void>(
-      builder: (BuildContext context) {
-        return LiveWalkScreen(
-          ownerUid: widget.request.ownerUid,
-          ownerName: widget.request.ownerName,
-          walkId: widget.request.id,
-          dogName: widget.request.dogName,
-          dogBreed: widget.request.dogBreed,
-          ownerPhone: widget.request.ownerPhone,
-          sessionId: widget.request.liveWalkSessionId,
-        );
-      },
-    ),
-  );
-}
-
-  // ============================================================
-  // END WALK
-  //
-  // Start Walk intentionally NOT handled here.
-  // Start Walk is handled by Live Walk screen.
-  // ============================================================
-
-  Future<void> endWalk() async {
-    try {
-      await _liveWalkController.endWalk();
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _liveStatus = 'completed';
-      });
-
-      _showMessage(
-        'Walk completed successfully.',
-      );
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        e.toString().replaceFirst(
-          'Exception: ',
-          '',
-        ),
-      );
+  void _handleReached() {
+    if (_reached) {
+      return;
     }
+
+    setState(() {
+      _reached = true;
+      _liveStatus = 'reached';
+    });
+
+    widget.onReached?.call();
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (BuildContext context) {
+          return LiveWalkScreen(
+            ownerUid: widget.request.ownerUid,
+            ownerName: widget.request.ownerName,
+            walkId: widget.request.id,
+            dogName: widget.request.dogName,
+            dogBreed: widget.request.dogBreed,
+            ownerPhone: widget.request.ownerPhone,
+            sessionId: widget.request.liveWalkSessionId,
+          );
+        },
+      ),
+    );
   }
 
   // ============================================================
@@ -663,18 +564,18 @@ void _handleReached() {
               ScrollController controller,
             ) {
               return ActiveWalkBottomSheet(
-               controller: controller,
-               request: widget.request,
-               liveStatus: _liveStatus,
-               distanceKm: _distanceKm,
-               elapsedSeconds: _elapsedSeconds,
-               steps: _steps,
-               reached: _reached,
-               starting: false,
-               onExpand: _expandSheet,
-               onToggleSheet: _toggleSheet,
-               onReached: _handleReached,
-               onMessage: _showMessage,
+                controller: controller,
+                request: widget.request,
+                liveStatus: _liveStatus,
+                distanceKm: _distanceKm,
+                elapsedSeconds: _elapsedSeconds,
+                steps: _steps,
+                reached: _reached,
+                starting: false,
+                onExpand: _expandSheet,
+                onToggleSheet: _toggleSheet,
+                onReached: _handleReached,
+                onMessage: _showMessage,
               );
             },
           ),
@@ -811,12 +712,6 @@ void _handleReached() {
     );
 
     _sheetController.dispose();
-
-    _liveWalkController.removeListener(
-      _onControllerChanged,
-    );
-
-    _liveWalkController.dispose();
 
     super.dispose();
   }
