@@ -10,6 +10,7 @@ import 'active_walk_live_status.dart';
 import 'active_walk_owner_note.dart';
 import 'active_walk_reach_slider.dart';
 import 'active_walk_stat_card.dart';
+import 'active_walk_start_panel.dart';
 
 class ActiveWalkBottomSheet extends StatelessWidget {
   final ScrollController controller;
