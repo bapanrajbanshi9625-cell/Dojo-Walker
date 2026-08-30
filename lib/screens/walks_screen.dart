@@ -26,9 +26,7 @@ class WalksScreen extends StatefulWidget {
 }
 
 class _WalksScreenState extends State<WalksScreen>
-    with
-        SingleTickerProviderStateMixin,
-        WidgetsBindingObserver {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   // ============================================================
   // FIREBASE
   // ============================================================
@@ -73,10 +71,13 @@ class _WalksScreenState extends State<WalksScreen>
   bool _searching = false;
   bool _loading = false;
 
-  // Prevent opening the same incoming screen multiple times.
+  // ============================================================
+  // FULL SCREEN REQUEST
+  // ============================================================
+
   bool _openingIncomingRequest = false;
 
-  String? _openedRequestId;
+  String? _shownRequestId;
 
   // ============================================================
   // REQUESTS
@@ -115,15 +116,11 @@ class _WalksScreenState extends State<WalksScreen>
 
     _radarController = AnimationController(
       vsync: this,
-      duration: const Duration(
-        seconds: 3,
-      ),
+      duration: const Duration(seconds: 3),
     )..repeat();
 
     _dotTimer = Timer.periodic(
-      const Duration(
-        seconds: 10,
-      ),
+      const Duration(seconds: 10),
       (_) {
         if (_searching && mounted) {
           _moveRadarDot();
@@ -131,9 +128,7 @@ class _WalksScreenState extends State<WalksScreen>
       },
     );
 
-    unawaited(
-      _loadWalkerState(),
-    );
+    unawaited(_loadWalkerState());
   }
 
   // ============================================================
@@ -146,9 +141,7 @@ class _WalksScreenState extends State<WalksScreen>
   ) {
     if (state == AppLifecycleState.detached &&
         _searching) {
-      unawaited(
-        _stopSearchState(),
-      );
+      unawaited(_stopSearchState());
     }
   }
 
@@ -236,8 +229,7 @@ class _WalksScreenState extends State<WalksScreen>
       return cached;
     }
 
-    final User? user =
-        _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
       return null;
@@ -282,13 +274,10 @@ class _WalksScreenState extends State<WalksScreen>
       return;
     }
 
-    final User? user =
-        _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
-      _showMessage(
-        'Please login first.',
-      );
+      _showMessage('Please login first.');
       return;
     }
 
@@ -323,9 +312,7 @@ class _WalksScreenState extends State<WalksScreen>
           'instaWalkSearchUpdatedAt':
               FieldValue.serverTimestamp(),
         },
-        SetOptions(
-          merge: true,
-        ),
+        SetOptions(merge: true),
       );
 
       if (!mounted) {
@@ -338,7 +325,7 @@ class _WalksScreenState extends State<WalksScreen>
         _searching = true;
         _loading = false;
         _requests.clear();
-        _openedRequestId = null;
+        _shownRequestId = null;
       });
 
       _startRequestListener();
@@ -365,17 +352,15 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
   // REQUEST LISTENER
   //
-  // Request आते ही:
+  // Firestore:
   //
-  // SEARCHING
-  //    ↓
-  // REQUEST FOUND
-  //    ↓
-  // STOP SEARCH
-  //    ↓
-  // FULL SCREEN INCOMING REQUEST
+  // walk_request
   //
-  // Zomato-style incoming request flow.
+  // status:
+  // searching
+  //
+  // NEW REQUEST:
+  // full screen incoming request opens.
   // ============================================================
 
   void _startRequestListener() {
@@ -388,9 +373,7 @@ class _WalksScreenState extends State<WalksScreen>
       (
         List<InstaWalkRequest> requests,
       ) {
-        if (!mounted ||
-            !_searching ||
-            _openingIncomingRequest) {
+        if (!mounted || !_searching) {
           return;
         }
 
@@ -416,27 +399,19 @@ class _WalksScreenState extends State<WalksScreen>
         });
 
         // ------------------------------------------------------
-        // NEW REQUEST -> FULL SCREEN
+        // FULL SCREEN INCOMING REQUEST
         // ------------------------------------------------------
 
         if (sortedRequests.isNotEmpty) {
           final InstaWalkRequest request =
               sortedRequests.first;
 
-          if (_openedRequestId == request.id) {
-            return;
-          }
-
           unawaited(
-            _openIncomingRequest(
-              request,
-            ),
+            _openIncomingRequest(request),
           );
         }
       },
-      onError: (
-        Object error,
-      ) {
+      onError: (Object error) {
         debugPrint(
           'Insta Walk listener error: $error',
         );
@@ -451,93 +426,74 @@ class _WalksScreenState extends State<WalksScreen>
   }
 
   // ============================================================
-  // OPEN INCOMING REQUEST
+  // OPEN FULL SCREEN REQUEST
   // ============================================================
 
   Future<void> _openIncomingRequest(
     InstaWalkRequest request,
   ) async {
-    if (!mounted ||
-        _openingIncomingRequest) {
+    if (!mounted) {
       return;
     }
 
-    if (request.id.trim().isEmpty) {
+    if (_openingIncomingRequest) {
+      return;
+    }
+
+    if (_shownRequestId == request.id) {
       return;
     }
 
     _openingIncomingRequest = true;
-    _openedRequestId = request.id;
+    _shownRequestId = request.id;
 
+    // Stop search while request screen is open.
     try {
-      // --------------------------------------------------------
-      // STOP SEARCH
-      // --------------------------------------------------------
-
       await _stopSearchState(
         clearRequests: false,
       );
+    } catch (e) {
+      debugPrint(
+        'Stop search before incoming screen error: $e',
+      );
+    }
 
-      if (!mounted) {
-        return;
-      }
+    if (!mounted) {
+      _openingIncomingRequest = false;
+      return;
+    }
 
-      // --------------------------------------------------------
-      // FULL SCREEN
-      // --------------------------------------------------------
-
+    try {
       await Navigator.push(
         context,
         MaterialPageRoute(
-          fullscreenDialog: true,
           builder: (_) {
             return IncomingWalkRequestScreen(
               request: request,
             );
           },
+          fullscreenDialog: true,
         ),
       );
     } catch (e) {
       debugPrint(
         'Incoming request screen error: $e',
       );
-
-      _openedRequestId = null;
-
-      if (mounted) {
-        _showMessage(
-          e.toString().replaceFirst(
-                'Exception: ',
-                '',
-              ),
-        );
-      }
     } finally {
       _openingIncomingRequest = false;
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _requests.removeWhere(
-          (
-            InstaWalkRequest item,
-          ) {
-            return item.id == request.id;
-          },
-        );
-      });
     }
   }
 
   // ============================================================
   // ACCEPT REQUEST
   //
-  // Kept for compatibility with request card.
+  // Accept service handles:
   //
-  // Main new flow:
-  // IncomingWalkRequestScreen handles the incoming request.
+  // walk_request/{walkId}
+  // status = accepted
+  //
+  // After acceptance the next flow can open
+  // pickup/reach screen.
   // ============================================================
 
   Future<void> _acceptRequest(
@@ -558,8 +514,8 @@ class _WalksScreenState extends State<WalksScreen>
         request.id,
       );
 
-      await _requestService.stopRequestSound(
-        request.id,
+      await _stopSearchState(
+        clearRequests: false,
       );
 
       if (!mounted) {
@@ -568,9 +524,7 @@ class _WalksScreenState extends State<WalksScreen>
 
       setState(() {
         _requests.removeWhere(
-          (
-            InstaWalkRequest item,
-          ) {
+          (InstaWalkRequest item) {
             return item.id == request.id;
           },
         );
@@ -587,9 +541,9 @@ class _WalksScreenState extends State<WalksScreen>
       if (mounted) {
         _showMessage(
           e.toString().replaceFirst(
-                'Exception: ',
-                '',
-              ),
+            'Exception: ',
+            '',
+          ),
         );
       }
     }
@@ -617,15 +571,13 @@ class _WalksScreenState extends State<WalksScreen>
 
       setState(() {
         _requests.removeWhere(
-          (
-            InstaWalkRequest item,
-          ) {
+          (InstaWalkRequest item) {
             return item.id == request.id;
           },
         );
 
-        if (_openedRequestId == request.id) {
-          _openedRequestId = null;
+        if (_shownRequestId == request.id) {
+          _shownRequestId = null;
         }
       });
     } catch (e) {
@@ -636,9 +588,9 @@ class _WalksScreenState extends State<WalksScreen>
       if (mounted) {
         _showMessage(
           e.toString().replaceFirst(
-                'Exception: ',
-                '',
-              ),
+            'Exception: ',
+            '',
+          ),
         );
       }
     }
@@ -670,9 +622,7 @@ class _WalksScreenState extends State<WalksScreen>
           'instaWalkSearchUpdatedAt':
               FieldValue.serverTimestamp(),
         },
-        SetOptions(
-          merge: true,
-        ),
+        SetOptions(merge: true),
       );
 
       await _requestSubscription?.cancel();
@@ -790,13 +740,11 @@ class _WalksScreenState extends State<WalksScreen>
     setState(() {
       _dotX =
           -.78 +
-              _random.nextDouble() *
-                  1.56;
+              _random.nextDouble() * 1.56;
 
       _dotY =
           -.65 +
-              _random.nextDouble() *
-                  1.30;
+              _random.nextDouble() * 1.30;
 
       _dotVisible = true;
     });
@@ -838,16 +786,16 @@ class _WalksScreenState extends State<WalksScreen>
           color: Colors.white.withValues(
             alpha: .55,
           ),
-          borderRadius: BorderRadius.circular(
-            16,
-          ),
+          borderRadius:
+              BorderRadius.circular(16),
         ),
         child: const Row(
           children: <Widget>[
             SizedBox(
               width: 18,
               height: 18,
-              child: CircularProgressIndicator(
+              child:
+                  CircularProgressIndicator(
                 strokeWidth: 2,
               ),
             ),
@@ -859,7 +807,8 @@ class _WalksScreenState extends State<WalksScreen>
                 'Waiting for nearby walk requests...',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight:
+                      FontWeight.w600,
                 ),
               ),
             ),
@@ -881,7 +830,8 @@ class _WalksScreenState extends State<WalksScreen>
             'AVAILABLE WALK REQUESTS',
             style: TextStyle(
               fontSize: 10,
-              fontWeight: FontWeight.w900,
+              fontWeight:
+                  FontWeight.w900,
               letterSpacing: 1.1,
             ),
           ),
@@ -893,14 +843,10 @@ class _WalksScreenState extends State<WalksScreen>
             return InstaWalkRequestCard(
               request: request,
               onAccept: () {
-                _acceptRequest(
-                  request,
-                );
+                _acceptRequest(request);
               },
               onReject: () {
-                _rejectRequest(
-                  request,
-                );
+                _rejectRequest(request);
               },
             );
           },
@@ -937,9 +883,8 @@ class _WalksScreenState extends State<WalksScreen>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(
-      this,
-    );
+    WidgetsBinding.instance
+        .removeObserver(this);
 
     _requestSubscription?.cancel();
 
@@ -971,7 +916,7 @@ class _WalksScreenState extends State<WalksScreen>
           Expanded(
             child: ListView(
               padding: const EdgeInsets.only(
-                bottom: 40,
+                bottom: 30,
               ),
               children: <Widget>[
                 InstaWalkContainer(
