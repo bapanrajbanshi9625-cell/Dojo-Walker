@@ -9,7 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../features/insta_walk/models/insta_walk_request.dart';
-import '../features/insta_walk/screens/active_walk_details_screen.dart';
+import '../features/insta_walk/screens/incoming_walk_request_screen.dart';
 import '../features/insta_walk/services/insta_walk_accept_service.dart';
 import '../features/insta_walk/services/insta_walk_reject_service.dart';
 import '../features/insta_walk/services/insta_walk_request_service.dart';
