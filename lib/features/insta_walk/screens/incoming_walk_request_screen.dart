@@ -149,17 +149,19 @@ class _IncomingWalkRequestScreenState
       // --------------------------------------------------------
 
       _locationSubscription =
-          Geolocator.getPositionStream(
-        desiredAccuracy: LocationAccuracy.high,
-        distanceFilter: 5,
-      ).listen(
-        _updateWalkerLocation,
-        onError: (Object error) {
-          debugPrint(
-            'Location stream error: $error',
-          );
-        },
-      );
+    Geolocator.getPositionStream(
+  locationSettings: const LocationSettings(
+    accuracy: LocationAccuracy.high,
+    distanceFilter: 5,
+  ),
+).listen(
+  _updateWalkerLocation,
+  onError: (Object error) {
+    debugPrint(
+      'Location stream error: $error',
+    );
+  },
+);
     } catch (e) {
       debugPrint(
         'Incoming request location error: $e',
