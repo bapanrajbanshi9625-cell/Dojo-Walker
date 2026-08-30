@@ -284,5 +284,15 @@ class InstaWalkAcceptService {
         );
       },
     );
+
+    // ==========================================================
+    // ACCEPT SUCCESS → STOP REQUEST SOUND
+    //
+    // Transaction successfully complete hone ke baad hi
+    // ringtone stop hoga.
+    // ==========================================================
+
+    await WalkRequestSoundService.instance
+        .stopRequest(id);
   }
 }
