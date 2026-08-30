@@ -366,34 +366,36 @@ class LiveWalkController extends ChangeNotifier {
       // START FIRESTORE SESSION
       // --------------------------------------------------------
 
+      final String liveSessionId = cleanSessionId;
+      final String liveWalkId = walkId.trim();
+
+      if (liveSessionId.isEmpty) {
+        debugPrint(
+          'Live walk start failed: session ID is missing.',
+        );
+
+        _walkStarted = false;
+        return false;
+      }
+
+      if (liveWalkId.isEmpty) {
+        debugPrint(
+          'Live walk start failed: walk ID is missing.',
+        );
+
+        _walkStarted = false;
+        return false;
+      }
+
       await _sessionService.startWalk(
-        sessionId: cleanSessionId,
-        walkId: walkId,
-        ownerUid: ownerUid,
-        ownerName: ownerName,
-        dogName: dogName,
-        dogBreed: dogBreed,
+        sessionId: liveSessionId,
+        walkId: liveWalkId,
+        ownerUid: ownerUid.trim(),
+        ownerName: ownerName.trim(),
+        dogName: dogName.trim(),
+        dogBreed: dogBreed.trim(),
         walkerUid: walkerUid,
       );
-
-      _walkStarted = true;
-
-      _updateDistance();
-
-      return true;
-    } catch (e) {
-      debugPrint(
-        'Live walk start error: $e',
-      );
-
-      _walkStarted = false;
-
-      return false;
-    } finally {
-      _startingWalk = false;
-      _safeNotify();
-    }
-  }
 
   // ============================================================
   // ENSURE GPS LISTENER
