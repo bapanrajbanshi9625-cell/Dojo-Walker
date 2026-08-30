@@ -662,60 +662,54 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ============================================================
 
   Widget _buildLiveStats(
-    Map<String, dynamic> data,
-  ) {
-    final double distance =
-        _readDouble(
-              data['distanceKm'],
-            ) ??
-            _controller.totalDistanceKm;
+  Map<String, dynamic> data,
+) {
+  final double distance =
+      _readDouble(data['distanceKm']);
 
-    final int steps =
-        _readInt(
-              data['steps'],
-            ) ??
-            _controller.steps;
+  final int steps =
+      _readInt(data['steps']);
 
-    final String duration =
-        _readDuration(data);
+  final String duration =
+      _readDuration(data);
 
-    return Row(
-      children: [
-        Expanded(
-          child: _statCard(
-            Icons.route_rounded,
-            distance < 1
-                ? '${(distance * 1000).round()} m'
-                : '${distance.toStringAsFixed(2)} km',
-            'Distance',
-          ),
+  return Row(
+    children: [
+      Expanded(
+        child: _statCard(
+          Icons.route_rounded,
+          distance < 1
+              ? '${(distance * 1000).round()} m'
+              : '${distance.toStringAsFixed(2)} km',
+          'Distance',
         ),
+      ),
 
-        const SizedBox(
-          width: 10,
-        ),
+      const SizedBox(
+        width: 10,
+      ),
 
-        Expanded(
-          child: _statCard(
-            Icons.timer_rounded,
-            duration,
-            'Duration',
-          ),
+      Expanded(
+        child: _statCard(
+          Icons.timer_rounded,
+          duration,
+          'Duration',
         ),
+      ),
 
-        const SizedBox(
-          width: 10,
-        ),
+      const SizedBox(
+        width: 10,
+      ),
 
-        Expanded(
-          child: _statCard(
-            Icons.directions_walk_rounded,
-            steps.toString(),
-            'Steps',
-          ),
+      Expanded(
+        child: _statCard(
+          Icons.directions_walk_rounded,
+          steps.toString(),
+          'Steps',
         ),
-      ],
-    );
+      ),
+    ],
+  );
   }
 
   Widget _statCard(
