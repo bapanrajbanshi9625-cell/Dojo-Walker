@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/constants/app_colors.dart';
+
 import '../models/insta_walk_request.dart';
 import '../services/insta_walk_service.dart';
 import '../widgets/active_walk_bottom_sheet.dart';
