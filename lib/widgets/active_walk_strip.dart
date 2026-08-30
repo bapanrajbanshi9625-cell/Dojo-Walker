@@ -1,9 +1,10 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
-import '../core/services/app_state_service.dart';
 
 class ActiveWalkStrip extends StatefulWidget {
   const ActiveWalkStrip({
@@ -20,82 +21,304 @@ class ActiveWalkStrip extends StatefulWidget {
 
 class _ActiveWalkStripState
     extends State<ActiveWalkStrip> {
-  Timer? _timer;
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
+
+  StreamSubscription<
+          QuerySnapshot<Map<String, dynamic>>>?
+      _activeWalkSubscription;
+
+  StreamSubscription<
+          QuerySnapshot<Map<String, dynamic>>>?
+      _liveSessionSubscription;
+
+  bool _activeWalkFound = false;
+  bool _liveSessionFound = false;
+
+  bool _liveSessionCompleted = false;
+
+  String _activeWalkId = '';
+  String _sessionWalkId = '';
 
   @override
   void initState() {
     super.initState();
+    _listenToActiveWalks();
+    _listenToLiveSessions();
+  }
 
-    _timer = Timer.periodic(
-      const Duration(seconds: 2),
-      (_) {
-        if (mounted) {
-          setState(() {});
-        }
+  // ============================================================
+  // CURRENT WALKER UID
+  // ============================================================
+
+  String get _walkerUid {
+    return _auth.currentUser?.uid.trim() ?? '';
+  }
+
+  // ============================================================
+  // ACTIVE WALKS
+  // ============================================================
+
+  void _listenToActiveWalks() {
+    final String uid = _walkerUid;
+
+    if (uid.isEmpty) {
+      return;
+    }
+
+    _activeWalkSubscription =
+        _firestore
+            .collection('active_walks')
+            .where(
+              'walkerUid',
+              isEqualTo: uid,
+            )
+            .snapshots()
+            .listen(
+      _handleActiveWalks,
+      onError: (Object error) {
+        debugPrint(
+          'ActiveWalkStrip active_walks error: $error',
+        );
       },
     );
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+  // ============================================================
+  // LIVE SESSIONS
+  // ============================================================
+
+  void _listenToLiveSessions() {
+    final String uid = _walkerUid;
+
+    if (uid.isEmpty) {
+      return;
+    }
+
+    _liveSessionSubscription =
+        _firestore
+            .collection('liveWalkSessions')
+            .where(
+              'walkerUid',
+              isEqualTo: uid,
+            )
+            .snapshots()
+            .listen(
+      _handleLiveSessions,
+      onError: (Object error) {
+        debugPrint(
+          'ActiveWalkStrip liveWalkSessions error: $error',
+        );
+      },
+    );
   }
 
+  // ============================================================
+  // ACTIVE WALK DATA
+  // ============================================================
+
+  void _handleActiveWalks(
+    QuerySnapshot<Map<String, dynamic>>
+        snapshot,
+  ) {
+    bool found = false;
+    String foundWalkId = '';
+
+    for (final QueryDocumentSnapshot<
+            Map<String, dynamic>>
+        doc in snapshot.docs) {
+      final Map<String, dynamic>
+          data =
+          doc.data();
+
+      final String status =
+          _status(data['status']);
+
+      final String walkId =
+          _string(
+        data['walkId'],
+      );
+
+      final bool activeStatus =
+          status == 'ACCEPTED' ||
+          status == 'ACTIVE' ||
+          status == 'ON_THE_WAY';
+
+      final bool endedStatus =
+          status == 'COMPLETED' ||
+          status == 'ENDED' ||
+          status == 'CANCELLED';
+
+      if (activeStatus &&
+          !endedStatus) {
+        found = true;
+        foundWalkId =
+            walkId.isNotEmpty
+                ? walkId
+                : doc.id;
+
+        break;
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _activeWalkFound = found;
+      _activeWalkId = foundWalkId;
+    });
+  }
+
+  // ============================================================
+  // LIVE SESSION DATA
+  // ============================================================
+
+  void _handleLiveSessions(
+    QuerySnapshot<Map<String, dynamic>>
+        snapshot,
+  ) {
+    bool found = false;
+    bool completed = false;
+    String foundWalkId = '';
+
+    for (final QueryDocumentSnapshot<
+            Map<String, dynamic>>
+        doc in snapshot.docs) {
+      final Map<String, dynamic>
+          data =
+          doc.data();
+
+      final String status =
+          _status(data['status']);
+
+      final String walkId =
+          _string(
+        data['walkId'],
+      );
+
+      final bool isCompleted =
+          status == 'COMPLETED' ||
+          status == 'ENDED' ||
+          status == 'CANCELLED';
+
+      if (isCompleted) {
+        completed = true;
+        continue;
+      }
+
+      final bool isLive =
+          status == 'ACTIVE' ||
+          status == 'STARTED' ||
+          status == 'LIVE';
+
+      if (isLive) {
+        found = true;
+        foundWalkId = walkId;
+        break;
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _liveSessionFound = found;
+      _liveSessionCompleted = completed;
+      _sessionWalkId = foundWalkId;
+    });
+  }
+
+  // ============================================================
+  // VISIBILITY
+  // ============================================================
+
+  bool get _shouldShow {
+    // ----------------------------------------------------------
+    // अगर live session explicitly completed है,
+    // strip hide रहेगा.
+    // ----------------------------------------------------------
+
+    if (_liveSessionCompleted &&
+        !_liveSessionFound) {
+      return false;
+    }
+
+    // ----------------------------------------------------------
+    // LIVE SESSION ACTIVE
+    // ----------------------------------------------------------
+
+    if (_liveSessionFound) {
+      return true;
+    }
+
+    // ----------------------------------------------------------
+    // ACTIVE WALK
+    // ----------------------------------------------------------
+
+    if (_activeWalkFound) {
+      return true;
+    }
+
+    return false;
+  }
+
+  // ============================================================
+  // LIVE LABEL
+  // ============================================================
+
+  bool get _isLive {
+    return _liveSessionFound;
+  }
+
+  // ============================================================
+  // TAP
+  // ============================================================
+
+  void _handleTap() {
+    if (!_shouldShow) {
+      return;
+    }
+
+    widget.onTap();
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
   @override
-  Widget build(BuildContext context) {
-    final AppStateService state =
-        AppStateService.instance;
-
-    final Map<String, dynamic>? walkData =
-        state.activeWalkData;
-
-    final Map<String, dynamic>? sessionData =
-        state.activeSessionData;
-
-    if (!state.hasActiveWalk ||
-        walkData == null ||
-        walkData.isEmpty) {
+  Widget build(
+    BuildContext context,
+  ) {
+    if (!_shouldShow) {
       return const SizedBox.shrink();
     }
-
-    final String walkStatus =
-        _status(walkData['status']);
-
-    final String sessionStatus =
-        _status(sessionData?['status']);
-
-    final bool isVisible =
-        walkStatus == 'ACCEPTED' ||
-        walkStatus == 'ACTIVE' ||
-        sessionStatus == 'ACTIVE' ||
-        sessionStatus == 'LIVE' ||
-        sessionStatus == 'STARTED';
-
-    if (!isVisible) {
-      return const SizedBox.shrink();
-    }
-
-    final bool isLive =
-        sessionStatus == 'LIVE' ||
-        sessionStatus == 'STARTED';
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: widget.onTap,
+        onTap: _handleTap,
         child: Container(
           width: double.infinity,
           height: 46,
-          margin: EdgeInsets.zero,
-          padding: const EdgeInsets.symmetric(
+          padding:
+              const EdgeInsets.symmetric(
             horizontal: 14,
           ),
-          decoration: BoxDecoration(
+          decoration:
+              const BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: const [
+              begin:
+                  Alignment.centerLeft,
+              end:
+                  Alignment.centerRight,
+              colors: <Color>[
                 AppColors.primary,
                 AppColors.secondary,
               ],
@@ -104,7 +327,7 @@ class _ActiveWalkStripState
           child: Row(
             children: [
               Icon(
-                isLive
+                _isLive
                     ? Icons
                         .location_on_rounded
                     : Icons
@@ -113,17 +336,20 @@ class _ActiveWalkStripState
                 size: 21,
               ),
 
-              const SizedBox(width: 9),
+              const SizedBox(
+                width: 9,
+              ),
 
               Expanded(
                 child: Text(
-                  isLive
+                  _isLive
                       ? 'LIVE WALK'
                       : 'ACTIVE WALK',
                   maxLines: 1,
                   overflow:
                       TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style:
+                      const TextStyle(
                     color: Colors.white,
                     fontSize: 13,
                     fontWeight:
@@ -146,11 +372,37 @@ class _ActiveWalkStripState
     );
   }
 
+  // ============================================================
+  // HELPERS
+  // ============================================================
+
   String _status(dynamic value) {
     return value
             ?.toString()
             .trim()
             .toUpperCase() ??
         '';
+  }
+
+  String _string(dynamic value) {
+    return value
+            ?.toString()
+            .trim() ??
+        '';
+  }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
+
+  @override
+  void dispose() {
+    _activeWalkSubscription
+        ?.cancel();
+
+    _liveSessionSubscription
+        ?.cancel();
+
+    super.dispose();
   }
 }
