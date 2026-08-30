@@ -37,15 +37,13 @@ class LiveWalkScreen extends StatefulWidget {
       _LiveWalkScreenState();
 }
 
-class _LiveWalkScreenState
-    extends State<LiveWalkScreen> {
+class _LiveWalkScreenState extends State<LiveWalkScreen> {
   late final LiveWalkSessionController _controller;
 
   bool _showingEndDialog = false;
   bool _showingReview = false;
 
-  Map<String, dynamic> _lastSessionData =
-      <String, dynamic>{};
+  Map<String, dynamic> _lastSessionData = <String, dynamic>{};
 
   @override
   void initState() {
@@ -61,9 +59,7 @@ class _LiveWalkScreenState
       sessionId: widget.sessionId,
     );
 
-    _controller.addListener(
-      _onControllerChanged,
-    );
+    _controller.addListener(_onControllerChanged);
 
     unawaited(
       _controller.initialize(),
@@ -103,15 +99,12 @@ class _LiveWalkScreenState
           _lastSessionData =
               Map<String, dynamic>.from(data);
 
-          WidgetsBinding.instance
-              .addPostFrameCallback((_) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) {
               return;
             }
 
-            _controller.updateFromSession(
-              data,
-            );
+            _controller.updateFromSession(data);
           });
         }
 
@@ -205,9 +198,7 @@ class _LiveWalkScreenState
                     ),
                     child: ClipRRect(
                       borderRadius:
-                          BorderRadius.circular(
-                        20,
-                      ),
+                          BorderRadius.circular(20),
                       child: SizedBox(
                         height: 340,
                         child: Stack(
@@ -218,8 +209,7 @@ class _LiveWalkScreenState
                                 sessionData:
                                     sessionData,
                                 gpsReady:
-                                    _controller
-                                        .gpsReady,
+                                    _controller.gpsReady,
                               ),
                             ),
 
@@ -294,9 +284,7 @@ class _LiveWalkScreenState
                             height: 14,
                           ),
 
-                          _buildWalkInfo(
-                            sessionData,
-                          ),
+                          _buildWalkInfo(),
 
                           const SizedBox(
                             height: 18,
@@ -356,8 +344,7 @@ class _LiveWalkScreenState
             decoration:
                 BoxDecoration(
               color:
-                  AppColors.primary
-                      .withValues(
+                  AppColors.primary.withValues(
                 alpha: .10,
               ),
               shape:
@@ -381,9 +368,7 @@ class _LiveWalkScreenState
                   CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.dogName
-                          .trim()
-                          .isEmpty
+                  widget.dogName.trim().isEmpty
                       ? 'Dog'
                       : widget.dogName,
                   style:
@@ -425,9 +410,7 @@ class _LiveWalkScreenState
                 height: 3,
               ),
               Text(
-                widget.ownerName
-                        .trim()
-                        .isEmpty
+                widget.ownerName.trim().isEmpty
                     ? 'Owner'
                     : widget.ownerName,
                 style:
@@ -480,8 +463,7 @@ class _LiveWalkScreenState
                 decoration:
                     BoxDecoration(
                   color:
-                      AppColors.primary
-                          .withValues(
+                      AppColors.primary.withValues(
                     alpha: .10,
                   ),
                   shape:
@@ -540,7 +522,8 @@ class _LiveWalkScreenState
             height: 58,
             child: ElevatedButton(
               onPressed:
-                  starting || _controller.ending
+                  starting ||
+                          _controller.ending
                       ? null
                       : _startWalk,
               style:
@@ -557,9 +540,7 @@ class _LiveWalkScreenState
                 shape:
                     RoundedRectangleBorder(
                   borderRadius:
-                      BorderRadius.circular(
-                    16,
-                  ),
+                      BorderRadius.circular(16),
                 ),
               ),
               child: starting
@@ -581,8 +562,7 @@ class _LiveWalkScreenState
                           MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons
-                              .play_arrow_rounded,
+                          Icons.play_arrow_rounded,
                           size: 25,
                         ),
                         SizedBox(
@@ -710,9 +690,11 @@ class _LiveWalkScreenState
             'Distance',
           ),
         ),
+
         const SizedBox(
           width: 10,
         ),
+
         Expanded(
           child: _statCard(
             Icons.timer_rounded,
@@ -720,9 +702,11 @@ class _LiveWalkScreenState
             'Duration',
           ),
         ),
+
         const SizedBox(
           width: 10,
         ),
+
         Expanded(
           child: _statCard(
             Icons.directions_walk_rounded,
@@ -802,9 +786,7 @@ class _LiveWalkScreenState
   // WALK INFO
   // ============================================================
 
-  Widget _buildWalkInfo(
-    Map<String, dynamic> data,
-  ) {
+  Widget _buildWalkInfo() {
     return Container(
       padding:
           const EdgeInsets.all(15),
@@ -827,12 +809,15 @@ class _LiveWalkScreenState
             'Owner',
             widget.ownerName,
           ),
+
           _infoDivider(),
+
           _infoRow(
             Icons.pets_rounded,
             'Dog',
             widget.dogName,
           ),
+
           if (widget.dogBreed
               .trim()
               .isNotEmpty) ...[
@@ -843,6 +828,7 @@ class _LiveWalkScreenState
               widget.dogBreed,
             ),
           ],
+
           if (widget.ownerPhone
                   ?.trim()
                   .isNotEmpty ==
@@ -949,8 +935,7 @@ class _LiveWalkScreenState
             decoration:
                 BoxDecoration(
               color:
-                  AppColors.primary
-                      .withValues(
+                  AppColors.primary.withValues(
                 alpha: .10,
               ),
               shape:
@@ -1002,10 +987,6 @@ class _LiveWalkScreenState
           const SizedBox(
             height: 18,
           ),
-
-          // =====================================================
-          // PREMIUM COMPLETE SLIDER
-          // =====================================================
 
           LiveWalkCompleteSlider(
             enabled:
@@ -1122,9 +1103,7 @@ class _LiveWalkScreenState
           shape:
               RoundedRectangleBorder(
             borderRadius:
-                BorderRadius.circular(
-              20,
-            ),
+                BorderRadius.circular(20),
           ),
           title: const Text(
             'Complete Walk?',
@@ -1163,6 +1142,7 @@ class _LiveWalkScreenState
                 ),
               ),
             ),
+
             ElevatedButton(
               onPressed: () {
                 Navigator.of(
@@ -1183,9 +1163,7 @@ class _LiveWalkScreenState
                 shape:
                     RoundedRectangleBorder(
                   borderRadius:
-                      BorderRadius.circular(
-                    12,
-                  ),
+                      BorderRadius.circular(12),
                 ),
               ),
               child: const Text(
@@ -1470,23 +1448,25 @@ class _LiveWalkScreenState
                     color:
                         AppColors.border,
                     borderRadius:
-                        BorderRadius.circular(
-                      10,
-                    ),
+                        BorderRadius.circular(10),
                   ),
                 ),
+
                 const SizedBox(
                   height: 18,
                 ),
+
                 const Icon(
                   Icons.support_agent_rounded,
                   color:
                       AppColors.primary,
                   size: 38,
                 ),
+
                 const SizedBox(
                   height: 10,
                 ),
+
                 const Text(
                   'Walk Support',
                   style:
@@ -1498,9 +1478,11 @@ class _LiveWalkScreenState
                         FontWeight.w900,
                   ),
                 ),
+
                 const SizedBox(
                   height: 6,
                 ),
+
                 const Text(
                   'Need help during this walk?',
                   textAlign:
@@ -1511,9 +1493,11 @@ class _LiveWalkScreenState
                     fontSize: 12,
                   ),
                 ),
+
                 const SizedBox(
                   height: 18,
                 ),
+
                 SizedBox(
                   width:
                       double.infinity,
@@ -1530,8 +1514,7 @@ class _LiveWalkScreenState
                       );
                     },
                     icon: const Icon(
-                      Icons
-                          .support_agent_rounded,
+                      Icons.support_agent_rounded,
                     ),
                     label: const Text(
                       'Contact Support',
@@ -1546,9 +1529,7 @@ class _LiveWalkScreenState
                       shape:
                           RoundedRectangleBorder(
                         borderRadius:
-                            BorderRadius.circular(
-                          14,
-                        ),
+                            BorderRadius.circular(14),
                       ),
                     ),
                   ),
@@ -1762,9 +1743,7 @@ class _LiveWalkScreenState
           behavior:
               SnackBarBehavior.floating,
           duration:
-              const Duration(
-            seconds: 2,
-          ),
+              const Duration(seconds: 2),
         ),
       );
   }
@@ -1830,23 +1809,25 @@ class _SosSheet extends StatelessWidget {
                 color:
                     AppColors.border,
                 borderRadius:
-                    BorderRadius.circular(
-                  10,
-                ),
+                    BorderRadius.circular(10),
               ),
             ),
+
             const SizedBox(
               height: 18,
             ),
+
             const Icon(
               Icons.sos_rounded,
               color:
                   AppColors.error,
               size: 48,
             ),
+
             const SizedBox(
               height: 10,
             ),
+
             const Text(
               'Emergency SOS',
               style:
@@ -1858,9 +1839,11 @@ class _SosSheet extends StatelessWidget {
                     FontWeight.w900,
               ),
             ),
+
             const SizedBox(
               height: 6,
             ),
+
             Text(
               ownerName.trim().isEmpty
                   ? 'Emergency assistance'
@@ -1873,9 +1856,11 @@ class _SosSheet extends StatelessWidget {
                 fontSize: 12,
               ),
             ),
+
             const SizedBox(
               height: 18,
             ),
+
             SizedBox(
               width:
                   double.infinity,
@@ -1903,9 +1888,7 @@ class _SosSheet extends StatelessWidget {
                   shape:
                       RoundedRectangleBorder(
                     borderRadius:
-                        BorderRadius.circular(
-                      14,
-                    ),
+                        BorderRadius.circular(14),
                   ),
                 ),
               ),
