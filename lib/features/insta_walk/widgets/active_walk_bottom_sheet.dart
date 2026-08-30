@@ -102,7 +102,7 @@ class ActiveWalkBottomSheet extends StatelessWidget {
           const SizedBox(height: 12),
 
           // ======================================================
-          // DOG HEADER
+          // DOG
           // ======================================================
 
           ActiveWalkDogHeader(
@@ -125,7 +125,7 @@ class ActiveWalkBottomSheet extends StatelessWidget {
           const SizedBox(height: 10),
 
           // ======================================================
-          // ADDRESS
+          // PICKUP / DESTINATION
           // ======================================================
 
           Row(
@@ -137,12 +137,14 @@ class ActiveWalkBottomSheet extends StatelessWidget {
                   value: _pickupText,
                 ),
               ),
+
               const SizedBox(width: 8),
+
               Expanded(
                 child: ActiveWalkAddressCard(
                   icon: Icons.flag_rounded,
                   title: 'DESTINATION',
-                  value: 'Destination location',
+                  value: _destinationText,
                 ),
               ),
             ],
@@ -156,20 +158,40 @@ class ActiveWalkBottomSheet extends StatelessWidget {
 
           Row(
             children: [
+              // --------------------------------------------------
+              // DISTANCE
+              // --------------------------------------------------
+
               Expanded(
                 child: ActiveWalkStatCard(
                   value: _distanceText,
-                  title: 'Distance',
+                  title: reached
+                      ? 'Distance'
+                      : 'To Owner',
                 ),
               ),
+
               const SizedBox(width: 7),
+
+              // --------------------------------------------------
+              // ETA
+              // --------------------------------------------------
+
               Expanded(
                 child: ActiveWalkStatCard(
-                  value: _durationText,
-                  title: reached ? 'Status' : 'ETA',
+                  value: _etaText,
+                  title: reached
+                      ? 'Status'
+                      : 'ETA',
                 ),
               ),
+
               const SizedBox(width: 7),
+
+              // --------------------------------------------------
+              // STEPS
+              // --------------------------------------------------
+
               Expanded(
                 child: ActiveWalkStatCard(
                   value: '$steps',
@@ -216,7 +238,7 @@ class ActiveWalkBottomSheet extends StatelessWidget {
           const SizedBox(height: 10),
 
           // ======================================================
-          // REACH OWNER
+          // STEP 1 — REACH OWNER
           // ======================================================
 
           if (!reached)
@@ -226,11 +248,12 @@ class ActiveWalkBottomSheet extends StatelessWidget {
             ),
 
           // ======================================================
-          // AFTER REACH
+          // STEP 2 — OWNER REACHED
           //
-          // Start Walk intentionally removed.
+          // IMPORTANT:
+          // Start Walk button yahan intentionally nahi hai.
           //
-          // Start Walk will be handled by the Live Walk screen.
+          // Reach ke baad Live Walk screen par Start Walk hoga.
           // ======================================================
 
           if (reached)
@@ -307,7 +330,9 @@ class ActiveWalkBottomSheet extends StatelessWidget {
                       letterSpacing: .4,
                     ),
                   ),
+
                   const SizedBox(height: 2),
+
                   Text(
                     '$_ownerNameText • $_dogNameText',
                     maxLines: 1,
@@ -379,21 +404,21 @@ class ActiveWalkBottomSheet extends StatelessWidget {
     );
 
     try {
-      final bool available =
-          await canLaunchUrl(uri);
-
-      if (!available) {
-        onMessage(
-          'Unable to open phone dialer.',
-        );
-        return;
-      }
-
-      await launchUrl(
+      final bool launched = await launchUrl(
         uri,
         mode: LaunchMode.externalApplication,
       );
-    } catch (_) {
+
+      if (!launched) {
+        onMessage(
+          'Unable to open phone dialer.',
+        );
+      }
+    } catch (e) {
+      debugPrint(
+        'Call owner error: $e',
+      );
+
       onMessage(
         'Unable to call owner.',
       );
@@ -427,7 +452,10 @@ class ActiveWalkBottomSheet extends StatelessWidget {
   }
 
   // ============================================================
-  // PICKUP ADDRESS
+  // PICKUP
+  //
+  // This is the OWNER REQUEST LOCATION.
+  // It must remain fixed.
   // ============================================================
 
   String get _pickupText {
@@ -441,47 +469,121 @@ class ActiveWalkBottomSheet extends StatelessWidget {
     final String address =
         request.address.trim();
 
-    return address.isEmpty
-        ? 'Pickup address not available'
-        : address;
+    if (address.isNotEmpty) {
+      return address;
+    }
+
+    return _ownerCoordinatesText;
+  }
+
+  // ============================================================
+  // DESTINATION
+  // ============================================================
+
+  String get _destinationText {
+    final double? latitude =
+        request.latitude;
+
+    final double? longitude =
+        request.longitude;
+
+    if (latitude != null &&
+        longitude != null &&
+        latitude != 0 &&
+        longitude != 0) {
+      return '${latitude.toStringAsFixed(5)}, '
+          '${longitude.toStringAsFixed(5)}';
+    }
+
+    return 'Destination not available';
+  }
+
+  // ============================================================
+  // OWNER COORDINATES FALLBACK
+  // ============================================================
+
+  String get _ownerCoordinatesText {
+    final double? latitude =
+        request.latitude;
+
+    final double? longitude =
+        request.longitude;
+
+    if (latitude == null ||
+        longitude == null) {
+      return 'Pickup location not available';
+    }
+
+    if (latitude == 0 ||
+        longitude == 0) {
+      return 'Pickup location not available';
+    }
+
+    return '${latitude.toStringAsFixed(5)}, '
+        '${longitude.toStringAsFixed(5)}';
   }
 
   // ============================================================
   // DISTANCE
   //
-  // This is supplied by ActiveWalkDetailsScreen.
-  // It should be calculated from:
+  // distanceKm MUST come from:
   //
-  // LIVE WALKER LOCATION
+  // WALKER LIVE LOCATION
   //          ↓
   // FIXED OWNER REQUEST LOCATION
   //
+  // It should NOT use the current owner's moving location.
   // ============================================================
 
   String get _distanceText {
+    if (reached) {
+      return _formatDistance(distanceKm);
+    }
+
     if (distanceKm <= 0) {
       return '--';
     }
 
-    if (distanceKm < 1) {
+    return _formatDistance(distanceKm);
+  }
+
+  // ============================================================
+  // DISTANCE FORMAT
+  // ============================================================
+
+  String _formatDistance(double km) {
+    if (km <= 0) {
+      return '--';
+    }
+
+    if (km < 1) {
       final int meters =
-          (distanceKm * 1000).round();
+          (km * 1000).round();
+
+      if (meters <= 0) {
+        return '<1 m';
+      }
 
       return '$meters m';
     }
 
-    return '${distanceKm.toStringAsFixed(1)} km';
+    if (km < 10) {
+      return '${km.toStringAsFixed(1)} km';
+    }
+
+    return '${km.toStringAsFixed(0)} km';
   }
 
   // ============================================================
   // ETA
   //
-  // Average walking speed ≈ 5 km/h.
+  // ETA = current distance to fixed owner location.
   //
-  // This is estimated time to reach the owner.
+  // Approximate walking speed:
+  // 5 km/h
   // ============================================================
 
-  String get _durationText {
+  String get _etaText {
     if (reached) {
       return 'Reached';
     }
@@ -490,34 +592,37 @@ class ActiveWalkBottomSheet extends StatelessWidget {
       return '--';
     }
 
-    const double walkingSpeedKmPerHour = 5.0;
+    const double walkingSpeedKmPerHour =
+        5.0;
 
-    final double hours =
-        distanceKm /
-            walkingSpeedKmPerHour;
+    final double minutes =
+        (distanceKm /
+                walkingSpeedKmPerHour) *
+            60;
 
-    final int minutes =
-        (hours * 60).ceil();
+    final int roundedMinutes =
+        minutes.ceil();
 
-    if (minutes <= 1) {
+    if (roundedMinutes <= 1) {
       return '<1 min';
     }
 
-    if (minutes < 60) {
-      return '~$minutes min';
+    if (roundedMinutes < 60) {
+      return '~$roundedMinutes min';
     }
 
-    final int hoursPart =
-        minutes ~/ 60;
+    final int hours =
+        roundedMinutes ~/ 60;
 
-    final int minutesPart =
-        minutes % 60;
+    final int remainingMinutes =
+        roundedMinutes % 60;
 
-    if (minutesPart == 0) {
-      return '~${hoursPart}h';
+    if (remainingMinutes == 0) {
+      return '~${hours}h';
     }
 
-    return '~${hoursPart}h ${minutesPart}m';
+    return '~${hours}h '
+        '${remainingMinutes}m';
   }
 
   // ============================================================
@@ -526,7 +631,7 @@ class ActiveWalkBottomSheet extends StatelessWidget {
 
   String get _walkStatusText {
     if (reached) {
-      return 'Ready';
+      return 'Reached';
     }
 
     switch (
