@@ -39,6 +39,7 @@ class _LiveWalkReviewBottomSheetState
       TextEditingController();
 
   bool _submitting = false;
+  bool _finished = false;
 
   @override
   void dispose() {
@@ -47,11 +48,13 @@ class _LiveWalkReviewBottomSheetState
   }
 
   // ============================================================
-  // SUBMIT
+  // SUBMIT REVIEW
   // ============================================================
 
   Future<void> _submitReview() async {
-    if (_rating == 0 || _submitting) {
+    if (_rating == 0 ||
+        _submitting ||
+        _finished) {
       return;
     }
 
@@ -62,13 +65,13 @@ class _LiveWalkReviewBottomSheetState
     // ----------------------------------------------------------
     // REVIEW BACKEND
     //
-    // अभी review Firestore में save नहीं किया जा रहा।
-    // बाद में यहाँ review service connect कर सकते हैं।
+    // Intentionally no Firestore write here.
+    // Review backend can be connected later.
     // ----------------------------------------------------------
 
     await Future<void>.delayed(
       const Duration(
-        milliseconds: 300,
+        milliseconds: 350,
       ),
     );
 
@@ -78,19 +81,16 @@ class _LiveWalkReviewBottomSheetState
 
     setState(() {
       _submitting = false;
+      _finished = true;
     });
 
-    Navigator.of(context).pop();
+    await Future<void>.delayed(
+      const Duration(
+        milliseconds: 250,
+      ),
+    );
 
-    widget.onBackToHome();
-  }
-
-  // ============================================================
-  // SKIP
-  // ============================================================
-
-  void _skipReview() {
-    if (_submitting) {
+    if (!mounted) {
       return;
     }
 
@@ -99,8 +99,37 @@ class _LiveWalkReviewBottomSheetState
     widget.onBackToHome();
   }
 
+  // ============================================================
+  // SKIP REVIEW
+  // ============================================================
+
+  void _skipReview() {
+    if (_submitting ||
+        _finished) {
+      return;
+    }
+
+    _finished = true;
+
+    Navigator.of(context).pop();
+
+    widget.onBackToHome();
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
+    final String cleanDogName =
+        widget.dogName.trim();
+
+    final String subtitle =
+        cleanDogName.isEmpty
+            ? 'Great job! Your walk is complete.'
+            : '$cleanDogName\'s walk is complete.';
+
     return SafeArea(
       child: Container(
         width: double.infinity,
@@ -137,7 +166,7 @@ class _LiveWalkReviewBottomSheetState
               const SizedBox(height: 16),
 
               // ==================================================
-              // SUCCESS
+              // SUCCESS ICON
               // ==================================================
 
               Container(
@@ -172,9 +201,7 @@ class _LiveWalkReviewBottomSheetState
               const SizedBox(height: 4),
 
               Text(
-                widget.dogName.trim().isEmpty
-                    ? 'Great job! Your walk is complete.'
-                    : '${widget.dogName}\'s walk is complete.',
+                subtitle,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.grey,
@@ -186,7 +213,7 @@ class _LiveWalkReviewBottomSheetState
               const SizedBox(height: 16),
 
               // ==================================================
-              // ROUTE
+              // ROUTE PREVIEW
               // ==================================================
 
               Container(
@@ -244,13 +271,13 @@ class _LiveWalkReviewBottomSheetState
               const SizedBox(height: 14),
 
               // ==================================================
-              // STATS
+              // WALK STATS
               // ==================================================
 
               Row(
                 children: [
                   Expanded(
-                    child: _stat(
+                    child: _Stat(
                       value:
                           '${widget.distanceKm.toStringAsFixed(2)} km',
                       title: 'DISTANCE',
@@ -262,7 +289,7 @@ class _LiveWalkReviewBottomSheetState
                   const SizedBox(width: 8),
 
                   Expanded(
-                    child: _stat(
+                    child: _Stat(
                       value: widget.duration,
                       title: 'TIME',
                       icon:
@@ -273,7 +300,7 @@ class _LiveWalkReviewBottomSheetState
                   const SizedBox(width: 8),
 
                   Expanded(
-                    child: _stat(
+                    child: _Stat(
                       value:
                           '${widget.steps}',
                       title: 'STEPS',
@@ -318,9 +345,13 @@ class _LiveWalkReviewBottomSheetState
                     final int star =
                         index + 1;
 
+                    final bool selected =
+                        star <= _rating;
+
                     return IconButton(
                       onPressed:
-                          _submitting
+                          _submitting ||
+                                  _finished
                               ? null
                               : () {
                                   setState(() {
@@ -330,17 +361,14 @@ class _LiveWalkReviewBottomSheetState
                                 },
                       splashRadius: 24,
                       icon: Icon(
-                        star <= _rating
+                        selected
                             ? Icons.star_rounded
                             : Icons
                                 .star_border_rounded,
                         size: 37,
-                        color:
-                            star <= _rating
-                                ? AppColors
-                                    .primary
-                                : AppColors
-                                    .border,
+                        color: selected
+                            ? AppColors.primary
+                            : AppColors.border,
                       ),
                     );
                   },
@@ -350,13 +378,15 @@ class _LiveWalkReviewBottomSheetState
               const SizedBox(height: 6),
 
               // ==================================================
-              // REVIEW
+              // OPTIONAL REVIEW
               // ==================================================
 
               TextField(
                 controller:
                     _reviewController,
-                enabled: !_submitting,
+                enabled:
+                    !_submitting &&
+                    !_finished,
                 maxLines: 3,
                 maxLength: 300,
                 textInputAction:
@@ -438,7 +468,8 @@ class _LiveWalkReviewBottomSheetState
                 child: ElevatedButton(
                   onPressed:
                       _rating == 0 ||
-                              _submitting
+                              _submitting ||
+                              _finished
                           ? null
                           : _submitReview,
                   style:
@@ -492,7 +523,8 @@ class _LiveWalkReviewBottomSheetState
 
               TextButton(
                 onPressed:
-                    _submitting
+                    _submitting ||
+                            _finished
                         ? null
                         : _skipReview,
                 child: const Text(
@@ -510,16 +542,27 @@ class _LiveWalkReviewBottomSheetState
       ),
     );
   }
+}
 
-  // ============================================================
-  // STAT
-  // ============================================================
+// ============================================================
+// STAT
+// ============================================================
 
-  Widget _stat({
-    required String value,
-    required String title,
-    required IconData icon,
-  }) {
+class _Stat extends StatelessWidget {
+  const _Stat({
+    required this.value,
+    required this.title,
+    required this.icon,
+  });
+
+  final String value;
+  final String title;
+  final IconData icon;
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
     return Container(
       padding:
           const EdgeInsets.symmetric(
@@ -633,13 +676,17 @@ class _RoutePainter extends CustomPainter {
 
     const double padding = 20;
 
+    final double availableWidth =
+        size.width - padding * 2;
+
+    final double availableHeight =
+        size.height - padding * 2;
+
     final double scaleX =
-        (size.width - padding * 2) /
-            rangeX;
+        availableWidth / rangeX;
 
     final double scaleY =
-        (size.height - padding * 2) /
-            rangeY;
+        availableHeight / rangeY;
 
     final double scale =
         scaleX < scaleY
@@ -657,17 +704,12 @@ class _RoutePainter extends CustomPainter {
       );
     }
 
-    final Paint routePaint =
-        Paint()
-          ..color =
-              AppColors.primary
-          ..style =
-              PaintingStyle.stroke
-          ..strokeWidth = 5
-          ..strokeCap =
-              StrokeCap.round
-          ..strokeJoin =
-              StrokeJoin.round;
+    final Paint routePaint = Paint()
+      ..color = AppColors.primary
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
     final Path path = Path();
 
@@ -696,27 +738,31 @@ class _RoutePainter extends CustomPainter {
       routePaint,
     );
 
-    final Paint startPaint =
-        Paint()
-          ..color =
-              AppColors.success;
+    // ----------------------------------------------------------
+    // START
+    // ----------------------------------------------------------
 
-    final Paint endPaint =
-        Paint()
-          ..color =
-              AppColors.error;
+    final Paint startPaint = Paint()
+      ..color = AppColors.success;
 
     final Offset start =
         convert(points.first);
-
-    final Offset end =
-        convert(points.last);
 
     canvas.drawCircle(
       start,
       7,
       startPaint,
     );
+
+    // ----------------------------------------------------------
+    // END
+    // ----------------------------------------------------------
+
+    final Paint endPaint = Paint()
+      ..color = AppColors.error;
+
+    final Offset end =
+        convert(points.last);
 
     canvas.drawCircle(
       end,
@@ -729,7 +775,6 @@ class _RoutePainter extends CustomPainter {
   bool shouldRepaint(
     covariant _RoutePainter oldDelegate,
   ) {
-    return oldDelegate.points !=
-        points;
+    return oldDelegate.points != points;
   }
 }
