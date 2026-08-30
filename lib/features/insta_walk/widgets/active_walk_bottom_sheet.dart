@@ -10,7 +10,6 @@ import 'active_walk_live_status.dart';
 import 'active_walk_owner_note.dart';
 import 'active_walk_reach_slider.dart';
 import 'active_walk_stat_card.dart';
-import 'active_walk_start_panel.dart';
 
 class ActiveWalkBottomSheet extends StatelessWidget {
   final ScrollController controller;
@@ -27,7 +26,6 @@ class ActiveWalkBottomSheet extends StatelessWidget {
   final VoidCallback onExpand;
   final VoidCallback onToggleSheet;
   final VoidCallback onReached;
-  final VoidCallback onStarted;
 
   final void Function(String message) onMessage;
 
@@ -44,25 +42,22 @@ class ActiveWalkBottomSheet extends StatelessWidget {
     required this.onExpand,
     required this.onToggleSheet,
     required this.onReached,
-    required this.onStarted,
     required this.onMessage,
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
-        borderRadius:
-            const BorderRadius.vertical(
+        borderRadius: const BorderRadius.vertical(
           top: Radius.circular(30),
         ),
         boxShadow: [
           BoxShadow(
-            color:
-                AppColors.overlay.withOpacity(.16),
+            color: AppColors.overlay.withValues(
+              alpha: .16,
+            ),
             blurRadius: 25,
             offset: const Offset(0, -7),
           ),
@@ -70,27 +65,27 @@ class ActiveWalkBottomSheet extends StatelessWidget {
       ),
       child: ListView(
         controller: controller,
-        physics:
-            const ClampingScrollPhysics(),
-        padding:
-            const EdgeInsets.fromLTRB(
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(
           18,
           9,
           18,
           20,
         ),
         children: [
+          // ======================================================
+          // DRAG HANDLE
+          // ======================================================
+
           GestureDetector(
             onTap: onToggleSheet,
             child: Center(
               child: Container(
                 width: 48,
                 height: 5,
-                decoration:
-                    BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.border,
-                  borderRadius:
-                      BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(20),
                 ),
               ),
             ),
@@ -98,9 +93,17 @@ class ActiveWalkBottomSheet extends StatelessWidget {
 
           const SizedBox(height: 13),
 
+          // ======================================================
+          // HEADER
+          // ======================================================
+
           _activeWalkHeader(),
 
           const SizedBox(height: 12),
+
+          // ======================================================
+          // DOG HEADER
+          // ======================================================
 
           ActiveWalkDogHeader(
             request: request,
@@ -109,20 +112,27 @@ class ActiveWalkBottomSheet extends StatelessWidget {
 
           const SizedBox(height: 10),
 
+          // ======================================================
+          // LIVE STATUS
+          // ======================================================
+
           ActiveWalkLiveStatus(
             hasLocation:
-                request.latitude != null ||
-                    request.longitude != null,
+                request.latitude != null &&
+                request.longitude != null,
           ),
 
           const SizedBox(height: 10),
+
+          // ======================================================
+          // ADDRESS
+          // ======================================================
 
           Row(
             children: [
               Expanded(
                 child: ActiveWalkAddressCard(
-                  icon:
-                      Icons.location_on_rounded,
+                  icon: Icons.location_on_rounded,
                   title: 'PICKUP',
                   value: _pickupText,
                 ),
@@ -132,14 +142,17 @@ class ActiveWalkBottomSheet extends StatelessWidget {
                 child: ActiveWalkAddressCard(
                   icon: Icons.flag_rounded,
                   title: 'DESTINATION',
-                  value:
-                      'Destination location',
+                  value: 'Destination location',
                 ),
               ),
             ],
           ),
 
           const SizedBox(height: 10),
+
+          // ======================================================
+          // LIVE STATS
+          // ======================================================
 
           Row(
             children: [
@@ -153,7 +166,7 @@ class ActiveWalkBottomSheet extends StatelessWidget {
               Expanded(
                 child: ActiveWalkStatCard(
                   value: _durationText,
-                  title: 'Duration',
+                  title: reached ? 'Status' : 'ETA',
                 ),
               ),
               const SizedBox(width: 7),
@@ -168,6 +181,10 @@ class ActiveWalkBottomSheet extends StatelessWidget {
 
           const SizedBox(height: 10),
 
+          // ======================================================
+          // WALK STATUS
+          // ======================================================
+
           ActiveWalkStatCard(
             value: _walkStatusText,
             title: 'Walk',
@@ -175,9 +192,17 @@ class ActiveWalkBottomSheet extends StatelessWidget {
 
           const SizedBox(height: 10),
 
+          // ======================================================
+          // OWNER NOTE
+          // ======================================================
+
           const ActiveWalkOwnerNote(),
 
           const SizedBox(height: 10),
+
+          // ======================================================
+          // CALL / CHAT
+          // ======================================================
 
           ActiveWalkCallChat(
             onCall: _callOwner,
@@ -191,7 +216,7 @@ class ActiveWalkBottomSheet extends StatelessWidget {
           const SizedBox(height: 10),
 
           // ======================================================
-          // STEP 1: REACH OWNER
+          // REACH OWNER
           // ======================================================
 
           if (!reached)
@@ -201,25 +226,18 @@ class ActiveWalkBottomSheet extends StatelessWidget {
             ),
 
           // ======================================================
-          // STEP 2: START WALK
+          // AFTER REACH
           //
-          // Reach होने के बाद ही दिखाई देगा.
+          // Start Walk intentionally removed.
+          //
+          // Start Walk will be handled by the Live Walk screen.
           // ======================================================
 
-          if (reached) ...[
+          if (reached)
             ActiveWalkReachSlider(
               reached: true,
               onReached: onReached,
             ),
-
-            const SizedBox(height: 10),
-
-            ActiveWalkStartPanel(
-              enabled: !starting,
-              starting: starting,
-              onStarted: onStarted,
-            ),
-          ],
 
           const SizedBox(height: 10),
         ],
@@ -228,7 +246,7 @@ class ActiveWalkBottomSheet extends StatelessWidget {
   }
 
   // ============================================================
-  // HEADER
+  // ACTIVE WALK HEADER
   // ============================================================
 
   Widget _activeWalkHeader() {
@@ -236,30 +254,31 @@ class ActiveWalkBottomSheet extends StatelessWidget {
       onTap: onExpand,
       child: Container(
         width: double.infinity,
-        padding:
-            const EdgeInsets.symmetric(
+        padding: const EdgeInsets.symmetric(
           horizontal: 13,
           vertical: 11,
         ),
         decoration: BoxDecoration(
           color: AppColors.successSoft,
-          borderRadius:
-              BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color:
-                AppColors.success.withOpacity(.20),
+            color: AppColors.success.withValues(
+              alpha: .20,
+            ),
           ),
         ),
         child: Row(
           children: [
+            // ====================================================
+            // ICON
+            // ====================================================
+
             Container(
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color:
-                    AppColors.cardBackground,
-                borderRadius:
-                    BorderRadius.circular(12),
+                color: AppColors.cardBackground,
+                borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
                 Icons.pets_rounded,
@@ -270,6 +289,10 @@ class ActiveWalkBottomSheet extends StatelessWidget {
 
             const SizedBox(width: 10),
 
+            // ====================================================
+            // OWNER + DOG
+            // ====================================================
+
             Expanded(
               child: Column(
                 crossAxisAlignment:
@@ -278,11 +301,9 @@ class ActiveWalkBottomSheet extends StatelessWidget {
                   const Text(
                     'ACTIVE INSTA WALK',
                     style: TextStyle(
-                      color:
-                          AppColors.secondary,
+                      color: AppColors.secondary,
                       fontSize: 11,
-                      fontWeight:
-                          FontWeight.w900,
+                      fontWeight: FontWeight.w900,
                       letterSpacing: .4,
                     ),
                   ),
@@ -290,40 +311,36 @@ class ActiveWalkBottomSheet extends StatelessWidget {
                   Text(
                     '$_ownerNameText • $_dogNameText',
                     maxLines: 1,
-                    overflow:
-                        TextOverflow.ellipsis,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color:
-                          AppColors.textMuted,
+                      color: AppColors.textMuted,
                       fontSize: 9,
-                      fontWeight:
-                          FontWeight.w600,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
             ),
 
+            // ====================================================
+            // STATUS
+            // ====================================================
+
             Container(
-              padding:
-                  const EdgeInsets.symmetric(
+              padding: const EdgeInsets.symmetric(
                 horizontal: 9,
                 vertical: 6,
               ),
               decoration: BoxDecoration(
-                color:
-                    AppColors.cardBackground,
-                borderRadius:
-                    BorderRadius.circular(10),
+                color: AppColors.cardBackground,
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 liveStatus.toUpperCase(),
                 style: const TextStyle(
-                  color:
-                      AppColors.success,
+                  color: AppColors.success,
                   fontSize: 8,
-                  fontWeight:
-                      FontWeight.w900,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ),
@@ -374,8 +391,7 @@ class ActiveWalkBottomSheet extends StatelessWidget {
 
       await launchUrl(
         uri,
-        mode:
-            LaunchMode.externalApplication,
+        mode: LaunchMode.externalApplication,
       );
     } catch (_) {
       onMessage(
@@ -385,7 +401,7 @@ class ActiveWalkBottomSheet extends StatelessWidget {
   }
 
   // ============================================================
-  // DATA
+  // OWNER NAME
   // ============================================================
 
   String get _ownerNameText {
@@ -397,6 +413,10 @@ class ActiveWalkBottomSheet extends StatelessWidget {
         : value;
   }
 
+  // ============================================================
+  // DOG NAME
+  // ============================================================
+
   String get _dogNameText {
     final String value =
         request.dogName.trim();
@@ -405,6 +425,10 @@ class ActiveWalkBottomSheet extends StatelessWidget {
         ? 'Dog'
         : value;
   }
+
+  // ============================================================
+  // PICKUP ADDRESS
+  // ============================================================
 
   String get _pickupText {
     final String pickup =
@@ -422,37 +446,87 @@ class ActiveWalkBottomSheet extends StatelessWidget {
         : address;
   }
 
+  // ============================================================
+  // DISTANCE
+  //
+  // This is supplied by ActiveWalkDetailsScreen.
+  // It should be calculated from:
+  //
+  // LIVE WALKER LOCATION
+  //          ↓
+  // FIXED OWNER REQUEST LOCATION
+  //
+  // ============================================================
+
   String get _distanceText {
     if (distanceKm <= 0) {
       return '--';
     }
 
+    if (distanceKm < 1) {
+      final int meters =
+          (distanceKm * 1000).round();
+
+      return '$meters m';
+    }
+
     return '${distanceKm.toStringAsFixed(1)} km';
   }
 
-  String get _durationText {
-    final int safe =
-        elapsedSeconds < 0
-            ? 0
-            : elapsedSeconds;
+  // ============================================================
+  // ETA
+  //
+  // Average walking speed ≈ 5 km/h.
+  //
+  // This is estimated time to reach the owner.
+  // ============================================================
 
-    final int hours =
-        safe ~/ 3600;
+  String get _durationText {
+    if (reached) {
+      return 'Reached';
+    }
+
+    if (distanceKm <= 0) {
+      return '--';
+    }
+
+    const double walkingSpeedKmPerHour = 5.0;
+
+    final double hours =
+        distanceKm /
+            walkingSpeedKmPerHour;
 
     final int minutes =
-        (safe % 3600) ~/ 60;
+        (hours * 60).ceil();
 
-    final int seconds =
-        safe % 60;
+    if (minutes <= 1) {
+      return '<1 min';
+    }
 
-    return '${hours.toString().padLeft(2, '0')}:'
-        '${minutes.toString().padLeft(2, '0')}:'
-        '${seconds.toString().padLeft(2, '0')}';
+    if (minutes < 60) {
+      return '~$minutes min';
+    }
+
+    final int hoursPart =
+        minutes ~/ 60;
+
+    final int minutesPart =
+        minutes % 60;
+
+    if (minutesPart == 0) {
+      return '~${hoursPart}h';
+    }
+
+    return '~${hoursPart}h ${minutesPart}m';
   }
+
+  // ============================================================
+  // WALK STATUS
+  // ============================================================
 
   String get _walkStatusText {
     if (reached) {
-      return 'Ready to Start';
+      return 'Ready';
     }
 
     switch (
