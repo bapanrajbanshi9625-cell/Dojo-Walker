@@ -19,27 +19,12 @@ class ActiveWalkMap extends StatelessWidget {
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    final List<LatLng> locations = [];
+  Widget build(BuildContext context) {
+    final List<Marker> markers = <Marker>[];
 
-    if (walkerLocation != null) {
-      locations.add(walkerLocation!);
-    }
-
-    if (pickupLocation != null) {
-      locations.add(pickupLocation!);
-    }
-
-    if (destinationLocation != null) {
-      locations.add(destinationLocation!);
-    }
-
-    final LatLng center =
-        _getCenter();
-
-    final List<Marker> markers = [];
+    // ============================================================
+    // WALKER — LIVE LOCATION
+    // ============================================================
 
     if (walkerLocation != null) {
       markers.add(
@@ -52,6 +37,10 @@ class ActiveWalkMap extends StatelessWidget {
       );
     }
 
+    // ============================================================
+    // OWNER — FIXED REQUEST LOCATION
+    // ============================================================
+
     if (pickupLocation != null) {
       markers.add(
         Marker(
@@ -62,6 +51,10 @@ class ActiveWalkMap extends StatelessWidget {
         ),
       );
     }
+
+    // ============================================================
+    // DESTINATION
+    // ============================================================
 
     if (destinationLocation != null) {
       markers.add(
@@ -77,36 +70,45 @@ class ActiveWalkMap extends StatelessWidget {
     return FlutterMap(
       mapController: mapController,
       options: MapOptions(
-        initialCenter: center,
-        initialZoom:
-            locations.length > 1 ? 14 : 16,
-        interactionOptions:
-            const InteractionOptions(
+        initialCenter: _getCenter(),
+        initialZoom: _getInitialZoom(),
+        interactionOptions: const InteractionOptions(
           flags: InteractiveFlag.all,
         ),
       ),
       children: [
+        // ========================================================
+        // MAP
+        // ========================================================
+
         TileLayer(
           urlTemplate:
               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName:
-              'com.doojowalker.app',
+          userAgentPackageName: 'com.doojowalker.app',
         ),
+
+        // ========================================================
+        // WALKER → FIXED OWNER POLYLINE
+        // ========================================================
 
         if (walkerLocation != null &&
             pickupLocation != null)
           PolylineLayer(
-            polylines: [
+            polylines: <Polyline>[
               Polyline(
-                points: [
+                points: <LatLng>[
                   walkerLocation!,
                   pickupLocation!,
                 ],
-                strokeWidth: 4,
+                strokeWidth: 5,
                 color: AppColors.primary,
               ),
             ],
           ),
+
+        // ========================================================
+        // MARKERS
+        // ========================================================
 
         if (markers.isNotEmpty)
           MarkerLayer(
@@ -116,7 +118,23 @@ class ActiveWalkMap extends StatelessWidget {
     );
   }
 
+  // ============================================================
+  // CENTER
+  // ============================================================
+
   LatLng _getCenter() {
+    if (walkerLocation != null &&
+        pickupLocation != null) {
+      return LatLng(
+        (walkerLocation!.latitude +
+                pickupLocation!.latitude) /
+            2,
+        (walkerLocation!.longitude +
+                pickupLocation!.longitude) /
+            2,
+      );
+    }
+
     if (walkerLocation != null) {
       return walkerLocation!;
     }
@@ -135,6 +153,23 @@ class ActiveWalkMap extends StatelessWidget {
     );
   }
 
+  // ============================================================
+  // INITIAL ZOOM
+  // ============================================================
+
+  double _getInitialZoom() {
+    if (walkerLocation != null &&
+        pickupLocation != null) {
+      return 14;
+    }
+
+    return 16;
+  }
+
+  // ============================================================
+  // WALKER MARKER
+  // ============================================================
+
   Widget _walkerMarker() {
     return Container(
       decoration: BoxDecoration(
@@ -146,18 +181,24 @@ class ActiveWalkMap extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.overlay.withOpacity(.20),
+            color: AppColors.overlay.withValues(
+              alpha: .20,
+            ),
             blurRadius: 10,
           ),
         ],
       ),
-      child: Icon(
+      child: const Icon(
         Icons.person_rounded,
         color: AppColors.secondary,
         size: 22,
       ),
     );
   }
+
+  // ============================================================
+  // OWNER / PICKUP MARKER
+  // ============================================================
 
   Widget _pickupMarker() {
     return Container(
@@ -170,12 +211,14 @@ class ActiveWalkMap extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.overlay.withOpacity(.25),
+            color: AppColors.overlay.withValues(
+              alpha: .25,
+            ),
             blurRadius: 12,
           ),
         ],
       ),
-      child: Icon(
+      child: const Icon(
         Icons.pets_rounded,
         color: AppColors.buttonText,
         size: 24,
@@ -183,13 +226,17 @@ class ActiveWalkMap extends StatelessWidget {
     );
   }
 
+  // ============================================================
+  // DESTINATION MARKER
+  // ============================================================
+
   Widget _destinationMarker() {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.secondary,
         shape: BoxShape.circle,
       ),
-      child: Icon(
+      child: const Icon(
         Icons.flag_rounded,
         color: AppColors.buttonText,
         size: 18,
