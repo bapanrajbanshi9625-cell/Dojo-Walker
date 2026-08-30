@@ -12,6 +12,7 @@ import '../widgets/active_walk_bottom_sheet.dart';
 import '../widgets/active_walk_map.dart';
 import '../widgets/active_walk_top_bar.dart';
 
+import '../../live_walk/screens/live_walk_screen.dart';
 import '../../live_walk/controllers/live_walk_controller.dart';
 
 class ActiveWalkDetailsScreen extends StatefulWidget {
@@ -438,20 +439,37 @@ class _ActiveWalkDetailsScreenState
   }
 
   // ============================================================
-  // REACHED
+  // REACHED → OPEN LIVE WALK
   // ============================================================
 
-  void _handleReached() {
-    if (_reached) {
-      return;
-    }
-
-    setState(() {
-      _reached = true;
-    });
-
-    widget.onReached?.call();
+void _handleReached() {
+  if (_reached) {
+    return;
   }
+
+  setState(() {
+    _reached = true;
+    _liveStatus = 'reached';
+  });
+
+  widget.onReached?.call();
+
+  Navigator.of(context).pushReplacement(
+    MaterialPageRoute<void>(
+      builder: (BuildContext context) {
+        return LiveWalkScreen(
+          ownerUid: widget.request.ownerUid,
+          ownerName: widget.request.ownerName,
+          walkId: widget.request.id,
+          dogName: widget.request.dogName,
+          dogBreed: widget.request.dogBreed,
+          ownerPhone: widget.request.ownerPhone,
+          sessionId: widget.request.liveWalkSessionId,
+        );
+      },
+    ),
+  );
+}
 
   // ============================================================
   // END WALK
