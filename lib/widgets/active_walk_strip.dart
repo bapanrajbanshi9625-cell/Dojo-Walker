@@ -11,7 +11,7 @@ class ActiveWalkStrip extends StatefulWidget {
     required this.onTap,
   });
 
-  final VoidCallback onTap;
+  final ValueChanged<ActiveWalkStripState> onTap;
 
   @override
   State<ActiveWalkStrip> createState() =>
@@ -29,7 +29,6 @@ class _ActiveWalkStripState
   @override
   void initState() {
     super.initState();
-
     _startListening();
   }
 
@@ -63,12 +62,12 @@ class _ActiveWalkStripState
     }
 
     debugPrint(
-      'ActiveWalkStrip tapped '
-      'isLive=${_state.isLive} '
+      'ActiveWalkStrip tapped: '
+      'isLive=${_state.isLive}, '
       'walkId=${_state.walkId}',
     );
 
-    widget.onTap();
+    widget.onTap(_state);
   }
 
   // ============================================================
@@ -104,8 +103,8 @@ class _ActiveWalkStripState
           child: Row(
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(
                     alpha: 0.18,
@@ -117,7 +116,7 @@ class _ActiveWalkStripState
                       ? Icons.location_on_rounded
                       : Icons.directions_walk_rounded,
                   color: Colors.white,
-                  size: 21,
+                  size: 22,
                 ),
               ),
 
@@ -148,8 +147,8 @@ class _ActiveWalkStripState
                     const SizedBox(height: 2),
                     Text(
                       _state.isLive
-                          ? 'Tap to open live walk'
-                          : 'Tap to open active walk',
+                          ? 'Tap anywhere to open live walk'
+                          : 'Tap anywhere to open active walk',
                       maxLines: 1,
                       overflow:
                           TextOverflow.ellipsis,
