@@ -26,6 +26,10 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   final LiveWalkBackgroundService _backgroundService =
       LiveWalkBackgroundService.instance;
 
+  // ============================================================
+  // GPS
+  // ============================================================
+
   StreamSubscription<Position>? _positionSubscription;
 
   LatLng? _currentLocation;
@@ -42,24 +46,33 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   @override
   void initState() {
     super.initState();
+
     _startLocationTracking();
   }
 
   // ============================================================
   // START LOCATION TRACKING
   //
-  // IMPORTANT:
-  // This map uses the SAME background GPS source as the
-  // LiveWalkController.
+  // IMPORTANT FLOW:
   //
-  // No second Geolocator.getPositionStream() is created.
+  // LiveWalkController
+  //        ↓
+  // Background GPS Service
+  //        ↓
+  // LiveWalkMap
+  //
+  // Map does NOT create another continuous
+  // Geolocator position stream.
+  //
+  // The map only listens to the existing background
+  // GPS stream.
   // ============================================================
 
   Future<void> _startLocationTracking() async {
     try {
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
       // CHECK LOCATION SERVICE
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
 
       final bool serviceEnabled =
           await Geolocator.isLocationServiceEnabled();
@@ -73,12 +86,9 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         return;
       }
 
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
       // CHECK PERMISSION
-      //
-      // Controller/background service may already have permission.
-      // We only request it if necessary.
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
 
       LocationPermission permission =
           await Geolocator.checkPermission();
@@ -98,22 +108,20 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         return;
       }
 
-      // ----------------------------------------------------------
-      // USE EXISTING BACKGROUND GPS POSITION
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
+      // USE LAST BACKGROUND POSITION FIRST
+      // --------------------------------------------------------
 
       final Position? lastPosition =
           _backgroundService.lastPosition;
 
       if (lastPosition != null) {
-        _updatePosition(
-          lastPosition,
-        );
+        _updatePosition(lastPosition);
       }
 
-      // ----------------------------------------------------------
-      // ATTACH TO EXISTING GPS STREAM
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
+      // ATTACH TO EXISTING BACKGROUND GPS STREAM
+      // --------------------------------------------------------
 
       await _positionSubscription?.cancel();
 
@@ -128,20 +136,20 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         cancelOnError: false,
       );
 
-      // ----------------------------------------------------------
-      // IF WE HAVE NO POSITION YET, GET ONE ONCE.
+      // --------------------------------------------------------
+      // INITIAL POSITION FALLBACK
       //
-      // This is NOT a continuous second stream.
-      // ----------------------------------------------------------
+      // This is ONLY one GPS request.
+      //
+      // It is NOT a continuous stream.
+      // --------------------------------------------------------
 
       if (_currentLocation == null) {
         try {
           final Position position =
               await Geolocator.getCurrentPosition(
-            locationSettings:
-                const LocationSettings(
-              accuracy: LocationAccuracy.high,
-            ),
+            desiredAccuracy:
+                LocationAccuracy.high,
           );
 
           _updatePosition(position);
@@ -152,7 +160,14 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         }
       }
 
-      if (mounted && _currentLocation == null) {
+      // --------------------------------------------------------
+      // NO GPS POSITION
+      //
+      // We can still show the session location if available.
+      // --------------------------------------------------------
+
+      if (mounted &&
+          _currentLocation == null) {
         setState(() {
           _loading = false;
         });
@@ -176,11 +191,14 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   void _updatePosition(
     Position position,
   ) {
-    final double latitude = position.latitude;
-    final double longitude = position.longitude;
+    final double latitude =
+        position.latitude;
+
+    final double longitude =
+        position.longitude;
 
     // ----------------------------------------------------------
-    // INVALID GPS DATA
+    // VALIDATE GPS
     // ----------------------------------------------------------
 
     if (!latitude.isFinite ||
@@ -189,11 +207,13 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         latitude > 90 ||
         longitude < -180 ||
         longitude > 180 ||
-        (latitude == 0 && longitude == 0)) {
+        (latitude == 0 &&
+            longitude == 0)) {
       return;
     }
 
-    final LatLng location = LatLng(
+    final LatLng location =
+        LatLng(
       latitude,
       longitude,
     );
@@ -209,13 +229,12 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
     });
 
     // ----------------------------------------------------------
-    // FOLLOW CURRENT LOCATION
+    // FOLLOW USER
     // ----------------------------------------------------------
 
-    if (_followingUser && _mapReady) {
-      _moveToLocation(
-        location,
-      );
+    if (_followingUser &&
+        _mapReady) {
+      _moveToLocation(location);
     }
   }
 
@@ -244,28 +263,26 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   void _onMapReady() {
     _mapReady = true;
 
-    final LatLng? location = _currentLocation;
+    final LatLng? location =
+        _currentLocation;
 
-    if (location == null) {
-      // --------------------------------------------------------
-      // Try session location if local GPS isn't ready yet.
-      // --------------------------------------------------------
-
-      final LatLng? sessionLocation =
-          _readSessionLocation();
-
-      if (sessionLocation != null) {
-        _moveToLocation(
-          sessionLocation,
-        );
-      }
-
+    if (location != null) {
+      _moveToLocation(location);
       return;
     }
 
-    _moveToLocation(
-      location,
-    );
+    // ----------------------------------------------------------
+    // FALLBACK TO FIRESTORE SESSION LOCATION
+    // ----------------------------------------------------------
+
+    final LatLng? sessionLocation =
+        _readSessionLocation();
+
+    if (sessionLocation != null) {
+      _moveToLocation(
+        sessionLocation,
+      );
+    }
   }
 
   // ============================================================
@@ -309,7 +326,8 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   // ============================================================
 
   void _followCurrentLocation() {
-    final LatLng? location = _currentLocation;
+    final LatLng? location =
+        _currentLocation;
 
     if (location == null) {
       return;
@@ -317,9 +335,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
 
     _followingUser = true;
 
-    _moveToLocation(
-      location,
-    );
+    _moveToLocation(location);
 
     if (mounted) {
       setState(() {});
@@ -357,6 +373,10 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
     final double longitude =
         rawLng.toDouble();
 
+    // ----------------------------------------------------------
+    // VALIDATE SESSION LOCATION
+    // ----------------------------------------------------------
+
     if (!latitude.isFinite ||
         !longitude.isFinite ||
         latitude < -90 ||
@@ -382,6 +402,14 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   Widget build(
     BuildContext context,
   ) {
+    // ----------------------------------------------------------
+    // PRIORITY:
+    //
+    // 1. Current background GPS
+    // 2. Firestore session location
+    // 3. India fallback
+    // ----------------------------------------------------------
+
     final LatLng? location =
         _currentLocation ??
             _readSessionLocation();
@@ -389,11 +417,12 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
     return Stack(
       children: [
         // ========================================================
-        // OPENSTREETMAP
+        // MAP
         // ========================================================
 
         FlutterMap(
-          mapController: _mapController,
+          mapController:
+              _mapController,
           options: MapOptions(
             initialCenter:
                 location ??
@@ -419,7 +448,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
           ),
           children: [
             // ====================================================
-            // TILE LAYER
+            // OPEN STREET MAP
             // ====================================================
 
             TileLayer(
@@ -431,7 +460,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
             ),
 
             // ====================================================
-            // CURRENT LOCATION MARKER
+            // CURRENT LOCATION
             // ====================================================
 
             if (location != null)
@@ -521,7 +550,8 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         horizontal: 10,
         vertical: 7,
       ),
-      decoration: BoxDecoration(
+      decoration:
+          BoxDecoration(
         color:
             AppColors.cardBackground,
         borderRadius:
@@ -609,7 +639,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
 }
 
 // ============================================================
-// CURRENT GPS MARKER
+// CURRENT LOCATION MARKER
 // ============================================================
 
 class _CurrentLocationMarker
@@ -659,7 +689,7 @@ class _CurrentLocationMarker
         ),
 
         // ========================================================
-        // GPS MARKER
+        // NAVIGATION MARKER
         // ========================================================
 
         Container(
