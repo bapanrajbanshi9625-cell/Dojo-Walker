@@ -107,7 +107,7 @@ class LiveWalkController extends ChangeNotifier {
       return value;
     }
 
-    return 'session-$walkId';
+    return 'session-${walkId.trim()}';
   }
 
   // ============================================================
@@ -166,8 +166,8 @@ class LiveWalkController extends ChangeNotifier {
   // ============================================================
   // ATTACH EXISTING GPS
   //
-  // Controller uses ONLY background service GPS.
-  // No second Geolocator stream is created here.
+  // Only background GPS service is used.
+  // No Geolocator position stream is created here.
   // ============================================================
 
   Future<void> _attachExistingGps() async {
@@ -278,11 +278,7 @@ class LiveWalkController extends ChangeNotifier {
     // ----------------------------------------------------------
 
     final String status =
-        data['status']
-                ?.toString()
-                .trim()
-                .toLowerCase() ??
-            '';
+        data['status']?.toString().trim().toLowerCase() ?? '';
 
     if (status == 'active' ||
         status == 'started' ||
@@ -306,11 +302,11 @@ class LiveWalkController extends ChangeNotifier {
     if (currentLocation is Map) {
       final dynamic lat =
           currentLocation['lat'] ??
-              currentLocation['latitude'];
+          currentLocation['latitude'];
 
       final dynamic lng =
           currentLocation['lng'] ??
-              currentLocation['longitude'];
+          currentLocation['longitude'];
 
       if (lat is num && lng is num) {
         final double latitude =
@@ -339,14 +335,14 @@ class LiveWalkController extends ChangeNotifier {
   // Flow:
   //
   // Start background GPS
-  //       ↓
+  //        ↓
   // Attach GPS listener
-  //       ↓
-  // Create liveWalkSessions document
-  //       ↓
-  // Create/update active_walks document
-  //       ↓
-  // Mark walk as started
+  //        ↓
+  // Create/update liveWalkSessions
+  //        ↓
+  // Create/update active_walks
+  //        ↓
+  // Mark local walk as started
   // ============================================================
 
   Future<bool> startWalk() async {
@@ -376,11 +372,11 @@ class LiveWalkController extends ChangeNotifier {
       }
 
       // --------------------------------------------------------
-      // VALIDATE SESSION ID
+      // SESSION ID
       // --------------------------------------------------------
 
       final String liveSessionId =
-          cleanSessionId;
+          cleanSessionId.trim();
 
       if (liveSessionId.isEmpty) {
         debugPrint(
@@ -391,7 +387,7 @@ class LiveWalkController extends ChangeNotifier {
       }
 
       // --------------------------------------------------------
-      // VALIDATE WALK ID
+      // WALK ID
       // --------------------------------------------------------
 
       final String liveWalkId =
@@ -408,18 +404,17 @@ class LiveWalkController extends ChangeNotifier {
       // --------------------------------------------------------
       // START BACKGROUND GPS
       //
-      // If GPS service is already running,
-      // the service should safely handle it.
+      // If already running, service handles it safely.
       // --------------------------------------------------------
 
       try {
-       await _backgroundService.start();
-     } catch (e) {
-       debugPrint(
-       'Background GPS start warning: $e',
-      );
-     }   
-      
+        await _backgroundService.start();
+      } catch (e) {
+        debugPrint(
+          'Background GPS start warning: $e',
+        );
+      }
+
       // --------------------------------------------------------
       // MAKE SURE CONTROLLER IS LISTENING
       // --------------------------------------------------------
@@ -428,6 +423,9 @@ class LiveWalkController extends ChangeNotifier {
 
       // --------------------------------------------------------
       // START FIRESTORE LIVE SESSION
+      //
+      // IMPORTANT:
+      // Both required parameters MUST be passed.
       // --------------------------------------------------------
 
       await _sessionService.startWalk(
@@ -466,7 +464,6 @@ class LiveWalkController extends ChangeNotifier {
   // ============================================================
   // ENSURE GPS LISTENER
   //
-  // IMPORTANT:
   // Only background service GPS is used.
   // ============================================================
 
@@ -503,18 +500,6 @@ class LiveWalkController extends ChangeNotifier {
 
   // ============================================================
   // END WALK
-  //
-  // Flow:
-  //
-  // Complete liveWalkSessions
-  //       ↓
-  // Complete active_walks
-  //       ↓
-  // Complete walk request
-  //       ↓
-  // Stop GPS
-  //       ↓
-  // Reset local state
   // ============================================================
 
   Future<bool> endWalk() async {
