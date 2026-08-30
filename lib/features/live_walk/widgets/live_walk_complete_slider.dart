@@ -22,11 +22,10 @@ class _LiveWalkCompleteSliderState
   double _value = 0.0;
 
   bool _completed = false;
-
   bool _loading = false;
 
   // ============================================================
-  // COMPLETE SLIDER
+  // SLIDER CHANGE
   // ============================================================
 
   void _onChanged(double value) {
@@ -42,12 +41,10 @@ class _LiveWalkCompleteSliderState
   }
 
   // ============================================================
-  // SLIDE END
+  // SLIDER END
   // ============================================================
 
-  Future<void> _onChangeEnd(
-    double value,
-  ) async {
+  void _onChangeEnd(double value) {
     if (!widget.enabled ||
         _completed ||
         _loading) {
@@ -55,10 +52,10 @@ class _LiveWalkCompleteSliderState
     }
 
     // ----------------------------------------------------------
-    // SLIDER FULL नहीं हुआ
+    // NOT FULLY SLID
     // ----------------------------------------------------------
 
-    if (value < 0.92) {
+    if (value < 0.90) {
       setState(() {
         _value = 0.0;
       });
@@ -75,26 +72,51 @@ class _LiveWalkCompleteSliderState
       _loading = true;
     });
 
-    try {
-      widget.onCompleted();
-
+    // Give the UI one frame to show the completed state.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
       }
 
-      setState(() {
-        _completed = true;
-      });
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
+      try {
+        widget.onCompleted();
 
-      setState(() {
-        _value = 0.0;
-        _loading = false;
-      });
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _completed = true;
+          _loading = false;
+        });
+      } catch (_) {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _value = 0.0;
+          _loading = false;
+          _completed = false;
+        });
+      }
+    });
+  }
+
+  // ============================================================
+  // RESET
+  // ============================================================
+
+  void reset() {
+    if (!mounted) {
+      return;
     }
+
+    setState(() {
+      _value = 0.0;
+      _completed = false;
+      _loading = false;
+    });
   }
 
   // ============================================================
@@ -103,17 +125,27 @@ class _LiveWalkCompleteSliderState
 
   @override
   Widget build(BuildContext context) {
-    final bool enabled =
+    final bool sliderEnabled =
         widget.enabled &&
         !_completed &&
         !_loading;
 
+    final String title;
+
+    if (_loading) {
+      title = 'Completing Walk...';
+    } else if (_completed) {
+      title = 'Walk Completed';
+    } else {
+      title = 'Slide to Complete Walk';
+    }
+
     return Container(
       height: 66,
+      width: double.infinity,
       decoration: BoxDecoration(
         color: AppColors.error,
-        borderRadius:
-            BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(
             color: Color(0x26000000),
@@ -132,23 +164,23 @@ class _LiveWalkCompleteSliderState
           Center(
             child: Padding(
               padding: const EdgeInsets.only(
-                left: 64,
+                left: 68,
                 right: 20,
               ),
-              child: Text(
-                _loading
-                    ? 'Ending Walk...'
-                    : _completed
-                        ? 'Walk Completed'
-                        : 'Slide to Complete Walk',
-                textAlign:
-                    TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight:
-                      FontWeight.w900,
-                  letterSpacing: .2,
+              child: AnimatedSwitcher(
+                duration: const Duration(
+                  milliseconds: 180,
+                ),
+                child: Text(
+                  title,
+                  key: ValueKey<String>(title),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: .2,
+                  ),
                 ),
               ),
             ),
@@ -160,26 +192,15 @@ class _LiveWalkCompleteSliderState
 
           Positioned.fill(
             child: SliderTheme(
-              data:
-                  SliderTheme.of(context)
-                      .copyWith(
+              data: SliderTheme.of(context).copyWith(
                 trackHeight: 0,
-                activeTrackColor:
-                    Colors.transparent,
-                inactiveTrackColor:
-                    Colors.transparent,
-                thumbColor:
-                    Colors.white,
-
-                // FIXED:
-                // withValues() -> withOpacity()
+                activeTrackColor: Colors.transparent,
+                inactiveTrackColor: Colors.transparent,
+                thumbColor: Colors.white,
                 overlayColor:
-                    Colors.white
-                        .withOpacity(.12),
-
+                    Colors.white.withValues(alpha: .12),
                 thumbShape:
                     const _CompleteThumbShape(),
-
                 overlayShape:
                     const RoundSliderOverlayShape(
                   overlayRadius: 24,
@@ -190,11 +211,11 @@ class _LiveWalkCompleteSliderState
                 max: 1.0,
                 value: _value,
                 onChanged:
-                    enabled
+                    sliderEnabled
                         ? _onChanged
                         : null,
                 onChangeEnd:
-                    enabled
+                    sliderEnabled
                         ? _onChangeEnd
                         : null,
               ),
@@ -202,20 +223,19 @@ class _LiveWalkCompleteSliderState
           ),
 
           // ======================================================
-          // ARROW / ICON
+          // LEFT ICON
           // ======================================================
 
           Positioned(
             left: 18,
             child: IgnorePointer(
               child: AnimatedSwitcher(
-                duration:
-                    const Duration(
+                duration: const Duration(
                   milliseconds: 180,
                 ),
                 child: _loading
                     ? const SizedBox(
-                        key: ValueKey(
+                        key: ValueKey<String>(
                           'loading',
                         ),
                         width: 28,
@@ -233,21 +253,18 @@ class _LiveWalkCompleteSliderState
                     : _completed
                         ? const Icon(
                             Icons.check_rounded,
-                            key: ValueKey(
+                            key: ValueKey<String>(
                               'completed',
                             ),
-                            color:
-                                AppColors.success,
+                            color: AppColors.success,
                             size: 28,
                           )
                         : const Icon(
-                            Icons
-                                .arrow_forward_rounded,
-                            key: ValueKey(
+                            Icons.arrow_forward_rounded,
+                            key: ValueKey<String>(
                               'arrow',
                             ),
-                            color:
-                                AppColors.error,
+                            color: AppColors.error,
                             size: 28,
                           ),
               ),
@@ -272,78 +289,68 @@ class _CompleteThumbShape
     bool isEnabled,
     bool isDiscrete,
   ) {
-    return const Size(
-      52,
-      52,
-    );
+    return const Size(52, 52);
   }
 
   @override
   void paint(
     PaintingContext context,
     Offset center, {
-    required Animation<double>
-        activationAnimation,
-    required Animation<double>
-        enableAnimation,
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
     required bool isDiscrete,
     required TextPainter labelPainter,
     required RenderBox parentBox,
-    required SliderThemeData
-        sliderTheme,
-    required TextDirection
-        textDirection,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
     required double value,
-    required double
-        textScaleFactor,
+    required double textScaleFactor,
     required Size sizeWithOverflow,
   }) {
-    final Canvas canvas =
-        context.canvas;
+    final Canvas canvas = context.canvas;
 
-    final Paint paint =
-        Paint()
-          ..color = Colors.white
-          ..style =
-              PaintingStyle.fill;
+    // ----------------------------------------------------------
+    // WHITE THUMB
+    // ----------------------------------------------------------
+
+    final Paint thumbPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
 
     canvas.drawCircle(
       center,
       26,
-      paint,
+      thumbPaint,
     );
 
-    final Paint iconPaint =
-        Paint()
-          ..color =
-              AppColors.error
-          ..style =
-              PaintingStyle.fill;
+    // ----------------------------------------------------------
+    // ARROW
+    // ----------------------------------------------------------
 
-    final double arrowX =
-        center.dx - 6;
+    final Paint iconPaint = Paint()
+      ..color = AppColors.error
+      ..style = PaintingStyle.fill;
 
-    final double centerY =
-        center.dy;
+    final double centerY = center.dy;
+    final double arrowX = center.dx - 6;
 
-    final Path path =
-        Path()
-          ..moveTo(
-            arrowX,
-            centerY - 7,
-          )
-          ..lineTo(
-            arrowX + 8,
-            centerY,
-          )
-          ..lineTo(
-            arrowX,
-            centerY + 7,
-          )
-          ..close();
+    final Path arrowPath = Path()
+      ..moveTo(
+        arrowX,
+        centerY - 7,
+      )
+      ..lineTo(
+        arrowX + 8,
+        centerY,
+      )
+      ..lineTo(
+        arrowX,
+        centerY + 7,
+      )
+      ..close();
 
     canvas.drawPath(
-      path,
+      arrowPath,
       iconPaint,
     );
 
