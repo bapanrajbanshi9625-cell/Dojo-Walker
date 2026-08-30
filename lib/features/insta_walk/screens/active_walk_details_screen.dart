@@ -13,7 +13,7 @@ import '../widgets/active_walk_map.dart';
 import '../widgets/active_walk_top_bar.dart';
 
 import '../../live_walk/screens/live_walk_screen.dart';
-import '../../live_walk/controllers/live_walk_controller.dart';
+import '../../live_walk/controllers/live_walk_session_controller.dart';
 
 class ActiveWalkDetailsScreen extends StatefulWidget {
   final InstaWalkRequest request;
