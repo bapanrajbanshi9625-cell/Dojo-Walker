@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -47,11 +48,15 @@ class LiveWalkController extends ChangeNotifier {
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
+
   // ============================================================
   // GPS
   // ============================================================
 
-  StreamSubscription<Position>? _locationSubscription;
+  StreamSubscription<Position>?
+      _locationSubscription;
 
   // ============================================================
   // STATE
@@ -72,19 +77,33 @@ class LiveWalkController extends ChangeNotifier {
 
   bool get initialized => _initialized;
   bool get ending => _ending;
-  bool get startingWalk => _startingWalk;
-  bool get walkStarted => _walkStarted;
-  bool get gpsReady => _gpsReady;
+  bool get startingWalk =>
+      _startingWalk;
+  bool get walkStarted =>
+      _walkStarted;
+  bool get gpsReady =>
+      _gpsReady;
 
-  double get totalDistanceKm => _totalDistanceKm;
+  double get totalDistanceKm =>
+      _totalDistanceKm;
+
   int get steps => _steps;
+
+  // ============================================================
+  // WALKER UID
+  // ============================================================
+
+  String get currentWalkerUid {
+    return _auth.currentUser?.uid.trim() ?? '';
+  }
 
   // ============================================================
   // SESSION ID
   // ============================================================
 
   String get cleanSessionId {
-    final String value = sessionId?.trim() ?? '';
+    final String value =
+        sessionId?.trim() ?? '';
 
     if (value.isNotEmpty) {
       return value;
@@ -97,7 +116,9 @@ class LiveWalkController extends ChangeNotifier {
   // SESSION REF
   // ============================================================
 
-  DocumentReference<Map<String, dynamic>> get sessionRef {
+  DocumentReference<
+          Map<String, dynamic>>
+      get sessionRef {
     return _firestore
         .collection('liveWalkSessions')
         .doc(cleanSessionId);
@@ -107,7 +128,9 @@ class LiveWalkController extends ChangeNotifier {
   // SESSION STREAM
   // ============================================================
 
-  Stream<DocumentSnapshot<Map<String, dynamic>>>
+  Stream<
+          DocumentSnapshot<
+              Map<String, dynamic>>>
       get sessionStream {
     return sessionRef.snapshots();
   }
@@ -124,11 +147,15 @@ class LiveWalkController extends ChangeNotifier {
     try {
       await _attachExistingGps();
 
-      final DocumentSnapshot<Map<String, dynamic>> snapshot =
+      final DocumentSnapshot<
+              Map<String, dynamic>>
+          snapshot =
           await sessionRef.get();
 
       if (snapshot.exists) {
-        final Map<String, dynamic>? data = snapshot.data();
+        final Map<String, dynamic>?
+            data =
+            snapshot.data();
 
         if (data != null) {
           updateFromSession(data);
@@ -153,10 +180,13 @@ class LiveWalkController extends ChangeNotifier {
 
   Future<void> _attachExistingGps() async {
     try {
-      await _locationSubscription?.cancel();
+      await _locationSubscription
+          ?.cancel();
 
       _locationSubscription =
-          _backgroundService.locationStream.listen(
+          _backgroundService
+              .locationStream
+              .listen(
         _handlePosition,
         onError: (Object error) {
           debugPrint(
@@ -167,7 +197,8 @@ class LiveWalkController extends ChangeNotifier {
       );
 
       final Position? position =
-          _backgroundService.lastPosition;
+          _backgroundService
+              .lastPosition;
 
       if (position != null) {
         _gpsReady = true;
@@ -186,7 +217,9 @@ class LiveWalkController extends ChangeNotifier {
   // POSITION
   // ============================================================
 
-  void _handlePosition(Position position) {
+  void _handlePosition(
+    Position position,
+  ) {
     _gpsReady = true;
 
     _updateDistance();
@@ -200,7 +233,8 @@ class LiveWalkController extends ChangeNotifier {
 
   void _updateDistance() {
     final double distance =
-        _backgroundService.totalDistanceKm;
+        _backgroundService
+            .totalDistanceKm;
 
     if (distance >= 0) {
       _totalDistanceKm = distance;
@@ -244,7 +278,8 @@ class LiveWalkController extends ChangeNotifier {
             '';
 
     if (status == 'active' ||
-        status == 'started') {
+        status == 'started' ||
+        status == 'live') {
       _walkStarted = true;
     }
 
@@ -260,11 +295,13 @@ class LiveWalkController extends ChangeNotifier {
     if (currentLocation is Map) {
       final dynamic lat =
           currentLocation['lat'] ??
-              currentLocation['latitude'];
+              currentLocation[
+                  'latitude'];
 
       final dynamic lng =
           currentLocation['lng'] ??
-              currentLocation['longitude'];
+              currentLocation[
+                  'longitude'];
 
       if (lat is num &&
           lng is num &&
@@ -279,10 +316,6 @@ class LiveWalkController extends ChangeNotifier {
 
   // ============================================================
   // START WALK
-  //
-  // IMPORTANT:
-  // Reach के बाद यह method call होगा.
-  // GPS पहले से running रह सकता है.
   // ============================================================
 
   Future<void> startWalk() async {
@@ -296,6 +329,15 @@ class LiveWalkController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final String walkerUid =
+          currentWalkerUid;
+
+      if (walkerUid.isEmpty) {
+        throw Exception(
+          'Walker UID is missing.',
+        );
+      }
+
       await _sessionService.startWalk(
         sessionId: cleanSessionId,
         walkId: walkId,
@@ -303,6 +345,7 @@ class LiveWalkController extends ChangeNotifier {
         ownerName: ownerName,
         dogName: dogName,
         dogBreed: dogBreed,
+        walkerUid: walkerUid,
       );
 
       _walkStarted = true;
@@ -344,11 +387,12 @@ class LiveWalkController extends ChangeNotifier {
       _updateDistance();
 
       // --------------------------------------------------------
-      // 1. COMPLETE SESSION
+      // 1. COMPLETE SESSION + ACTIVE WALK
       // --------------------------------------------------------
 
       await _sessionService.completeWalk(
         sessionId: cleanSessionId,
+        walkId: walkId,
       );
 
       // --------------------------------------------------------
@@ -361,7 +405,7 @@ class LiveWalkController extends ChangeNotifier {
       );
 
       // --------------------------------------------------------
-      // 3. STOP GPS ONLY AFTER FIRESTORE SUCCESS
+      // 3. STOP GPS
       // --------------------------------------------------------
 
       await _stopGps();
@@ -387,7 +431,8 @@ class LiveWalkController extends ChangeNotifier {
   // ============================================================
 
   Future<void> _stopGps() async {
-    await _locationSubscription?.cancel();
+    await _locationSubscription
+        ?.cancel();
 
     _locationSubscription = null;
 
@@ -402,13 +447,13 @@ class LiveWalkController extends ChangeNotifier {
 
   // ============================================================
   // DISPOSE
-  //
-  // GPS service को यहां stop नहीं करते.
   // ============================================================
 
   @override
   void dispose() {
-    _locationSubscription?.cancel();
+    _locationSubscription
+        ?.cancel();
+
     _locationSubscription = null;
 
     super.dispose();
