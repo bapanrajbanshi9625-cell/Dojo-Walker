@@ -51,7 +51,6 @@ class _MainNavigationScreenState
       MenuScreen(),
     ];
 
-    // Refresh current walk state.
     AppStateService.instance.refresh();
   }
 
@@ -77,7 +76,6 @@ class _MainNavigationScreenState
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-
     super.dispose();
   }
 
@@ -110,10 +108,6 @@ class _MainNavigationScreenState
     return Scaffold(
       body: _screens[_currentIndex],
 
-      // ========================================================
-      // BOTTOM AREA
-      // ========================================================
-
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
@@ -126,7 +120,6 @@ class _MainNavigationScreenState
             selectedItemColor: _selectedColor,
             unselectedItemColor: AppColors.textGrey,
             type: BottomNavigationBarType.fixed,
-
             onTap: (int index) {
               if (index == _currentIndex) {
                 return;
@@ -136,10 +129,11 @@ class _MainNavigationScreenState
                 _currentIndex = index;
               });
             },
-
             items: const <BottomNavigationBarItem>[
               BottomNavigationBarItem(
-                icon: Icon(Icons.home_rounded),
+                icon: Icon(
+                  Icons.home_rounded,
+                ),
                 label: 'Home',
               ),
               BottomNavigationBarItem(
@@ -149,7 +143,9 @@ class _MainNavigationScreenState
                 label: 'Walks',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.menu_rounded),
+                icon: Icon(
+                  Icons.menu_rounded,
+                ),
                 label: 'Menu',
               ),
             ],
@@ -162,61 +158,30 @@ class _MainNavigationScreenState
   // ============================================================
   // OPEN CURRENT WALK
   //
-  // CURRENT FLOW
+  // ONLY:
   //
-  // QR WALK:
+  // walk_request
+  // liveWalkSessions
   //
-  // QR Scan
-  //    ↓
-  // Connection
-  //    ↓
-  // Active Walk
-  //    ↓
-  // Reach
-  //    ↓
-  // Live Walk
-  //    ↓
-  // Start Walk
-  //    ↓
-  // Complete Walk
-  //
-  //
-  // INSTA WALK:
-  //
-  // Search
-  //    ↓
-  // Request
-  //    ↓
-  // Accept
-  //    ↓
-  // Reach Pickup
-  //    ↓
-  // Live Walk
-  //    ↓
-  // Start Walk
-  //    ↓
-  // Complete Walk
-  //
-  // IMPORTANT:
-  // ActiveWalkDetailsScreen is NOT used anymore.
+  // NO active_walk / active_walks.
   // ============================================================
 
   Future<void> _openCurrentWalk(
     ActiveWalkStripState stripState,
   ) async {
-    if (!stripState.show ||
-        stripState.walkId.trim().isEmpty) {
-      debugPrint(
-        'MainNavigation: no current walk.',
-      );
+    if (!stripState.show) {
       return;
     }
 
     final String walkId =
         stripState.walkId.trim();
 
+    if (walkId.isEmpty) {
+      return;
+    }
+
     debugPrint(
-      'MainNavigation: opening current walk '
+      'MainNavigation: opening walk '
       'walkId=$walkId '
       'isLive=${stripState.isLive}',
     );
@@ -225,38 +190,24 @@ class _MainNavigationScreenState
         AppStateService.instance;
 
     // ==========================================================
-    // GET CURRENT WALK DATA FROM APP STATE
+    // GET REQUEST FROM APP STATE
     // ==========================================================
 
     Map<String, dynamic>? walkData =
         appState.activeWalkData;
 
-    // ==========================================================
-    // IF APP STATE DOES NOT MATCH STRIP WALK
-    // LOOK DIRECTLY IN FIRESTORE
-    // ==========================================================
-
     if (walkData == null ||
         walkData.isEmpty ||
-        _readString(walkData['walkId']) != walkId) {
-      walkData = await _findActiveWalk(walkId);
+        _requestId(walkData, walkId) != walkId) {
+      walkData =
+          await _getWalkRequest(walkId);
     }
-
-    // ==========================================================
-    // FALLBACK
-    // ==========================================================
-
-    walkData ??= appState.activeWalkData;
 
     if (walkData == null ||
         walkData.isEmpty) {
-      debugPrint(
-        'MainNavigation: current walk data not found.',
-      );
-
       if (mounted) {
         _showMessage(
-          'Current walk information is unavailable.',
+          'Walk information is not available.',
         );
       }
 
@@ -264,7 +215,19 @@ class _MainNavigationScreenState
     }
 
     // ==========================================================
-    // BUILD REQUEST MODEL
+    // VERIFY REQUEST IS STILL ACTIVE
+    // ==========================================================
+
+    final String status =
+        _status(walkData['status']);
+
+    if (_isEndedRequest(status)) {
+      await appState.refresh();
+      return;
+    }
+
+    // ==========================================================
+    // BUILD REQUEST
     // ==========================================================
 
     final InstaWalkRequest request =
@@ -274,50 +237,49 @@ class _MainNavigationScreenState
     );
 
     if (request.id.isEmpty) {
-      debugPrint(
-        'MainNavigation: request id is empty.',
-      );
-      return;
-    }
-
-    if (!mounted) {
       return;
     }
 
     // ==========================================================
-    // ALWAYS OPEN LIVE WALK FOR CURRENT ACTIVE/LIVE WALK
-    //
-    // There is no ActiveWalkDetailsScreen now.
-    //
-    // The LiveWalkScreen itself handles:
-    //
-    // Before Start:
-    //     Reach / Start Walk state
-    //
-    // After Start:
-    //     Live map
-    //
-    // Bottom:
-    //     Slide to Complete Walk
+    // SESSION
     // ==========================================================
 
-    final Map<String, dynamic>? sessionData =
+    Map<String, dynamic>? sessionData =
         appState.activeSessionData;
 
-    final String sessionId =
+    String sessionId =
         _firstNonEmpty(
       <dynamic>[
         request.liveWalkSessionId,
         appState.activeSessionId,
-        _readString(
-          sessionData?['sessionId'],
-        ),
-        'session-$walkId',
+        sessionData?['sessionId'],
       ],
     );
 
     // ==========================================================
-    // OWNER UID
+    // IF SESSION ID IS NOT IN REQUEST,
+    // FIND IT FROM liveWalkSessions.
+    // ==========================================================
+
+    if (sessionId.isEmpty) {
+      sessionData =
+          await _findLiveSession(
+        walkId,
+      );
+
+      if (sessionData != null) {
+        sessionId =
+            _firstNonEmpty(
+          <dynamic>[
+            sessionData['sessionId'],
+            sessionData['liveWalkSessionId'],
+          ],
+        );
+      }
+    }
+
+    // ==========================================================
+    // OWNER
     // ==========================================================
 
     final String ownerUid =
@@ -332,51 +294,40 @@ class _MainNavigationScreenState
       ],
     );
 
-    // ==========================================================
-    // OWNER NAME
-    // ==========================================================
-
     final String ownerName =
-        request.ownerName.isEmpty
-            ? _firstNonEmpty(
-                <dynamic>[
-                  walkData['ownerName'],
-                  'Owner',
-                ],
-              )
-            : request.ownerName;
+        _firstNonEmpty(
+      <dynamic>[
+        request.ownerName,
+        walkData['ownerName'],
+        'Owner',
+      ],
+    );
 
     // ==========================================================
-    // DOG NAME
+    // DOG
     // ==========================================================
 
     final String dogName =
-        request.dogName.isEmpty
-            ? _firstNonEmpty(
-                <dynamic>[
-                  walkData['dogName'],
-                  walkData['petName'],
-                  'Dog',
-                ],
-              )
-            : request.dogName;
-
-    // ==========================================================
-    // DOG BREED
-    // ==========================================================
+        _firstNonEmpty(
+      <dynamic>[
+        request.dogName,
+        walkData['dogName'],
+        walkData['petName'],
+        'Dog',
+      ],
+    );
 
     final String dogBreed =
-        request.dogBreed.isEmpty
-            ? _firstNonEmpty(
-                <dynamic>[
-                  walkData['dogBreed'],
-                  walkData['breed'],
-                ],
-              )
-            : request.dogBreed;
+        _firstNonEmpty(
+      <dynamic>[
+        request.dogBreed,
+        walkData['dogBreed'],
+        walkData['breed'],
+      ],
+    );
 
     // ==========================================================
-    // OWNER PHONE
+    // PHONE
     // ==========================================================
 
     final String ownerPhone =
@@ -391,45 +342,50 @@ class _MainNavigationScreenState
     );
 
     // ==========================================================
+    // SESSION ID FALLBACK
+    //
+    // Do NOT manufacture a fake session for Live Walk.
+    // The actual liveWalkSessions document must exist.
+    // ==========================================================
+
+    if (sessionId.isEmpty) {
+      if (mounted) {
+        _showMessage(
+          'Live Walk session is not ready yet. Please try again.',
+        );
+      }
+
+      return;
+    }
+
+    // ==========================================================
     // OPEN LIVE WALK
     // ==========================================================
 
-    if (sessionId.trim().isEmpty) {
-  if (!context.mounted) {
-    return;
-  }
+    if (!mounted) {
+      return;
+    }
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text(
-        'Live Walk session is not ready yet. Please try again.',
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) {
+          return LiveWalkScreen(
+            ownerUid: ownerUid,
+            ownerName: ownerName,
+            walkId: request.id,
+            dogName: dogName,
+            dogBreed: dogBreed,
+            ownerPhone: ownerPhone.trim().isEmpty
+                ? null
+                : ownerPhone.trim(),
+            sessionId: sessionId,
+          );
+        },
       ),
-    ),
-  );
-
-  return;
-}
-
-await Navigator.of(context).push(
-  MaterialPageRoute<void>(
-    builder: (_) {
-      return LiveWalkScreen(
-        ownerUid: ownerUid,
-        ownerName: ownerName,
-        walkId: request.id,
-        dogName: dogName,
-        dogBreed: dogBreed,
-        ownerPhone: ownerPhone.trim().isEmpty
-            ? null
-            : ownerPhone.trim(),
-        sessionId: sessionId.trim(),
-      );
-    },
-  ),
-);
+    );
 
     // ==========================================================
-    // REFRESH AFTER RETURNING
+    // REFRESH AFTER RETURN
     // ==========================================================
 
     if (mounted) {
@@ -438,66 +394,70 @@ await Navigator.of(context).push(
   }
 
   // ============================================================
-  // FIND ACTIVE WALK
+  // GET WALK REQUEST
+  //
+  // Exact collection:
+  //
+  //     walk_request
   // ============================================================
 
-  Future<Map<String, dynamic>?> _findActiveWalk(
+  Future<Map<String, dynamic>?> _getWalkRequest(
     String walkId,
   ) async {
-    final String id = walkId.trim();
+    final String id =
+        walkId.trim();
 
     if (id.isEmpty) {
       return null;
     }
 
     try {
-      // ========================================================
-      // FIRST:
-      // active_walks where walkId == current walk
-      // ========================================================
-
-      final QuerySnapshot<Map<String, dynamic>>
-          snapshot =
+      final DocumentSnapshot<
+              Map<String, dynamic>>
+          document =
           await FirebaseFirestore.instance
-              .collection('active_walks')
-              .where(
-                'walkId',
-                isEqualTo: id,
-              )
-              .limit(1)
-              .get();
-
-      if (snapshot.docs.isNotEmpty) {
-        return snapshot.docs.first.data();
-      }
-
-      // ========================================================
-      // FALLBACK:
-      // active_walks document ID == walkId
-      // ========================================================
-
-      final DocumentSnapshot<Map<String, dynamic>>
-          direct =
-          await FirebaseFirestore.instance
-              .collection('active_walks')
+              .collection('walk_request')
               .doc(id)
               .get();
 
-      if (direct.exists) {
-        return direct.data();
+      if (!document.exists) {
+        return null;
       }
 
-      return null;
+      final Map<String, dynamic>?
+          data =
+          document.data();
+
+      if (data == null) {
+        return null;
+      }
+
+      final String status =
+          _status(data['status']);
+
+      if (_isEndedRequest(status)) {
+        return null;
+      }
+
+      return <String, dynamic>{
+        ...data,
+        'walkId': _firstNonEmpty(
+          <dynamic>[
+            data['walkId'],
+            id,
+          ],
+        ),
+      };
     } on FirebaseException catch (error) {
       debugPrint(
-        'MainNavigation active walk lookup error: '
+        'MainNavigation walk request error: '
         '${error.code} ${error.message}',
       );
 
       return null;
     } catch (error) {
       debugPrint(
-        'MainNavigation active walk lookup error: $error',
+        'MainNavigation walk request error: $error',
       );
 
       return null;
@@ -505,7 +465,85 @@ await Navigator.of(context).push(
   }
 
   // ============================================================
-  // BUILD INSTA WALK REQUEST
+  // FIND LIVE SESSION
+  //
+  // Exact collection:
+  //
+  //     liveWalkSessions
+  // ============================================================
+
+  Future<Map<String, dynamic>?> _findLiveSession(
+    String walkId,
+  ) async {
+    final String id =
+        walkId.trim();
+
+    if (id.isEmpty) {
+      return null;
+    }
+
+    try {
+      final QuerySnapshot<
+              Map<String, dynamic>>
+          snapshot =
+          await FirebaseFirestore.instance
+              .collection('liveWalkSessions')
+              .where(
+                'walkId',
+                isEqualTo: id,
+              )
+              .limit(10)
+              .get();
+
+      if (snapshot.docs.isEmpty) {
+        return null;
+      }
+
+      for (final QueryDocumentSnapshot<
+              Map<String, dynamic>>
+          document in snapshot.docs) {
+        final Map<String, dynamic>
+            data =
+            document.data();
+
+        final String status =
+            _status(data['status']);
+
+        if (_isEndedSession(status)) {
+          continue;
+        }
+
+        return <String, dynamic>{
+          ...data,
+          'sessionId': _firstNonEmpty(
+            <dynamic>[
+              data['sessionId'],
+              data['liveWalkSessionId'],
+              document.id,
+            ],
+          ),
+        };
+      }
+
+      return null;
+    } on FirebaseException catch (error) {
+      debugPrint(
+        'MainNavigation live session error: '
+        '${error.code} ${error.message}',
+      );
+
+      return null;
+    } catch (error) {
+      debugPrint(
+        'MainNavigation live session error: $error',
+      );
+
+      return null;
+    }
+  }
+
+  // ============================================================
+  // BUILD REQUEST
   // ============================================================
 
   InstaWalkRequest _buildRequest(
@@ -517,10 +555,6 @@ await Navigator.of(context).push(
 
     return InstaWalkRequest(
       id: walkId,
-
-      // --------------------------------------------------------
-      // OWNER
-      // --------------------------------------------------------
 
       ownerId: _firstNonEmpty(
         <dynamic>[
@@ -560,10 +594,6 @@ await Navigator.of(context).push(
         ],
       ),
 
-      // --------------------------------------------------------
-      // WALKER
-      // --------------------------------------------------------
-
       walkerUid: _firstNonEmpty(
         <dynamic>[
           data['walkerUid'],
@@ -577,10 +607,6 @@ await Navigator.of(context).push(
           data['walkerID'],
         ],
       ),
-
-      // --------------------------------------------------------
-      // DOG
-      // --------------------------------------------------------
 
       dogName: _firstNonEmpty(
         <dynamic>[
@@ -604,17 +630,9 @@ await Navigator.of(context).push(
         ],
       ),
 
-      // --------------------------------------------------------
-      // STATUS
-      // --------------------------------------------------------
-
       status: _readString(
         data['status'],
       ),
-
-      // --------------------------------------------------------
-      // ADDRESS
-      // --------------------------------------------------------
 
       pickupAddress: _firstNonEmpty(
         <dynamic>[
@@ -632,10 +650,6 @@ await Navigator.of(context).push(
         ],
       ),
 
-      // --------------------------------------------------------
-      // LOCATION
-      // --------------------------------------------------------
-
       latitude: _readDouble(
         data['latitude'] ??
             data['lat'] ??
@@ -652,19 +666,11 @@ await Navigator.of(context).push(
             data['ownerLng'],
       ),
 
-      // --------------------------------------------------------
-      // DISTANCE
-      // --------------------------------------------------------
-
       distanceKm:
           _readDouble(
                 data['distanceKm'],
               ) ??
               0.0,
-
-      // --------------------------------------------------------
-      // DURATION
-      // --------------------------------------------------------
 
       durationMinutes: _readInt(
         data['durationMinutes'],
@@ -678,20 +684,12 @@ await Navigator.of(context).push(
         data['date'],
       ),
 
-      // --------------------------------------------------------
-      // ACTIVE WALK
-      // --------------------------------------------------------
-
       activeWalkId: _firstNonEmpty(
         <dynamic>[
           data['activeWalkId'],
           data['walkId'],
         ],
       ),
-
-      // --------------------------------------------------------
-      // LIVE SESSION
-      // --------------------------------------------------------
 
       liveWalkSessionId: _firstNonEmpty(
         <dynamic>[
@@ -702,10 +700,6 @@ await Navigator.of(context).push(
               .activeSessionId,
         ],
       ),
-
-      // --------------------------------------------------------
-      // TIMESTAMPS
-      // --------------------------------------------------------
 
       createdAt: _readTimestamp(
         data['createdAt'],
@@ -735,6 +729,77 @@ await Navigator.of(context).push(
         data['updatedAt'],
       ),
     );
+  }
+
+  // ============================================================
+  // REQUEST ID
+  // ============================================================
+
+  String _requestId(
+    Map<String, dynamic> data,
+    String fallback,
+  ) {
+    return _firstNonEmpty(
+      <dynamic>[
+        data['walkId'],
+        data['requestId'],
+        fallback,
+      ],
+    );
+  }
+
+  // ============================================================
+  // ACTIVE REQUEST STATUS
+  // ============================================================
+
+  bool _isEndedRequest(
+    String status,
+  ) {
+    switch (status) {
+      case 'REJECTED':
+      case 'DECLINED':
+      case 'CANCELLED':
+      case 'CANCELED':
+      case 'COMPLETED':
+      case 'ENDED':
+      case 'EXPIRED':
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  // ============================================================
+  // SESSION END STATUS
+  // ============================================================
+
+  bool _isEndedSession(
+    String status,
+  ) {
+    switch (status) {
+      case 'COMPLETED':
+      case 'ENDED':
+      case 'CANCELLED':
+      case 'CANCELED':
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  // ============================================================
+  // STATUS
+  // ============================================================
+
+  String _status(
+    dynamic value,
+  ) {
+    return _readString(value)
+        .toUpperCase()
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_');
   }
 
   // ============================================================
