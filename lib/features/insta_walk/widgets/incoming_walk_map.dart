@@ -1,3 +1,8 @@
+// File:
+// lib/features/insta_walk/widgets/incoming_walk_map.dart
+
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -22,6 +27,23 @@ class _IncomingWalkMapState
   final MapController _mapController =
       MapController();
 
+  bool _mapReady = false;
+  bool _hasInitialFit = false;
+
+  // ============================================================
+  // DEFAULT LOCATION
+  // ============================================================
+
+  static const LatLng _defaultCenter =
+      LatLng(
+    20.5937,
+    78.9629,
+  );
+
+  // ============================================================
+  // MAP CENTER
+  // ============================================================
+
   LatLng get _mapCenter {
     final LatLng? walker =
         widget.walkerLocation;
@@ -37,11 +59,12 @@ class _IncomingWalkMapState
       return owner;
     }
 
-    return const LatLng(
-      20.5937,
-      78.9629,
-    );
+    return _defaultCenter;
   }
+
+  // ============================================================
+  // UPDATE
+  // ============================================================
 
   @override
   void didUpdateWidget(
@@ -49,27 +72,49 @@ class _IncomingWalkMapState
   ) {
     super.didUpdateWidget(oldWidget);
 
-    if (widget.walkerLocation !=
-            oldWidget.walkerLocation ||
+    final bool walkerChanged =
+        widget.walkerLocation !=
+            oldWidget.walkerLocation;
+
+    final bool ownerChanged =
         widget.ownerLocation !=
-            oldWidget.ownerLocation) {
-      WidgetsBinding.instance
-          .addPostFrameCallback((_) {
-        if (mounted) {
-          _fitMap();
-        }
-      });
+            oldWidget.ownerLocation;
+
+    if (!walkerChanged &&
+        !ownerChanged) {
+      return;
     }
+
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) {
+      if (!mounted || !_mapReady) {
+        return;
+      }
+
+      // First time both locations become
+      // available: fit both points.
+      if (!_hasInitialFit &&
+          widget.walkerLocation != null &&
+          widget.ownerLocation != null) {
+        _hasInitialFit = true;
+        _fitBothLocations();
+      }
+    });
   }
 
-  void _fitMap() {
+  // ============================================================
+  // FIT BOTH LOCATIONS
+  // ============================================================
+
+  void _fitBothLocations() {
     final LatLng? walker =
         widget.walkerLocation;
 
     final LatLng? owner =
         widget.ownerLocation;
 
-    if (walker == null ||
+    if (!_mapReady ||
+        walker == null ||
         owner == null) {
       return;
     }
@@ -87,12 +132,13 @@ class _IncomingWalkMapState
         CameraFit.bounds(
           bounds: bounds,
           padding: const EdgeInsets.fromLTRB(
-            45,
-            130,
-            45,
-            400,
+            55,
+            145,
+            55,
+            360,
           ),
           maxZoom: 16,
+          minZoom: 12,
         ),
       );
     } catch (error) {
@@ -101,6 +147,10 @@ class _IncomingWalkMapState
       );
     }
   }
+
+  // ============================================================
+  // MARKERS
+  // ============================================================
 
   List<Marker> _buildMarkers() {
     final List<Marker> markers =
@@ -112,78 +162,34 @@ class _IncomingWalkMapState
     final LatLng? owner =
         widget.ownerLocation;
 
-    // ------------------------------------------------------------
-    // WALKER
-    // ------------------------------------------------------------
+    // ----------------------------------------------------------
+    // WALKER MARKER
+    // ----------------------------------------------------------
 
     if (walker != null) {
       markers.add(
         Marker(
           point: walker,
-          width: 58,
-          height: 58,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.blue,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white,
-                width: 4,
-              ),
-              boxShadow:
-                  const <BoxShadow>[
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 12,
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.navigation_rounded,
-              color: Colors.white,
-              size: 25,
-            ),
-          ),
+          width: 68,
+          height: 68,
+          alignment: Alignment.center,
+          child: _buildWalkerMarker(),
         ),
       );
     }
 
-    // ------------------------------------------------------------
-    // OWNER
-    // ------------------------------------------------------------
+    // ----------------------------------------------------------
+    // OWNER MARKER
+    // ----------------------------------------------------------
 
     if (owner != null) {
       markers.add(
         Marker(
           point: owner,
-          width: 62,
-          height: 70,
-          child: Column(
-            children: <Widget>[
-              Container(
-                width: 50,
-                height: 50,
-                decoration:
-                    const BoxDecoration(
-                  color: Color(0xFFF4511E),
-                  shape: BoxShape.circle,
-                  boxShadow:
-                      <BoxShadow>[
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 10,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons
-                      .person_pin_circle_rounded,
-                  color: Colors.white,
-                  size: 29,
-                ),
-              ),
-            ],
-          ),
+          width: 76,
+          height: 88,
+          alignment: Alignment.bottomCenter,
+          child: _buildOwnerMarker(),
         ),
       );
     }
@@ -191,7 +197,180 @@ class _IncomingWalkMapState
     return markers;
   }
 
+  // ============================================================
+  // WALKER MARKER
+  // ============================================================
+
+  Widget _buildWalkerMarker() {
+    return Stack(
+      alignment: Alignment.center,
+      children: <Widget>[
+        // Accuracy / location halo
+        Container(
+          width: 54,
+          height: 54,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color:
+                Colors.blue.withValues(
+              alpha: 0.14,
+            ),
+          ),
+        ),
+
+        // White border
+        Container(
+          width: 42,
+          height: 42,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 10,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(3),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFF1976D2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.navigation_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // OWNER MARKER
+  // ============================================================
+
+  Widget _buildOwnerMarker() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          width: 52,
+          height: 52,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF4511E),
+            shape: BoxShape.circle,
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.person_rounded,
+            color: Colors.white,
+            size: 28,
+          ),
+        ),
+
+        // Small pointer
+        Transform.translate(
+          offset: const Offset(0, -4),
+          child: const Icon(
+            Icons.arrow_drop_down_rounded,
+            color: Color(0xFFF4511E),
+            size: 22,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // OWNER REACH ZONE
+  // ============================================================
+
+  CircleMarker _buildReachCircle() {
+    final LatLng owner =
+        widget.ownerLocation!;
+
+    return CircleMarker(
+      point: owner,
+      radius: 100,
+      useRadiusInMeter: true,
+      color:
+          const Color(0xFFF4511E)
+              .withValues(
+        alpha: 0.08,
+      ),
+      borderColor:
+          const Color(0xFFF4511E)
+              .withValues(
+        alpha: 0.45,
+      ),
+      borderStrokeWidth: 2,
+    );
+  }
+
+  // ============================================================
+  // ROUTE LINE
+  // ============================================================
+
+  Polyline _buildRouteLine() {
+    final LatLng walker =
+        widget.walkerLocation!;
+
+    final LatLng owner =
+        widget.ownerLocation!;
+
+    return Polyline(
+      points: <LatLng>[
+        walker,
+        owner,
+      ],
+      strokeWidth: 5,
+      color:
+          const Color(0xFF1976D2)
+              .withValues(
+        alpha: 0.82,
+      ),
+      borderStrokeWidth: 2,
+      borderColor:
+          Colors.white.withValues(
+        alpha: 0.90,
+      ),
+    );
+  }
+
+  // ============================================================
+  // STATUS BADGE
+  // ============================================================
+
   Widget _buildStatusBadge() {
+    final bool hasWalker =
+        widget.walkerLocation != null;
+
+    final bool hasOwner =
+        widget.ownerLocation != null;
+
+    final String text;
+
+    if (hasWalker && hasOwner) {
+      text = 'LIVE LOCATION';
+    } else if (hasWalker) {
+      text = 'YOUR LOCATION';
+    } else if (hasOwner) {
+      text = 'OWNER LOCATION';
+    } else {
+      text = 'GETTING LOCATION';
+    }
+
     return Container(
       padding:
           const EdgeInsets.symmetric(
@@ -202,11 +381,18 @@ class _IncomingWalkMapState
         color: Colors.white,
         borderRadius:
             BorderRadius.circular(22),
+        border: Border.all(
+          color:
+              Colors.black.withValues(
+            alpha: 0.06,
+          ),
+        ),
         boxShadow:
             const <BoxShadow>[
           BoxShadow(
             color: Colors.black26,
             blurRadius: 10,
+            offset: Offset(0, 3),
           ),
         ],
       ),
@@ -218,23 +404,123 @@ class _IncomingWalkMapState
             width: 9,
             height: 9,
             decoration:
-                const BoxDecoration(
-              color: Colors.green,
+                BoxDecoration(
               shape: BoxShape.circle,
+              color:
+                  hasWalker && hasOwner
+                      ? Colors.green
+                      : Colors.orange,
             ),
           ),
           const SizedBox(width: 7),
-          const Text(
-            'LIVE LOCATION',
-            style: TextStyle(
+          Text(
+            text,
+            style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w900,
+              letterSpacing: 0.3,
             ),
           ),
         ],
       ),
     );
   }
+
+  // ============================================================
+  // MAP CONTROL BUTTON
+  // ============================================================
+
+  Widget _buildRecenterButton() {
+    return Material(
+      color: Colors.white,
+      elevation: 5,
+      borderRadius:
+          BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius:
+            BorderRadius.circular(14),
+        onTap: () {
+          if (!_mapReady) {
+            return;
+          }
+
+          if (widget.walkerLocation != null &&
+              widget.ownerLocation != null) {
+            _fitBothLocations();
+            return;
+          }
+
+          final LatLng center =
+              _mapCenter;
+
+          try {
+            _mapController.move(
+              center,
+              15,
+            );
+          } catch (error) {
+            debugPrint(
+              'Map recenter error: $error',
+            );
+          }
+        },
+        child: const SizedBox(
+          width: 46,
+          height: 46,
+          child: Icon(
+            Icons.my_location_rounded,
+            size: 21,
+            color: Color(0xFF17202A),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // EMPTY MAP OVERLAY
+  // ============================================================
+
+  Widget _buildEmptyOverlay() {
+    if (widget.walkerLocation != null ||
+        widget.ownerLocation != null) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Container(
+          color:
+              Colors.white.withValues(
+            alpha: 0.82,
+          ),
+          alignment: Alignment.center,
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                Icons.location_searching_rounded,
+                size: 30,
+                color: Color(0xFF1976D2),
+              ),
+              SizedBox(height: 9),
+              Text(
+                'Getting locations...',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(
@@ -251,60 +537,124 @@ class _IncomingWalkMapState
 
     return Stack(
       children: <Widget>[
-        Positioned.fill(
-          child: ColoredBox(
-            color: const Color(
-              0xFFE9EEF3,
-            ),
-            child: FlutterMap(
-              mapController:
-                  _mapController,
-              options: MapOptions(
-                initialCenter:
-                    _mapCenter,
-                initialZoom: 14,
-                interactionOptions:
-                    const InteractionOptions(
-                  flags:
-                      InteractiveFlag.all,
-                ),
-              ),
-              children: <Widget>[
-                TileLayer(
-                  urlTemplate:
-                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName:
-                      'com.doojowalker.app',
-                ),
+        // --------------------------------------------------------
+        // MAP
+        // --------------------------------------------------------
 
-                if (markers.isNotEmpty)
-                  MarkerLayer(
-                    markers: markers,
-                  ),
+        Positioned.fill(
+          child: FlutterMap(
+            mapController:
+                _mapController,
+            options: MapOptions(
+              initialCenter:
+                  _mapCenter,
+              initialZoom:
+                  walker != null || owner != null
+                      ? 14
+                      : 5,
+
+              interactionOptions:
+                  const InteractionOptions(
+                flags:
+                    InteractiveFlag.all,
+              ),
+
+              onMapReady: () {
+                _mapReady = true;
 
                 if (walker != null &&
-                    owner != null)
-                  PolylineLayer(
-                    polylines: <Polyline>[
-                      Polyline(
-                        points: <LatLng>[
-                          walker,
-                          owner,
-                        ],
-                        strokeWidth: 4,
-                      ),
-                    ],
-                  ),
-              ],
+                    owner != null &&
+                    !_hasInitialFit) {
+                  _hasInitialFit = true;
+
+                  WidgetsBinding.instance
+                      .addPostFrameCallback(
+                    (_) {
+                      if (mounted) {
+                        _fitBothLocations();
+                      }
+                    },
+                  );
+                }
+              },
             ),
+
+            children: <Widget>[
+              // --------------------------------------------------
+              // OPENSTREETMAP
+              // --------------------------------------------------
+
+              TileLayer(
+                urlTemplate:
+                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName:
+                    'com.doojowalker.app',
+                maxZoom: 19,
+                minZoom: 3,
+                tileProvider:
+                    NetworkTileProvider(),
+              ),
+
+              // --------------------------------------------------
+              // REACH ZONE
+              // --------------------------------------------------
+
+              if (owner != null)
+                CircleLayer(
+                  circles: <CircleMarker>[
+                    _buildReachCircle(),
+                  ],
+                ),
+
+              // --------------------------------------------------
+              // ROUTE
+              // --------------------------------------------------
+
+              if (walker != null &&
+                  owner != null)
+                PolylineLayer(
+                  polylines: <Polyline>[
+                    _buildRouteLine(),
+                  ],
+                ),
+
+              // --------------------------------------------------
+              // MARKERS
+              // --------------------------------------------------
+
+              if (markers.isNotEmpty)
+                MarkerLayer(
+                  markers: markers,
+                ),
+            ],
           ),
         ),
+
+        // --------------------------------------------------------
+        // TOP STATUS
+        // --------------------------------------------------------
 
         Positioned(
           top: 105,
           left: 14,
           child: _buildStatusBadge(),
         ),
+
+        // --------------------------------------------------------
+        // RECENTER BUTTON
+        // --------------------------------------------------------
+
+        Positioned(
+          right: 14,
+          top: 105,
+          child: _buildRecenterButton(),
+        ),
+
+        // --------------------------------------------------------
+        // EMPTY / LOADING
+        // --------------------------------------------------------
+
+        _buildEmptyOverlay(),
       ],
     );
   }
