@@ -2,6 +2,7 @@
 // lib/features/insta_walk/screens/incoming_walk_request_screen.dart
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -27,46 +28,95 @@ class IncomingWalkRequestScreen extends StatefulWidget {
 
 class _IncomingWalkRequestScreenState
     extends State<IncomingWalkRequestScreen> {
-  // ============================================================
-  // MAP
-  // ============================================================
-
   final MapController _mapController = MapController();
-
-  // ============================================================
-  // SERVICE
-  // ============================================================
 
   final InstaWalkAcceptService _acceptService =
       InstaWalkAcceptService.instance;
-
-  // ============================================================
-  // LOCATION
-  // ============================================================
 
   StreamSubscription<Position>? _locationSubscription;
 
   Position? _walkerPosition;
 
-  bool _loading = true;
+  bool _loadingLocation = true;
+  bool _accepting = false;
+  bool _rejecting = false;
+  bool _accepted = false;
   bool _reaching = false;
-  bool _canReach = false;
 
   double _distanceMeters = 0;
 
   // ============================================================
-  // PICKUP LOCATION
-  //
-  // InstaWalkRequest already parses these fields.
-  // Do NOT use request.data here.
+  // REQUEST DATA
   // ============================================================
 
-  double? get _pickupLat {
-    return widget.request.latitude;
+  double? get _ownerLatitude => widget.request.latitude;
+
+  double? get _ownerLongitude => widget.request.longitude;
+
+  String get _ownerUid {
+    final String authUid =
+        widget.request.ownerAuthUid.trim();
+
+    if (authUid.isNotEmpty) {
+      return authUid;
+    }
+
+    final String uid =
+        widget.request.ownerUid.trim();
+
+    if (uid.isNotEmpty) {
+      return uid;
+    }
+
+    return widget.request.ownerId.trim();
   }
 
-  double? get _pickupLng {
-    return widget.request.longitude;
+  String get _ownerName {
+    final String value =
+        widget.request.ownerName.trim();
+
+    return value.isEmpty ? 'Owner' : value;
+  }
+
+  String get _ownerPhone {
+    return widget.request.ownerPhone.trim();
+  }
+
+  String get _dogName {
+    final String value =
+        widget.request.dogName.trim();
+
+    return value.isEmpty ? 'Dog' : value;
+  }
+
+  String get _dogBreed {
+    return widget.request.dogBreed.trim();
+  }
+
+  String get _address {
+    final String pickup =
+        widget.request.pickupAddress.trim();
+
+    if (pickup.isNotEmpty) {
+      return pickup;
+    }
+
+    return widget.request.address.trim();
+  }
+
+  String get _sessionId {
+    return widget.request.liveWalkSessionId.trim();
+  }
+
+  // ============================================================
+  // PAYMENT
+  //
+  // InstaWalkRequest currently does not contain a payment field.
+  // We therefore don't invent an amount.
+  // ============================================================
+
+  String get _paymentText {
+    return 'Earnings shown after acceptance';
   }
 
   // ============================================================
@@ -77,24 +127,15 @@ class _IncomingWalkRequestScreenState
   void initState() {
     super.initState();
 
-    unawaited(
-      _startLocationTracking(),
-    );
+    unawaited(_startLocationTracking());
   }
 
   // ============================================================
-  // LOCATION TRACKING
-  //
-  // Compatible with Geolocator versions where
-  // locationSettings is not available.
+  // LOCATION
   // ============================================================
 
   Future<void> _startLocationTracking() async {
     try {
-      // --------------------------------------------------------
-      // GPS SERVICE
-      // --------------------------------------------------------
-
       final bool serviceEnabled =
           await Geolocator.isLocationServiceEnabled();
 
@@ -102,13 +143,8 @@ class _IncomingWalkRequestScreenState
         _showMessage(
           'Please turn on Location/GPS.',
         );
-
         return;
       }
-
-      // --------------------------------------------------------
-      // PERMISSION
-      // --------------------------------------------------------
 
       LocationPermission permission =
           await Geolocator.checkPermission();
@@ -123,15 +159,8 @@ class _IncomingWalkRequestScreenState
         _showMessage(
           'Location permission is required.',
         );
-
         return;
       }
-
-      // --------------------------------------------------------
-      // CURRENT LOCATION
-      //
-      // Old/current Geolocator-compatible API.
-      // --------------------------------------------------------
 
       final Position position =
           await Geolocator.getCurrentPosition(
@@ -144,24 +173,20 @@ class _IncomingWalkRequestScreenState
 
       _updateWalkerLocation(position);
 
-      // --------------------------------------------------------
-      // CONTINUOUS LOCATION
-      // --------------------------------------------------------
-
       _locationSubscription =
-    Geolocator.getPositionStream(
-  locationSettings: const LocationSettings(
-    accuracy: LocationAccuracy.high,
-    distanceFilter: 5,
-  ),
-).listen(
-  _updateWalkerLocation,
-  onError: (Object error) {
-    debugPrint(
-      'Location stream error: $error',
-    );
-  },
-);
+          Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 5,
+        ),
+      ).listen(
+        _updateWalkerLocation,
+        onError: (Object error) {
+          debugPrint(
+            'Incoming walk location error: $error',
+          );
+        },
+      );
     } catch (e) {
       debugPrint(
         'Incoming request location error: $e',
@@ -175,43 +200,28 @@ class _IncomingWalkRequestScreenState
     } finally {
       if (mounted) {
         setState(() {
-          _loading = false;
+          _loadingLocation = false;
         });
       }
     }
   }
 
-  // ============================================================
-  // UPDATE WALKER LOCATION
-  // ============================================================
-
   void _updateWalkerLocation(
     Position position,
   ) {
-    final double? pickupLat = _pickupLat;
-    final double? pickupLng = _pickupLng;
+    final double? ownerLat = _ownerLatitude;
+    final double? ownerLng = _ownerLongitude;
 
     double distance = 0;
 
-    if (pickupLat != null && pickupLng != null) {
+    if (ownerLat != null && ownerLng != null) {
       distance = Geolocator.distanceBetween(
         position.latitude,
         position.longitude,
-        pickupLat,
-        pickupLng,
+        ownerLat,
+        ownerLng,
       );
     }
-
-    // ==========================================================
-    // REACH RADIUS
-    //
-    // Walker is considered reached within 100 meters.
-    // ==========================================================
-
-    final bool reachable =
-        pickupLat != null &&
-            pickupLng != null &&
-            distance <= 100;
 
     if (!mounted) {
       return;
@@ -220,32 +230,253 @@ class _IncomingWalkRequestScreenState
     setState(() {
       _walkerPosition = position;
       _distanceMeters = distance;
-      _canReach = reachable;
     });
 
-    // ==========================================================
-    // CENTER MAP ON WALKER
-    // ==========================================================
+    _fitBothLocations();
+  }
+
+  // ============================================================
+  // FIT OWNER + WALKER
+  // ============================================================
+
+  void _fitBothLocations() {
+    final Position? walker = _walkerPosition;
+
+    final double? ownerLat = _ownerLatitude;
+    final double? ownerLng = _ownerLongitude;
+
+    if (walker == null ||
+        ownerLat == null ||
+        ownerLng == null) {
+      return;
+    }
 
     try {
-      _mapController.move(
-        LatLng(
-          position.latitude,
-          position.longitude,
+      final LatLng walkerPoint = LatLng(
+        walker.latitude,
+        walker.longitude,
+      );
+
+      final LatLng ownerPoint = LatLng(
+        ownerLat,
+        ownerLng,
+      );
+
+      final LatLngBounds bounds =
+          LatLngBounds.fromPoints(
+        <LatLng>[
+          walkerPoint,
+          ownerPoint,
+        ],
+      );
+
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: bounds,
+          padding: const EdgeInsets.fromLTRB(
+            45,
+            120,
+            45,
+            360,
+          ),
+          maxZoom: 16,
         ),
-        15.5,
       );
     } catch (_) {
-      // MapController may not be ready yet.
+      // Map may not be ready yet.
     }
   }
 
   // ============================================================
-  // REACH PICKUP
+  // ACCEPT
   // ============================================================
 
-  Future<void> _onReach() async {
-    if (!_canReach || _reaching) {
+  Future<void> _acceptWalk() async {
+    if (_accepting ||
+        _rejecting ||
+        _accepted) {
+      return;
+    }
+
+    final String walkId =
+        widget.request.id.trim();
+
+    if (walkId.isEmpty) {
+      _showMessage(
+        'Walk request ID is missing.',
+      );
+      return;
+    }
+
+    setState(() {
+      _accepting = true;
+    });
+
+    try {
+      await _acceptService.acceptWalk(
+        walkId,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _accepted = true;
+      });
+
+      _showMessage(
+        'Walk accepted. Please reach the owner.',
+      );
+    } catch (e) {
+      debugPrint(
+        'Accept walk error: $e',
+      );
+
+      if (mounted) {
+        _showMessage(
+          e.toString().replaceFirst(
+            'Exception: ',
+            '',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _accepting = false;
+        });
+      }
+    }
+  }
+
+  // ============================================================
+  // REJECT
+  // ============================================================
+
+  Future<void> _rejectWalk() async {
+    if (_accepting ||
+        _rejecting ||
+        _accepted) {
+      return;
+    }
+
+    final bool? confirm =
+        await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            'Reject Walk?',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          content: const Text(
+            'You will not be able to accept this walk again.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                  false,
+                );
+              },
+              child: const Text('CANCEL'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                  true,
+                );
+              },
+              child: const Text(
+                'REJECT',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm != true) {
+      return;
+    }
+
+    final String walkId =
+        widget.request.id.trim();
+
+    if (walkId.isEmpty) {
+      _showMessage(
+        'Walk request ID is missing.',
+      );
+      return;
+    }
+
+    setState(() {
+      _rejecting = true;
+    });
+
+    try {
+      await _acceptService.rejectWalk(
+        walkId,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.pop(context);
+    } catch (e) {
+      debugPrint(
+        'Reject walk error: $e',
+      );
+
+      if (mounted) {
+        _showMessage(
+          e.toString().replaceFirst(
+            'Exception: ',
+            '',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _rejecting = false;
+        });
+      }
+    }
+  }
+
+  // ============================================================
+  // REACH OWNER
+  // ============================================================
+
+  Future<void> _onReachOwner() async {
+    if (!_accepted ||
+        _reaching) {
+      return;
+    }
+
+    if (_ownerLatitude == null ||
+        _ownerLongitude == null) {
+      _showMessage(
+        'Owner location is unavailable.',
+      );
+      return;
+    }
+
+    if (_distanceMeters > 100) {
+      _showMessage(
+        'Please reach within 100 m of the owner.',
+      );
       return;
     }
 
@@ -256,11 +487,16 @@ class _IncomingWalkRequestScreenState
       _showMessage(
         'Walk ID is missing.',
       );
-
       return;
     }
 
-    if (!mounted) {
+    final String sessionId =
+        _sessionId;
+
+    if (sessionId.isEmpty) {
+      _showMessage(
+        'Live Walk session is not ready yet.',
+      );
       return;
     }
 
@@ -269,36 +505,13 @@ class _IncomingWalkRequestScreenState
     });
 
     try {
-      // --------------------------------------------------------
-      // CONFIRM ACCEPTED STATUS
-      //
-      // Incoming screen normally opens after acceptance.
-      // This is only a safety check.
-      // --------------------------------------------------------
-
-      try {
-        await _acceptService.acceptWalk(
-          walkId,
-        );
-      } catch (e) {
-        debugPrint(
-          'Accept confirmation: $e',
-        );
-      }
-
       if (!mounted) {
         return;
       }
 
-      // --------------------------------------------------------
-      // OPEN LIVE WALK
-      //
-      // Start Walk slider will be inside LiveWalkScreen.
-      // --------------------------------------------------------
-
       await Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
+        MaterialPageRoute<void>(
           builder: (_) {
             return LiveWalkScreen(
               ownerUid: _ownerUid,
@@ -306,15 +519,17 @@ class _IncomingWalkRequestScreenState
               walkId: walkId,
               dogName: _dogName,
               dogBreed: _dogBreed,
-              ownerPhone: _ownerPhone,
-              sessionId: 'session-$walkId',
+              ownerPhone: _ownerPhone.isEmpty
+                  ? null
+                  : _ownerPhone,
+              sessionId: sessionId,
             );
           },
         ),
       );
     } catch (e) {
       debugPrint(
-        'Reach error: $e',
+        'Open Live Walk error: $e',
       );
 
       if (mounted) {
@@ -335,81 +550,17 @@ class _IncomingWalkRequestScreenState
   }
 
   // ============================================================
-  // OWNER
-  //
-  // Directly from InstaWalkRequest.
-  // ============================================================
-
-  String get _ownerUid {
-    final String value =
-        widget.request.ownerAuthUid.trim().isNotEmpty
-            ? widget.request.ownerAuthUid.trim()
-            : widget.request.ownerUid.trim().isNotEmpty
-                ? widget.request.ownerUid.trim()
-                : widget.request.ownerId.trim();
-
-    return value;
-  }
-
-  String get _ownerName {
-    final String value =
-        widget.request.ownerName.trim();
-
-    return value.isEmpty ? 'Owner' : value;
-  }
-
-  String get _ownerPhone {
-    return widget.request.ownerPhone.trim();
-  }
-
-  // ============================================================
-  // DOG
-  // ============================================================
-
-  String get _dogName {
-    final String value =
-        widget.request.dogName.trim();
-
-    return value.isEmpty ? 'Dog' : value;
-  }
-
-  String get _dogBreed {
-    return widget.request.dogBreed.trim();
-  }
-
-  // ============================================================
-  // ADDRESS
-  // ============================================================
-
-  String get _pickupAddress {
-    final String pickup =
-        widget.request.pickupAddress.trim();
-
-    if (pickup.isNotEmpty) {
-      return pickup;
-    }
-
-    final String address =
-        widget.request.address.trim();
-
-    return address;
-  }
-
-  // ============================================================
-  // OPENSTREETMAP MAP
+  // MAP
   // ============================================================
 
   Widget _buildMap() {
-    final double? pickupLat = _pickupLat;
-    final double? pickupLng = _pickupLng;
+    final double? ownerLat = _ownerLatitude;
+    final double? ownerLng = _ownerLongitude;
 
     final List<Marker> markers =
         <Marker>[];
 
-    // ==========================================================
-    // WALKER MARKER
-    // ==========================================================
-
+    // WALKER
     if (_walkerPosition != null) {
       markers.add(
         Marker(
@@ -417,8 +568,8 @@ class _IncomingWalkRequestScreenState
             _walkerPosition!.latitude,
             _walkerPosition!.longitude,
           ),
-          width: 54,
-          height: 54,
+          width: 58,
+          height: 58,
           child: Container(
             decoration: BoxDecoration(
               color: Colors.blue,
@@ -437,55 +588,51 @@ class _IncomingWalkRequestScreenState
             child: const Icon(
               Icons.navigation_rounded,
               color: Colors.white,
-              size: 25,
+              size: 26,
             ),
           ),
         ),
       );
     }
 
-    // ==========================================================
-    // OWNER / PICKUP MARKER
-    // ==========================================================
-
-    if (pickupLat != null && pickupLng != null) {
+    // OWNER
+    if (ownerLat != null &&
+        ownerLng != null) {
       markers.add(
         Marker(
           point: LatLng(
-            pickupLat,
-            pickupLng,
+            ownerLat,
+            ownerLng,
           ),
-          width: 58,
-          height: 65,
-          child: Container(
-            alignment: Alignment.topCenter,
-            child: Container(
-              width: 45,
-              height: 45,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF4511E),
-                shape: BoxShape.circle,
+          width: 62,
+          height: 72,
+          child: Column(
+            children: <Widget>[
+              Container(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF4511E),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.person_pin_circle_rounded,
+                  color: Colors.white,
+                  size: 29,
+                ),
               ),
-              child: const Icon(
-                Icons.location_on,
-                color: Colors.white,
-                size: 27,
-              ),
-            ),
+            ],
           ),
         ),
       );
     }
 
-    // ==========================================================
-    // MAP CENTER
-    // ==========================================================
-
     final LatLng center =
-        pickupLat != null && pickupLng != null
+        ownerLat != null &&
+                ownerLng != null
             ? LatLng(
-                pickupLat,
-                pickupLng,
+                ownerLat,
+                ownerLng,
               )
             : _walkerPosition != null
                 ? LatLng(
@@ -501,17 +648,13 @@ class _IncomingWalkRequestScreenState
       mapController: _mapController,
       options: MapOptions(
         initialCenter: center,
-        initialZoom: 15,
+        initialZoom: 14,
         interactionOptions:
             const InteractionOptions(
           flags: InteractiveFlag.all,
         ),
       ),
       children: <Widget>[
-        // ======================================================
-        // OPENSTREETMAP
-        // ======================================================
-
         TileLayer(
           urlTemplate:
               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -519,22 +662,39 @@ class _IncomingWalkRequestScreenState
               'com.doojowalker.app',
         ),
 
-        // ======================================================
-        // MARKERS
-        // ======================================================
-
         MarkerLayer(
           markers: markers,
         ),
+
+        if (_walkerPosition != null &&
+            ownerLat != null &&
+            ownerLng != null)
+          PolylineLayer(
+            polylines: <Polyline>[
+              Polyline(
+                points: <LatLng>[
+                  LatLng(
+                    _walkerPosition!.latitude,
+                    _walkerPosition!.longitude,
+                  ),
+                  LatLng(
+                    ownerLat,
+                    ownerLng,
+                  ),
+                ],
+                strokeWidth: 4,
+              ),
+            ],
+          ),
       ],
     );
   }
 
   // ============================================================
-  // MAP TOP OVERLAY
+  // TOP BAR
   // ============================================================
 
-  Widget _buildMapOverlay() {
+  Widget _buildTopBar() {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
@@ -545,24 +705,20 @@ class _IncomingWalkRequestScreenState
         ),
         child: Row(
           children: <Widget>[
-            _roundButton(
-              icon: Icons.arrow_back_rounded,
-              onTap: () {
-                Navigator.pop(context);
-              },
+            _circleButton(
+              Icons.arrow_back_rounded,
+              () => Navigator.pop(context),
             ),
-
             const Spacer(),
-
             Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: 13,
+                horizontal: 14,
                 vertical: 9,
               ),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius:
-                    BorderRadius.circular(22),
+                    BorderRadius.circular(24),
                 boxShadow: const <BoxShadow>[
                   BoxShadow(
                     color: Colors.black26,
@@ -572,17 +728,23 @@ class _IncomingWalkRequestScreenState
               ),
               child: Row(
                 children: <Widget>[
-                  const Icon(
-                    Icons.location_on,
-                    color: Color(0xFFF4511E),
+                  Icon(
+                    _accepted
+                        ? Icons.check_circle_rounded
+                        : Icons.notifications_active_rounded,
+                    color: _accepted
+                        ? Colors.green
+                        : const Color(0xFFF4511E),
                     size: 18,
                   ),
-                  const SizedBox(width: 5),
+                  const SizedBox(width: 6),
                   Text(
-                    _distanceText,
+                    _accepted
+                        ? 'WALK ACCEPTED'
+                        : 'INCOMING WALK',
                     style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ],
@@ -594,11 +756,33 @@ class _IncomingWalkRequestScreenState
     );
   }
 
+  Widget _circleButton(
+    IconData icon,
+    VoidCallback onTap,
+  ) {
+    return Material(
+      color: Colors.white,
+      elevation: 4,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(11),
+          child: Icon(
+            icon,
+            size: 23,
+          ),
+        ),
+      ),
+    );
+  }
+
   // ============================================================
-  // BOTTOM REQUEST CARD
+  // BOTTOM SHEET
   // ============================================================
 
-  Widget _buildBottomCard() {
+  Widget _buildBottomSheet() {
     return Positioned(
       left: 0,
       right: 0,
@@ -608,7 +792,7 @@ class _IncomingWalkRequestScreenState
         child: Container(
           padding: const EdgeInsets.fromLTRB(
             18,
-            18,
+            14,
             18,
             14,
           ),
@@ -620,37 +804,40 @@ class _IncomingWalkRequestScreenState
             boxShadow: <BoxShadow>[
               BoxShadow(
                 color: Colors.black26,
-                blurRadius: 18,
-                offset: Offset(
-                  0,
-                  -5,
-                ),
+                blurRadius: 20,
+                offset: Offset(0, -6),
               ),
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
             children: <Widget>[
-              // =================================================
-              // DOG + OWNER
-              // =================================================
+              Container(
+                width: 42,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.black12,
+                  borderRadius:
+                      BorderRadius.circular(10),
+                ),
+              ),
 
+              const SizedBox(height: 14),
+
+              // DOG
               Row(
                 children: <Widget>[
                   Container(
-                    width: 56,
-                    height: 56,
-                    decoration:
-                        const BoxDecoration(
+                    width: 58,
+                    height: 58,
+                    decoration: const BoxDecoration(
                       color: Color(0xFFFFE7DE),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.pets_rounded,
                       color: Color(0xFFF4511E),
-                      size: 29,
+                      size: 30,
                     ),
                   ),
 
@@ -663,190 +850,269 @@ class _IncomingWalkRequestScreenState
                       children: <Widget>[
                         Text(
                           _dogName,
+                          maxLines: 1,
+                          overflow:
+                              TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 20,
-                            fontWeight:
-                                FontWeight.w900,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
-                        if (_dogBreed.isNotEmpty)
-                          Text(
-                            _dogBreed,
-                            style:
-                                const TextStyle(
-                              fontSize: 13,
-                              color:
-                                  Colors.black54,
-                              fontWeight:
-                                  FontWeight.w600,
-                            ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _dogBreed.isEmpty
+                              ? _ownerName
+                              : '$_dogBreed • $_ownerName',
+                          maxLines: 1,
+                          overflow:
+                              TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.black54,
+                            fontWeight: FontWeight.w600,
                           ),
+                        ),
                       ],
-                    ),
-                  ),
-
-                  const Icon(
-                    Icons.person_rounded,
-                    size: 19,
-                    color: Colors.black45,
-                  ),
-
-                  const SizedBox(width: 4),
-
-                  Text(
-                    _ownerName,
-                    style: const TextStyle(
-                      fontWeight:
-                          FontWeight.w700,
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-              // =================================================
-              // PICKUP
-              // =================================================
-
-              Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.all(13),
-                decoration: BoxDecoration(
-                  color:
-                      const Color(0xFFF7F7F7),
-                  borderRadius:
-                      BorderRadius.circular(14),
-                ),
-                child: Row(
-                  children: <Widget>[
-                    const Icon(
-                      Icons.location_on,
-                      color: Color(0xFFF4511E),
+              // STATS
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: _infoBox(
+                      Icons.location_on_rounded,
+                      _distanceText,
+                      'from you',
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _infoBox(
+                      Icons.schedule_rounded,
+                      _etaText,
+                      'arrival',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _infoBox(
+                      Icons.payments_rounded,
+                      _paymentText,
+                      'payment',
+                    ),
+                  ),
+                ],
+              ),
 
-                    const SizedBox(width: 9),
+              const SizedBox(height: 12),
 
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            _canReach
-                                ? 'Pickup location reached'
-                                : 'Go to owner pickup location',
-                            style:
-                                const TextStyle(
-                              fontSize: 13,
-                              fontWeight:
-                                  FontWeight.w700,
-                            ),
+              // ADDRESS
+              if (_address.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F7F7),
+                    borderRadius:
+                        BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.location_on_rounded,
+                        color: Color(0xFFF4511E),
+                        size: 21,
+                      ),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          _address,
+                          maxLines: 2,
+                          overflow:
+                              TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
-                          if (_pickupAddress
-                              .isNotEmpty) ...<Widget>[
-                            const SizedBox(
-                              height: 3,
-                            ),
-                            Text(
-                              _pickupAddress,
-                              maxLines: 2,
-                              overflow:
-                                  TextOverflow.ellipsis,
-                              style:
-                                  const TextStyle(
-                                fontSize: 11,
-                                color:
-                                    Colors.black45,
-                                fontWeight:
-                                    FontWeight.w500,
+              const SizedBox(height: 12),
+
+              // ACCEPTED
+              if (_accepted)
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed:
+                        _canReachOwner &&
+                                !_reaching
+                            ? _onReachOwner
+                            : null,
+                    style:
+                        ElevatedButton.styleFrom(
+                      backgroundColor:
+                          const Color(0xFFF4511E),
+                      disabledBackgroundColor:
+                          Colors.black12,
+                      shape:
+                          RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: _reaching
+                        ? const SizedBox(
+                            width: 23,
+                            height: 23,
+                            child:
+                                CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor:
+                                  AlwaysStoppedAnimation<
+                                      Color>(
+                                Colors.white,
                               ),
                             ),
-                          ],
-                        ],
+                          )
+                        : Text(
+                            _canReachOwner
+                                ? 'REACHED OWNER'
+                                : 'REACH OWNER',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight:
+                                  FontWeight.w900,
+                            ),
+                          ),
+                  ),
+                )
+              else
+                // ACCEPT / REJECT
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: SizedBox(
+                        height: 56,
+                        child: OutlinedButton(
+                          onPressed:
+                              _rejecting ||
+                                      _accepting
+                                  ? null
+                                  : _rejectWalk,
+                          style:
+                              OutlinedButton.styleFrom(
+                            foregroundColor:
+                                Colors.red,
+                            side:
+                                const BorderSide(
+                              color: Colors.red,
+                              width: 1.4,
+                            ),
+                            shape:
+                                RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(
+                                16,
+                              ),
+                            ),
+                          ),
+                          child: _rejecting
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child:
+                                      CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  'REJECT',
+                                  style: TextStyle(
+                                    fontWeight:
+                                        FontWeight.w900,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: SizedBox(
+                        height: 56,
+                        child: ElevatedButton(
+                          onPressed:
+                              _accepting ||
+                                      _rejecting
+                                  ? null
+                                  : _acceptWalk,
+                          style:
+                              ElevatedButton.styleFrom(
+                            backgroundColor:
+                                const Color(
+                              0xFFF4511E,
+                            ),
+                            shape:
+                                RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(
+                                16,
+                              ),
+                            ),
+                          ),
+                          child: _accepting
+                              ? const SizedBox(
+                                  width: 23,
+                                  height: 23,
+                                  child:
+                                      CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor:
+                                        AlwaysStoppedAnimation<
+                                            Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : const Text(
+                                  'ACCEPT WALK',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight:
+                                        FontWeight.w900,
+                                  ),
+                                ),
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-
-              const SizedBox(height: 13),
-
-              // =================================================
-              // REACH BUTTON
-              // =================================================
-
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed:
-                      _canReach && !_reaching
-                          ? _onReach
-                          : null,
-                  style:
-                      ElevatedButton.styleFrom(
-                    backgroundColor:
-                        const Color(0xFFF4511E),
-                    disabledBackgroundColor:
-                        Colors.black12,
-                    disabledForegroundColor:
-                        Colors.black38,
-                    shape:
-                        RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: _reaching
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child:
-                              CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            valueColor:
-                                AlwaysStoppedAnimation<
-                                    Color>(
-                              Colors.white,
-                            ),
-                          ),
-                        )
-                      : Text(
-                          _canReach
-                              ? 'REACHED PICKUP'
-                              : 'REACH PICKUP',
-                          style:
-                              const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight:
-                                FontWeight.w900,
-                            letterSpacing: .4,
-                          ),
-                        ),
-                ),
-              ),
 
               const SizedBox(height: 7),
 
-              // =================================================
-              // DISTANCE MESSAGE
-              // =================================================
-
-              Center(
-                child: Text(
-                  _canReach
-                      ? 'You are within 100 m of pickup'
-                      : 'Reach the pickup location to continue',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Colors.black45,
-                    fontWeight:
-                        FontWeight.w600,
-                  ),
+              Text(
+                _accepted
+                    ? (_canReachOwner
+                        ? 'You are within 100 m of the owner.'
+                        : 'Reach the owner to open Live Walk.')
+                    : 'Review the location before accepting this walk.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.black45,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -856,47 +1122,105 @@ class _IncomingWalkRequestScreenState
     );
   }
 
-  // ============================================================
-  // ROUND BUTTON
-  // ============================================================
-
-  Widget _roundButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Material(
-      color: Colors.white,
-      shape: const CircleBorder(),
-      elevation: 4,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: const Padding(
-          padding: EdgeInsets.all(11),
-          child: Icon(
-            Icons.arrow_back_rounded,
-            size: 23,
+  Widget _infoBox(
+    IconData icon,
+    String value,
+    String label,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 10,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F7F7),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: <Widget>[
+          Icon(
+            icon,
+            color: const Color(0xFFF4511E),
+            size: 19,
           ),
-        ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 9,
+              color: Colors.black45,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   // ============================================================
-  // DISTANCE TEXT
+  // DISTANCE
   // ============================================================
 
   String get _distanceText {
-    if (_pickupLat == null ||
-        _pickupLng == null) {
-      return 'Pickup unavailable';
+    if (_walkerPosition == null ||
+        _ownerLatitude == null ||
+        _ownerLongitude == null) {
+      return '—';
     }
 
     if (_distanceMeters < 1000) {
-      return '${_distanceMeters.round()} m away';
+      return '${_distanceMeters.round()} m';
     }
 
-    return '${(_distanceMeters / 1000).toStringAsFixed(1)} km away';
+    return '${(_distanceMeters / 1000).toStringAsFixed(1)} km';
+  }
+
+  // ============================================================
+  // ETA
+  //
+  // Request durationMinutes is used when supplied.
+  // Otherwise estimate using walking speed.
+  // ============================================================
+
+  String get _etaText {
+    if (widget.request.durationMinutes > 0) {
+      return '${widget.request.durationMinutes} min';
+    }
+
+    if (_distanceMeters <= 0) {
+      return '—';
+    }
+
+    // Approx. 5 km/h walking speed.
+    final double minutes =
+        (_distanceMeters / 1000) / 5 * 60;
+
+    final int rounded =
+        math.max(1, minutes.ceil());
+
+    return '$rounded min';
+  }
+
+  // ============================================================
+  // REACHED
+  // ============================================================
+
+  bool get _canReachOwner {
+    return _accepted &&
+        _ownerLatitude != null &&
+        _ownerLongitude != null &&
+        _distanceMeters <= 100;
   }
 
   // ============================================================
@@ -915,8 +1239,7 @@ class _IncomingWalkRequestScreenState
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior:
-              SnackBarBehavior.floating,
+          behavior: SnackBarBehavior.floating,
         ),
       );
   }
@@ -936,43 +1259,24 @@ class _IncomingWalkRequestScreenState
   // ============================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: <Widget>[
-          // ====================================================
-          // OPENSTREETMAP FULL SCREEN
-          // ====================================================
-
           Positioned.fill(
             child: _buildMap(),
           ),
 
-          // ====================================================
-          // TOP CONTROLS
-          // ====================================================
+          _buildTopBar(),
 
-          _buildMapOverlay(),
+          _buildBottomSheet(),
 
-          // ====================================================
-          // BOTTOM REQUEST DETAILS
-          // ====================================================
-
-          _buildBottomCard(),
-
-          // ====================================================
-          // LOCATION LOADING
-          // ====================================================
-
-          if (_loading)
+          if (_loadingLocation)
             const Positioned.fill(
               child: ColoredBox(
                 color: Colors.white70,
                 child: Center(
-                  child:
-                      CircularProgressIndicator(),
+                  child: CircularProgressIndicator(),
                 ),
               ),
             ),
