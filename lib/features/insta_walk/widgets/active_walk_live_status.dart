@@ -11,56 +11,58 @@ class ActiveWalkLiveStatus extends StatelessWidget {
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
+    final Color statusColor = hasLocation
+        ? AppColors.success
+        : AppColors.warning;
+
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 12,
         vertical: 10,
       ),
       decoration: BoxDecoration(
         color: AppColors.successSoft,
-        borderRadius:
-            BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.success.withOpacity(.20),
+          color: AppColors.success.withValues(
+            alpha: 0.20,
+          ),
         ),
       ),
       child: Row(
         children: [
           Icon(
             Icons.navigation_rounded,
-            color: hasLocation
-                ? AppColors.success
-                : AppColors.warning,
+            color: statusColor,
             size: 18,
           ),
+
           const SizedBox(width: 9),
+
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   hasLocation
                       ? 'Live location active'
                       : 'Waiting for live location',
                   style: TextStyle(
-                    color: AppColors.success,
+                    color: statusColor,
                     fontSize: 10,
-                    fontWeight:
-                        FontWeight.w900,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
+
                 const SizedBox(height: 2),
+
                 Text(
                   hasLocation
                       ? 'Walker location is updating in real time'
                       : 'GPS location will appear here',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppColors.textMuted,
                     fontSize: 8,
                   ),
@@ -68,13 +70,12 @@ class ActiveWalkLiveStatus extends StatelessWidget {
               ],
             ),
           ),
+
           Container(
             width: 8,
             height: 8,
             decoration: BoxDecoration(
-              color: hasLocation
-                  ? AppColors.success
-                  : AppColors.warning,
+              color: statusColor,
               shape: BoxShape.circle,
             ),
           ),
