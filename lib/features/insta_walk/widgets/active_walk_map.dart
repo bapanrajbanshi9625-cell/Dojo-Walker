@@ -38,7 +38,7 @@ class ActiveWalkMap extends StatelessWidget {
     }
 
     // ============================================================
-    // OWNER — FIXED REQUEST LOCATION
+    // OWNER — FIXED REQUEST / PICKUP LOCATION
     // ============================================================
 
     if (pickupLocation != null) {
@@ -78,7 +78,7 @@ class ActiveWalkMap extends StatelessWidget {
       ),
       children: [
         // ========================================================
-        // MAP
+        // OPENSTREETMAP
         // ========================================================
 
         TileLayer(
@@ -88,7 +88,7 @@ class ActiveWalkMap extends StatelessWidget {
         ),
 
         // ========================================================
-        // WALKER → FIXED OWNER POLYLINE
+        // WALKER → FIXED OWNER ROUTE
         // ========================================================
 
         if (walkerLocation != null &&
@@ -119,7 +119,7 @@ class ActiveWalkMap extends StatelessWidget {
   }
 
   // ============================================================
-  // CENTER
+  // MAP CENTER
   // ============================================================
 
   LatLng _getCenter() {
@@ -163,7 +163,12 @@ class ActiveWalkMap extends StatelessWidget {
       return 14;
     }
 
-    return 16;
+    if (walkerLocation != null ||
+        pickupLocation != null) {
+      return 16;
+    }
+
+    return 12;
   }
 
   // ============================================================
@@ -182,7 +187,7 @@ class ActiveWalkMap extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: AppColors.overlay.withValues(
-              alpha: .20,
+              alpha: 0.20,
             ),
             blurRadius: 10,
           ),
@@ -212,7 +217,7 @@ class ActiveWalkMap extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: AppColors.overlay.withValues(
-              alpha: .25,
+              alpha: 0.25,
             ),
             blurRadius: 12,
           ),
