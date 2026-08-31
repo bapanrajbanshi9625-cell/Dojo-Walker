@@ -41,6 +41,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   bool _showingEndDialog = false;
   bool _showingReview = false;
+  bool _initializing = true;
 
   Map<String, dynamic> _lastSessionData = <String, dynamic>{};
 
@@ -54,17 +55,31 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       walkId: widget.walkId,
       dogName: widget.dogName,
       dogBreed: widget.dogBreed,
-
-      // FIX:
-      // Controller expects String, while widget.ownerPhone is String?.
       ownerPhone: widget.ownerPhone ?? '',
-
       sessionId: widget.sessionId,
     );
 
     _controller.addListener(_onControllerChanged);
 
-    unawaited(_controller.initialize());
+    unawaited(_initializeController());
+  }
+
+  Future<void> _initializeController() async {
+    try {
+      await _controller.initialize();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      _showError(_cleanError(error));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _initializing = false;
+        });
+      }
+    }
   }
 
   void _onControllerChanged() {
@@ -81,6 +96,10 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_initializing) {
+      return _buildLoadingScreen();
+    }
+
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: _sessionStream,
       builder: (
@@ -189,6 +208,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                       ),
                     ),
                   ),
+
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -229,6 +249,35 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           ),
         );
       },
+    );
+  }
+
+  // ============================================================
+  // LOADING
+  // ============================================================
+
+  Widget _buildLoadingScreen() {
+    return Scaffold(
+      backgroundColor: AppColors.cardBackground,
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        surfaceTintColor: AppColors.primary,
+        elevation: 0,
+        centerTitle: true,
+        title: const Text(
+          'LIVE WALK',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+      body: const Center(
+        child: CircularProgressIndicator(
+          color: AppColors.primary,
+        ),
+      ),
     );
   }
 
@@ -306,25 +355,28 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              const Icon(
-                Icons.person_rounded,
-                size: 19,
-                color: Colors.black45,
-              ),
-              const SizedBox(height: 3),
-              Text(
-                cleanOwnerName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Icon(
+                  Icons.person_rounded,
+                  size: 19,
+                  color: Colors.black45,
                 ),
-              ),
-            ],
+                const SizedBox(height: 3),
+                Text(
+                  cleanOwnerName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -613,6 +665,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             ? 'Dog'
             : widget.dogName.trim();
 
+    final String breed = widget.dogBreed.trim();
     final String phone = widget.ownerPhone?.trim() ?? '';
 
     return Container(
@@ -640,12 +693,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             'Dog',
             dog,
           ),
-          if (widget.dogBreed.trim().isNotEmpty) ...[
+          if (breed.isNotEmpty) ...[
             _infoDivider(),
             _infoRow(
               Icons.category_rounded,
               'Breed',
-              widget.dogBreed.trim(),
+              breed,
             ),
           ],
           if (phone.isNotEmpty) ...[
@@ -793,6 +846,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             height: 35,
             child: CircularProgressIndicator(
               strokeWidth: 3,
+              color: AppColors.primary,
             ),
           ),
           SizedBox(height: 12),
@@ -854,6 +908,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor: AppColors.cardBackground,
@@ -906,7 +961,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         );
       },
     ).whenComplete(() {
-      _showingEndDialog = false;
+      if (mounted) {
+        _showingEndDialog = false;
+      }
     });
   }
 
@@ -1091,6 +1148,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (BuildContext sheetContext) {
         return _SosSheet(
           ownerName: widget.ownerName,
@@ -1112,6 +1170,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (BuildContext sheetContext) {
         return Container(
           padding: const EdgeInsets.fromLTRB(
@@ -1295,9 +1354,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // DOUBLE
   // ============================================================
 
-  double? _readDouble(
-    dynamic value,
-  ) {
+  double? _readDouble(dynamic value) {
     if (value == null) {
       return null;
     }
@@ -1315,9 +1372,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // INT
   // ============================================================
 
-  int? _readInt(
-    dynamic value,
-  ) {
+  int? _readInt(dynamic value) {
     if (value == null) {
       return null;
     }
@@ -1339,21 +1394,21 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   // ERROR
   // ============================================================
 
-  String _cleanError(
-    Object error,
-  ) {
-    return error
+  String _cleanError(Object error) {
+    final String message = error
         .toString()
         .replaceFirst(
           'Exception: ',
           '',
         )
         .trim();
+
+    return message.isEmpty
+        ? 'Something went wrong. Please try again.'
+        : message;
   }
 
-  void _showError(
-    String message,
-  ) {
+  void _showError(String message) {
     if (!mounted) {
       return;
     }
@@ -1369,9 +1424,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       );
   }
 
-  void _showMessage(
-    String message,
-  ) {
+  void _showMessage(String message) {
     if (!mounted) {
       return;
     }
@@ -1415,6 +1468,7 @@ class _SosSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String cleanOwnerName = ownerName.trim();
+    final String cleanPhone = ownerPhone?.trim() ?? '';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(
@@ -1467,6 +1521,17 @@ class _SosSheet extends StatelessWidget {
                 fontSize: 12,
               ),
             ),
+            if (cleanPhone.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                cleanPhone,
+                style: const TextStyle(
+                  color: Colors.black54,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
