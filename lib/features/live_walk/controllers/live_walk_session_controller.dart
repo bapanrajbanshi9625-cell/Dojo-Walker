@@ -161,7 +161,9 @@ class LiveWalkSessionController extends ChangeNotifier {
         'sessionId=$sessionId',
       );
 
+      // Cancel previous listener.
       await _sessionSubscription?.cancel();
+      _sessionSubscription = null;
 
       // --------------------------------------------------------
       // FIRST SNAPSHOT
@@ -294,7 +296,7 @@ class LiveWalkSessionController extends ChangeNotifier {
     final String status =
         data['status']?.toString().trim().toLowerCase() ?? '';
 
-    final bool walkStarted =
+    final bool firestoreWalkStarted =
         data['walkStarted'] == true;
 
     final bool trackingStarted =
@@ -306,7 +308,7 @@ class LiveWalkSessionController extends ChangeNotifier {
     if (status == 'active' ||
         status == 'started' ||
         status == 'live' ||
-        walkStarted ||
+        firestoreWalkStarted ||
         trackingStarted) {
       _walkStarted = true;
     }
@@ -362,18 +364,18 @@ class LiveWalkSessionController extends ChangeNotifier {
     int? peeCount,
     int? poopCount,
   }) {
-    if (peeCount != null &&
-        peeCount >= 0) {
+    if (peeCount != null && peeCount >= 0) {
       _peeCount = peeCount;
     }
 
-    if (poopCount != null &&
-        poopCount >= 0) {
+    if (poopCount != null && poopCount >= 0) {
       _poopCount = poopCount;
     }
 
     notifyListeners();
 
+    // updateActivities() is intentionally not awaited here.
+    // If the service method returns void, this is valid.
     unawaited(
       _backgroundService.updateActivities(
         peeCount: _peeCount,
@@ -395,6 +397,8 @@ class LiveWalkSessionController extends ChangeNotifier {
 
     notifyListeners();
 
+    // This service method is intentionally called as void.
+    // DO NOT write: await _backgroundService.updateSteps(value);
     _backgroundService.updateSteps(value);
   }
 
@@ -421,7 +425,7 @@ class LiveWalkSessionController extends ChangeNotifier {
       );
 
       // --------------------------------------------------------
-      // UPDATE LIVE SESSION
+      // UPDATE FIRESTORE SESSION
       // --------------------------------------------------------
 
       await _sessionService.startWalk(
@@ -436,9 +440,9 @@ class LiveWalkSessionController extends ChangeNotifier {
       // --------------------------------------------------------
       // START BACKGROUND GPS
       //
-      // IMPORTANT:
       // start() returns void.
-      // Therefore there is NO bool result to await/check.
+      // DO NOT use await.
+      // DO NOT assign its result to a variable.
       // --------------------------------------------------------
 
       _backgroundService.start(
@@ -512,7 +516,7 @@ class LiveWalkSessionController extends ChangeNotifier {
       );
 
       // --------------------------------------------------------
-      // COMPLETE LIVE SESSION
+      // COMPLETE FIRESTORE SESSION
       // --------------------------------------------------------
 
       await _sessionService.completeWalk(
@@ -521,11 +525,10 @@ class LiveWalkSessionController extends ChangeNotifier {
       );
 
       // --------------------------------------------------------
-      // STOP GPS
+      // STOP BACKGROUND GPS
       //
-      // IMPORTANT:
       // stop() returns void.
-      // Therefore DO NOT use await.
+      // DO NOT use await.
       // --------------------------------------------------------
 
       _backgroundService.stop();
@@ -595,7 +598,7 @@ class LiveWalkSessionController extends ChangeNotifier {
   }
 
   // ============================================================
-  // TIMELINE
+  // TIMELINE FLAGS
   // ============================================================
 
   bool get hasAcceptedTime =>
@@ -621,6 +624,7 @@ class LiveWalkSessionController extends ChangeNotifier {
 
     _distanceKm = 0.0;
     _steps = 0;
+
     _peeCount = 0;
     _poopCount = 0;
 
@@ -633,9 +637,7 @@ class LiveWalkSessionController extends ChangeNotifier {
   // HELPERS
   // ============================================================
 
-  double? _readDouble(
-    dynamic value,
-  ) {
+  double? _readDouble(dynamic value) {
     if (value == null) {
       return null;
     }
@@ -649,9 +651,7 @@ class LiveWalkSessionController extends ChangeNotifier {
     );
   }
 
-  int? _readInt(
-    dynamic value,
-  ) {
+  int? _readInt(dynamic value) {
     if (value == null) {
       return null;
     }
@@ -675,11 +675,15 @@ class LiveWalkSessionController extends ChangeNotifier {
 
   @override
   void dispose() {
-    unawaited(
-      _sessionSubscription?.cancel(),
-    );
+    final StreamSubscription<
+        DocumentSnapshot<Map<String, dynamic>>>? subscription =
+        _sessionSubscription;
 
     _sessionSubscription = null;
+
+    if (subscription != null) {
+      unawaited(subscription.cancel());
+    }
 
     super.dispose();
   }
