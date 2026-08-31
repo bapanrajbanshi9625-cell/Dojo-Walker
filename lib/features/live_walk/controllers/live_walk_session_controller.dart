@@ -75,23 +75,12 @@ class LiveWalkSessionController extends ChangeNotifier {
 
   bool get endingWalk => _endingWalk;
 
-  // ------------------------------------------------------------
-  // IMPORTANT COMPATIBILITY GETTER
-  //
-  // LiveWalkScreen "ending" use karta hai.
-  // Isliye ending alias provide kiya gaya hai.
-  // ------------------------------------------------------------
-
   bool get ending => _endingWalk;
 
   bool get busy =>
       _startingWalk || _endingWalk;
 
   double get distanceKm => _distanceKm;
-
-  // ------------------------------------------------------------
-  // LiveWalkScreen compatibility
-  // ------------------------------------------------------------
 
   double get totalDistanceKm => _distanceKm;
 
@@ -102,18 +91,66 @@ class LiveWalkSessionController extends ChangeNotifier {
         _sessionData,
       );
 
-  // ------------------------------------------------------------
+  // ============================================================
+  // TIMELINE GETTERS
+  // ============================================================
+
+  dynamic get createdAt =>
+      _sessionData['createdAt'];
+
+  dynamic get acceptedAt =>
+      _sessionData['acceptedAt'];
+
+  dynamic get reachedAt =>
+      _sessionData['reachedAt'];
+
+  dynamic get startedAt =>
+      _sessionData['startedAt'];
+
+  dynamic get completedAt =>
+      _sessionData['completedAt'];
+
+  dynamic get endedAt =>
+      _sessionData['endedAt'];
+
+  // ============================================================
   // GPS READY
-  //
-  // GPS background service already runs independently.
-  // Actual map readiness is determined from session data.
-  // ------------------------------------------------------------
+  // ============================================================
 
   bool get gpsReady {
     final dynamic location =
         _sessionData['currentLocation'];
 
-    return location != null;
+    if (location is! Map) {
+      return false;
+    }
+
+    final double? lat = _readDouble(
+      location['lat'] ?? location['latitude'],
+    );
+
+    final double? lng = _readDouble(
+      location['lng'] ??
+          location['longitude'] ??
+          location['lon'],
+    );
+
+    if (lat == null || lng == null) {
+      return false;
+    }
+
+    return lat != 0 || lng != 0;
+  }
+
+  // ============================================================
+  // SESSION REFERENCE
+  // ============================================================
+
+  DocumentReference<Map<String, dynamic>>
+      get sessionRef {
+    return _sessionService.sessionRef(
+      sessionId,
+    );
   }
 
   // ============================================================
@@ -122,22 +159,11 @@ class LiveWalkSessionController extends ChangeNotifier {
 
   Stream<DocumentSnapshot<Map<String, dynamic>>>
       get sessionStream {
-    return _sessionService
-        .sessionRef(sessionId)
-        .snapshots();
+    return sessionRef.snapshots();
   }
 
   // ============================================================
   // INITIALIZE
-  //
-  // Live Walk screen open hone par:
-  //
-  // 1. Existing session read
-  // 2. Existing state restore
-  // 3. Distance / steps restore
-  // 4. Firestore listener start
-  //
-  // GPS ko yahan start nahi kiya jata.
   // ============================================================
 
   Future<void> initialize() async {
@@ -145,9 +171,7 @@ class LiveWalkSessionController extends ChangeNotifier {
       final DocumentSnapshot<
               Map<String, dynamic>>
           snapshot =
-          await _sessionService
-              .sessionRef(sessionId)
-              .get();
+          await sessionRef.get();
 
       if (snapshot.exists) {
         final Map<String, dynamic> data =
@@ -159,7 +183,7 @@ class LiveWalkSessionController extends ChangeNotifier {
 
       syncDistance();
 
-      _sessionSubscription?.cancel();
+      await _sessionSubscription?.cancel();
 
       _sessionSubscription =
           sessionStream.listen(
@@ -247,14 +271,35 @@ class LiveWalkSessionController extends ChangeNotifier {
                 .toLowerCase() ??
             '';
 
+    final bool firestoreWalkStarted =
+        data['walkStarted'] == true;
+
+    final bool trackingStarted =
+        data['trackingStarted'] == true;
+
     if (status == 'active' ||
         status == 'started' ||
-        status == 'live') {
+        status == 'live' ||
+        firestoreWalkStarted) {
       _walkStarted = true;
     } else if (status == 'completed' ||
         status == 'ended') {
       _walkStarted = false;
     }
+
+    // ----------------------------------------------------------
+    // TIMELINE DEBUG
+    // ----------------------------------------------------------
+
+    debugPrint(
+      'LiveWalk timeline: '
+      'createdAt=${data['createdAt']} '
+      'acceptedAt=${data['acceptedAt']} '
+      'reachedAt=${data['reachedAt']} '
+      'startedAt=${data['startedAt']} '
+      'completedAt=${data['completedAt']} '
+      'trackingStarted=$trackingStarted',
+    );
 
     notifyListeners();
   }
@@ -285,13 +330,19 @@ class LiveWalkSessionController extends ChangeNotifier {
   //
   // IMPORTANT:
   //
-  // GPS START YAHAN NAHI HOTA.
+  // ONLY liveWalkSessions is used.
   //
-  // GPS Insta Walk / Active Walk phase mein already
-  // available ho sakta hai.
+  // active_walks is NOT used here.
   //
-  // Slider complete hone par sirf Live Walk session
-  // active hota hai.
+  // Expected Firestore state:
+  //
+  // status          = active
+  // walkStarted     = true
+  // trackingStarted = true
+  // trackingEnded   = false
+  // walkEnded       = false
+  // startedAt       = server timestamp
+  // updatedAt       = server timestamp
   // ============================================================
 
   Future<void> startWalk() async {
@@ -317,10 +368,6 @@ class LiveWalkSessionController extends ChangeNotifier {
 
       _walkStarted = true;
 
-      // --------------------------------------------------------
-      // Local state
-      // --------------------------------------------------------
-
       _sessionData = <String, dynamic>{
         ..._sessionData,
         'walkId': walkId,
@@ -330,6 +377,9 @@ class LiveWalkSessionController extends ChangeNotifier {
         'dogBreed': dogBreed,
         'status': 'active',
         'walkStarted': true,
+        'trackingStarted': true,
+        'trackingEnded': false,
+        'walkEnded': false,
       };
     } catch (e) {
       debugPrint(
@@ -347,14 +397,11 @@ class LiveWalkSessionController extends ChangeNotifier {
   // ============================================================
   // END WALK
   //
-  // ORDER:
+  // ONLY liveWalkSessions is used for the session.
   //
-  // 1. liveWalkSessions -> completed
-  // 2. walk request -> ended
-  // 3. GPS -> stop
+  // Then walk request is closed.
   //
-  // Agar step 1 ya 2 fail hua:
-  // GPS stop nahi hoga.
+  // GPS stops only after successful Firestore completion.
   // ============================================================
 
   Future<void> endWalk() async {
@@ -374,7 +421,7 @@ class LiveWalkSessionController extends ChangeNotifier {
 
     try {
       // ========================================================
-      // 1. COMPLETE LIVE SESSION
+      // 1. COMPLETE LIVE WALK SESSION
       // ========================================================
 
       await _sessionService.completeWalk(
@@ -392,8 +439,7 @@ class LiveWalkSessionController extends ChangeNotifier {
       );
 
       // ========================================================
-      // 3. ONLY AFTER FIRESTORE COMPLETION
-      //    STOP GPS
+      // 3. STOP GPS
       // ========================================================
 
       await _stopGps();
@@ -404,19 +450,14 @@ class LiveWalkSessionController extends ChangeNotifier {
         ..._sessionData,
         'status': 'completed',
         'walkStarted': false,
-        'walkEnded': true,
+        'trackingStarted': true,
         'trackingEnded': true,
+        'walkEnded': true,
       };
     } catch (e) {
       debugPrint(
         'LiveWalkSessionController.endWalk: $e',
       );
-
-      // --------------------------------------------------------
-      // IMPORTANT:
-      //
-      // Failure hone par GPS intentionally running rahega.
-      // --------------------------------------------------------
 
       rethrow;
     } finally {
@@ -471,6 +512,22 @@ class LiveWalkSessionController extends ChangeNotifier {
       }
     }
   }
+
+  // ============================================================
+  // TIMELINE VALIDATION
+  // ============================================================
+
+  bool get hasAcceptedTime =>
+      _sessionData['acceptedAt'] != null;
+
+  bool get hasReachedTime =>
+      _sessionData['reachedAt'] != null;
+
+  bool get hasStartedTime =>
+      _sessionData['startedAt'] != null;
+
+  bool get hasCompletedTime =>
+      _sessionData['completedAt'] != null;
 
   // ============================================================
   // RESET
@@ -558,7 +615,10 @@ class LiveWalkSessionController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _sessionSubscription?.cancel();
+    unawaited(
+      _sessionSubscription?.cancel(),
+    );
+
     _sessionSubscription = null;
 
     super.dispose();
