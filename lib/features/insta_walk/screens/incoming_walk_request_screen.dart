@@ -1,6 +1,3 @@
-// File:
-// lib/features/insta_walk/screens/incoming_walk_request_screen.dart
-
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -36,8 +33,7 @@ class _IncomingWalkRequestScreenState
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final InstaWalkAcceptService _acceptService =
       InstaWalkAcceptService.instance;
@@ -146,8 +142,7 @@ class _IncomingWalkRequestScreenState
     super.initState();
 
     _accepted =
-        widget.request.status.trim().toLowerCase() ==
-            'accepted';
+        widget.request.status.trim().toLowerCase() == 'accepted';
 
     unawaited(_startLocationTracking());
     _startRequestMonitoring();
@@ -218,18 +213,10 @@ class _IncomingWalkRequestScreenState
         }
 
         // --------------------------------------------------------
-        // REQUEST STILL SEARCHING
+        // SOMEONE ELSE ACCEPTED
         // --------------------------------------------------------
 
-        if (status == 'searching') {
-          return;
-        }
-
-        // --------------------------------------------------------
-        // SOMEONE ELSE ACCEPTED / REQUEST UNAVAILABLE
-        // --------------------------------------------------------
-
-        if (!_accepted) {
+        if (!_accepted && status != 'searching') {
           _handleRequestUnavailable(
             'This walk has already been accepted by another Walker.',
           );
@@ -263,19 +250,24 @@ class _IncomingWalkRequestScreenState
     final String cleanWalkerUid =
         walkerUid.trim();
 
-    // UID match
+    // Primary verification:
+    // Firebase authenticated UID.
     if (cleanWalkerUid.isNotEmpty &&
         currentAuthUid.isNotEmpty &&
         cleanWalkerUid == currentAuthUid) {
       return true;
     }
 
-    // Walker ID match is intentionally not used here
-    // because it would require an asynchronous Firestore
-    // lookup inside the snapshot listener.
+    // walkerId is intentionally not compared here.
     //
-    // The accept service already verifies the Walker ID
-    // during acceptance.
+    // The acceptance service is responsible for validating
+    // the current Walker identity during acceptance.
+    //
+    // Keep the parameter because Firestore documents may contain
+    // both walkerUid and walkerId.
+    if (walkerId.trim().isEmpty) {
+      return false;
+    }
 
     return false;
   }
@@ -480,7 +472,7 @@ class _IncomingWalkRequestScreenState
         ),
       );
     } catch (_) {
-      // Map may not be ready yet.
+      // Map can receive location before it is ready.
     }
   }
 
@@ -755,13 +747,19 @@ class _IncomingWalkRequestScreenState
     final List<Marker> markers =
         <Marker>[];
 
+    // ----------------------------------------------------------
     // WALKER
-    if (_walkerPosition != null) {
+    // ----------------------------------------------------------
+
+    final Position? walkerPosition =
+        _walkerPosition;
+
+    if (walkerPosition != null) {
       markers.add(
         Marker(
           point: LatLng(
-            _walkerPosition!.latitude,
-            _walkerPosition!.longitude,
+            walkerPosition.latitude,
+            walkerPosition.longitude,
           ),
           width: 58,
           height: 58,
@@ -773,8 +771,7 @@ class _IncomingWalkRequestScreenState
                 color: Colors.white,
                 width: 4,
               ),
-              boxShadow:
-                  const <BoxShadow>[
+              boxShadow: const <BoxShadow>[
                 BoxShadow(
                   color: Colors.black26,
                   blurRadius: 10,
@@ -791,7 +788,10 @@ class _IncomingWalkRequestScreenState
       );
     }
 
+    // ----------------------------------------------------------
     // OWNER
+    // ----------------------------------------------------------
+
     if (ownerLat != null &&
         ownerLng != null) {
       markers.add(
@@ -807,8 +807,7 @@ class _IncomingWalkRequestScreenState
               Container(
                 width: 48,
                 height: 48,
-                decoration:
-                    const BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Color(0xFFF4511E),
                   shape: BoxShape.circle,
                 ),
@@ -831,10 +830,10 @@ class _IncomingWalkRequestScreenState
                 ownerLat,
                 ownerLng,
               )
-            : _walkerPosition != null
+            : walkerPosition != null
                 ? LatLng(
-                    _walkerPosition!.latitude,
-                    _walkerPosition!.longitude,
+                    walkerPosition.latitude,
+                    walkerPosition.longitude,
                   )
                 : const LatLng(
                     20.5937,
@@ -861,7 +860,7 @@ class _IncomingWalkRequestScreenState
         MarkerLayer(
           markers: markers,
         ),
-        if (_walkerPosition != null &&
+        if (walkerPosition != null &&
             ownerLat != null &&
             ownerLng != null)
           PolylineLayer(
@@ -869,8 +868,8 @@ class _IncomingWalkRequestScreenState
               Polyline(
                 points: <LatLng>[
                   LatLng(
-                    _walkerPosition!.latitude,
-                    _walkerPosition!.longitude,
+                    walkerPosition.latitude,
+                    walkerPosition.longitude,
                   ),
                   LatLng(
                     ownerLat,
@@ -919,8 +918,7 @@ class _IncomingWalkRequestScreenState
                 color: Colors.white,
                 borderRadius:
                     BorderRadius.circular(24),
-                boxShadow:
-                    const <BoxShadow>[
+                boxShadow: const <BoxShadow>[
                   BoxShadow(
                     color: Colors.black26,
                     blurRadius: 10,
@@ -943,11 +941,9 @@ class _IncomingWalkRequestScreenState
                     _accepted
                         ? 'WALK ACCEPTED'
                         : 'INCOMING WALK',
-                    style:
-                        const TextStyle(
+                    style: const TextStyle(
                       fontSize: 12,
-                      fontWeight:
-                          FontWeight.w900,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ],
@@ -969,8 +965,7 @@ class _IncomingWalkRequestScreenState
       shape: const CircleBorder(),
       child: InkWell(
         onTap: onTap,
-        customBorder:
-            const CircleBorder(),
+        customBorder: const CircleBorder(),
         child: Padding(
           padding: const EdgeInsets.all(11),
           child: Icon(
@@ -1001,15 +996,13 @@ class _IncomingWalkRequestScreenState
             18,
             14,
           ),
-          decoration:
-              const BoxDecoration(
+          decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius:
                 BorderRadius.vertical(
               top: Radius.circular(28),
             ),
-            boxShadow:
-                <BoxShadow>[
+            boxShadow: <BoxShadow>[
               BoxShadow(
                 color: Colors.black26,
                 blurRadius: 20,
@@ -1018,26 +1011,21 @@ class _IncomingWalkRequestScreenState
             ],
           ),
           child: Column(
-            mainAxisSize:
-                MainAxisSize.min,
+            mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               Container(
                 width: 42,
                 height: 4,
-                decoration:
-                    BoxDecoration(
+                decoration: BoxDecoration(
                   color: Colors.black12,
                   borderRadius:
-                      BorderRadius.circular(
-                    10,
-                  ),
+                      BorderRadius.circular(10),
                 ),
               ),
 
-              const SizedBox(
-                height: 14,
-              ),
+              const SizedBox(height: 14),
 
+              // DOG
               Row(
                 children: <Widget>[
                   Container(
@@ -1050,49 +1038,38 @@ class _IncomingWalkRequestScreenState
                     ),
                     child: const Icon(
                       Icons.pets_rounded,
-                      color:
-                          Color(0xFFF4511E),
+                      color: Color(0xFFF4511E),
                       size: 30,
                     ),
                   ),
-                  const SizedBox(
-                    width: 12,
-                  ),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment:
-                          CrossAxisAlignment
-                              .start,
+                          CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
                           _dogName,
                           maxLines: 1,
                           overflow:
-                              TextOverflow
-                                  .ellipsis,
-                          style:
-                              const TextStyle(
+                              TextOverflow.ellipsis,
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight:
                                 FontWeight.w900,
                           ),
                         ),
-                        const SizedBox(
-                          height: 2,
-                        ),
+                        const SizedBox(height: 2),
                         Text(
                           _dogBreed.isEmpty
                               ? _ownerName
                               : '$_dogBreed • $_ownerName',
                           maxLines: 1,
                           overflow:
-                              TextOverflow
-                                  .ellipsis,
-                          style:
-                              const TextStyle(
+                              TextOverflow.ellipsis,
+                          style: const TextStyle(
                             fontSize: 13,
-                            color:
-                                Colors.black54,
+                            color: Colors.black54,
                             fontWeight:
                                 FontWeight.w600,
                           ),
@@ -1103,10 +1080,9 @@ class _IncomingWalkRequestScreenState
                 ],
               ),
 
-              const SizedBox(
-                height: 14,
-              ),
+              const SizedBox(height: 14),
 
+              // STATS
               Row(
                 children: <Widget>[
                   Expanded(
@@ -1116,9 +1092,7 @@ class _IncomingWalkRequestScreenState
                       'from you',
                     ),
                   ),
-                  const SizedBox(
-                    width: 8,
-                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _infoBox(
                       Icons.schedule_rounded,
@@ -1126,9 +1100,7 @@ class _IncomingWalkRequestScreenState
                       'arrival',
                     ),
                   ),
-                  const SizedBox(
-                    width: 8,
-                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _infoBox(
                       Icons.payments_rounded,
@@ -1139,48 +1111,35 @@ class _IncomingWalkRequestScreenState
                 ],
               ),
 
-              const SizedBox(
-                height: 12,
-              ),
+              const SizedBox(height: 12),
 
+              // ADDRESS
               if (_address.isNotEmpty)
                 Container(
-                  width:
-                      double.infinity,
+                  width: double.infinity,
                   padding:
-                      const EdgeInsets.all(
-                    12,
-                  ),
-                  decoration:
-                      BoxDecoration(
+                      const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
                     color:
-                        const Color(
-                      0xFFF7F7F7,
-                    ),
+                        const Color(0xFFF7F7F7),
                     borderRadius:
-                        BorderRadius.circular(
-                      14,
-                    ),
+                        BorderRadius.circular(14),
                   ),
                   child: Row(
                     children: <Widget>[
                       const Icon(
-                        Icons
-                            .location_on_rounded,
+                        Icons.location_on_rounded,
                         color:
                             Color(0xFFF4511E),
                         size: 21,
                       ),
-                      const SizedBox(
-                        width: 9,
-                      ),
+                      const SizedBox(width: 9),
                       Expanded(
                         child: Text(
                           _address,
                           maxLines: 2,
                           overflow:
-                              TextOverflow
-                                  .ellipsis,
+                              TextOverflow.ellipsis,
                           style:
                               const TextStyle(
                             fontSize: 12,
@@ -1193,25 +1152,21 @@ class _IncomingWalkRequestScreenState
                   ),
                 ),
 
-              const SizedBox(
-                height: 12,
-              ),
+              const SizedBox(height: 12),
 
+              // ACCEPTED
               if (_accepted)
                 SizedBox(
-                  width:
-                      double.infinity,
+                  width: double.infinity,
                   height: 56,
-                  child:
-                      ElevatedButton(
+                  child: ElevatedButton(
                     onPressed:
                         _canReachOwner &&
                                 !_reaching
                             ? _onReachOwner
                             : null,
                     style:
-                        ElevatedButton
-                            .styleFrom(
+                        ElevatedButton.styleFrom(
                       backgroundColor:
                           const Color(
                         0xFFF4511E,
@@ -1221,8 +1176,7 @@ class _IncomingWalkRequestScreenState
                       shape:
                           RoundedRectangleBorder(
                         borderRadius:
-                            BorderRadius
-                                .circular(
+                            BorderRadius.circular(
                           16,
                         ),
                       ),
@@ -1233,8 +1187,7 @@ class _IncomingWalkRequestScreenState
                             height: 23,
                             child:
                                 CircularProgressIndicator(
-                              strokeWidth:
-                                  2.5,
+                              strokeWidth: 2.5,
                               valueColor:
                                   AlwaysStoppedAnimation<
                                       Color>(
@@ -1248,13 +1201,10 @@ class _IncomingWalkRequestScreenState
                                 : 'REACH OWNER',
                             style:
                                 const TextStyle(
-                              color:
-                                  Colors.white,
-                              fontSize:
-                                  15,
+                              color: Colors.white,
+                              fontSize: 15,
                               fontWeight:
-                                  FontWeight
-                                      .w900,
+                                  FontWeight.w900,
                             ),
                           ),
                   ),
@@ -1273,21 +1223,18 @@ class _IncomingWalkRequestScreenState
                                   ? null
                                   : _rejectWalk,
                           style:
-                              OutlinedButton
-                                  .styleFrom(
+                              OutlinedButton.styleFrom(
                             foregroundColor:
                                 Colors.red,
                             side:
                                 const BorderSide(
-                              color:
-                                  Colors.red,
+                              color: Colors.red,
                               width: 1.4,
                             ),
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
-                                  BorderRadius
-                                      .circular(
+                                  BorderRadius.circular(
                                 16,
                               ),
                             ),
@@ -1298,8 +1245,7 @@ class _IncomingWalkRequestScreenState
                                   height: 22,
                                   child:
                                       CircularProgressIndicator(
-                                    strokeWidth:
-                                        2,
+                                    strokeWidth: 2,
                                   ),
                                 )
                               : const Text(
@@ -1307,16 +1253,13 @@ class _IncomingWalkRequestScreenState
                                   style:
                                       TextStyle(
                                     fontWeight:
-                                        FontWeight
-                                            .w900,
+                                        FontWeight.w900,
                                   ),
                                 ),
                         ),
                       ),
                     ),
-                    const SizedBox(
-                      width: 10,
-                    ),
+                    const SizedBox(width: 10),
                     Expanded(
                       flex: 2,
                       child: SizedBox(
@@ -1329,8 +1272,7 @@ class _IncomingWalkRequestScreenState
                                   ? null
                                   : _acceptWalk,
                           style:
-                              ElevatedButton
-                                  .styleFrom(
+                              ElevatedButton.styleFrom(
                             backgroundColor:
                                 const Color(
                               0xFFF4511E,
@@ -1338,8 +1280,7 @@ class _IncomingWalkRequestScreenState
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
-                                  BorderRadius
-                                      .circular(
+                                  BorderRadius.circular(
                                 16,
                               ),
                             ),
@@ -1355,8 +1296,7 @@ class _IncomingWalkRequestScreenState
                                     valueColor:
                                         AlwaysStoppedAnimation<
                                             Color>(
-                                      Colors
-                                          .white,
+                                      Colors.white,
                                     ),
                                   ),
                                 )
@@ -1365,13 +1305,10 @@ class _IncomingWalkRequestScreenState
                                   style:
                                       TextStyle(
                                     color:
-                                        Colors
-                                            .white,
-                                    fontSize:
-                                        15,
+                                        Colors.white,
+                                    fontSize: 15,
                                     fontWeight:
-                                        FontWeight
-                                            .w900,
+                                        FontWeight.w900,
                                   ),
                                 ),
                         ),
@@ -1380,9 +1317,7 @@ class _IncomingWalkRequestScreenState
                   ],
                 ),
 
-              const SizedBox(
-                height: 7,
-              ),
+              const SizedBox(height: 7),
 
               Text(
                 _accepted
@@ -1390,15 +1325,11 @@ class _IncomingWalkRequestScreenState
                         ? 'You are within 100 m of the owner.'
                         : 'Reach the owner to open Live Walk.')
                     : 'Review the location before accepting this walk.',
-                textAlign:
-                    TextAlign.center,
-                style:
-                    const TextStyle(
+                textAlign: TextAlign.center,
+                style: const TextStyle(
                   fontSize: 11,
-                  color:
-                      Colors.black45,
-                  fontWeight:
-                      FontWeight.w600,
+                  color: Colors.black45,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -1407,10 +1338,6 @@ class _IncomingWalkRequestScreenState
       ),
     );
   }
-
-  // ============================================================
-  // INFO BOX
-  // ============================================================
 
   Widget _infoBox(
     IconData icon,
@@ -1423,52 +1350,37 @@ class _IncomingWalkRequestScreenState
         horizontal: 8,
         vertical: 10,
       ),
-      decoration:
-          BoxDecoration(
-        color:
-            const Color(0xFFF7F7F7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F7F7),
         borderRadius:
-            BorderRadius.circular(
-          14,
-        ),
+            BorderRadius.circular(14),
       ),
       child: Column(
         children: <Widget>[
           Icon(
             icon,
-            color:
-                const Color(0xFFF4511E),
+            color: const Color(0xFFF4511E),
             size: 19,
           ),
-          const SizedBox(
-            height: 4,
-          ),
+          const SizedBox(height: 4),
           Text(
             value,
             maxLines: 1,
             overflow:
                 TextOverflow.ellipsis,
-            textAlign:
-                TextAlign.center,
-            style:
-                const TextStyle(
+            textAlign: TextAlign.center,
+            style: const TextStyle(
               fontSize: 12,
-              fontWeight:
-                  FontWeight.w900,
+              fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(
-            height: 2,
-          ),
+          const SizedBox(height: 2),
           Text(
             label,
-            style:
-                const TextStyle(
+            style: const TextStyle(
               fontSize: 9,
-              color:
-                  Colors.black45,
-              fontWeight:
-                  FontWeight.w600,
+              color: Colors.black45,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -1542,12 +1454,13 @@ class _IncomingWalkRequestScreenState
   String _cleanException(
     Object error,
   ) {
-    return error
-        .toString()
-        .replaceFirst(
-          'Exception: ',
-          '',
-        );
+    final String text =
+        error.toString();
+
+    return text.replaceFirst(
+      'Exception: ',
+      '',
+    );
   }
 
   // ============================================================
