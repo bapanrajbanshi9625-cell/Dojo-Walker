@@ -1,3 +1,6 @@
+// File:
+// lib/features/live_walk/widgets/live_walk_completed_screen.dart
+
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -18,6 +21,15 @@ class LiveWalkCompletedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String cleanDogName =
+        dogName.trim().isEmpty ? 'Dog' : dogName.trim();
+
+    final double safeDistance =
+        distanceKm < 0 ? 0 : distanceKm;
+
+    final int safeSteps =
+        steps < 0 ? 0 : steps;
+
     return Scaffold(
       backgroundColor: AppColors.background,
 
@@ -58,7 +70,9 @@ class LiveWalkCompletedScreen extends StatelessWidget {
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
-                    color: AppColors.success.withOpacity(0.10),
+                    color: AppColors.success.withValues(
+                      alpha: 0.10,
+                    ),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -91,7 +105,7 @@ class LiveWalkCompletedScreen extends StatelessWidget {
                 // ==================================================
 
                 Text(
-                  '${dogName.trim()}\'s walk is complete.',
+                  '$cleanDogName\'s walk is complete.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.grey,
@@ -110,14 +124,14 @@ class LiveWalkCompletedScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _stat(
-                        '${distanceKm.toStringAsFixed(2)} km',
+                        '${safeDistance.toStringAsFixed(2)} km',
                         'Distance',
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: _stat(
-                        '$steps',
+                        '$safeSteps',
                         'Steps',
                       ),
                     ),
