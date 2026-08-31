@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/services/live_walk_background_service.dart';
 import '../../../core/services/live_walk_session_service.dart';
-import '../../../services/walk_request_service.dart';
 
 class LiveWalkSessionController extends ChangeNotifier {
   LiveWalkSessionController({
@@ -14,32 +13,35 @@ class LiveWalkSessionController extends ChangeNotifier {
     required this.ownerName,
     required this.dogName,
     required this.dogBreed,
+    required this.sessionId,
     this.ownerPhone,
-    String? sessionId,
-  }) : sessionId = _cleanSessionId(
-          sessionId,
-          walkId,
-        );
+  });
 
   // ============================================================
   // DATA
   // ============================================================
 
+  /// This is the document ID from:
+  /// walk_requests/{walkId}
+  ///
+  /// Example:
+  /// 2GN4eWEi6XISWOqURYrF
   final String walkId;
+
   final String ownerUid;
   final String ownerName;
   final String dogName;
   final String dogBreed;
   final String? ownerPhone;
 
+  /// IMPORTANT:
+  /// This MUST be the real document ID from:
+  /// liveWalkSessions/{sessionId}
   final String sessionId;
 
   // ============================================================
   // SERVICES
   // ============================================================
-
-  final WalkRequestService _walkRequestService =
-      WalkRequestService.instance;
 
   final LiveWalkBackgroundService _backgroundService =
       LiveWalkBackgroundService.instance;
@@ -58,11 +60,9 @@ class LiveWalkSessionController extends ChangeNotifier {
   double _distanceKm = 0.0;
   int _steps = 0;
 
-  Map<String, dynamic> _sessionData =
-      <String, dynamic>{};
+  Map<String, dynamic> _sessionData = <String, dynamic>{};
 
-  StreamSubscription<
-          DocumentSnapshot<Map<String, dynamic>>>?
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
       _sessionSubscription;
 
   // ============================================================
@@ -77,8 +77,7 @@ class LiveWalkSessionController extends ChangeNotifier {
 
   bool get ending => _endingWalk;
 
-  bool get busy =>
-      _startingWalk || _endingWalk;
+  bool get busy => _startingWalk || _endingWalk;
 
   double get distanceKm => _distanceKm;
 
@@ -87,39 +86,30 @@ class LiveWalkSessionController extends ChangeNotifier {
   int get steps => _steps;
 
   Map<String, dynamic> get sessionData =>
-      Map<String, dynamic>.unmodifiable(
-        _sessionData,
-      );
+      Map<String, dynamic>.unmodifiable(_sessionData);
 
   // ============================================================
-  // TIMELINE GETTERS
+  // TIMELINE
   // ============================================================
 
-  dynamic get createdAt =>
-      _sessionData['createdAt'];
+  dynamic get createdAt => _sessionData['createdAt'];
 
-  dynamic get acceptedAt =>
-      _sessionData['acceptedAt'];
+  dynamic get acceptedAt => _sessionData['acceptedAt'];
 
-  dynamic get reachedAt =>
-      _sessionData['reachedAt'];
+  dynamic get reachedAt => _sessionData['reachedAt'];
 
-  dynamic get startedAt =>
-      _sessionData['startedAt'];
+  dynamic get startedAt => _sessionData['startedAt'];
 
-  dynamic get completedAt =>
-      _sessionData['completedAt'];
+  dynamic get completedAt => _sessionData['completedAt'];
 
-  dynamic get endedAt =>
-      _sessionData['endedAt'];
+  dynamic get endedAt => _sessionData['endedAt'];
 
   // ============================================================
   // GPS READY
   // ============================================================
 
   bool get gpsReady {
-    final dynamic location =
-        _sessionData['currentLocation'];
+    final dynamic location = _sessionData['currentLocation'];
 
     if (location is! Map) {
       return false;
@@ -143,22 +133,24 @@ class LiveWalkSessionController extends ChangeNotifier {
   }
 
   // ============================================================
-  // SESSION REFERENCE
+  // LIVE SESSION REFERENCE
   // ============================================================
 
-  DocumentReference<Map<String, dynamic>>
-      get sessionRef {
-    return _sessionService.sessionRef(
-      sessionId,
-    );
+  /// IMPORTANT:
+  /// This points ONLY to:
+  ///
+  /// liveWalkSessions/{sessionId}
+  ///
+  /// It does NOT point to walk_requests.
+  DocumentReference<Map<String, dynamic>> get sessionRef {
+    return _sessionService.sessionRef(sessionId);
   }
 
   // ============================================================
-  // SESSION STREAM
+  // LIVE SESSION STREAM
   // ============================================================
 
-  Stream<DocumentSnapshot<Map<String, dynamic>>>
-      get sessionStream {
+  Stream<DocumentSnapshot<Map<String, dynamic>>> get sessionStream {
     return sessionRef.snapshots();
   }
 
@@ -168,33 +160,36 @@ class LiveWalkSessionController extends ChangeNotifier {
 
   Future<void> initialize() async {
     try {
-      final DocumentSnapshot<
-              Map<String, dynamic>>
-          snapshot =
+      debugPrint(
+        'LiveWalkSessionController.initialize '
+        'walkId=$walkId sessionId=$sessionId',
+      );
+
+      final DocumentSnapshot<Map<String, dynamic>> snapshot =
           await sessionRef.get();
 
       if (snapshot.exists) {
         final Map<String, dynamic> data =
-            snapshot.data() ??
-                <String, dynamic>{};
+            snapshot.data() ?? <String, dynamic>{};
 
         updateFromSession(data);
+      } else {
+        debugPrint(
+          'Live session document NOT FOUND: '
+          'liveWalkSessions/$sessionId',
+        );
       }
 
       syncDistance();
 
       await _sessionSubscription?.cancel();
 
-      _sessionSubscription =
-          sessionStream.listen(
+      _sessionSubscription = sessionStream.listen(
         (
-          DocumentSnapshot<
-                  Map<String, dynamic>>
-              snapshot,
+          DocumentSnapshot<Map<String, dynamic>> snapshot,
         ) {
           final Map<String, dynamic> data =
-              snapshot.data() ??
-                  <String, dynamic>{};
+              snapshot.data() ?? <String, dynamic>{};
 
           if (data.isEmpty) {
             return;
@@ -216,7 +211,7 @@ class LiveWalkSessionController extends ChangeNotifier {
   }
 
   // ============================================================
-  // UPDATE FROM FIRESTORE
+  // UPDATE FROM LIVE SESSION
   // ============================================================
 
   void updateFromSession(
@@ -226,22 +221,18 @@ class LiveWalkSessionController extends ChangeNotifier {
       return;
     }
 
-    _sessionData =
-        Map<String, dynamic>.from(data);
+    _sessionData = Map<String, dynamic>.from(data);
 
     // ----------------------------------------------------------
     // DISTANCE
     // ----------------------------------------------------------
 
     final double? firestoreDistance =
-        _readDouble(
-      data['distanceKm'],
-    );
+        _readDouble(data['distanceKm']);
 
     if (firestoreDistance != null &&
         firestoreDistance >= 0) {
-      _distanceKm =
-          firestoreDistance;
+      _distanceKm = firestoreDistance;
     } else {
       syncDistance();
     }
@@ -250,13 +241,11 @@ class LiveWalkSessionController extends ChangeNotifier {
     // STEPS
     // ----------------------------------------------------------
 
-    final int? firestoreSteps =
-        _readInt(
+    final int? firestoreSteps = _readInt(
       data['steps'],
     );
 
-    if (firestoreSteps != null &&
-        firestoreSteps >= 0) {
+    if (firestoreSteps != null && firestoreSteps >= 0) {
       _steps = firestoreSteps;
     }
 
@@ -265,11 +254,7 @@ class LiveWalkSessionController extends ChangeNotifier {
     // ----------------------------------------------------------
 
     final String status =
-        data['status']
-                ?.toString()
-                .trim()
-                .toLowerCase() ??
-            '';
+        data['status']?.toString().trim().toLowerCase() ?? '';
 
     final bool firestoreWalkStarted =
         data['walkStarted'] == true;
@@ -288,11 +273,13 @@ class LiveWalkSessionController extends ChangeNotifier {
     }
 
     // ----------------------------------------------------------
-    // TIMELINE DEBUG
+    // DEBUG
     // ----------------------------------------------------------
 
     debugPrint(
       'LiveWalk timeline: '
+      'walkId=$walkId '
+      'sessionId=$sessionId '
       'createdAt=${data['createdAt']} '
       'acceptedAt=${data['acceptedAt']} '
       'reachedAt=${data['reachedAt']} '
@@ -328,21 +315,9 @@ class LiveWalkSessionController extends ChangeNotifier {
   // ============================================================
   // START WALK
   //
-  // IMPORTANT:
+  // ONLY liveWalkSessions is updated.
   //
-  // ONLY liveWalkSessions is used.
-  //
-  // active_walks is NOT used here.
-  //
-  // Expected Firestore state:
-  //
-  // status          = active
-  // walkStarted     = true
-  // trackingStarted = true
-  // trackingEnded   = false
-  // walkEnded       = false
-  // startedAt       = server timestamp
-  // updatedAt       = server timestamp
+  // walk_requests is NOT updated here.
   // ============================================================
 
   Future<void> startWalk() async {
@@ -357,6 +332,12 @@ class LiveWalkSessionController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      debugPrint(
+        'Starting live walk: '
+        'walkId=$walkId '
+        'sessionId=$sessionId',
+      );
+
       await _sessionService.startWalk(
         sessionId: sessionId,
         walkId: walkId,
@@ -370,6 +351,7 @@ class LiveWalkSessionController extends ChangeNotifier {
 
       _sessionData = <String, dynamic>{
         ..._sessionData,
+        'sessionId': sessionId,
         'walkId': walkId,
         'ownerUid': ownerUid,
         'ownerName': ownerName,
@@ -397,11 +379,13 @@ class LiveWalkSessionController extends ChangeNotifier {
   // ============================================================
   // END WALK
   //
-  // ONLY liveWalkSessions is used for the session.
+  // IMPORTANT:
   //
-  // Then walk request is closed.
+  // 1. Complete ONLY liveWalkSessions/{sessionId}
+  // 2. Do NOT modify walk_requests/{walkId}
+  // 3. Stop GPS
   //
-  // GPS stops only after successful Firestore completion.
+  // The walk request remains the original request record.
   // ============================================================
 
   Future<void> endWalk() async {
@@ -420,8 +404,14 @@ class LiveWalkSessionController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      debugPrint(
+        'Completing live walk: '
+        'walkId=$walkId '
+        'sessionId=$sessionId',
+      );
+
       // ========================================================
-      // 1. COMPLETE LIVE WALK SESSION
+      // 1. COMPLETE LIVE SESSION ONLY
       // ========================================================
 
       await _sessionService.completeWalk(
@@ -430,30 +420,32 @@ class LiveWalkSessionController extends ChangeNotifier {
       );
 
       // ========================================================
-      // 2. END WALK REQUEST
-      // ========================================================
-
-      await _walkRequestService.endLiveWalk(
-        walkId,
-        sessionId: sessionId,
-      );
-
-      // ========================================================
-      // 3. STOP GPS
+      // 2. STOP GPS
       // ========================================================
 
       await _stopGps();
+
+      // ========================================================
+      // 3. LOCAL STATE
+      // ========================================================
 
       _walkStarted = false;
 
       _sessionData = <String, dynamic>{
         ..._sessionData,
+        'sessionId': sessionId,
+        'walkId': walkId,
         'status': 'completed',
         'walkStarted': false,
         'trackingStarted': true,
         'trackingEnded': true,
         'walkEnded': true,
       };
+
+      debugPrint(
+        'Live walk completed successfully: '
+        'liveWalkSessions/$sessionId',
+      );
     } catch (e) {
       debugPrint(
         'LiveWalkSessionController.endWalk: $e',
@@ -541,8 +533,7 @@ class LiveWalkSessionController extends ChangeNotifier {
     _distanceKm = 0.0;
     _steps = 0;
 
-    _sessionData =
-        <String, dynamic>{};
+    _sessionData = <String, dynamic>{};
 
     notifyListeners();
   }
@@ -589,24 +580,6 @@ class LiveWalkSessionController extends ChangeNotifier {
     return int.tryParse(
       value.toString().trim(),
     );
-  }
-
-  // ============================================================
-  // SESSION ID CLEANER
-  // ============================================================
-
-  static String _cleanSessionId(
-    String? value,
-    String walkId,
-  ) {
-    final String clean =
-        value?.trim() ?? '';
-
-    if (clean.isNotEmpty) {
-      return clean;
-    }
-
-    return 'session-${walkId.trim()}';
   }
 
   // ============================================================
