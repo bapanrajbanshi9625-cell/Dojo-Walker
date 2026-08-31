@@ -361,46 +361,42 @@ class LiveWalkSessionController extends ChangeNotifier {
   // ============================================================
 
   void updateActivities({
-    int? peeCount,
-    int? poopCount,
-  }) {
-    if (peeCount != null && peeCount >= 0) {
-      _peeCount = peeCount;
-    }
-
-    if (poopCount != null && poopCount >= 0) {
-      _poopCount = poopCount;
-    }
-
-    notifyListeners();
-
-    // updateActivities() is intentionally not awaited here.
-    // If the service method returns void, this is valid.
-    unawaited(
-      _backgroundService.updateActivities(
-        peeCount: _peeCount,
-        poopCount: _poopCount,
-      ),
-    );
+  int? peeCount,
+  int? poopCount,
+}) {
+  if (peeCount != null && peeCount >= 0) {
+    _peeCount = peeCount;
   }
 
+  if (poopCount != null && poopCount >= 0) {
+    _poopCount = poopCount;
+  }
+
+  notifyListeners();
+
+  // LiveWalkBackgroundService.updateActivities()
+  // returns void, so DO NOT use await or unawaited().
+  _backgroundService.updateActivities(
+    peeCount: _peeCount,
+    poopCount: _poopCount,
+  );
+  }
+  
   // ============================================================
   // STEPS UPDATE
   // ============================================================
 
   void updateSteps(int value) {
-    if (value < 0) {
-      return;
-    }
-
-    _steps = value;
-
-    notifyListeners();
-
-    // This service method is intentionally called as void.
-    // DO NOT write: await _backgroundService.updateSteps(value);
-    _backgroundService.updateSteps(value);
+  if (value < 0) {
+    return;
   }
+
+  _steps = value;
+
+  notifyListeners();
+
+  _backgroundService.updateSteps(value);
+}
 
   // ============================================================
   // START WALK
