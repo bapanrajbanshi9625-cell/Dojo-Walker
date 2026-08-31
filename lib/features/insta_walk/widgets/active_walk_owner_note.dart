@@ -8,46 +8,44 @@ class ActiveWalkOwnerNote extends StatelessWidget {
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(.06),
-        borderRadius:
-            BorderRadius.circular(16),
+        color: AppColors.primary.withValues(
+          alpha: 0.06,
+        ),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.primary.withOpacity(.12),
+          color: AppColors.primary.withValues(
+            alpha: 0.12,
+          ),
         ),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.sticky_note_2_outlined,
                 color: AppColors.primary,
                 size: 15,
               ),
               const SizedBox(width: 6),
-              Text(
+              const Text(
                 'OWNER NOTE',
                 style: TextStyle(
                   color: AppColors.primary,
                   fontSize: 9,
-                  fontWeight:
-                      FontWeight.w900,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 5),
-          Text(
+          const Text(
             'No additional note provided by owner.',
             style: TextStyle(
               color: AppColors.textMuted,
