@@ -336,6 +336,13 @@ class LiveWalkBackgroundService {
       Geolocator.getPositionStream().listen(
     (Position position) {
       if (!_running) {
+try {
+  await _positionSubscription?.cancel();
+
+  _positionSubscription =
+      Geolocator.getPositionStream().listen(
+    (Position position) {
+      if (!_running) {
         return;
       }
 
@@ -349,63 +356,58 @@ class LiveWalkBackgroundService {
     cancelOnError: false,
   );
 
-      // ========================================================
-      // FIRST GPS FIX
-      // ========================================================
+  // ==========================================================
+  // FIRST GPS FIX
+  // ==========================================================
 
-      try {
-        final Position position =
-            await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-          ),
-        );
+  try {
+    final Position position =
+        await Geolocator.getCurrentPosition();
 
-        if (_running) {
-          await _processPosition(position);
-        }
-      } catch (_) {
-        // Temporary GPS failure.
+    if (_running) {
+      await _processPosition(position);
+    }
+  } catch (_) {
+    // Temporary GPS failure.
+  }
+
+  // ==========================================================
+  // PERIODIC FIRESTORE SYNC
+  // ==========================================================
+
+  _syncTimer?.cancel();
+
+  _syncTimer = Timer.periodic(
+    const Duration(seconds: 15),
+    (_) {
+      if (!_running) {
+        return;
       }
-
-      // ========================================================
-      // PERIODIC FIRESTORE SYNC
-      // ========================================================
-
-      _syncTimer?.cancel();
-
-      _syncTimer = Timer.periodic(
-        const Duration(seconds: 15),
-        (_) {
-          if (!_running) {
-            return;
-          }
-
-          unawaited(
-            _syncCurrentState(),
-          );
-        },
-      );
-
-      // ========================================================
-      // INITIAL SYNC
-      // ========================================================
 
       unawaited(
         _syncCurrentState(),
       );
+    },
+  );
 
-      return true;
-    } catch (_) {
-      _running = false;
+  // ==========================================================
+  // INITIAL SYNC
+  // ==========================================================
 
-      await _positionSubscription?.cancel();
+  unawaited(
+    _syncCurrentState(),
+  );
 
-      _positionSubscription = null;
+  return true;
+} catch (_) {
+  _running = false;
 
-      return false;
-    }
-  }
+  await _positionSubscription?.cancel();
+
+  _positionSubscription = null;
+
+  return false;
+}
 
   // ============================================================
   // LOCATION PERMISSION
