@@ -263,9 +263,6 @@ class _IncomingWalkRequestScreenState
     final String cleanWalkerUid =
         walkerUid.trim();
 
-    final String cleanWalkerId =
-        walkerId.trim();
-
     // UID match
     if (cleanWalkerUid.isNotEmpty &&
         currentAuthUid.isNotEmpty &&
