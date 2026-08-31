@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class IncomingWalkCallChat extends StatelessWidget {
-  const IncomingWalkCall({
+  const IncomingWalkCallChat({
     super.key,
     required this.ownerPhone,
     this.onChat,
@@ -11,20 +11,17 @@ class IncomingWalkCallChat extends StatelessWidget {
   final String ownerPhone;
   final VoidCallback? onChat;
 
-  Future<void> _callOwner(BuildContext context) async {
-    final String phone = ownerPhone.trim();
+  Future<void> _callOwner(
+    BuildContext context,
+  ) async {
+    final String phone =
+        ownerPhone.trim();
 
     if (phone.isEmpty) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Owner phone number is not available.',
-            ),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      _showMessage(
+        context,
+        'Owner phone number is not available.',
+      );
       return;
     }
 
@@ -39,69 +36,80 @@ class IncomingWalkCallChat extends StatelessWidget {
 
       if (!canLaunch) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Unable to open phone dialer.',
-                ),
-                behavior:
-                    SnackBarBehavior.floating,
-              ),
-            );
+          _showMessage(
+            context,
+            'Unable to open phone dialer.',
+          );
         }
         return;
       }
 
-      await launchUrl(phoneUri);
+      await launchUrl(
+        phoneUri,
+        mode: LaunchMode.externalApplication,
+      );
     } catch (error) {
       debugPrint(
         'Owner call error: $error',
       );
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Unable to open phone dialer.',
-              ),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+        _showMessage(
+          context,
+          'Unable to open phone dialer.',
+        );
       }
     }
   }
 
-  void _openChat(BuildContext context) {
+  void _openChat(
+    BuildContext context,
+  ) {
     if (onChat != null) {
       onChat!();
       return;
     }
 
+    _showMessage(
+      context,
+      'Chat screen not found yet.',
+    );
+  }
+
+  void _showMessage(
+    BuildContext context,
+    String message,
+  ) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Chat screen not found yet.',
+        SnackBar(
+          content: Text(message),
+          behavior:
+              SnackBarBehavior.floating,
+          margin:
+              const EdgeInsets.all(14),
+          shape:
+              RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(14),
           ),
-          behavior: SnackBarBehavior.floating,
         ),
       );
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Row(
       children: <Widget>[
         Expanded(
           child: SizedBox(
             height: 50,
             child: OutlinedButton.icon(
-              onPressed: () => _callOwner(context),
+              onPressed: () =>
+                  _callOwner(context),
               icon: const Icon(
                 Icons.call_rounded,
                 size: 20,
@@ -110,18 +118,23 @@ class IncomingWalkCallChat extends StatelessWidget {
                 'CALL OWNER',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w900,
+                  fontWeight:
+                      FontWeight.w900,
                   letterSpacing: .2,
                 ),
               ),
-              style: OutlinedButton.styleFrom(
+              style:
+                  OutlinedButton.styleFrom(
                 foregroundColor:
-                    const Color(0xFFF4511E),
+                    const Color(
+                  0xFFF4511E,
+                ),
                 side: const BorderSide(
                   color: Color(0xFFF4511E),
                   width: 1.3,
                 ),
-                shape: RoundedRectangleBorder(
+                shape:
+                    RoundedRectangleBorder(
                   borderRadius:
                       BorderRadius.circular(15),
                 ),
@@ -134,7 +147,8 @@ class IncomingWalkCallChat extends StatelessWidget {
           child: SizedBox(
             height: 50,
             child: ElevatedButton.icon(
-              onPressed: () => _openChat(context),
+              onPressed: () =>
+                  _openChat(context),
               icon: const Icon(
                 Icons.chat_bubble_rounded,
                 size: 19,
@@ -143,16 +157,22 @@ class IncomingWalkCallChat extends StatelessWidget {
                 'CHAT',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w900,
+                  fontWeight:
+                      FontWeight.w900,
                   letterSpacing: .2,
                 ),
               ),
-              style: ElevatedButton.styleFrom(
+              style:
+                  ElevatedButton.styleFrom(
                 backgroundColor:
-                    const Color(0xFF17202A),
-                foregroundColor: Colors.white,
+                    const Color(
+                  0xFF17202A,
+                ),
+                foregroundColor:
+                    Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(
+                shape:
+                    RoundedRectangleBorder(
                   borderRadius:
                       BorderRadius.circular(15),
                 ),
