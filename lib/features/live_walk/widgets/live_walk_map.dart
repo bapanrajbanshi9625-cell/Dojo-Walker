@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../../core/services/live_walk_background_service.dart';
+import '../services/live_walk_background_service.dart';
 
 class LiveWalkMap extends StatefulWidget {
   const LiveWalkMap({
