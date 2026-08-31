@@ -105,14 +105,15 @@ class _IncomingWalkRequestScreenState
   }
 
   // ============================================================
-  // CURRENT WALKER DATA
+  // CURRENT WALKER
   //
   // IMPORTANT:
-  // Do NOT use:
+  // Walker name / phone must NOT come from:
+  //
   // widget.request.walkerName
   // widget.request.walkerPhone
   //
-  // Walker identity comes from Firebase Auth / walker profile.
+  // The current Walker is identified by Firebase Auth UID.
   // ============================================================
 
   String get _currentWalkerUid {
@@ -180,7 +181,9 @@ class _IncomingWalkRequestScreenState
         widget.request.status.trim().toLowerCase() ==
             'accepted';
 
-    unawaited(_startLocationTracking());
+    unawaited(
+      _startLocationTracking(),
+    );
 
     _startRequestMonitoring();
   }
@@ -208,6 +211,10 @@ class _IncomingWalkRequestScreenState
         if (!mounted || _leavingScreen) {
           return;
         }
+
+        // --------------------------------------------------------
+        // REQUEST DELETED
+        // --------------------------------------------------------
 
         if (!snapshot.exists) {
           _handleRequestUnavailable(
@@ -329,6 +336,10 @@ class _IncomingWalkRequestScreenState
 
   Future<void> _startLocationTracking() async {
     try {
+      // --------------------------------------------------------
+      // GPS SERVICE
+      // --------------------------------------------------------
+
       final bool serviceEnabled =
           await Geolocator.isLocationServiceEnabled();
 
@@ -341,6 +352,10 @@ class _IncomingWalkRequestScreenState
 
         return;
       }
+
+      // --------------------------------------------------------
+      // PERMISSION
+      // --------------------------------------------------------
 
       LocationPermission permission =
           await Geolocator.checkPermission();
@@ -364,12 +379,19 @@ class _IncomingWalkRequestScreenState
         return;
       }
 
+      // --------------------------------------------------------
+      // CURRENT LOCATION
+      //
+      // IMPORTANT:
+      // Do NOT use locationSettings here.
+      // Your installed Geolocator API expects
+      // desiredAccuracy.
+      // --------------------------------------------------------
+
       final Position position =
           await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
+        desiredAccuracy:
+            LocationAccuracy.high,
       );
 
       if (!mounted) {
@@ -378,13 +400,22 @@ class _IncomingWalkRequestScreenState
 
       _updateWalkerLocation(position);
 
+      // --------------------------------------------------------
+      // CANCEL OLD STREAM
+      // --------------------------------------------------------
+
       await _locationSubscription?.cancel();
+
+      // --------------------------------------------------------
+      // CONTINUOUS GPS
+      // --------------------------------------------------------
 
       _locationSubscription =
           Geolocator.getPositionStream(
         locationSettings:
             const LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy:
+              LocationAccuracy.high,
           distanceFilter: 5,
         ),
       ).listen(
@@ -452,7 +483,7 @@ class _IncomingWalkRequestScreenState
   }
 
   // ============================================================
-  // MAP LOCATIONS
+  // MAP - WALKER
   // ============================================================
 
   LatLng? get _walkerLocation {
@@ -468,6 +499,10 @@ class _IncomingWalkRequestScreenState
       position.longitude,
     );
   }
+
+  // ============================================================
+  // MAP - OWNER
+  // ============================================================
 
   LatLng? get _ownerLocation {
     final double? latitude =
@@ -587,6 +622,13 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
+    if (currentUser.uid.trim().isEmpty) {
+      _showMessage(
+        'Walker UID is missing.',
+      );
+      return;
+    }
+
     setState(() {
       _accepting = true;
     });
@@ -663,9 +705,9 @@ class _IncomingWalkRequestScreenState
           actions: <Widget>[
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(
-                  false,
-                );
+                Navigator.of(
+                  dialogContext,
+                ).pop(false);
               },
               child: const Text(
                 'CANCEL',
@@ -673,9 +715,9 @@ class _IncomingWalkRequestScreenState
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(
-                  true,
-                );
+                Navigator.of(
+                  dialogContext,
+                ).pop(true);
               },
               child: const Text(
                 'REJECT',
@@ -752,6 +794,10 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
+    // ----------------------------------------------------------
+    // OWNER LOCATION
+    // ----------------------------------------------------------
+
     final double? ownerLatitude =
         _ownerLatitude;
 
@@ -766,12 +812,20 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
+    // ----------------------------------------------------------
+    // DISTANCE
+    // ----------------------------------------------------------
+
     if (_distanceMeters > 100) {
       _showMessage(
         'Please reach within 100 m of the owner.',
       );
       return;
     }
+
+    // ----------------------------------------------------------
+    // WALK REQUEST ID
+    // ----------------------------------------------------------
 
     final String walkRequestId =
         _walkId;
@@ -784,7 +838,7 @@ class _IncomingWalkRequestScreenState
     }
 
     // ----------------------------------------------------------
-    // FIREBASE AUTH USER = CURRENT WALKER
+    // FIREBASE AUTH = CURRENT WALKER
     // ----------------------------------------------------------
 
     final User? currentUser =
@@ -827,14 +881,21 @@ class _IncomingWalkRequestScreenState
 
     try {
       // --------------------------------------------------------
-      // CREATE LIVE WALK SESSION
+      // CREATE NEW LIVE WALK SESSION
+      // --------------------------------------------------------
+      //
+      // The Reach service creates a NEW liveWalkSessions document.
+      // Do not use widget.request.liveWalkSessionId here.
       // --------------------------------------------------------
 
       final String sessionId =
           await _reachService.createLiveWalkSession(
-        walkRequestId: walkRequestId,
-        walkerUid: walkerUid,
-        walkerId: walkerId,
+        walkRequestId:
+            walkRequestId,
+        walkerUid:
+            walkerUid,
+        walkerId:
+            walkerId,
       );
 
       if (!mounted) {
@@ -863,6 +924,10 @@ class _IncomingWalkRequestScreenState
 
       _leavingScreen = true;
 
+      if (!mounted) {
+        return;
+      }
+
       // --------------------------------------------------------
       // OPEN LIVE WALK
       // --------------------------------------------------------
@@ -874,16 +939,22 @@ class _IncomingWalkRequestScreenState
             BuildContext context,
           ) {
             return LiveWalkScreen(
-              ownerUid: _ownerUid,
-              ownerName: _ownerName,
-              walkId: walkRequestId,
-              dogName: _dogName,
-              dogBreed: _dogBreed,
+              ownerUid:
+                  _ownerUid,
+              ownerName:
+                  _ownerName,
+              walkId:
+                  walkRequestId,
+              dogName:
+                  _dogName,
+              dogBreed:
+                  _dogBreed,
               ownerPhone:
                   _ownerPhone.isEmpty
                       ? null
                       : _ownerPhone,
-              sessionId: sessionId,
+              sessionId:
+                  sessionId,
             );
           },
         ),
@@ -914,7 +985,9 @@ class _IncomingWalkRequestScreenState
   // ============================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       backgroundColor:
           const Color(0xFFE9EEF3),
@@ -942,13 +1015,16 @@ class _IncomingWalkRequestScreenState
             left: 0,
             right: 0,
             child: IncomingWalkTopBar(
-              accepted: _accepted,
+              accepted:
+                  _accepted,
               onBack: () {
                 if (_leavingScreen) {
                   return;
                 }
 
-                Navigator.of(context).pop();
+                Navigator.of(
+                  context,
+                ).pop();
               },
             ),
           ),
@@ -962,24 +1038,40 @@ class _IncomingWalkRequestScreenState
             right: 0,
             bottom: 0,
             child: IncomingWalkBottomPanel(
-              dogName: _dogName,
-              dogBreed: _dogBreed,
-              ownerName: _ownerName,
-              ownerPhone: _ownerPhone,
-              distanceText: _distanceText,
-              etaText: _etaText,
-              paymentText: _paymentText,
-              address: _address,
-              accepted: _accepted,
+              dogName:
+                  _dogName,
+              dogBreed:
+                  _dogBreed,
+              ownerName:
+                  _ownerName,
+              ownerPhone:
+                  _ownerPhone,
+              distanceText:
+                  _distanceText,
+              etaText:
+                  _etaText,
+              paymentText:
+                  _paymentText,
+              address:
+                  _address,
+              accepted:
+                  _accepted,
               canReachOwner:
                   _canReachOwner,
-              onAccept: _acceptWalk,
-              onReject: _rejectWalk,
-              onReach: _reachOwner,
-              onChat: null,
-              accepting: _accepting,
-              rejecting: _rejecting,
-              reaching: _reaching,
+              onAccept:
+                  _acceptWalk,
+              onReject:
+                  _rejectWalk,
+              onReach:
+                  _reachOwner,
+              onChat:
+                  null,
+              accepting:
+                  _accepting,
+              rejecting:
+                  _rejecting,
+              reaching:
+                  _reaching,
             ),
           ),
 
