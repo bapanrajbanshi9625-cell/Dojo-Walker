@@ -14,17 +14,12 @@ class LiveWalkSessionService {
       FirebaseAuth.instance;
 
   // ============================================================
-  // COLLECTIONS
+  // COLLECTION
   // ============================================================
 
   CollectionReference<Map<String, dynamic>>
       get _sessions {
     return _firestore.collection('liveWalkSessions');
-  }
-
-  CollectionReference<Map<String, dynamic>>
-      get _activeWalks {
-    return _firestore.collection('active_walks');
   }
 
   // ============================================================
@@ -66,42 +61,24 @@ class LiveWalkSessionService {
   }
 
   // ============================================================
-  // FIND ACTIVE WALK DOCUMENT
-  //
-  // active_walks document ID जरूरी नहीं कि walkId हो.
-  // इसलिए पहले walkId field से खोजेंगे.
-  // ============================================================
-
-  Future<DocumentSnapshot<Map<String, dynamic>>?>
-      _findActiveWalk(
-    String walkId,
-  ) async {
-    final String cleanWalkId =
-        walkId.trim();
-
-    if (cleanWalkId.isEmpty) {
-      return null;
-    }
-
-    final QuerySnapshot<Map<String, dynamic>>
-        query =
-        await _activeWalks
-            .where(
-              'walkId',
-              isEqualTo: cleanWalkId,
-            )
-            .limit(1)
-            .get();
-
-    if (query.docs.isNotEmpty) {
-      return query.docs.first;
-    }
-
-    return null;
-  }
-
-  // ============================================================
   // START WALK
+  //
+  // IMPORTANT:
+  //
+  // active_walks collection is NOT used anymore.
+  //
+  // Complete timeline is maintained inside:
+  //
+  // liveWalkSessions/{sessionId}
+  //
+  // Timeline:
+  //
+  // createdAt
+  // acceptedAt
+  // reachedAt
+  // startedAt
+  // completedAt
+  // endedAt
   // ============================================================
 
   Future<void> startWalk({
@@ -135,11 +112,7 @@ class LiveWalkSessionService {
     }
 
     // ==========================================================
-    // AUTH UID
-    //
-    // IMPORTANT:
-    // Walker UID हमेशा Firebase Auth UID रहेगा.
-    // Caller से empty आया तो automatically currentUser.uid.
+    // AUTH
     // ==========================================================
 
     final String authUid =
@@ -150,29 +123,26 @@ class LiveWalkSessionService {
             ? walkerUid.trim()
             : authUid;
 
-    // ==========================================================
-    // SECURITY
-    //
-    // अगर walkerUid दिया गया है तो वही logged-in walker होना
-    // चाहिए.
-    // ==========================================================
-
     if (cleanWalkerUid != authUid) {
       throw Exception(
         'Walker authentication mismatch.',
       );
     }
 
+    // ==========================================================
+    // SESSION
+    // ==========================================================
+
     final DocumentReference<Map<String, dynamic>>
         session =
         sessionRef(cleanSessionId);
 
     final DocumentSnapshot<Map<String, dynamic>>
-        sessionSnapshot =
+        snapshot =
         await session.get();
 
     final Map<String, dynamic> existing =
-        sessionSnapshot.data() ??
+        snapshot.data() ??
             <String, dynamic>{};
 
     final String currentStatus =
@@ -193,13 +163,20 @@ class LiveWalkSessionService {
     }
 
     // ==========================================================
-    // SESSION DATA
+    // START WALK DATA
     // ==========================================================
 
-    final Map<String, dynamic>
-        sessionData =
+    final Map<String, dynamic> data =
         <String, dynamic>{
-      'walkId': cleanWalkId,
+      // --------------------------------------------------------
+      // IDENTIFIERS
+      // --------------------------------------------------------
+
+      'sessionId':
+          cleanSessionId,
+
+      'walkId':
+          cleanWalkId,
 
       // --------------------------------------------------------
       // OWNER
@@ -247,8 +224,17 @@ class LiveWalkSessionService {
       'walkStarted':
           true,
 
+      'walkEnded':
+          false,
+
+      'trackingEnded':
+          false,
+
       // --------------------------------------------------------
-      // TIMESTAMPS
+      // TIMELINE
+      //
+      // startedAt is ONLY written when Start Walk happens.
+      // Existing acceptedAt / reachedAt / createdAt remain intact.
       // --------------------------------------------------------
 
       'startedAt':
@@ -285,7 +271,7 @@ class LiveWalkSessionService {
               <dynamic>[],
 
       // --------------------------------------------------------
-      // CURRENT LOCATION
+      // LOCATION
       // --------------------------------------------------------
 
       if (existing['currentLocation'] != null)
@@ -294,136 +280,23 @@ class LiveWalkSessionService {
     };
 
     // ==========================================================
-    // ACTIVE WALK DATA
+    // WRITE ONLY TO liveWalkSessions
     // ==========================================================
 
-    final Map<String, dynamic>
-        activeWalkData =
-        <String, dynamic>{
-      'walkId':
-          cleanWalkId,
-
-      // --------------------------------------------------------
-      // OWNER
-      // --------------------------------------------------------
-
-      'ownerUid':
-          ownerUid.trim(),
-
-      'ownerName':
-          ownerName.trim(),
-
-      // --------------------------------------------------------
-      // DOG
-      // --------------------------------------------------------
-
-      'dogName':
-          dogName.trim(),
-
-      'dogBreed':
-          dogBreed.trim(),
-
-      // --------------------------------------------------------
-      // WALKER
-      // --------------------------------------------------------
-
-      'walkerUid':
-          cleanWalkerUid,
-
-      'walkerId':
-          walkerId.trim(),
-
-      'walkerName':
-          walkerName.trim(),
-
-      'walkerPhone':
-          walkerPhone.trim(),
-
-      // --------------------------------------------------------
-      // STATUS
-      // --------------------------------------------------------
-
-      'status':
-          'active',
-
-      // --------------------------------------------------------
-      // TIMESTAMPS
-      // --------------------------------------------------------
-
-      'startedAt':
-          FieldValue.serverTimestamp(),
-
-      'updatedAt':
-          FieldValue.serverTimestamp(),
-    };
-
-    // ==========================================================
-    // BATCH
-    // ==========================================================
-
-    final WriteBatch batch =
-        _firestore.batch();
-
-    // ----------------------------------------------------------
-    // LIVE SESSION
-    // ----------------------------------------------------------
-
-    batch.set(
-      session,
-      sessionData,
+    await session.set(
+      data,
       SetOptions(
         merge: true,
       ),
     );
-
-    // ----------------------------------------------------------
-    // FIND ACTIVE WALK
-    // ----------------------------------------------------------
-
-    final DocumentSnapshot<
-            Map<String, dynamic>>?
-        existingActiveWalk =
-        await _findActiveWalk(
-      cleanWalkId,
-    );
-
-    // ----------------------------------------------------------
-    // UPDATE EXISTING ACTIVE WALK
-    // ----------------------------------------------------------
-
-    if (existingActiveWalk != null) {
-      batch.set(
-        existingActiveWalk.reference,
-        activeWalkData,
-        SetOptions(
-          merge: true,
-        ),
-      );
-    }
-
-    // ----------------------------------------------------------
-    // CREATE NEW ACTIVE WALK
-    // ----------------------------------------------------------
-
-    else {
-      batch.set(
-        _activeWalks.doc(cleanWalkId),
-        activeWalkData,
-        SetOptions(
-          merge: true,
-        ),
-      );
-    }
-
-    // ==========================================================
-    // COMMIT
-    // ==========================================================
-
-    await batch.commit();
   }
 
   // ============================================================
   // COMPLETE WALK
+  //
+  // No active_walks update.
+  //
+  // Everything stays in liveWalkSessions.
   // ============================================================
 
   Future<void> completeWalk({
@@ -439,7 +312,7 @@ class LiveWalkSessionService {
       );
     }
 
-    // Ensure logged-in user exists.
+    // Ensure authenticated walker.
     _currentAuthUid;
 
     final DocumentReference<Map<String, dynamic>>
@@ -447,36 +320,25 @@ class LiveWalkSessionService {
         sessionRef(cleanSessionId);
 
     final DocumentSnapshot<Map<String, dynamic>>
-        sessionSnapshot =
+        snapshot =
         await session.get();
 
-    if (!sessionSnapshot.exists) {
+    if (!snapshot.exists) {
       throw Exception(
         'Live walk session was not found.',
       );
     }
 
-    final Map<String, dynamic> sessionData =
-        sessionSnapshot.data() ??
-            <String, dynamic>{};
-
-    final String cleanWalkId =
-        (walkId ??
-                sessionData['walkId']
-                    ?.toString() ??
-                '')
-            .trim();
-
-    final WriteBatch batch =
-        _firestore.batch();
-
     // ==========================================================
-    // COMPLETE LIVE SESSION
+    // COMPLETE SESSION
     // ==========================================================
 
-    batch.set(
-      session,
+    await session.set(
       <String, dynamic>{
+        // ------------------------------------------------------
+        // STATUS
+        // ------------------------------------------------------
+
         'status':
             'completed',
 
@@ -488,6 +350,10 @@ class LiveWalkSessionService {
 
         'trackingEnded':
             true,
+
+        // ------------------------------------------------------
+        // TIMELINE
+        // ------------------------------------------------------
 
         'completedAt':
             FieldValue.serverTimestamp(),
@@ -502,69 +368,5 @@ class LiveWalkSessionService {
         merge: true,
       ),
     );
-
-    // ==========================================================
-    // COMPLETE ACTIVE WALK
-    // ==========================================================
-
-    if (cleanWalkId.isNotEmpty) {
-      final DocumentSnapshot<
-              Map<String, dynamic>>?
-          activeWalk =
-          await _findActiveWalk(
-        cleanWalkId,
-      );
-
-      if (activeWalk != null) {
-        batch.set(
-          activeWalk.reference,
-          <String, dynamic>{
-            'status':
-                'completed',
-
-            'endedAt':
-                FieldValue.serverTimestamp(),
-
-            'completedAt':
-                FieldValue.serverTimestamp(),
-
-            'updatedAt':
-                FieldValue.serverTimestamp(),
-          },
-          SetOptions(
-            merge: true,
-          ),
-        );
-      } else {
-        batch.set(
-          _activeWalks.doc(cleanWalkId),
-          <String, dynamic>{
-            'walkId':
-                cleanWalkId,
-
-            'status':
-                'completed',
-
-            'endedAt':
-                FieldValue.serverTimestamp(),
-
-            'completedAt':
-                FieldValue.serverTimestamp(),
-
-            'updatedAt':
-                FieldValue.serverTimestamp(),
-          },
-          SetOptions(
-            merge: true,
-          ),
-        );
-      }
-    }
-
-    // ==========================================================
-    // COMMIT
-    // ==========================================================
-
-    await batch.commit();
   }
 }
