@@ -1,7 +1,11 @@
+// File:
+// lib/features/insta_walk/screens/incoming_walk_request_screen.dart
+
 import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -31,6 +35,9 @@ class _IncomingWalkRequestScreenState
 
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
+
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
 
   final InstaWalkAcceptService _acceptService =
       InstaWalkAcceptService.instance;
@@ -139,7 +146,8 @@ class _IncomingWalkRequestScreenState
     super.initState();
 
     _accepted =
-        widget.request.status.toLowerCase() == 'accepted';
+        widget.request.status.trim().toLowerCase() ==
+            'accepted';
 
     unawaited(_startLocationTracking());
     _startRequestMonitoring();
@@ -160,7 +168,9 @@ class _IncomingWalkRequestScreenState
             .doc(_walkId);
 
     _requestSubscription = walkRef.snapshots().listen(
-      (DocumentSnapshot<Map<String, dynamic>> snapshot) {
+      (
+        DocumentSnapshot<Map<String, dynamic>> snapshot,
+      ) {
         if (!mounted || _leavingScreen) {
           return;
         }
@@ -190,7 +200,7 @@ class _IncomingWalkRequestScreenState
             data['walkerId']?.toString().trim() ?? '';
 
         // --------------------------------------------------------
-        // CURRENT WALKER HAS ACCEPTED
+        // CURRENT WALKER ACCEPTED
         // --------------------------------------------------------
 
         if (status == 'accepted' &&
@@ -208,11 +218,18 @@ class _IncomingWalkRequestScreenState
         }
 
         // --------------------------------------------------------
-        // SOMEONE ELSE ACCEPTED
+        // REQUEST STILL SEARCHING
         // --------------------------------------------------------
 
-        if (!_accepted &&
-            status != 'searching') {
+        if (status == 'searching') {
+          return;
+        }
+
+        // --------------------------------------------------------
+        // SOMEONE ELSE ACCEPTED / REQUEST UNAVAILABLE
+        // --------------------------------------------------------
+
+        if (!_accepted) {
           _handleRequestUnavailable(
             'This walk has already been accepted by another Walker.',
           );
@@ -226,55 +243,49 @@ class _IncomingWalkRequestScreenState
     );
   }
 
+  // ============================================================
+  // CURRENT WALKER CHECK
+  // ============================================================
+
   bool _isCurrentWalker(
     String walkerUid,
     String walkerId,
   ) {
+    final User? user = _auth.currentUser;
+
+    if (user == null) {
+      return false;
+    }
+
+    final String currentAuthUid =
+        user.uid.trim();
+
+    final String cleanWalkerUid =
+        walkerUid.trim();
+
+    final String cleanWalkerId =
+        walkerId.trim();
+
+    // UID match
+    if (cleanWalkerUid.isNotEmpty &&
+        currentAuthUid.isNotEmpty &&
+        cleanWalkerUid == currentAuthUid) {
+      return true;
+    }
+
+    // Walker ID match is intentionally not used here
+    // because it would require an asynchronous Firestore
+    // lookup inside the snapshot listener.
+    //
+    // The accept service already verifies the Walker ID
+    // during acceptance.
+
     return false;
   }
 
-  Future<void> _checkCurrentWalkerForStatus(
-    String walkerUid,
-    String walkerId,
-  ) async {
-    try {
-      final String? currentWalkerId =
-          await _acceptService.getCurrentWalkerId();
-
-      if (!mounted) {
-        return;
-      }
-
-      final bool uidMatches =
-          walkerUid.isNotEmpty &&
-          _getCurrentAuthUid() == walkerUid;
-
-      final bool idMatches =
-          walkerId.isNotEmpty &&
-          currentWalkerId != null &&
-          currentWalkerId == walkerId;
-
-      if (uidMatches || idMatches) {
-        if (!_accepted) {
-          setState(() {
-            _accepted = true;
-          });
-        }
-      } else if (!_accepted) {
-        _handleRequestUnavailable(
-          'This walk has already been accepted by another Walker.',
-        );
-      }
-    } catch (e) {
-      debugPrint(
-        'Walker status check error: $e',
-      );
-    }
-  }
-
-  String _getCurrentAuthUid() {
-    return '';
-  }
+  // ============================================================
+  // REQUEST UNAVAILABLE
+  // ============================================================
 
   void _handleRequestUnavailable(
     String message,
@@ -366,9 +377,9 @@ class _IncomingWalkRequestScreenState
           );
         },
       );
-    } catch (e) {
+    } catch (error) {
       debugPrint(
-        'Incoming request location error: $e',
+        'Incoming request location error: $error',
       );
 
       if (mounted) {
@@ -472,7 +483,7 @@ class _IncomingWalkRequestScreenState
         ),
       );
     } catch (_) {
-      // Map may not be ready.
+      // Map may not be ready yet.
     }
   }
 
@@ -515,14 +526,14 @@ class _IncomingWalkRequestScreenState
       _showMessage(
         'Walk accepted. Please reach the owner.',
       );
-    } catch (e) {
+    } catch (error) {
       debugPrint(
-        'Accept walk error: $e',
+        'Accept walk error: $error',
       );
 
       if (mounted) {
         _showMessage(
-          _cleanException(e),
+          _cleanException(error),
         );
       }
     } finally {
@@ -622,14 +633,14 @@ class _IncomingWalkRequestScreenState
       _leavingScreen = true;
 
       Navigator.pop(context);
-    } catch (e) {
+    } catch (error) {
       debugPrint(
-        'Reject walk error: $e',
+        'Reject walk error: $error',
       );
 
       if (mounted) {
         _showMessage(
-          _cleanException(e),
+          _cleanException(error),
         );
       }
     } finally {
@@ -712,16 +723,16 @@ class _IncomingWalkRequestScreenState
           },
         ),
       );
-    } catch (e) {
+    } catch (error) {
       _leavingScreen = false;
 
       debugPrint(
-        'Open Live Walk error: $e',
+        'Open Live Walk error: $error',
       );
 
       if (mounted) {
         _showMessage(
-          _cleanException(e),
+          _cleanException(error),
         );
       }
     } finally {
@@ -747,10 +758,7 @@ class _IncomingWalkRequestScreenState
     final List<Marker> markers =
         <Marker>[];
 
-    // ----------------------------------------------------------
     // WALKER
-    // ----------------------------------------------------------
-
     if (_walkerPosition != null) {
       markers.add(
         Marker(
@@ -786,10 +794,7 @@ class _IncomingWalkRequestScreenState
       );
     }
 
-    // ----------------------------------------------------------
     // OWNER
-    // ----------------------------------------------------------
-
     if (ownerLat != null &&
         ownerLng != null) {
       markers.add(
@@ -969,10 +974,10 @@ class _IncomingWalkRequestScreenState
         onTap: onTap,
         customBorder:
             const CircleBorder(),
-        child: const Padding(
-          padding: EdgeInsets.all(11),
+        child: Padding(
+          padding: const EdgeInsets.all(11),
           child: Icon(
-            Icons.arrow_back_rounded,
+            icon,
             size: 23,
           ),
         ),
@@ -1036,7 +1041,6 @@ class _IncomingWalkRequestScreenState
                 height: 14,
               ),
 
-              // DOG
               Row(
                 children: <Widget>[
                   Container(
@@ -1106,7 +1110,6 @@ class _IncomingWalkRequestScreenState
                 height: 14,
               ),
 
-              // STATS
               Row(
                 children: <Widget>[
                   Expanded(
@@ -1143,7 +1146,6 @@ class _IncomingWalkRequestScreenState
                 height: 12,
               ),
 
-              // ADDRESS
               if (_address.isNotEmpty)
                 Container(
                   width:
@@ -1198,7 +1200,6 @@ class _IncomingWalkRequestScreenState
                 height: 12,
               ),
 
-              // ACCEPTED
               if (_accepted)
                 SizedBox(
                   width:
@@ -1410,6 +1411,10 @@ class _IncomingWalkRequestScreenState
     );
   }
 
+  // ============================================================
+  // INFO BOX
+  // ============================================================
+
   Widget _infoBox(
     IconData icon,
     String value,
@@ -1540,13 +1545,12 @@ class _IncomingWalkRequestScreenState
   String _cleanException(
     Object error,
   ) {
-    final String text =
-        error.toString();
-
-    return text.replaceFirst(
-      'Exception: ',
-      '',
-    );
+    return error
+        .toString()
+        .replaceFirst(
+          'Exception: ',
+          '',
+        );
   }
 
   // ============================================================
@@ -1617,7 +1621,8 @@ class _IncomingWalkRequestScreenState
               child: ColoredBox(
                 color: Colors.white70,
                 child: Center(
-                  child: CircularProgressIndicator(),
+                  child:
+                      CircularProgressIndicator(),
                 ),
               ),
             ),
