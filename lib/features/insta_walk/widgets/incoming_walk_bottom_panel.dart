@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'incoming_walk_action_buttons.dart';
 import 'incoming_walk_address.dart';
+import 'incoming_walk_call_chat.dart';
 import 'incoming_walk_dog_header.dart';
 import 'incoming_walk_reach_button.dart';
 import 'incoming_walk_stats.dart';
@@ -12,6 +13,7 @@ class IncomingWalkBottomPanel extends StatelessWidget {
     required this.dogName,
     required this.dogBreed,
     required this.ownerName,
+    required this.ownerPhone,
     required this.distanceText,
     required this.etaText,
     required this.paymentText,
@@ -21,6 +23,7 @@ class IncomingWalkBottomPanel extends StatelessWidget {
     required this.onAccept,
     required this.onReject,
     required this.onReach,
+    this.onChat,
     this.accepting = false,
     this.rejecting = false,
     this.reaching = false,
@@ -29,6 +32,7 @@ class IncomingWalkBottomPanel extends StatelessWidget {
   final String dogName;
   final String dogBreed;
   final String ownerName;
+  final String ownerPhone;
 
   final String distanceText;
   final String etaText;
@@ -41,6 +45,8 @@ class IncomingWalkBottomPanel extends StatelessWidget {
   final VoidCallback onAccept;
   final VoidCallback onReject;
   final VoidCallback onReach;
+
+  final VoidCallback? onChat;
 
   final bool accepting;
   final bool rejecting;
@@ -55,7 +61,7 @@ class IncomingWalkBottomPanel extends StatelessWidget {
         child: Container(
           width: double.infinity,
           constraints: const BoxConstraints(
-            maxHeight: 455,
+            maxHeight: 500,
           ),
           decoration: const BoxDecoration(
             color: Colors.white,
@@ -86,9 +92,11 @@ class IncomingWalkBottomPanel extends StatelessWidget {
                   height: 4,
                   decoration: BoxDecoration(
                     color: Colors.black12,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius:
+                        BorderRadius.circular(10),
                   ),
                 ),
+
                 const SizedBox(height: 15),
 
                 IncomingWalkDogHeader(
@@ -114,13 +122,20 @@ class IncomingWalkBottomPanel extends StatelessWidget {
 
                 const SizedBox(height: 14),
 
-                if (accepted)
+                if (accepted) ...[
+                  IncomingWalkCallChat(
+                    ownerPhone: ownerPhone,
+                    onChat: onChat,
+                  ),
+
+                  const SizedBox(height: 10),
+
                   IncomingWalkReachButton(
                     canReachOwner: canReachOwner,
                     onReach: onReach,
                     reaching: reaching,
-                  )
-                else
+                  ),
+                ] else
                   IncomingWalkActionButtons(
                     onAccept: onAccept,
                     onReject: onReject,
