@@ -9,20 +9,23 @@ import '../../walks/services/walk_request_sound_service.dart';
 /// ============================================================
 /// INSTA WALK ACCEPT SERVICE
 ///
-/// Main collection:
-///     walk_request
+/// Firestore:
 ///
-/// ACCEPT:
-///     searching → accepted
+///   walk_request/{walkId}
+///
+/// Accept flow:
+///
+///   searching → accepted
 ///
 /// Rejection:
-///     walk_request/{walkId}/rejections/{walkerId}
 ///
-/// IMPORTANT:
-/// - जिस Walker ने reject किया है वह दोबारा accept नहीं कर सकता.
-/// - दूसरा Walker उसी request को देख/accept कर सकता है.
-/// - Owner को rejection information main document में नहीं दिखाई जाती.
-/// - Transaction के कारण एक ही समय में दो Walker accept नहीं कर सकते.
+///   walk_request/{walkId}/rejections/{walkerId}
+///
+/// Rules:
+/// - A walker who rejected a request cannot accept it later.
+/// - Another walker can still accept the same request.
+/// - Only one walker can successfully accept a searching request.
+/// - Rejection data stays inside the private subcollection.
 /// ============================================================
 
 class InstaWalkAcceptService {
@@ -38,7 +41,7 @@ class InstaWalkAcceptService {
       FirebaseAuth.instance;
 
   // ============================================================
-  // MAIN COLLECTION
+  // COLLECTION
   // ============================================================
 
   CollectionReference<Map<String, dynamic>>
@@ -47,82 +50,27 @@ class InstaWalkAcceptService {
   }
 
   // ============================================================
+  // CURRENT USER
+  // ============================================================
+
+  User? get _currentUser {
+    return _auth.currentUser;
+  }
+
+  // ============================================================
   // CURRENT WALKER ID
   //
+  // Firestore:
+  //
   // walkers/{FirebaseAuthUID}
+  //
+  // Example:
   //
   // walkerId: WALKER001
   // ============================================================
 
-  Future<String?> getCurrentWalkerId() async {
-    final User? user = _auth.currentUser;
-
-    if (user == null) {
-      return null;
-    }
-
-    final String uid =
-        user.uid.trim();
-
-    if (uid.isEmpty) {
-      return null;
-    }
-
-    final DocumentSnapshot<
-            Map<String, dynamic>>
-        snapshot =
-        await _firestore
-            .collection('walkers')
-            .doc(uid)
-            .get();
-
-    if (!snapshot.exists) {
-      return null;
-    }
-
-    final Map<String, dynamic>? data =
-        snapshot.data();
-
-    if (data == null) {
-      return null;
-    }
-
-    final String walkerId =
-        data['walkerId']
-                ?.toString()
-                .trim() ??
-            '';
-
-    if (walkerId.isEmpty) {
-      return null;
-    }
-
-    return walkerId;
-  }
-
-  // ============================================================
-  // ACCEPT WALK
-  //
-  // searching → accepted
-  //
-  // IMPORTANT:
-  //
-  // अगर इस Walker ने पहले reject किया है:
-  //
-  // rejections/{walkerId}
-  //
-  // तो वह दोबारा accept नहीं कर सकता.
-  // ============================================================
-
-  Future<void> acceptWalk(
-    String walkId,
-  ) async {
-    // ----------------------------------------------------------
-    // AUTH
-    // ----------------------------------------------------------
-
-    final User? user =
-        _auth.currentUser;
+  Future<String> getCurrentWalkerId() async {
+    final User? user = _currentUser;
 
     if (user == null) {
       throw Exception(
@@ -139,23 +87,88 @@ class InstaWalkAcceptService {
       );
     }
 
-    // ----------------------------------------------------------
-    // WALKER ID
-    // ----------------------------------------------------------
+    final DocumentSnapshot<
+            Map<String, dynamic>>
+        snapshot =
+        await _firestore
+            .collection('walkers')
+            .doc(walkerUid)
+            .get();
 
-    final String? walkerId =
-        await getCurrentWalkerId();
+    if (!snapshot.exists) {
+      throw Exception(
+        'Walker profile not found.',
+      );
+    }
 
-    if (walkerId == null ||
-        walkerId.trim().isEmpty) {
+    final Map<String, dynamic>? data =
+        snapshot.data();
+
+    if (data == null) {
+      throw Exception(
+        'Walker profile data is empty.',
+      );
+    }
+
+    final String walkerId =
+        data['walkerId']
+                ?.toString()
+                .trim() ??
+            '';
+
+    if (walkerId.isEmpty) {
       throw Exception(
         'Walker ID not found in walkers collection.',
       );
     }
 
-    // ----------------------------------------------------------
+    return walkerId;
+  }
+
+  // ============================================================
+  // ACCEPT WALK
+  //
+  // searching → accepted
+  // ============================================================
+
+  Future<void> acceptWalk(
+    String walkId,
+  ) async {
+    // ==========================================================
+    // AUTH
+    // ==========================================================
+
+    final User? user = _currentUser;
+
+    if (user == null) {
+      throw Exception(
+        'Walker is not logged in.',
+      );
+    }
+
+    final String walkerUid =
+        user.uid.trim();
+
+    if (walkerUid.isEmpty) {
+      throw Exception(
+        'Walker UID is missing.',
+      );
+    }
+
+    // ==========================================================
+    // WALKER BUSINESS ID
+    //
+    // IMPORTANT:
+    // This is now String, NOT String?.
+    // Therefore doc(walkerId) is type-safe.
+    // ==========================================================
+
+    final String walkerId =
+        await getCurrentWalkerId();
+
+    // ==========================================================
     // WALK ID
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final String id =
         walkId.trim();
@@ -166,20 +179,20 @@ class InstaWalkAcceptService {
       );
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // MAIN WALK DOCUMENT
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final DocumentReference<
             Map<String, dynamic>>
         walkRef =
         _walkRequests.doc(id);
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // REJECTION DOCUMENT
     //
     // walk_request/{walkId}/rejections/{walkerId}
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final DocumentReference<
             Map<String, dynamic>>
@@ -190,15 +203,18 @@ class InstaWalkAcceptService {
 
     // ==========================================================
     // TRANSACTION
+    //
+    // Transaction guarantees that two walkers cannot
+    // simultaneously accept the same searching request.
     // ==========================================================
 
     await _firestore.runTransaction(
       (
         Transaction transaction,
       ) async {
-        // ------------------------------------------------------
-        // READ MAIN WALK
-        // ------------------------------------------------------
+        // ======================================================
+        // READ WALK REQUEST
+        // ======================================================
 
         final DocumentSnapshot<
                 Map<String, dynamic>>
@@ -222,14 +238,15 @@ class InstaWalkAcceptService {
           );
         }
 
-        // ------------------------------------------------------
+        // ======================================================
         // STATUS
-        // ------------------------------------------------------
+        // ======================================================
 
         final String status =
             data['status']
                     ?.toString()
-                    .trim() ??
+                    .trim()
+                    .toLowerCase() ??
                 '';
 
         if (status != 'searching') {
@@ -238,12 +255,9 @@ class InstaWalkAcceptService {
           );
         }
 
-        // ------------------------------------------------------
+        // ======================================================
         // CHECK PREVIOUS REJECTION
-        //
-        // अगर current Walker ने पहले reject किया था,
-        // तो वह इस walk को दोबारा accept नहीं कर सकता.
-        // ------------------------------------------------------
+        // ======================================================
 
         final DocumentSnapshot<
                 Map<String, dynamic>>
@@ -258,22 +272,24 @@ class InstaWalkAcceptService {
           );
         }
 
-        // ------------------------------------------------------
-        // ACCEPT
-        //
-        // अब यही Walker इस request का owner होगा.
-        // ------------------------------------------------------
+        // ======================================================
+        // ACCEPT REQUEST
+        // ======================================================
 
         transaction.update(
           walkRef,
           <String, dynamic>{
             'status': 'accepted',
 
+            // Walker business ID
             'walkerId': walkerId,
 
+            // Firebase Auth UID
             'walkerUid': walkerUid,
 
+            // Useful for compatibility
             'acceptedBy': walkerId,
+            'acceptedByUid': walkerUid,
 
             'acceptedAt':
                 FieldValue.serverTimestamp(),
@@ -286,13 +302,26 @@ class InstaWalkAcceptService {
     );
 
     // ==========================================================
-    // ACCEPT SUCCESS → STOP REQUEST SOUND
+    // ACCEPT SUCCESS
     //
-    // Transaction successfully complete hone ke baad hi
-    // ringtone stop hoga.
+    // Only stop incoming ringtone after transaction succeeds.
     // ==========================================================
 
-    await WalkRequestSoundService.instance
-        .stopRequest(id);
+    try {
+      await WalkRequestSoundService
+          .instance
+          .stopRequest(id);
+    } catch (e) {
+      // Sound failure must NOT make a successful accept
+      // appear as a failed accept.
+      //
+      // The Firestore transaction has already succeeded.
+      //
+      // Log only.
+      // ignore: avoid_print
+      print(
+        'Unable to stop walk request sound: $e',
+      );
+    }
   }
 }
