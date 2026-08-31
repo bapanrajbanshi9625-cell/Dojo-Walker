@@ -64,7 +64,7 @@ class _IncomingWalkRequestScreenState
   double _distanceMeters = 0;
 
   // ============================================================
-  // REQUEST DATA
+  // OWNER DATA
   // ============================================================
 
   double? get _ownerLatitude {
@@ -104,17 +104,35 @@ class _IncomingWalkRequestScreenState
     return widget.request.ownerPhone.trim();
   }
 
+  // ============================================================
+  // CURRENT WALKER DATA
+  //
+  // IMPORTANT:
+  // Do NOT use:
+  // widget.request.walkerName
+  // widget.request.walkerPhone
+  //
+  // Walker identity comes from Firebase Auth / walker profile.
+  // ============================================================
+
+  String get _currentWalkerUid {
+    return _auth.currentUser?.uid.trim() ?? '';
+  }
+
   String get _walkerId {
-    return widget.request.walkerId.trim();
+    final String requestWalkerId =
+        widget.request.walkerId.trim();
+
+    if (requestWalkerId.isNotEmpty) {
+      return requestWalkerId;
+    }
+
+    return _currentWalkerUid;
   }
 
-  String get _walkerName {
-    return widget.request.walkerName.trim();
-  }
-
-  String get _walkerPhone {
-    return widget.request.walkerPhone.trim();
-  }
+  // ============================================================
+  // DOG DATA
+  // ============================================================
 
   String get _dogName {
     final String value =
@@ -127,6 +145,10 @@ class _IncomingWalkRequestScreenState
     return widget.request.dogBreed.trim();
   }
 
+  // ============================================================
+  // ADDRESS
+  // ============================================================
+
   String get _address {
     final String pickup =
         widget.request.pickupAddress.trim();
@@ -137,6 +159,10 @@ class _IncomingWalkRequestScreenState
 
     return widget.request.address.trim();
   }
+
+  // ============================================================
+  // WALK REQUEST ID
+  // ============================================================
 
   String get _walkId {
     return widget.request.id.trim();
@@ -246,18 +272,15 @@ class _IncomingWalkRequestScreenState
     );
   }
 
+  // ============================================================
+  // CURRENT WALKER CHECK
+  // ============================================================
+
   bool _isCurrentWalker(
     String walkerUid,
   ) {
-    final User? user =
-        _auth.currentUser;
-
-    if (user == null) {
-      return false;
-    }
-
     final String currentUid =
-        user.uid.trim();
+        _currentWalkerUid;
 
     final String incomingUid =
         walkerUid.trim();
@@ -343,8 +366,10 @@ class _IncomingWalkRequestScreenState
 
       final Position position =
           await Geolocator.getCurrentPosition(
-        desiredAccuracy:
-            LocationAccuracy.high,
+        locationSettings:
+            const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
 
       if (!mounted) {
@@ -389,6 +414,10 @@ class _IncomingWalkRequestScreenState
       }
     }
   }
+
+  // ============================================================
+  // UPDATE WALKER LOCATION
+  // ============================================================
 
   void _updateWalkerLocation(
     Position position,
@@ -496,7 +525,10 @@ class _IncomingWalkRequestScreenState
             60;
 
     final int rounded =
-        math.max(1, minutes.ceil());
+        math.max(
+          1,
+          minutes.ceil(),
+        );
 
     return '$rounded min';
   }
@@ -535,11 +567,22 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    final String walkId = _walkId;
+    final String walkId =
+        _walkId;
 
     if (walkId.isEmpty) {
       _showMessage(
         'Walk request ID is missing.',
+      );
+      return;
+    }
+
+    final User? currentUser =
+        _auth.currentUser;
+
+    if (currentUser == null) {
+      _showMessage(
+        'Walker authentication is unavailable.',
       );
       return;
     }
@@ -652,7 +695,8 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    final String walkId = _walkId;
+    final String walkId =
+        _walkId;
 
     if (walkId.isEmpty) {
       _showMessage(
@@ -740,7 +784,7 @@ class _IncomingWalkRequestScreenState
     }
 
     // ----------------------------------------------------------
-    // CURRENT FIREBASE USER
+    // FIREBASE AUTH USER = CURRENT WALKER
     // ----------------------------------------------------------
 
     final User? currentUser =
@@ -783,14 +827,7 @@ class _IncomingWalkRequestScreenState
 
     try {
       // --------------------------------------------------------
-      // CREATE A NEW LIVE WALK SESSION
-      // --------------------------------------------------------
-      //
-      // IMPORTANT:
-      // Do NOT use widget.request.liveWalkSessionId here.
-      //
-      // A NEW liveWalkSessions document is created when
-      // REACHED OWNER is pressed.
+      // CREATE LIVE WALK SESSION
       // --------------------------------------------------------
 
       final String sessionId =
@@ -798,14 +835,6 @@ class _IncomingWalkRequestScreenState
         walkRequestId: walkRequestId,
         walkerUid: walkerUid,
         walkerId: walkerId,
-        walkerName:
-            _walkerName.isEmpty
-                ? null
-                : _walkerName,
-        walkerPhone:
-            _walkerPhone.isEmpty
-                ? null
-                : _walkerPhone,
       );
 
       if (!mounted) {
@@ -817,15 +846,15 @@ class _IncomingWalkRequestScreenState
       // --------------------------------------------------------
 
       await _requestSubscription?.cancel();
+
       _requestSubscription = null;
 
       // --------------------------------------------------------
       // STOP ARRIVAL GPS
-      //
-      // LiveWalkScreen will manage its own live tracking.
       // --------------------------------------------------------
 
       await _locationSubscription?.cancel();
+
       _locationSubscription = null;
 
       // --------------------------------------------------------
@@ -891,9 +920,9 @@ class _IncomingWalkRequestScreenState
           const Color(0xFFE9EEF3),
       body: Stack(
         children: <Widget>[
-          // ------------------------------------------------------
+          // ======================================================
           // MAP
-          // ------------------------------------------------------
+          // ======================================================
 
           Positioned.fill(
             child: IncomingWalkMap(
@@ -904,9 +933,9 @@ class _IncomingWalkRequestScreenState
             ),
           ),
 
-          // ------------------------------------------------------
+          // ======================================================
           // TOP BAR
-          // ------------------------------------------------------
+          // ======================================================
 
           Positioned(
             top: 0,
@@ -924,9 +953,9 @@ class _IncomingWalkRequestScreenState
             ),
           ),
 
-          // ------------------------------------------------------
+          // ======================================================
           // BOTTOM PANEL
-          // ------------------------------------------------------
+          // ======================================================
 
           Positioned(
             left: 0,
@@ -954,9 +983,9 @@ class _IncomingWalkRequestScreenState
             ),
           ),
 
-          // ------------------------------------------------------
+          // ======================================================
           // LOCATION LOADING
-          // ------------------------------------------------------
+          // ======================================================
 
           if (_loadingLocation)
             const Positioned.fill(
@@ -971,9 +1000,9 @@ class _IncomingWalkRequestScreenState
               ),
             ),
 
-          // ------------------------------------------------------
+          // ======================================================
           // REQUEST UNAVAILABLE
-          // ------------------------------------------------------
+          // ======================================================
 
           if (_requestUnavailable)
             const Positioned.fill(
