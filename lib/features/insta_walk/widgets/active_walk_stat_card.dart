@@ -13,39 +13,33 @@ class ActiveWalkStatCard extends StatelessWidget {
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         vertical: 9,
         horizontal: 5,
       ),
       decoration: BoxDecoration(
         color: AppColors.surfaceSoft,
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         children: [
           Text(
             value,
             maxLines: 1,
-            overflow:
-                TextOverflow.ellipsis,
-            style: TextStyle(
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
               color: AppColors.secondary,
               fontSize: 11,
-              fontWeight:
-                  FontWeight.w900,
+              fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               color: AppColors.textMuted,
               fontSize: 7,
             ),
