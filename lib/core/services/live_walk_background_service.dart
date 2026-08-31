@@ -11,13 +11,12 @@ import 'package:geolocator/geolocator.dart';
 /// PRIMARY RECORD:
 /// liveWalkSessions/{sessionId}
 ///
-/// IMPORTANT:
-/// - Route starts from the first valid GPS point after Start Walk.
-/// - Every meaningful movement is added to routeCoordinates.
-/// - Route remains stored in Firestore until the walk is completed.
-/// - This service does NOT use active_walk / active_walks.
-/// - This service does NOT modify walk_requests.
-/// - sessionId MUST be the real liveWalkSessions document ID.
+/// This service:
+/// - Tracks GPS after Start Walk.
+/// - Stores the route in liveWalkSessions.
+/// - Uses the REAL liveWalkSessions document ID.
+/// - Does NOT use active_walk / active_walks.
+/// - Does NOT modify walk_requests.
 /// ============================================================
 
 class LiveWalkBackgroundService {
@@ -232,208 +231,206 @@ class LiveWalkBackgroundService {
     // REAL SESSION MUST EXIST
     // ----------------------------------------------------------
 
-    final DocumentSnapshot<Map<String, dynamic>>
-        sessionSnapshot =
-        await _liveWalkSessions
-            .doc(cleanSessionId)
-            .get();
-
-    if (!sessionSnapshot.exists) {
-      return false;
-    }
-
-    final Map<String, dynamic> sessionData =
-        sessionSnapshot.data() ??
-            <String, dynamic>{};
-
-    // ----------------------------------------------------------
-    // VERIFY WALK ID
-    // ----------------------------------------------------------
-
-    final String sessionWalkId =
-        sessionData['walkId']
-                ?.toString()
-                .trim() ??
-            '';
-
-    if (sessionWalkId.isNotEmpty &&
-        sessionWalkId != cleanWalkId) {
-      return false;
-    }
-
-    // ----------------------------------------------------------
-    // VERIFY WALKER
-    // ----------------------------------------------------------
-
-    final String sessionWalkerUid =
-        sessionData['walkerUid']
-                ?.toString()
-                .trim() ??
-            '';
-
-    if (sessionWalkerUid.isNotEmpty &&
-        sessionWalkerUid != user.uid) {
-      return false;
-    }
-
-    // ==========================================================
-    // INITIAL STATE
-    // ==========================================================
-
-    _walkId = cleanWalkId;
-    _sessionId = cleanSessionId;
-
-    _totalDistanceKm =
-        initialDistanceKm < 0
-            ? 0.0
-            : initialDistanceKm;
-
-    _steps =
-        initialSteps < 0
-            ? 0
-            : initialSteps;
-
-    _peeCount =
-        initialPeeCount < 0
-            ? 0
-            : initialPeeCount;
-
-    _poopCount =
-        initialPoopCount < 0
-            ? 0
-            : initialPoopCount;
-
-    _startedAt =
-        initialStartedAt ??
-        _readDateTime(sessionData['startedAt']) ??
-        DateTime.now();
-
-    _lastPosition = null;
-
-    _routeCoordinates.clear();
-
-    // ==========================================================
-    // RESTORE EXISTING ROUTE
-    // ==========================================================
-
-    _restoreRoute(
-      initialRoute ??
-          _readRoute(
-            sessionData['routeCoordinates'],
-          ),
-    );
-
-    _running = true;
-
-    // ==========================================================
-    // GPS STREAM
-    // ==========================================================
-
     try {
-  await _positionSubscription?.cancel();
+      final DocumentSnapshot<Map<String, dynamic>>
+          sessionSnapshot =
+          await _liveWalkSessions
+              .doc(cleanSessionId)
+              .get();
 
-  _positionSubscription =
-      Geolocator.getPositionStream().listen(
-    (Position position) {
-      if (!_running) {
-try {
-  await _positionSubscription?.cancel();
-
-  _positionSubscription =
-      Geolocator.getPositionStream().listen(
-    (Position position) {
-      if (!_running) {
-        return;
+      if (!sessionSnapshot.exists) {
+        return false;
       }
 
-      unawaited(
-        _processPosition(position),
+      final Map<String, dynamic> sessionData =
+          sessionSnapshot.data() ??
+              <String, dynamic>{};
+
+      // --------------------------------------------------------
+      // VERIFY WALK ID
+      // --------------------------------------------------------
+
+      final String sessionWalkId =
+          sessionData['walkId']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      if (sessionWalkId.isNotEmpty &&
+          sessionWalkId != cleanWalkId) {
+        return false;
+      }
+
+      // --------------------------------------------------------
+      // VERIFY WALKER
+      // --------------------------------------------------------
+
+      final String sessionWalkerUid =
+          sessionData['walkerUid']
+                  ?.toString()
+                  .trim() ??
+              '';
+
+      if (sessionWalkerUid.isNotEmpty &&
+          sessionWalkerUid != user.uid) {
+        return false;
+      }
+
+      // --------------------------------------------------------
+      // INITIAL STATE
+      // --------------------------------------------------------
+
+      _walkId = cleanWalkId;
+      _sessionId = cleanSessionId;
+
+      _totalDistanceKm =
+          initialDistanceKm < 0
+              ? 0.0
+              : initialDistanceKm;
+
+      _steps =
+          initialSteps < 0
+              ? 0
+              : initialSteps;
+
+      _peeCount =
+          initialPeeCount < 0
+              ? 0
+              : initialPeeCount;
+
+      _poopCount =
+          initialPoopCount < 0
+              ? 0
+              : initialPoopCount;
+
+      _startedAt =
+          initialStartedAt ??
+          _readDateTime(sessionData['startedAt']) ??
+          DateTime.now();
+
+      _lastPosition = null;
+
+      _routeCoordinates.clear();
+
+      // --------------------------------------------------------
+      // RESTORE EXISTING ROUTE
+      // --------------------------------------------------------
+
+      _restoreRoute(
+        initialRoute ??
+            _readRoute(
+              sessionData['routeCoordinates'],
+            ),
       );
-    },
-    onError: (_) {
-      // GPS stream error does not terminate walk.
-    },
-    cancelOnError: false,
-  );
 
-  // ==========================================================
-  // FIRST GPS FIX
-  // ==========================================================
+      _running = true;
 
-  try {
-    final Position position =
-        await Geolocator.getCurrentPosition();
+      // --------------------------------------------------------
+      // GPS STREAM
+      // --------------------------------------------------------
 
-    if (_running) {
-      await _processPosition(position);
-    }
-  } catch (_) {
-    // Temporary GPS failure.
-  }
+      await _positionSubscription?.cancel();
 
-  // ==========================================================
-  // PERIODIC FIRESTORE SYNC
-  // ==========================================================
+      _positionSubscription =
+          Geolocator.getPositionStream().listen(
+        (Position position) {
+          if (!_running) {
+            return;
+          }
 
-  _syncTimer?.cancel();
+          unawaited(
+            _processPosition(position),
+          );
+        },
+        onError: (_) {
+          // GPS stream error does not terminate walk.
+        },
+        cancelOnError: false,
+      );
 
-  _syncTimer = Timer.periodic(
-    const Duration(seconds: 15),
-    (_) {
-      if (!_running) {
-        return;
+      // --------------------------------------------------------
+      // FIRST GPS FIX
+      // --------------------------------------------------------
+
+      try {
+        final Position position =
+            await Geolocator.getCurrentPosition();
+
+        if (_running) {
+          await _processPosition(position);
+        }
+      } catch (_) {
+        // Temporary GPS failure.
       }
+
+      // --------------------------------------------------------
+      // PERIODIC FIRESTORE SYNC
+      // --------------------------------------------------------
+
+      _syncTimer?.cancel();
+
+      _syncTimer = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) {
+          if (!_running) {
+            return;
+          }
+
+          unawaited(
+            _syncCurrentState(),
+          );
+        },
+      );
+
+      // --------------------------------------------------------
+      // INITIAL SYNC
+      // --------------------------------------------------------
 
       unawaited(
         _syncCurrentState(),
       );
-    },
-  );
 
-  // ==========================================================
-  // INITIAL SYNC
-  // ==========================================================
+      return true;
+    } catch (_) {
+      _running = false;
 
-  unawaited(
-    _syncCurrentState(),
-  );
+      await _positionSubscription?.cancel();
 
-  return true;
-} catch (_) {
-  _running = false;
+      _positionSubscription = null;
 
-  await _positionSubscription?.cancel();
+      _syncTimer?.cancel();
+      _syncTimer = null;
 
-  _positionSubscription = null;
-
-  return false;
-}
+      return false;
+    }
+  }
 
   // ============================================================
   // LOCATION PERMISSION
   // ============================================================
 
   Future<bool> _ensureLocationPermission() async {
-  final bool serviceEnabled =
-      await Geolocator.isLocationServiceEnabled();
+    final bool serviceEnabled =
+        await Geolocator.isLocationServiceEnabled();
 
-  if (!serviceEnabled) {
-    return false;
-  }
+    if (!serviceEnabled) {
+      return false;
+    }
 
-  LocationPermission permission =
-      await Geolocator.checkPermission();
+    LocationPermission permission =
+        await Geolocator.checkPermission();
 
-  if (permission == LocationPermission.denied) {
-    permission = await Geolocator.requestPermission();
-  }
+    if (permission == LocationPermission.denied) {
+      permission =
+          await Geolocator.requestPermission();
+    }
 
-  if (permission == LocationPermission.denied ||
-      permission == LocationPermission.deniedForever) {
-    return false;
-  }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return false;
+    }
 
-  return true;
+    return true;
   }
 
   // ============================================================
@@ -463,8 +460,6 @@ try {
 
     // ==========================================================
     // FIRST POINT
-    //
-    // This becomes the START LOCATION.
     // ==========================================================
 
     if (previous == null) {
@@ -518,8 +513,6 @@ try {
 
     // ==========================================================
     // ROUTE POLYLINE
-    //
-    // Add a point only when walker has moved >= 5m.
     // ==========================================================
 
     _addRoutePoint(position);
@@ -560,7 +553,6 @@ try {
       return;
     }
 
-    // First point is ALWAYS accepted.
     if (_routeCoordinates.isEmpty) {
       _routeCoordinates.add(point);
       return;
@@ -582,13 +574,7 @@ try {
       point['lng']!,
     );
 
-    // ==========================================================
-    // POLYLINE FILTER
-    //
     // Less than 5m = GPS noise.
-    // 5m or more = real route movement.
-    // ==========================================================
-
     if (meters < 5) {
       return;
     }
@@ -631,19 +617,11 @@ try {
       return;
     }
 
-    // ==========================================================
-    // CURRENT LOCATION
-    // ==========================================================
-
     final Map<String, dynamic> currentLocation =
         <String, dynamic>{
       'lat': position.latitude,
       'lng': position.longitude,
     };
-
-    // ==========================================================
-    // COPY ROUTE
-    // ==========================================================
 
     final List<Map<String, double>> route =
         _routeCoordinates
@@ -656,10 +634,6 @@ try {
             )
             .toList();
 
-    // ==========================================================
-    // START LOCATION
-    // ==========================================================
-
     final Map<String, double> startLocation =
         route.isNotEmpty
             ? route.first
@@ -668,26 +642,18 @@ try {
                 'lng': position.longitude,
               };
 
-    // ==========================================================
-    // SESSION DATA
-    // ==========================================================
-
     final Map<String, dynamic> data =
         <String, dynamic>{
       'walkerUid': user.uid,
-
       'walkId': walkId,
-
       'sessionId': sessionId,
 
       // --------------------------------------------------------
-      // LOCATION
+      // CURRENT LOCATION
       // --------------------------------------------------------
 
       'currentLocation': currentLocation,
-
       'currentLat': position.latitude,
-
       'currentLng': position.longitude,
 
       // --------------------------------------------------------
@@ -695,9 +661,7 @@ try {
       // --------------------------------------------------------
 
       'startLocation': startLocation,
-
       'routeCoordinates': route,
-
       'routePointCount': route.length,
 
       // --------------------------------------------------------
@@ -705,15 +669,10 @@ try {
       // --------------------------------------------------------
 
       'distanceKm': _totalDistanceKm,
-
       'distanceMeters': totalDistanceMeters,
-
       'durationSeconds': durationSeconds,
-
       'steps': _steps,
-
       'peeCount': _peeCount,
-
       'poopCount': _poopCount,
 
       // --------------------------------------------------------
@@ -730,11 +689,8 @@ try {
       // --------------------------------------------------------
 
       'gpsAccuracy': position.accuracy,
-
       'gpsHeading': position.heading,
-
       'gpsSpeed': position.speed,
-
       'gpsUpdatedAt':
           FieldValue.serverTimestamp(),
 
@@ -746,13 +702,9 @@ try {
       // --------------------------------------------------------
 
       'status': 'active',
-
       'walkStarted': true,
-
       'walkEnded': false,
-
       'trackingStarted': true,
-
       'trackingEnded': false,
     };
 
@@ -765,9 +717,7 @@ try {
           .doc(sessionId)
           .set(
             data,
-            SetOptions(
-              merge: true,
-            ),
+            SetOptions(merge: true),
           );
     } catch (_) {
       // Firestore failure must not stop GPS tracking.
@@ -812,7 +762,6 @@ try {
 
     return <String, dynamic>{
       'walkId': _walkId,
-
       'sessionId': _sessionId,
 
       'currentLocation':
@@ -824,19 +773,15 @@ try {
                 },
 
       'currentLat': position?.latitude,
-
       'currentLng': position?.longitude,
 
       'distanceKm': _totalDistanceKm,
-
       'distanceMeters': totalDistanceMeters,
-
       'durationSeconds': durationSeconds,
 
       'steps': _steps,
 
       'peeCount': _peeCount,
-
       'poopCount': _poopCount,
 
       'startedAt': _startedAt,
@@ -847,7 +792,6 @@ try {
               : null,
 
       'routeCoordinates': route,
-
       'routePointCount': route.length,
 
       'status':
@@ -859,10 +803,6 @@ try {
 
   // ============================================================
   // RECOVER
-  //
-  // NOTE:
-  // The controller should provide the REAL sessionId.
-  // This method does not invent one.
   // ============================================================
 
   Future<bool> recover({
@@ -955,11 +895,10 @@ try {
 
       final DateTime? startedAt =
           _readDateTime(
-            data['startedAt'],
-          );
+        data['startedAt'],
+      );
 
-      final List<Map<String, dynamic>>
-          route =
+      final List<Map<String, dynamic>> route =
           _readRoute(
         data['routeCoordinates'],
       );
@@ -967,18 +906,12 @@ try {
       return await start(
         walkId: walkId,
         sessionId: cleanSessionId,
-        initialDistanceKm:
-            distance,
-        initialSteps:
-            steps,
-        initialPeeCount:
-            pee,
-        initialPoopCount:
-            poop,
-        initialStartedAt:
-            startedAt,
-        initialRoute:
-            route,
+        initialDistanceKm: distance,
+        initialSteps: steps,
+        initialPeeCount: pee,
+        initialPoopCount: poop,
+        initialStartedAt: startedAt,
+        initialRoute: route,
       );
     } catch (_) {
       return false;
@@ -992,8 +925,7 @@ try {
   void _restoreRoute(
     List<Map<String, dynamic>> route,
   ) {
-    for (final Map<String, dynamic> item
-        in route) {
+    for (final Map<String, dynamic> item in route) {
       final double? lat =
           _toDouble(
         item['lat'] ??
@@ -1164,8 +1096,8 @@ try {
   // STOP
   //
   // IMPORTANT:
-  // This only stops LOCAL GPS tracking.
-  // It does NOT delete the Firestore route.
+  // Only stops local GPS tracking.
+  // Does NOT delete Firestore session/route.
   // ============================================================
 
   Future<void> stop() async {
