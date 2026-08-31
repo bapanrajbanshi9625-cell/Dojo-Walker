@@ -7,35 +7,23 @@ import 'package:firebase_auth/firebase_auth.dart';
 /// ============================================================
 /// COMMON LIVE WALK SERVICE
 ///
-/// RESPONSIBILITY:
-/// 1. Start Live Walk
-/// 2. End Live Walk
-/// 3. Watch Live Walk Session
-/// 4. Watch Active Walk
-/// 5. Update Live GPS/location
-/// 6. Add route points
-/// 7. Update pee / poop events
-/// 8. Add Live Walk events
+/// FLOW:
 ///
-/// NOT RESPONSIBLE FOR:
-/// - Insta Walk searching
-/// - Insta Walk accept/reject
-/// - QR scanning
-/// - QR connection
+/// walk_requests/{walkId}
+///        ↓ accepted
+/// liveWalkSessions/{sessionId}
+///        ↓
+/// active walking
+///        ↓
+/// completed
 ///
-/// Insta Walk:
-/// insta_walk_service.dart
-///       ↓
-/// startLiveWalk()
-///       ↓
-/// live_walk_screen.dart
-///
-/// QR Walk:
-/// walker_qr_walk_service.dart
-///       ↓
-/// live_walk_screen.dart
-///
-/// Both flows use the same Live Walk data structure.
+/// IMPORTANT:
+/// - walkId always comes from walk_requests document ID.
+/// - live session has its own document ID.
+/// - live session also stores the same walkId.
+/// - Completing a walk does NOT update walk_requests.
+/// - Walking/live updates belong to liveWalkSessions.
+/// - active_walks is only operational live data.
 /// ============================================================
 
 class WalkRequestService {
@@ -54,8 +42,6 @@ class WalkRequestService {
   // COLLECTIONS
   // ============================================================
 
-  /// IMPORTANT:
-  /// Both Insta Walk and QR Walk use the same collection.
   CollectionReference<Map<String, dynamic>>
       get _activeWalks {
     return _firestore.collection('active_walks');
@@ -66,10 +52,6 @@ class WalkRequestService {
     return _firestore.collection('liveWalkSessions');
   }
 
-  /// walk_requests is still required because Insta Walk
-  /// changes:
-  ///
-  /// searching → accepted → active → completed
   CollectionReference<Map<String, dynamic>>
       get _walkRequests {
     return _firestore.collection('walk_requests');
@@ -86,23 +68,20 @@ class WalkRequestService {
   // ============================================================
   // START LIVE WALK
   //
-  // Used by Insta Walk after the request is accepted.
-  //
-  // Creates / updates:
-  //
-  // active_walks/{walkId}
-  // liveWalkSessions/session-{walkId}
-  //
-  // Then:
   // walk_requests/{walkId}
-  // status = active
+  //        ↓
+  // liveWalkSessions/{sessionId}
+  // active_walks/{walkId}
+  //
+  // The walk request is marked active only at START.
+  // After that, live walking data is handled by the
+  // live session.
   // ============================================================
 
   Future<String> startLiveWalk(
     String walkId,
   ) async {
-    final User? user =
-        _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
       throw Exception(
@@ -192,12 +171,6 @@ class WalkRequestService {
 
     // ----------------------------------------------------------
     // OWNER AUTH UID
-    //
-    // NEW:
-    // ownerAuthUid
-    //
-    // OLD:
-    // ownerUid
     // ----------------------------------------------------------
 
     String ownerAuthUid =
@@ -253,7 +226,16 @@ class WalkRequestService {
             '';
 
     // ----------------------------------------------------------
-    // SESSION
+    // SESSION ID
+    //
+    // IMPORTANT:
+    // This is a separate Live Session document.
+    //
+    // walkId:
+    // 2GN4eWEi6XISWOqURYrF
+    //
+    // sessionId:
+    // session-2GN4eWEi6XISWOqURYrF
     // ----------------------------------------------------------
 
     final String sessionId =
@@ -285,91 +267,55 @@ class WalkRequestService {
       <String, dynamic>{
         'walkId': id,
 
-        // ------------------------------------------------------
         // OWNER
-        // ------------------------------------------------------
-
         'ownerId': ownerId,
         'ownerAuthUid': ownerAuthUid,
         'ownerUid': ownerAuthUid,
         'ownerName': ownerName,
         'ownerPhone': ownerPhone,
 
-        // ------------------------------------------------------
         // WALKER
-        // ------------------------------------------------------
-
         'walkerUid': walkerUid,
-
-        // Keep walkerId for compatibility.
         'walkerId': walkerUid,
 
-        // ------------------------------------------------------
         // DOG
-        // ------------------------------------------------------
-
         'dogName': dogName,
         'dogBreed': dogBreed,
 
-        // ------------------------------------------------------
         // LOCATION
-        // ------------------------------------------------------
-
         'currentLat': 0.0,
         'currentLng': 0.0,
-
         'walkerLocation': null,
         'ownerLocation': null,
-
         'walkerLocationUpdatedAt': null,
         'ownerLocationUpdatedAt': null,
 
-        // ------------------------------------------------------
-        // DISTANCE / TIME
-        // ------------------------------------------------------
-
+        // STATS
         'distance': '0.0 km',
         'distanceKm': 0.0,
-
         'duration': '00:00:00',
         'elapsedSeconds': 0,
-
         'steps': 0,
 
-        // ------------------------------------------------------
         // EVENTS
-        // ------------------------------------------------------
-
         'peeCount': 0,
         'poopCount': 0,
 
-        // ------------------------------------------------------
         // STATUS
-        // ------------------------------------------------------
-
         'status': 'active',
         'isLive': true,
         'connectionStatus': 'connected',
 
-        // ------------------------------------------------------
         // SESSION
-        // ------------------------------------------------------
-
         'activeWalkId': id,
         'liveWalkSessionId': sessionId,
 
-        // ------------------------------------------------------
         // TIME
-        // ------------------------------------------------------
-
         'startedAt':
             FieldValue.serverTimestamp(),
-
         'endedAt': null,
-
         'updatedAt':
             FieldValue.serverTimestamp(),
-
         'lastUpdatedAt':
             FieldValue.serverTimestamp(),
       },
@@ -387,82 +333,58 @@ class WalkRequestService {
       <String, dynamic>{
         'id': sessionId,
         'sessionId': sessionId,
+
+        // IMPORTANT:
+        // This is the original walk request ID.
         'walkId': id,
 
-        // ------------------------------------------------------
         // OWNER
-        // ------------------------------------------------------
-
         'ownerId': ownerId,
         'ownerAuthUid': ownerAuthUid,
         'ownerUid': ownerAuthUid,
         'ownerName': ownerName,
         'ownerPhone': ownerPhone,
 
-        // ------------------------------------------------------
         // WALKER
-        // ------------------------------------------------------
-
         'walkerUid': walkerUid,
         'walkerId': walkerUid,
 
-        // ------------------------------------------------------
         // DOG
-        // ------------------------------------------------------
-
         'dogName': dogName,
         'dogBreed': dogBreed,
 
-        // ------------------------------------------------------
         // LOCATION
-        // ------------------------------------------------------
-
         'currentLocation': <String, dynamic>{
           'lat': 0.0,
           'lng': 0.0,
         },
 
-        // ------------------------------------------------------
-        // DISTANCE / TIME
-        // ------------------------------------------------------
-
+        // STATS
         'distanceKm': 0.0,
         'elapsedSeconds': 0,
         'steps': 0,
 
-        // ------------------------------------------------------
         // EVENTS
-        // ------------------------------------------------------
-
         'peeCount': 0,
         'poopCount': 0,
+        'events': <Map<String, dynamic>>[],
 
-        'events':
-            <Map<String, dynamic>>[],
-
-        // ------------------------------------------------------
         // ROUTE
-        // ------------------------------------------------------
-
         'routeCoordinates':
             <Map<String, dynamic>>[],
 
-        // ------------------------------------------------------
         // STATUS
-        // ------------------------------------------------------
-
         'status': 'ACTIVE',
         'isLive': true,
+        'walkStarted': true,
+        'walkEnded': false,
+        'trackingEnded': false,
 
-        // ------------------------------------------------------
         // TIME
-        // ------------------------------------------------------
-
         'startedAt':
             FieldValue.serverTimestamp(),
-
         'endedAt': null,
-
+        'completedAt': null,
         'updatedAt':
             FieldValue.serverTimestamp(),
       },
@@ -473,26 +395,23 @@ class WalkRequestService {
 
     // ==========================================================
     // WALK REQUEST
+    //
+    // ONLY START STATUS UPDATE.
     // ==========================================================
 
     batch.update(
       walkRef,
       <String, dynamic>{
         'status': 'active',
-
         'ownerId': ownerId,
         'ownerAuthUid': ownerAuthUid,
         'ownerUid': ownerAuthUid,
-
         'walkerUid': walkerUid,
         'walkerId': walkerUid,
-
         'activeWalkId': id,
         'liveWalkSessionId': sessionId,
-
         'startedAt':
             FieldValue.serverTimestamp(),
-
         'updatedAt':
             FieldValue.serverTimestamp(),
       },
@@ -506,11 +425,19 @@ class WalkRequestService {
   // ============================================================
   // END LIVE WALK
   //
-  // Marks:
+  // IMPORTANT FINAL FLOW:
   //
-  // active_walks       → completed
-  // liveWalkSessions    → COMPLETED
-  // walk_requests       → completed
+  // liveWalkSessions/{sessionId}
+  //        → COMPLETED
+  //
+  // active_walks/{walkId}
+  //        → completed
+  //
+  // walk_requests/{walkId}
+  //        → NOT TOUCHED
+  //
+  // This prevents Walker completion from requiring
+  // walk_requests update permission.
   // ============================================================
 
   Future<void> endLiveWalk(
@@ -535,56 +462,143 @@ class WalkRequestService {
       );
     }
 
+    final String resolvedSessionId =
+        sessionId?.trim().isNotEmpty == true
+            ? sessionId!.trim()
+            : 'session-$id';
+
+    // ==========================================================
+    // IMPORTANT:
+    // DO NOT READ walk_requests HERE.
+    //
+    // The completion operation only needs:
+    // - walkId
+    // - sessionId
+    //
+    // This avoids permission-denied on walk_requests.
+    // ==========================================================
+
     final DocumentReference<
             Map<String, dynamic>>
-        walkRef =
-        _walkRequests.doc(id);
+        activeRef =
+        _activeWalks.doc(id);
+
+    final DocumentReference<
+            Map<String, dynamic>>
+        sessionRef =
+        _liveWalkSessions.doc(
+      resolvedSessionId,
+    );
+
+    // ==========================================================
+    // VERIFY LIVE SESSION
+    // ==========================================================
 
     final DocumentSnapshot<
             Map<String, dynamic>>
-        snapshot =
-        await walkRef.get();
+        sessionSnapshot =
+        await sessionRef.get();
 
-    if (!snapshot.exists) {
+    if (!sessionSnapshot.exists) {
       throw Exception(
-        'Walk request not found.',
+        'Live walk session was not found.',
       );
     }
 
-    final Map<String, dynamic>? data =
-        snapshot.data();
+    final Map<String, dynamic> sessionData =
+        sessionSnapshot.data() ??
+            <String, dynamic>{};
 
-    String resolvedSessionId =
-        sessionId?.trim() ?? '';
+    // ==========================================================
+    // VERIFY WALK ID
+    // ==========================================================
 
-    if (resolvedSessionId.isEmpty) {
-      resolvedSessionId =
-          data?['liveWalkSessionId']
-                  ?.toString()
-                  .trim() ??
-              '';
+    final String sessionWalkId =
+        sessionData['walkId']
+                ?.toString()
+                .trim() ??
+            '';
+
+    if (sessionWalkId.isNotEmpty &&
+        sessionWalkId != id) {
+      throw Exception(
+        'Walk ID does not match the live session.',
+      );
     }
 
-    if (resolvedSessionId.isEmpty) {
-      resolvedSessionId =
-          'session-$id';
+    // ==========================================================
+    // VERIFY WALKER
+    // ==========================================================
+
+    final String sessionWalkerUid =
+        sessionData['walkerUid']
+                ?.toString()
+                .trim() ??
+            '';
+
+    if (sessionWalkerUid.isNotEmpty &&
+        sessionWalkerUid != user.uid.trim()) {
+      throw Exception(
+        'You are not authorized to complete this walk.',
+      );
     }
+
+    // ==========================================================
+    // BATCH
+    // ==========================================================
 
     final WriteBatch batch =
         _firestore.batch();
 
-    // ----------------------------------------------------------
-    // ACTIVE WALK
-    // ----------------------------------------------------------
+    // ==========================================================
+    // 1. COMPLETE LIVE SESSION
+    // ==========================================================
 
     batch.set(
-      _activeWalks.doc(id),
+      sessionRef,
       <String, dynamic>{
+        // Keep the relationship permanently.
+        'sessionId': resolvedSessionId,
+        'walkId': id,
+
+        'status': 'COMPLETED',
+        'isLive': false,
+
+        'walkStarted': false,
+        'walkEnded': true,
+        'trackingEnded': true,
+
+        'completedAt':
+            FieldValue.serverTimestamp(),
+
+        'endedAt':
+            FieldValue.serverTimestamp(),
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    // ==========================================================
+    // 2. COMPLETE ACTIVE WALK
+    // ==========================================================
+
+    batch.set(
+      activeRef,
+      <String, dynamic>{
+        'walkId': id,
+
         'status': 'completed',
         'isLive': false,
         'connectionStatus': 'completed',
 
         'endedAt':
+            FieldValue.serverTimestamp(),
+
+        'completedAt':
             FieldValue.serverTimestamp(),
 
         'updatedAt':
@@ -598,45 +612,12 @@ class WalkRequestService {
       ),
     );
 
-    // ----------------------------------------------------------
-    // LIVE SESSION
-    // ----------------------------------------------------------
-
-    batch.set(
-      _liveWalkSessions.doc(
-        resolvedSessionId,
-      ),
-      <String, dynamic>{
-        'status': 'COMPLETED',
-        'isLive': false,
-
-        'endedAt':
-            FieldValue.serverTimestamp(),
-
-        'updatedAt':
-            FieldValue.serverTimestamp(),
-      },
-      SetOptions(
-        merge: true,
-      ),
-    );
-
-    // ----------------------------------------------------------
-    // WALK REQUEST
-    // ----------------------------------------------------------
-
-    batch.update(
-      walkRef,
-      <String, dynamic>{
-        'status': 'completed',
-
-        'endedAt':
-            FieldValue.serverTimestamp(),
-
-        'updatedAt':
-            FieldValue.serverTimestamp(),
-      },
-    );
+    // ==========================================================
+    // IMPORTANT:
+    //
+    // NO walk_requests/{walkId} WRITE HERE.
+    //
+    // ==========================================================
 
     await batch.commit();
   }
@@ -689,6 +670,12 @@ class WalkRequestService {
 
   // ============================================================
   // UPDATE LIVE LOCATION
+  //
+  // Live walking data goes to:
+  // - active_walks
+  // - liveWalkSessions
+  //
+  // NOT walk_requests.
   // ============================================================
 
   Future<void> updateLiveLocation({
@@ -723,6 +710,8 @@ class WalkRequestService {
     final Map<String, dynamic>
         activeData =
         <String, dynamic>{
+      'walkId': walk,
+
       'currentLat': latitude,
       'currentLng': longitude,
 
@@ -771,6 +760,8 @@ class WalkRequestService {
     final Map<String, dynamic>
         sessionData =
         <String, dynamic>{
+      'walkId': walk,
+
       'currentLocation': <
           String, dynamic>{
         'lat': latitude,
@@ -848,7 +839,6 @@ class WalkRequestService {
         <String, dynamic>{
       'lat': latitude,
       'lng': longitude,
-
       'timestamp':
           DateTime.now()
               .millisecondsSinceEpoch,
@@ -864,7 +854,6 @@ class WalkRequestService {
             point,
           ],
         ),
-
         'updatedAt':
             FieldValue.serverTimestamp(),
       },
@@ -876,6 +865,9 @@ class WalkRequestService {
 
   // ============================================================
   // UPDATE PEE / POOP
+  //
+  // Live session is the source of truth.
+  // active_walks is operational mirror.
   // ============================================================
 
   Future<void> updateWalkEvents({
@@ -910,19 +902,13 @@ class WalkRequestService {
     final WriteBatch batch =
         _firestore.batch();
 
-    // ----------------------------------------------------------
-    // ACTIVE WALK
-    // ----------------------------------------------------------
-
     batch.set(
       _activeWalks.doc(walk),
       <String, dynamic>{
         'peeCount': safePee,
         'poopCount': safePoop,
-
         'updatedAt':
             FieldValue.serverTimestamp(),
-
         'lastUpdatedAt':
             FieldValue.serverTimestamp(),
       },
@@ -931,16 +917,12 @@ class WalkRequestService {
       ),
     );
 
-    // ----------------------------------------------------------
-    // LIVE SESSION
-    // ----------------------------------------------------------
-
     batch.set(
       _liveWalkSessions.doc(session),
       <String, dynamic>{
+        'walkId': walk,
         'peeCount': safePee,
         'poopCount': safePoop,
-
         'updatedAt':
             FieldValue.serverTimestamp(),
       },
@@ -984,11 +966,8 @@ class WalkRequestService {
       'id': DateTime.now()
           .millisecondsSinceEpoch
           .toString(),
-
       'type': eventType,
-
       'note': note.trim(),
-
       'timestamp':
           DateTime.now()
               .toIso8601String(),
@@ -1004,7 +983,6 @@ class WalkRequestService {
             event,
           ],
         ),
-
         'updatedAt':
             FieldValue.serverTimestamp(),
       },
