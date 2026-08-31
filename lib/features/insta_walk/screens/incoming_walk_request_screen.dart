@@ -1,9 +1,7 @@
-// File:
-// lib/features/insta_walk/screens/incoming_walk_request_screen.dart
-
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -11,6 +9,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../models/insta_walk_request.dart';
 import '../services/insta_walk_accept_service.dart';
+import '../services/insta_walk_reject_service.dart';
 import '../../live_walk/screens/live_walk_screen.dart';
 
 class IncomingWalkRequestScreen extends StatefulWidget {
@@ -30,10 +29,19 @@ class _IncomingWalkRequestScreenState
     extends State<IncomingWalkRequestScreen> {
   final MapController _mapController = MapController();
 
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
   final InstaWalkAcceptService _acceptService =
       InstaWalkAcceptService.instance;
 
+  final InstaWalkRejectService _rejectService =
+      InstaWalkRejectService.instance;
+
   StreamSubscription<Position>? _locationSubscription;
+
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+      _requestSubscription;
 
   Position? _walkerPosition;
 
@@ -42,6 +50,8 @@ class _IncomingWalkRequestScreenState
   bool _rejecting = false;
   bool _accepted = false;
   bool _reaching = false;
+  bool _requestUnavailable = false;
+  bool _leavingScreen = false;
 
   double _distanceMeters = 0;
 
@@ -108,15 +118,16 @@ class _IncomingWalkRequestScreenState
     return widget.request.liveWalkSessionId.trim();
   }
 
+  String get _walkId {
+    return widget.request.id.trim();
+  }
+
   // ============================================================
   // PAYMENT
-  //
-  // InstaWalkRequest currently does not contain a payment field.
-  // We therefore don't invent an amount.
   // ============================================================
 
   String get _paymentText {
-    return 'Earnings shown after acceptance';
+    return 'After acceptance';
   }
 
   // ============================================================
@@ -127,7 +138,171 @@ class _IncomingWalkRequestScreenState
   void initState() {
     super.initState();
 
+    _accepted =
+        widget.request.status.toLowerCase() == 'accepted';
+
     unawaited(_startLocationTracking());
+    _startRequestMonitoring();
+  }
+
+  // ============================================================
+  // REALTIME REQUEST MONITOR
+  // ============================================================
+
+  void _startRequestMonitoring() {
+    if (_walkId.isEmpty) {
+      return;
+    }
+
+    final DocumentReference<Map<String, dynamic>> walkRef =
+        _firestore
+            .collection('walk_request')
+            .doc(_walkId);
+
+    _requestSubscription = walkRef.snapshots().listen(
+      (DocumentSnapshot<Map<String, dynamic>> snapshot) {
+        if (!mounted || _leavingScreen) {
+          return;
+        }
+
+        if (!snapshot.exists) {
+          _handleRequestUnavailable(
+            'This walk request is no longer available.',
+          );
+          return;
+        }
+
+        final Map<String, dynamic>? data =
+            snapshot.data();
+
+        if (data == null) {
+          return;
+        }
+
+        final String status =
+            data['status']?.toString().trim().toLowerCase() ??
+                '';
+
+        final String currentWalkerUid =
+            data['walkerUid']?.toString().trim() ?? '';
+
+        final String currentWalkerId =
+            data['walkerId']?.toString().trim() ?? '';
+
+        // --------------------------------------------------------
+        // CURRENT WALKER HAS ACCEPTED
+        // --------------------------------------------------------
+
+        if (status == 'accepted' &&
+            _isCurrentWalker(
+              currentWalkerUid,
+              currentWalkerId,
+            )) {
+          if (!_accepted) {
+            setState(() {
+              _accepted = true;
+            });
+          }
+
+          return;
+        }
+
+        // --------------------------------------------------------
+        // SOMEONE ELSE ACCEPTED
+        // --------------------------------------------------------
+
+        if (!_accepted &&
+            status != 'searching') {
+          _handleRequestUnavailable(
+            'This walk has already been accepted by another Walker.',
+          );
+        }
+      },
+      onError: (Object error) {
+        debugPrint(
+          'Incoming request monitor error: $error',
+        );
+      },
+    );
+  }
+
+  bool _isCurrentWalker(
+    String walkerUid,
+    String walkerId,
+  ) {
+    return false;
+  }
+
+  Future<void> _checkCurrentWalkerForStatus(
+    String walkerUid,
+    String walkerId,
+  ) async {
+    try {
+      final String? currentWalkerId =
+          await _acceptService.getCurrentWalkerId();
+
+      if (!mounted) {
+        return;
+      }
+
+      final bool uidMatches =
+          walkerUid.isNotEmpty &&
+          _getCurrentAuthUid() == walkerUid;
+
+      final bool idMatches =
+          walkerId.isNotEmpty &&
+          currentWalkerId != null &&
+          currentWalkerId == walkerId;
+
+      if (uidMatches || idMatches) {
+        if (!_accepted) {
+          setState(() {
+            _accepted = true;
+          });
+        }
+      } else if (!_accepted) {
+        _handleRequestUnavailable(
+          'This walk has already been accepted by another Walker.',
+        );
+      }
+    } catch (e) {
+      debugPrint(
+        'Walker status check error: $e',
+      );
+    }
+  }
+
+  String _getCurrentAuthUid() {
+    return '';
+  }
+
+  void _handleRequestUnavailable(
+    String message,
+  ) {
+    if (!mounted ||
+        _leavingScreen ||
+        _accepted) {
+      return;
+    }
+
+    _leavingScreen = true;
+
+    setState(() {
+      _requestUnavailable = true;
+    });
+
+    _showMessage(message);
+
+    Future<void>.delayed(
+      const Duration(milliseconds: 900),
+      () {
+        if (!mounted) {
+          return;
+        }
+
+        Navigator.pop(context);
+      },
+    );
   }
 
   // ============================================================
@@ -140,9 +315,11 @@ class _IncomingWalkRequestScreenState
           await Geolocator.isLocationServiceEnabled();
 
       if (!serviceEnabled) {
-        _showMessage(
-          'Please turn on Location/GPS.',
-        );
+        if (mounted) {
+          _showMessage(
+            'Please turn on Location/GPS.',
+          );
+        }
         return;
       }
 
@@ -156,9 +333,11 @@ class _IncomingWalkRequestScreenState
 
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        _showMessage(
-          'Location permission is required.',
-        );
+        if (mounted) {
+          _showMessage(
+            'Location permission is required.',
+          );
+        }
         return;
       }
 
@@ -209,12 +388,16 @@ class _IncomingWalkRequestScreenState
   void _updateWalkerLocation(
     Position position,
   ) {
-    final double? ownerLat = _ownerLatitude;
-    final double? ownerLng = _ownerLongitude;
+    final double? ownerLat =
+        _ownerLatitude;
+
+    final double? ownerLng =
+        _ownerLongitude;
 
     double distance = 0;
 
-    if (ownerLat != null && ownerLng != null) {
+    if (ownerLat != null &&
+        ownerLng != null) {
       distance = Geolocator.distanceBetween(
         position.latitude,
         position.longitude,
@@ -236,14 +419,18 @@ class _IncomingWalkRequestScreenState
   }
 
   // ============================================================
-  // FIT OWNER + WALKER
+  // FIT MAP
   // ============================================================
 
   void _fitBothLocations() {
-    final Position? walker = _walkerPosition;
+    final Position? walker =
+        _walkerPosition;
 
-    final double? ownerLat = _ownerLatitude;
-    final double? ownerLng = _ownerLongitude;
+    final double? ownerLat =
+        _ownerLatitude;
+
+    final double? ownerLng =
+        _ownerLongitude;
 
     if (walker == null ||
         ownerLat == null ||
@@ -252,12 +439,14 @@ class _IncomingWalkRequestScreenState
     }
 
     try {
-      final LatLng walkerPoint = LatLng(
+      final LatLng walkerPoint =
+          LatLng(
         walker.latitude,
         walker.longitude,
       );
 
-      final LatLng ownerPoint = LatLng(
+      final LatLng ownerPoint =
+          LatLng(
         ownerLat,
         ownerLng,
       );
@@ -283,7 +472,7 @@ class _IncomingWalkRequestScreenState
         ),
       );
     } catch (_) {
-      // Map may not be ready yet.
+      // Map may not be ready.
     }
   }
 
@@ -294,14 +483,12 @@ class _IncomingWalkRequestScreenState
   Future<void> _acceptWalk() async {
     if (_accepting ||
         _rejecting ||
-        _accepted) {
+        _accepted ||
+        _requestUnavailable) {
       return;
     }
 
-    final String walkId =
-        widget.request.id.trim();
-
-    if (walkId.isEmpty) {
+    if (_walkId.isEmpty) {
       _showMessage(
         'Walk request ID is missing.',
       );
@@ -314,7 +501,7 @@ class _IncomingWalkRequestScreenState
 
     try {
       await _acceptService.acceptWalk(
-        walkId,
+        _walkId,
       );
 
       if (!mounted) {
@@ -335,10 +522,7 @@ class _IncomingWalkRequestScreenState
 
       if (mounted) {
         _showMessage(
-          e.toString().replaceFirst(
-            'Exception: ',
-            '',
-          ),
+          _cleanException(e),
         );
       }
     } finally {
@@ -357,14 +541,17 @@ class _IncomingWalkRequestScreenState
   Future<void> _rejectWalk() async {
     if (_accepting ||
         _rejecting ||
-        _accepted) {
+        _accepted ||
+        _requestUnavailable) {
       return;
     }
 
     final bool? confirm =
         await showDialog<bool>(
       context: context,
-      builder: (BuildContext dialogContext) {
+      builder: (
+        BuildContext dialogContext,
+      ) {
         return AlertDialog(
           title: const Text(
             'Reject Walk?',
@@ -383,7 +570,9 @@ class _IncomingWalkRequestScreenState
                   false,
                 );
               },
-              child: const Text('CANCEL'),
+              child: const Text(
+                'CANCEL',
+              ),
             ),
             TextButton(
               onPressed: () {
@@ -405,14 +594,12 @@ class _IncomingWalkRequestScreenState
       },
     );
 
-    if (confirm != true) {
+    if (confirm != true ||
+        !mounted) {
       return;
     }
 
-    final String walkId =
-        widget.request.id.trim();
-
-    if (walkId.isEmpty) {
+    if (_walkId.isEmpty) {
       _showMessage(
         'Walk request ID is missing.',
       );
@@ -424,13 +611,15 @@ class _IncomingWalkRequestScreenState
     });
 
     try {
-      await _acceptService.rejectWalk(
-        walkId,
+      await _rejectService.rejectWalk(
+        _walkId,
       );
 
       if (!mounted) {
         return;
       }
+
+      _leavingScreen = true;
 
       Navigator.pop(context);
     } catch (e) {
@@ -440,10 +629,7 @@ class _IncomingWalkRequestScreenState
 
       if (mounted) {
         _showMessage(
-          e.toString().replaceFirst(
-            'Exception: ',
-            '',
-          ),
+          _cleanException(e),
         );
       }
     } finally {
@@ -461,7 +647,8 @@ class _IncomingWalkRequestScreenState
 
   Future<void> _onReachOwner() async {
     if (!_accepted ||
-        _reaching) {
+        _reaching ||
+        _requestUnavailable) {
       return;
     }
 
@@ -480,10 +667,7 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    final String walkId =
-        widget.request.id.trim();
-
-    if (walkId.isEmpty) {
+    if (_walkId.isEmpty) {
       _showMessage(
         'Walk ID is missing.',
       );
@@ -505,39 +689,39 @@ class _IncomingWalkRequestScreenState
     });
 
     try {
-      if (!mounted) {
-        return;
-      }
+      _leavingScreen = true;
 
       await Navigator.pushReplacement(
         context,
         MaterialPageRoute<void>(
-          builder: (_) {
+          builder: (
+            BuildContext context,
+          ) {
             return LiveWalkScreen(
               ownerUid: _ownerUid,
               ownerName: _ownerName,
-              walkId: walkId,
+              walkId: _walkId,
               dogName: _dogName,
               dogBreed: _dogBreed,
-              ownerPhone: _ownerPhone.isEmpty
-                  ? null
-                  : _ownerPhone,
+              ownerPhone:
+                  _ownerPhone.isEmpty
+                      ? null
+                      : _ownerPhone,
               sessionId: sessionId,
             );
           },
         ),
       );
     } catch (e) {
+      _leavingScreen = false;
+
       debugPrint(
         'Open Live Walk error: $e',
       );
 
       if (mounted) {
         _showMessage(
-          e.toString().replaceFirst(
-            'Exception: ',
-            '',
-          ),
+          _cleanException(e),
         );
       }
     } finally {
@@ -554,13 +738,19 @@ class _IncomingWalkRequestScreenState
   // ============================================================
 
   Widget _buildMap() {
-    final double? ownerLat = _ownerLatitude;
-    final double? ownerLng = _ownerLongitude;
+    final double? ownerLat =
+        _ownerLatitude;
+
+    final double? ownerLng =
+        _ownerLongitude;
 
     final List<Marker> markers =
         <Marker>[];
 
+    // ----------------------------------------------------------
     // WALKER
+    // ----------------------------------------------------------
+
     if (_walkerPosition != null) {
       markers.add(
         Marker(
@@ -578,7 +768,8 @@ class _IncomingWalkRequestScreenState
                 color: Colors.white,
                 width: 4,
               ),
-              boxShadow: const <BoxShadow>[
+              boxShadow:
+                  const <BoxShadow>[
                 BoxShadow(
                   color: Colors.black26,
                   blurRadius: 10,
@@ -595,7 +786,10 @@ class _IncomingWalkRequestScreenState
       );
     }
 
+    // ----------------------------------------------------------
     // OWNER
+    // ----------------------------------------------------------
+
     if (ownerLat != null &&
         ownerLng != null) {
       markers.add(
@@ -611,7 +805,8 @@ class _IncomingWalkRequestScreenState
               Container(
                 width: 48,
                 height: 48,
-                decoration: const BoxDecoration(
+                decoration:
+                    const BoxDecoration(
                   color: Color(0xFFF4511E),
                   shape: BoxShape.circle,
                 ),
@@ -661,11 +856,9 @@ class _IncomingWalkRequestScreenState
           userAgentPackageName:
               'com.doojowalker.app',
         ),
-
         MarkerLayer(
           markers: markers,
         ),
-
         if (_walkerPosition != null &&
             ownerLat != null &&
             ownerLng != null)
@@ -707,11 +900,16 @@ class _IncomingWalkRequestScreenState
           children: <Widget>[
             _circleButton(
               Icons.arrow_back_rounded,
-              () => Navigator.pop(context),
+              () {
+                if (!_leavingScreen) {
+                  Navigator.pop(context);
+                }
+              },
             ),
             const Spacer(),
             Container(
-              padding: const EdgeInsets.symmetric(
+              padding:
+                  const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 9,
               ),
@@ -719,7 +917,8 @@ class _IncomingWalkRequestScreenState
                 color: Colors.white,
                 borderRadius:
                     BorderRadius.circular(24),
-                boxShadow: const <BoxShadow>[
+                boxShadow:
+                    const <BoxShadow>[
                   BoxShadow(
                     color: Colors.black26,
                     blurRadius: 10,
@@ -742,9 +941,11 @@ class _IncomingWalkRequestScreenState
                     _accepted
                         ? 'WALK ACCEPTED'
                         : 'INCOMING WALK',
-                    style: const TextStyle(
+                    style:
+                        const TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w900,
+                      fontWeight:
+                          FontWeight.w900,
                     ),
                   ),
                 ],
@@ -766,11 +967,12 @@ class _IncomingWalkRequestScreenState
       shape: const CircleBorder(),
       child: InkWell(
         onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Padding(
-          padding: const EdgeInsets.all(11),
+        customBorder:
+            const CircleBorder(),
+        child: const Padding(
+          padding: EdgeInsets.all(11),
           child: Icon(
-            icon,
+            Icons.arrow_back_rounded,
             size: 23,
           ),
         ),
@@ -790,18 +992,22 @@ class _IncomingWalkRequestScreenState
       child: SafeArea(
         top: false,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(
+          padding:
+              const EdgeInsets.fromLTRB(
             18,
             14,
             18,
             14,
           ),
-          decoration: const BoxDecoration(
+          decoration:
+              const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(
+            borderRadius:
+                BorderRadius.vertical(
               top: Radius.circular(28),
             ),
-            boxShadow: <BoxShadow>[
+            boxShadow:
+                <BoxShadow>[
               BoxShadow(
                 color: Colors.black26,
                 blurRadius: 20,
@@ -810,19 +1016,25 @@ class _IncomingWalkRequestScreenState
             ],
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize:
+                MainAxisSize.min,
             children: <Widget>[
               Container(
                 width: 42,
                 height: 4,
-                decoration: BoxDecoration(
+                decoration:
+                    BoxDecoration(
                   color: Colors.black12,
                   borderRadius:
-                      BorderRadius.circular(10),
+                      BorderRadius.circular(
+                    10,
+                  ),
                 ),
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(
+                height: 14,
+              ),
 
               // DOG
               Row(
@@ -830,46 +1042,58 @@ class _IncomingWalkRequestScreenState
                   Container(
                     width: 58,
                     height: 58,
-                    decoration: const BoxDecoration(
+                    decoration:
+                        const BoxDecoration(
                       color: Color(0xFFFFE7DE),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.pets_rounded,
-                      color: Color(0xFFF4511E),
+                      color:
+                          Color(0xFFF4511E),
                       size: 30,
                     ),
                   ),
-
-                  const SizedBox(width: 12),
-
+                  const SizedBox(
+                    width: 12,
+                  ),
                   Expanded(
                     child: Column(
                       crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                          CrossAxisAlignment
+                              .start,
                       children: <Widget>[
                         Text(
                           _dogName,
                           maxLines: 1,
                           overflow:
-                              TextOverflow.ellipsis,
-                          style: const TextStyle(
+                              TextOverflow
+                                  .ellipsis,
+                          style:
+                              const TextStyle(
                             fontSize: 20,
-                            fontWeight: FontWeight.w900,
+                            fontWeight:
+                                FontWeight.w900,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(
+                          height: 2,
+                        ),
                         Text(
                           _dogBreed.isEmpty
                               ? _ownerName
                               : '$_dogBreed • $_ownerName',
                           maxLines: 1,
                           overflow:
-                              TextOverflow.ellipsis,
-                          style: const TextStyle(
+                              TextOverflow
+                                  .ellipsis,
+                          style:
+                              const TextStyle(
                             fontSize: 13,
-                            color: Colors.black54,
-                            fontWeight: FontWeight.w600,
+                            color:
+                                Colors.black54,
+                            fontWeight:
+                                FontWeight.w600,
                           ),
                         ),
                       ],
@@ -878,7 +1102,9 @@ class _IncomingWalkRequestScreenState
                 ],
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(
+                height: 14,
+              ),
 
               // STATS
               Row(
@@ -890,7 +1116,9 @@ class _IncomingWalkRequestScreenState
                       'from you',
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(
+                    width: 8,
+                  ),
                   Expanded(
                     child: _infoBox(
                       Icons.schedule_rounded,
@@ -898,7 +1126,9 @@ class _IncomingWalkRequestScreenState
                       'arrival',
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(
+                    width: 8,
+                  ),
                   Expanded(
                     child: _infoBox(
                       Icons.payments_rounded,
@@ -909,35 +1139,54 @@ class _IncomingWalkRequestScreenState
                 ],
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(
+                height: 12,
+              ),
 
               // ADDRESS
               if (_address.isNotEmpty)
                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF7F7F7),
+                  width:
+                      double.infinity,
+                  padding:
+                      const EdgeInsets.all(
+                    12,
+                  ),
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        const Color(
+                      0xFFF7F7F7,
+                    ),
                     borderRadius:
-                        BorderRadius.circular(14),
+                        BorderRadius.circular(
+                      14,
+                    ),
                   ),
                   child: Row(
                     children: <Widget>[
                       const Icon(
-                        Icons.location_on_rounded,
-                        color: Color(0xFFF4511E),
+                        Icons
+                            .location_on_rounded,
+                        color:
+                            Color(0xFFF4511E),
                         size: 21,
                       ),
-                      const SizedBox(width: 9),
+                      const SizedBox(
+                        width: 9,
+                      ),
                       Expanded(
                         child: Text(
                           _address,
                           maxLines: 2,
                           overflow:
-                              TextOverflow.ellipsis,
-                          style: const TextStyle(
+                              TextOverflow
+                                  .ellipsis,
+                          style:
+                              const TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                            fontWeight:
+                                FontWeight.w600,
                           ),
                         ),
                       ),
@@ -945,29 +1194,39 @@ class _IncomingWalkRequestScreenState
                   ),
                 ),
 
-              const SizedBox(height: 12),
+              const SizedBox(
+                height: 12,
+              ),
 
               // ACCEPTED
               if (_accepted)
                 SizedBox(
-                  width: double.infinity,
+                  width:
+                      double.infinity,
                   height: 56,
-                  child: ElevatedButton(
+                  child:
+                      ElevatedButton(
                     onPressed:
                         _canReachOwner &&
                                 !_reaching
                             ? _onReachOwner
                             : null,
                     style:
-                        ElevatedButton.styleFrom(
+                        ElevatedButton
+                            .styleFrom(
                       backgroundColor:
-                          const Color(0xFFF4511E),
+                          const Color(
+                        0xFFF4511E,
+                      ),
                       disabledBackgroundColor:
                           Colors.black12,
                       shape:
                           RoundedRectangleBorder(
                         borderRadius:
-                            BorderRadius.circular(16),
+                            BorderRadius
+                                .circular(
+                          16,
+                        ),
                       ),
                     ),
                     child: _reaching
@@ -976,7 +1235,8 @@ class _IncomingWalkRequestScreenState
                             height: 23,
                             child:
                                 CircularProgressIndicator(
-                              strokeWidth: 2.5,
+                              strokeWidth:
+                                  2.5,
                               valueColor:
                                   AlwaysStoppedAnimation<
                                       Color>(
@@ -988,41 +1248,48 @@ class _IncomingWalkRequestScreenState
                             _canReachOwner
                                 ? 'REACHED OWNER'
                                 : 'REACH OWNER',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
+                            style:
+                                const TextStyle(
+                              color:
+                                  Colors.white,
+                              fontSize:
+                                  15,
                               fontWeight:
-                                  FontWeight.w900,
+                                  FontWeight
+                                      .w900,
                             ),
                           ),
                   ),
                 )
               else
-                // ACCEPT / REJECT
                 Row(
                   children: <Widget>[
                     Expanded(
                       child: SizedBox(
                         height: 56,
-                        child: OutlinedButton(
+                        child:
+                            OutlinedButton(
                           onPressed:
                               _rejecting ||
                                       _accepting
                                   ? null
                                   : _rejectWalk,
                           style:
-                              OutlinedButton.styleFrom(
+                              OutlinedButton
+                                  .styleFrom(
                             foregroundColor:
                                 Colors.red,
                             side:
                                 const BorderSide(
-                              color: Colors.red,
+                              color:
+                                  Colors.red,
                               width: 1.4,
                             ),
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
-                                  BorderRadius.circular(
+                                  BorderRadius
+                                      .circular(
                                 16,
                               ),
                             ),
@@ -1033,32 +1300,39 @@ class _IncomingWalkRequestScreenState
                                   height: 22,
                                   child:
                                       CircularProgressIndicator(
-                                    strokeWidth: 2,
+                                    strokeWidth:
+                                        2,
                                   ),
                                 )
                               : const Text(
                                   'REJECT',
-                                  style: TextStyle(
+                                  style:
+                                      TextStyle(
                                     fontWeight:
-                                        FontWeight.w900,
+                                        FontWeight
+                                            .w900,
                                   ),
                                 ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(
+                      width: 10,
+                    ),
                     Expanded(
                       flex: 2,
                       child: SizedBox(
                         height: 56,
-                        child: ElevatedButton(
+                        child:
+                            ElevatedButton(
                           onPressed:
                               _accepting ||
                                       _rejecting
                                   ? null
                                   : _acceptWalk,
                           style:
-                              ElevatedButton.styleFrom(
+                              ElevatedButton
+                                  .styleFrom(
                             backgroundColor:
                                 const Color(
                               0xFFF4511E,
@@ -1066,7 +1340,8 @@ class _IncomingWalkRequestScreenState
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
-                                  BorderRadius.circular(
+                                  BorderRadius
+                                      .circular(
                                 16,
                               ),
                             ),
@@ -1077,21 +1352,28 @@ class _IncomingWalkRequestScreenState
                                   height: 23,
                                   child:
                                       CircularProgressIndicator(
-                                    strokeWidth: 2.5,
+                                    strokeWidth:
+                                        2.5,
                                     valueColor:
                                         AlwaysStoppedAnimation<
                                             Color>(
-                                      Colors.white,
+                                      Colors
+                                          .white,
                                     ),
                                   ),
                                 )
                               : const Text(
                                   'ACCEPT WALK',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
+                                  style:
+                                      TextStyle(
+                                    color:
+                                        Colors
+                                            .white,
+                                    fontSize:
+                                        15,
                                     fontWeight:
-                                        FontWeight.w900,
+                                        FontWeight
+                                            .w900,
                                   ),
                                 ),
                         ),
@@ -1100,7 +1382,9 @@ class _IncomingWalkRequestScreenState
                   ],
                 ),
 
-              const SizedBox(height: 7),
+              const SizedBox(
+                height: 7,
+              ),
 
               Text(
                 _accepted
@@ -1108,11 +1392,15 @@ class _IncomingWalkRequestScreenState
                         ? 'You are within 100 m of the owner.'
                         : 'Reach the owner to open Live Walk.')
                     : 'Review the location before accepting this walk.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
+                textAlign:
+                    TextAlign.center,
+                style:
+                    const TextStyle(
                   fontSize: 11,
-                  color: Colors.black45,
-                  fontWeight: FontWeight.w600,
+                  color:
+                      Colors.black45,
+                  fontWeight:
+                      FontWeight.w600,
                 ),
               ),
             ],
@@ -1128,39 +1416,57 @@ class _IncomingWalkRequestScreenState
     String label,
   ) {
     return Container(
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         horizontal: 8,
         vertical: 10,
       ),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(14),
+      decoration:
+          BoxDecoration(
+        color:
+            const Color(0xFFF7F7F7),
+        borderRadius:
+            BorderRadius.circular(
+          14,
+        ),
       ),
       child: Column(
         children: <Widget>[
           Icon(
             icon,
-            color: const Color(0xFFF4511E),
+            color:
+                const Color(0xFFF4511E),
             size: 19,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(
+            height: 4,
+          ),
           Text(
             value,
             maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
+            overflow:
+                TextOverflow.ellipsis,
+            textAlign:
+                TextAlign.center,
+            style:
+                const TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w900,
+              fontWeight:
+                  FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(
+            height: 2,
+          ),
           Text(
             label,
-            style: const TextStyle(
+            style:
+                const TextStyle(
               fontSize: 9,
-              color: Colors.black45,
-              fontWeight: FontWeight.w600,
+              color:
+                  Colors.black45,
+              fontWeight:
+                  FontWeight.w600,
             ),
           ),
         ],
@@ -1188,9 +1494,6 @@ class _IncomingWalkRequestScreenState
 
   // ============================================================
   // ETA
-  //
-  // Request durationMinutes is used when supplied.
-  // Otherwise estimate using walking speed.
   // ============================================================
 
   String get _etaText {
@@ -1202,12 +1505,18 @@ class _IncomingWalkRequestScreenState
       return '—';
     }
 
-    // Approx. 5 km/h walking speed.
+    const double walkingSpeedKmH = 5;
+
     final double minutes =
-        (_distanceMeters / 1000) / 5 * 60;
+        (_distanceMeters / 1000) /
+            walkingSpeedKmH *
+            60;
 
     final int rounded =
-        math.max(1, minutes.ceil());
+        math.max(
+      1,
+      minutes.ceil(),
+    );
 
     return '$rounded min';
   }
@@ -1218,9 +1527,26 @@ class _IncomingWalkRequestScreenState
 
   bool get _canReachOwner {
     return _accepted &&
+        !_requestUnavailable &&
         _ownerLatitude != null &&
         _ownerLongitude != null &&
         _distanceMeters <= 100;
+  }
+
+  // ============================================================
+  // ERROR CLEANER
+  // ============================================================
+
+  String _cleanException(
+    Object error,
+  ) {
+    final String text =
+        error.toString();
+
+    return text.replaceFirst(
+      'Exception: ',
+      '',
+    );
   }
 
   // ============================================================
@@ -1239,7 +1565,8 @@ class _IncomingWalkRequestScreenState
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior: SnackBarBehavior.floating,
+          behavior:
+              SnackBarBehavior.floating,
         ),
       );
   }
@@ -1251,6 +1578,7 @@ class _IncomingWalkRequestScreenState
   @override
   void dispose() {
     _locationSubscription?.cancel();
+    _requestSubscription?.cancel();
     super.dispose();
   }
 
@@ -1259,7 +1587,9 @@ class _IncomingWalkRequestScreenState
   // ============================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       body: Stack(
         children: <Widget>[
@@ -1272,6 +1602,17 @@ class _IncomingWalkRequestScreenState
           _buildBottomSheet(),
 
           if (_loadingLocation)
+            const Positioned.fill(
+              child: ColoredBox(
+                color: Colors.white70,
+                child: Center(
+                  child:
+                      CircularProgressIndicator(),
+                ),
+              ),
+            ),
+
+          if (_requestUnavailable)
             const Positioned.fill(
               child: ColoredBox(
                 color: Colors.white70,
