@@ -6,15 +6,15 @@ class InstaWalkReachService {
   static final InstaWalkReachService instance =
       InstaWalkReachService._();
 
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Marks the walker as reached and creates a new
+  /// Marks the Walker as reached and creates a NEW
   /// liveWalkSessions document.
   ///
   /// IMPORTANT:
-  /// After this point, the actual walk data belongs to
-  /// liveWalkSessions, not walk_request.
+  /// - walk_request remains the request/arrival source.
+  /// - liveWalkSessions is the source of truth for Live Walk.
+  /// - Every new walk gets a new liveWalkSessions document.
   Future<String> createLiveWalkSession({
     required String walkRequestId,
     required String walkerUid,
@@ -22,22 +22,28 @@ class InstaWalkReachService {
     String? walkerName,
     String? walkerPhone,
   }) async {
-    if (walkRequestId.trim().isEmpty) {
+    final String requestId = walkRequestId.trim();
+    final String uid = walkerUid.trim();
+    final String id = walkerId.trim();
+
+    if (requestId.isEmpty) {
       throw Exception('Walk request ID is missing.');
     }
 
-    if (walkerUid.trim().isEmpty) {
+    if (uid.isEmpty) {
       throw Exception('Walker UID is missing.');
     }
 
-    if (walkerId.trim().isEmpty) {
+    if (id.isEmpty) {
       throw Exception('Walker ID is missing.');
     }
 
+    // ------------------------------------------------------------
+    // WALK REQUEST
+    // ------------------------------------------------------------
+
     final DocumentReference<Map<String, dynamic>> requestRef =
-        _firestore
-            .collection('walk_request')
-            .doc(walkRequestId.trim());
+        _firestore.collection('walk_request').doc(requestId);
 
     final DocumentSnapshot<Map<String, dynamic>> requestSnapshot =
         await requestRef.get();
@@ -53,15 +59,9 @@ class InstaWalkReachService {
       throw Exception('Walk request data is unavailable.');
     }
 
-    final String existingWalkerUid =
-        requestData['walkerUid']?.toString().trim() ?? '';
-
-    if (existingWalkerUid.isNotEmpty &&
-        existingWalkerUid != walkerUid.trim()) {
-      throw Exception(
-        'This walk is assigned to another Walker.',
-      );
-    }
+    // ------------------------------------------------------------
+    // REQUEST STATUS
+    // ------------------------------------------------------------
 
     final String status =
         requestData['status']?.toString().trim().toLowerCase() ?? '';
@@ -72,13 +72,95 @@ class InstaWalkReachService {
       );
     }
 
-    final Timestamp now =
-        Timestamp.now();
+    // ------------------------------------------------------------
+    // VERIFY ASSIGNED WALKER
+    // ------------------------------------------------------------
+
+    final String existingWalkerUid =
+        requestData['walkerUid']?.toString().trim() ?? '';
+
+    if (existingWalkerUid.isNotEmpty &&
+        existingWalkerUid != uid) {
+      throw Exception(
+        'This walk is assigned to another Walker.',
+      );
+    }
+
+    // ------------------------------------------------------------
+    // ACTUAL WALK ID
+    // ------------------------------------------------------------
+    //
+    // IMPORTANT:
+    // Do NOT use walkRequestId as walkId.
+    //
+    // Example:
+    //
+    // walk_request document ID:
+    // abc123
+    //
+    // walkId:
+    // walk_1788043358246
+    //
+    // These can be different.
+    // ------------------------------------------------------------
+
+    final String walkId =
+        requestData['walkId']?.toString().trim() ?? '';
+
+    if (walkId.isEmpty) {
+      throw Exception(
+        'Walk ID is missing from the accepted walk request.',
+      );
+    }
+
+    // ------------------------------------------------------------
+    // OWNER DATA
+    // ------------------------------------------------------------
+
+    final String ownerId =
+        requestData['ownerId']?.toString().trim() ?? '';
+
+    final String ownerName =
+        requestData['ownerName']?.toString().trim() ?? '';
+
+    // EXACT FIELD: ownerPhone
+    final String ownerPhone =
+        requestData['ownerPhone']?.toString().trim() ?? '';
+
+    final String ownerUid =
+        requestData['ownerAuthUid']?.toString().trim().isNotEmpty == true
+            ? requestData['ownerAuthUid'].toString().trim()
+            : requestData['ownerUid']?.toString().trim() ?? '';
+
+    final String ownerAuthUid =
+        requestData['ownerAuthUid']?.toString().trim() ?? '';
+
+    // ------------------------------------------------------------
+    // WALKER DATA
+    // ------------------------------------------------------------
+
+    final String finalWalkerName =
+        walkerName?.trim().isNotEmpty == true
+            ? walkerName!.trim()
+            : requestData['walkerName']?.toString().trim() ?? '';
+
+    final String finalWalkerPhone =
+        walkerPhone?.trim().isNotEmpty == true
+            ? walkerPhone!.trim()
+            : requestData['walkerPhone']?.toString().trim() ?? '';
+
+    // ------------------------------------------------------------
+    // TIME
+    // ------------------------------------------------------------
+
+    final Timestamp now = Timestamp.now();
+
+    // ------------------------------------------------------------
+    // CREATE A COMPLETELY NEW SESSION
+    // ------------------------------------------------------------
 
     final DocumentReference<Map<String, dynamic>> sessionRef =
-        _firestore
-            .collection('liveWalkSessions')
-            .doc();
+        _firestore.collection('liveWalkSessions').doc();
 
     final Map<String, dynamic> sessionData =
         <String, dynamic>{
@@ -87,64 +169,56 @@ class InstaWalkReachService {
       // ----------------------------------------------------------
 
       'sessionId': sessionRef.id,
-      'walkId': walkRequestId.trim(),
+
+      // ACTUAL WALK ID
+      'walkId': walkId,
+
+      // ORIGINAL REQUEST DOCUMENT ID
+      'walkRequestId': requestId,
 
       // ----------------------------------------------------------
       // OWNER
       // ----------------------------------------------------------
 
-      'ownerId':
-          requestData['ownerId']?.toString() ?? '',
+      'ownerId': ownerId,
 
-      'ownerName':
-          requestData['ownerName']?.toString() ?? '',
+      'ownerName': ownerName,
 
-      'ownerPhone':
-          requestData['ownerPhone']?.toString() ?? '',
+      // EXACT FIRESTORE FIELD
+      'ownerPhone': ownerPhone,
 
-      'ownerUid':
-          requestData['ownerAuthUid']?.toString().trim().isNotEmpty ==
-                  true
-              ? requestData['ownerAuthUid']
-              : requestData['ownerUid'],
+      'ownerUid': ownerUid,
 
-      'ownerAuthUid':
-          requestData['ownerAuthUid']?.toString() ?? '',
+      'ownerAuthUid': ownerAuthUid,
 
       // ----------------------------------------------------------
       // WALKER
       // ----------------------------------------------------------
 
-      'walkerId': walkerId.trim(),
+      'walkerId': id,
 
-      'walkerUid': walkerUid.trim(),
+      'walkerUid': uid,
 
-      'walkerName':
-          walkerName?.trim().isNotEmpty == true
-              ? walkerName!.trim()
-              : requestData['walkerName']?.toString() ?? '',
+      'walkerName': finalWalkerName,
 
-      'walkerPhone':
-          walkerPhone?.trim().isNotEmpty == true
-              ? walkerPhone!.trim()
-              : requestData['walkerPhone']?.toString() ?? '',
+      'walkerPhone': finalWalkerPhone,
 
       // ----------------------------------------------------------
       // DOG
       // ----------------------------------------------------------
 
       'dogName':
-          requestData['dogName']?.toString() ?? '',
+          requestData['dogName']?.toString().trim() ?? '',
 
       'dogBreed':
-          requestData['dogBreed']?.toString() ?? '',
+          requestData['dogBreed']?.toString().trim() ?? '',
 
       // ----------------------------------------------------------
-      // LOCATION
+      // ADDRESS
       // ----------------------------------------------------------
 
       'address':
-          requestData['address']?.toString() ?? '',
+          requestData['address']?.toString().trim() ?? '',
 
       'ownerLocation':
           requestData['ownerLocation'],
@@ -160,28 +234,27 @@ class InstaWalkReachService {
       'acceptedAt':
           requestData['acceptedAt'] ?? now,
 
-      'reachedAt':
-          now,
+      'reachedAt': now,
 
-      'arrivalDistanceKm':
-          _toDouble(
+      'arrivalDistanceKm': _toDouble(
         requestData['arrivalDistanceKm'],
       ),
 
-      'arrivalDistanceMeters':
-          _toInt(
+      'arrivalDistanceMeters': _toInt(
         requestData['arrivalDistanceMeters'],
       ),
 
-      'arrivalDurationMinutes':
-          _toInt(
+      'arrivalDurationMinutes': _toInt(
         requestData['arrivalDurationMinutes'],
       ),
 
       // ----------------------------------------------------------
-      // WALK STATE
+      // LIVE WALK STATE
       // ----------------------------------------------------------
 
+      // IMPORTANT:
+      // Walker has reached owner.
+      // Walk has NOT started yet.
       'status': 'ready',
 
       'walkStarted': false,
@@ -199,7 +272,7 @@ class InstaWalkReachService {
       'completedAt': null,
 
       // ----------------------------------------------------------
-      // LIVE WALK DATA
+      // LIVE LOCATION
       // ----------------------------------------------------------
 
       'currentLocation': <String, dynamic>{
@@ -217,11 +290,9 @@ class InstaWalkReachService {
 
       'poopCount': 0,
 
-      'routeCoordinates':
-          <dynamic>[],
+      'routeCoordinates': <dynamic>[],
 
-      'events':
-          <dynamic>[],
+      'events': <dynamic>[],
 
       // ----------------------------------------------------------
       // SOURCE
@@ -244,36 +315,33 @@ class InstaWalkReachService {
     // ATOMIC BATCH
     // ------------------------------------------------------------
 
-    final WriteBatch batch =
-        _firestore.batch();
+    final WriteBatch batch = _firestore.batch();
 
-    // Create Live Walk Session.
+    // Create NEW Live Walk Session.
     batch.set(
       sessionRef,
       sessionData,
     );
 
-    // Update ONLY arrival/reach information in walk_request.
+    // Update ONLY arrival information in walk_request.
     //
-    // No live walk tracking data is written here.
+    // Do not store live GPS tracking here.
     batch.update(
       requestRef,
       <String, dynamic>{
         'reached': true,
+
         'reachedAt': now,
 
-        'arrivalDistanceKm':
-            _toDouble(
+        'arrivalDistanceKm': _toDouble(
           requestData['arrivalDistanceKm'],
         ),
 
-        'arrivalDistanceMeters':
-            _toInt(
+        'arrivalDistanceMeters': _toInt(
           requestData['arrivalDistanceMeters'],
         ),
 
-        'arrivalDurationMinutes':
-            _toInt(
+        'arrivalDurationMinutes': _toInt(
           requestData['arrivalDurationMinutes'],
         ),
 
@@ -281,8 +349,10 @@ class InstaWalkReachService {
       },
     );
 
+    // Commit both operations atomically.
     await batch.commit();
 
+    // Return the NEW liveWalkSessions document ID.
     return sessionRef.id;
   }
 
@@ -290,9 +360,7 @@ class InstaWalkReachService {
   // HELPERS
   // ============================================================
 
-  double _toDouble(
-    dynamic value,
-  ) {
+  double _toDouble(dynamic value) {
     if (value is num) {
       return value.toDouble();
     }
@@ -304,9 +372,7 @@ class InstaWalkReachService {
     return 0.0;
   }
 
-  int _toInt(
-    dynamic value,
-  ) {
+  int _toInt(dynamic value) {
     if (value is int) {
       return value;
     }
