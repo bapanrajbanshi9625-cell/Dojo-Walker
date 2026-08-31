@@ -25,12 +25,18 @@ class ActiveWalkStartPanel extends StatelessWidget {
         color: AppColors.successSoft,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: AppColors.success.withValues(alpha: .20),
+          color: AppColors.success.withValues(
+            alpha: 0.20,
+          ),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ======================================================
+          // READY HEADER
+          // ======================================================
+
           Row(
             children: [
               Container(
@@ -42,14 +48,15 @@ class ActiveWalkStartPanel extends StatelessWidget {
                 ),
                 child: const Icon(
                   Icons.directions_walk_rounded,
-                  color: Colors.white,
+                  color: AppColors.buttonText,
                   size: 22,
                 ),
               ),
               const SizedBox(width: 11),
               const Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       'READY TO START',
@@ -57,7 +64,7 @@ class ActiveWalkStartPanel extends StatelessWidget {
                         color: AppColors.secondary,
                         fontSize: 11,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: .4,
+                        letterSpacing: 0.4,
                       ),
                     ),
                     SizedBox(height: 3),
@@ -77,6 +84,10 @@ class ActiveWalkStartPanel extends StatelessWidget {
 
           const SizedBox(height: 12),
 
+          // ======================================================
+          // START WALK BUTTON
+          // ======================================================
+
           SizedBox(
             width: double.infinity,
             height: 52,
@@ -88,9 +99,12 @@ class ActiveWalkStartPanel extends StatelessWidget {
                     AppColors.border,
                 disabledForegroundColor:
                     AppColors.textMuted,
+                foregroundColor:
+                    AppColors.buttonText,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius:
+                      BorderRadius.circular(15),
                 ),
               ),
               child: starting
@@ -101,7 +115,7 @@ class ActiveWalkStartPanel extends StatelessWidget {
                         strokeWidth: 2.5,
                         valueColor:
                             AlwaysStoppedAnimation<Color>(
-                          Colors.white,
+                          AppColors.buttonText,
                         ),
                       ),
                     )
@@ -119,7 +133,7 @@ class ActiveWalkStartPanel extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w900,
-                            letterSpacing: .3,
+                            letterSpacing: 0.3,
                           ),
                         ),
                       ],
