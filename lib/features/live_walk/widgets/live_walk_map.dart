@@ -28,9 +28,13 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
 
   LatLng? _currentLocation;
 
-  List<LatLng> _routePoints = <LatLng>[];
+  final List<LatLng> _routePoints = <LatLng>[];
 
   bool _mapReady = false;
+
+  // ============================================================
+  // INIT
+  // ============================================================
 
   @override
   void initState() {
@@ -40,31 +44,11 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
 
     _locationSubscription =
         _backgroundService.locationStream.listen(
-      (dynamic position) {
-        final double? lat =
-            _toDouble(position.latitude);
-
-        final double? lng =
-            _toDouble(position.longitude);
-
-        if (lat == null || lng == null) {
-          return;
-        }
-
-        final LatLng location =
-            LatLng(lat, lng);
-
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          _currentLocation = location;
-          _addRoutePoint(location);
-        });
-
-        _moveMapToLocation(location);
+      _handleLiveLocation,
+      onError: (_) {
+        // GPS stream errors must not crash the map.
       },
+      cancelOnError: false,
     );
   }
 
@@ -73,78 +57,31 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   // ============================================================
 
   void _loadInitialData() {
-    final dynamic currentLocation =
-        widget.sessionData['currentLocation'];
+    final LatLng? firestoreLocation =
+        _readLocation(widget.sessionData['currentLocation']);
 
-    if (currentLocation is Map) {
-      final double? lat =
-          _toDouble(
-        currentLocation['lat'] ??
-            currentLocation['latitude'],
-      );
-
-      final double? lng =
-          _toDouble(
-        currentLocation['lng'] ??
-            currentLocation['longitude'] ??
-            currentLocation['lon'],
-      );
-
-      if (lat != null && lng != null) {
-        _currentLocation =
-            LatLng(lat, lng);
-      }
+    if (firestoreLocation != null) {
+      _currentLocation = firestoreLocation;
     }
 
-    final dynamic rawRoute =
-        widget.sessionData['routeCoordinates'];
+    _loadFirestoreRoute(
+      widget.sessionData['routeCoordinates'],
+      replace: true,
+    );
 
-    if (rawRoute is List) {
-      for (final dynamic item
-          in rawRoute) {
-        if (item is! Map) {
-          continue;
-        }
+    // ----------------------------------------------------------
+    // If there is no saved route but a current location exists,
+    // that location becomes the START point.
+    // ----------------------------------------------------------
 
-        final double? lat =
-            _toDouble(
-          item['lat'] ??
-              item['latitude'],
-        );
-
-        final double? lng =
-            _toDouble(
-          item['lng'] ??
-              item['longitude'] ??
-              item['lon'],
-        );
-
-        if (lat == null || lng == null) {
-          continue;
-        }
-
-        if (!_validCoordinate(lat, lng)) {
-          continue;
-        }
-
-        _routePoints.add(
-          LatLng(lat, lng),
-        );
-      }
-    }
-
-    // If Firestore has no route yet,
-    // use current location as first point.
     if (_routePoints.isEmpty &&
         _currentLocation != null) {
-      _routePoints.add(
-        _currentLocation!,
-      );
+      _routePoints.add(_currentLocation!);
     }
   }
 
   // ============================================================
-  // DID UPDATE
+  // WIDGET UPDATE
   // ============================================================
 
   @override
@@ -156,15 +93,276 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
     final dynamic rawRoute =
         widget.sessionData['routeCoordinates'];
 
+    if (rawRoute is List) {
+      // IMPORTANT:
+      // Merge Firestore route with local live route.
+      //
+      // Never blindly replace the local route because GPS points
+      // may already have been added locally.
+      _mergeFirestoreRoute(rawRoute);
+    }
+
+    final LatLng? location =
+        _readLocation(
+      widget.sessionData['currentLocation'],
+    );
+
+    if (location != null) {
+      _setCurrentLocation(location);
+    }
+  }
+
+  // ============================================================
+  // LIVE GPS LOCATION
+  // ============================================================
+
+  void _handleLiveLocation(
+    dynamic position,
+  ) {
+    final double? lat =
+        _toDouble(position.latitude);
+
+    final double? lng =
+        _toDouble(position.longitude);
+
+    if (lat == null || lng == null) {
+      return;
+    }
+
+    if (!_validCoordinate(lat, lng)) {
+      return;
+    }
+
+    final LatLng location =
+        LatLng(lat, lng);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _setCurrentLocation(location);
+
+      // --------------------------------------------------------
+      // Every real GPS movement becomes a route point.
+      // --------------------------------------------------------
+
+      _addRoutePoint(location);
+    });
+
+    _moveMapToLocation(location);
+  }
+
+  // ============================================================
+  // CURRENT LOCATION
+  // ============================================================
+
+  void _setCurrentLocation(
+    LatLng location,
+  ) {
+    if (!_validCoordinate(
+      location.latitude,
+      location.longitude,
+    )) {
+      return;
+    }
+
+    _currentLocation = location;
+  }
+
+  // ============================================================
+  // LOAD FIRESTORE ROUTE
+  // ============================================================
+
+  void _loadFirestoreRoute(
+    dynamic rawRoute, {
+    bool replace = false,
+  }) {
     if (rawRoute is! List) {
       return;
     }
 
     final List<LatLng> firestoreRoute =
+        _parseRoute(rawRoute);
+
+    if (firestoreRoute.isEmpty) {
+      return;
+    }
+
+    if (replace) {
+      _routePoints
+        ..clear()
+        ..addAll(firestoreRoute);
+
+      return;
+    }
+
+    _mergeRoutePoints(
+      firestoreRoute,
+    );
+  }
+
+  // ============================================================
+  // MERGE FIRESTORE ROUTE
+  // ============================================================
+
+  void _mergeFirestoreRoute(
+    List<dynamic> rawRoute,
+  ) {
+    final List<LatLng> firestoreRoute =
+        _parseRoute(rawRoute);
+
+    if (firestoreRoute.isEmpty) {
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _mergeRoutePoints(
+        firestoreRoute,
+      );
+    });
+  }
+
+  // ============================================================
+  // MERGE ROUTE POINTS
+  //
+  // Keeps the chronological route instead of destroying
+  // locally collected GPS points.
+  // ============================================================
+
+  void _mergeRoutePoints(
+    List<LatLng> incoming,
+  ) {
+    if (incoming.isEmpty) {
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // If local route is empty, simply restore it.
+    // ----------------------------------------------------------
+
+    if (_routePoints.isEmpty) {
+      _routePoints.addAll(incoming);
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // Add incoming points only when they extend the route.
+    // ----------------------------------------------------------
+
+    for (final LatLng point in incoming) {
+      if (!_validCoordinate(
+        point.latitude,
+        point.longitude,
+      )) {
+        continue;
+      }
+
+      _appendRoutePoint(
+        point,
+      );
+    }
+
+    _trimRoute();
+  }
+
+  // ============================================================
+  // ADD LIVE ROUTE POINT
+  // ============================================================
+
+  void _addRoutePoint(
+    LatLng point,
+  ) {
+    if (!_validCoordinate(
+      point.latitude,
+      point.longitude,
+    )) {
+      return;
+    }
+
+    _appendRoutePoint(point);
+
+    _trimRoute();
+  }
+
+  // ============================================================
+  // APPEND ROUTE POINT
+  // ============================================================
+
+  void _appendRoutePoint(
+    LatLng point,
+  ) {
+    if (_routePoints.isEmpty) {
+      _routePoints.add(point);
+      return;
+    }
+
+    final LatLng last =
+        _routePoints.last;
+
+    final double distance =
+        const Distance().as(
+      LengthUnit.Meter,
+      last,
+      point,
+    );
+
+    // ----------------------------------------------------------
+    // Ignore GPS noise below 5 metres.
+    // ----------------------------------------------------------
+
+    if (distance < 5) {
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // Ignore impossible GPS jumps.
+    //
+    // Background service already protects against large jumps,
+    // but keeping this guard here protects the visual polyline.
+    // ----------------------------------------------------------
+
+    if (distance > 500) {
+      return;
+    }
+
+    _routePoints.add(point);
+  }
+
+  // ============================================================
+  // KEEP ROUTE SIZE SAFE
+  // ============================================================
+
+  void _trimRoute() {
+    if (_routePoints.length <= 3000) {
+      return;
+    }
+
+    _routePoints.removeRange(
+      0,
+      _routePoints.length - 3000,
+    );
+  }
+
+  // ============================================================
+  // PARSE FIRESTORE ROUTE
+  // ============================================================
+
+  List<LatLng> _parseRoute(
+    dynamic rawRoute,
+  ) {
+    final List<LatLng> result =
         <LatLng>[];
 
-    for (final dynamic item
-        in rawRoute) {
+    if (rawRoute is! List) {
+      return result;
+    }
+
+    for (final dynamic item in rawRoute) {
       if (item is! Map) {
         continue;
       }
@@ -190,67 +388,54 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         continue;
       }
 
-      firestoreRoute.add(
+      result.add(
         LatLng(lat, lng),
       );
     }
 
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _routePoints =
-          firestoreRoute;
-    });
+    return result;
   }
 
   // ============================================================
-  // ADD ROUTE POINT
+  // READ CURRENT LOCATION
   // ============================================================
 
-  void _addRoutePoint(
-    LatLng point,
+  LatLng? _readLocation(
+    dynamic value,
   ) {
-    if (!_validCoordinate(
-      point.latitude,
-      point.longitude,
-    )) {
-      return;
+    if (value is! Map) {
+      return null;
     }
 
-    if (_routePoints.isEmpty) {
-      _routePoints.add(point);
-      return;
-    }
-
-    final LatLng last =
-        _routePoints.last;
-
-    final double distance =
-        const Distance().as(
-      LengthUnit.Meter,
-      last,
-      point,
+    final double? lat =
+        _toDouble(
+      value['lat'] ??
+          value['latitude'],
     );
 
-    // Ignore GPS noise below 5 metres.
-    if (distance < 5) {
-      return;
+    final double? lng =
+        _toDouble(
+      value['lng'] ??
+          value['longitude'] ??
+          value['lon'],
+    );
+
+    if (lat == null || lng == null) {
+      return null;
     }
 
-    _routePoints.add(point);
-
-    if (_routePoints.length > 3000) {
-      _routePoints.removeRange(
-        0,
-        _routePoints.length - 3000,
-      );
+    if (!_validCoordinate(lat, lng)) {
+      return null;
     }
+
+    return LatLng(
+      lat,
+      lng,
+    );
   }
 
   // ============================================================
-  // MOVE MAP
+  // MOVE CAMERA
   // ============================================================
 
   void _moveMapToLocation(
@@ -266,7 +451,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         _mapController.camera.zoom,
       );
     } catch (_) {
-      // Map may not be ready yet.
+      // Map controller may not be ready.
     }
   }
 
@@ -297,16 +482,19 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         onMapReady: () {
           _mapReady = true;
 
-          if (_currentLocation != null) {
+          final LatLng? location =
+              _currentLocation;
+
+          if (location != null) {
             _moveMapToLocation(
-              _currentLocation!,
+              location,
             );
           }
         },
       ),
       children: <Widget>[
         // ========================================================
-        // MAP
+        // OPEN STREET MAP
         // ========================================================
 
         TileLayer(
@@ -317,20 +505,49 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         ),
 
         // ========================================================
-        // WALK ROUTE POLYLINE
+        // COMPLETE LIVE WALK POLYLINE
         //
-        // Start -> movement -> movement -> movement -> Complete
+        // START
+        //   ↓
+        // GPS POINT
+        //   ↓
+        // GPS POINT
+        //   ↓
+        // GPS POINT
+        //   ↓
+        // CURRENT LOCATION
+        //   ↓
+        // COMPLETE
         // ========================================================
 
         if (_routePoints.length >= 2)
           PolylineLayer(
             polylines: <Polyline>[
               Polyline(
-                points: _routePoints,
+                points:
+                    List<LatLng>.unmodifiable(
+                  _routePoints,
+                ),
                 strokeWidth: 5,
                 color: Colors.orange,
                 borderStrokeWidth: 2,
                 borderColor: Colors.white,
+              ),
+            ],
+          ),
+
+        // ========================================================
+        // START MARKER
+        // ========================================================
+
+        if (_routePoints.isNotEmpty)
+          MarkerLayer(
+            markers: <Marker>[
+              Marker(
+                point: _routePoints.first,
+                width: 34,
+                height: 34,
+                child: const _StartMarker(),
               ),
             ],
           ),
@@ -346,7 +563,8 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
                 point: _currentLocation!,
                 width: 52,
                 height: 52,
-                child: const _WalkerLocationMarker(),
+                child:
+                    const _WalkerLocationMarker(),
               ),
             ],
           ),
@@ -404,7 +622,45 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
 }
 
 // ==================================================================
-// WALKER LOCATION MARKER
+// START MARKER
+// ==================================================================
+
+class _StartMarker extends StatelessWidget {
+  const _StartMarker();
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.orange,
+          width: 3,
+        ),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const Center(
+        child: Icon(
+          Icons.play_arrow_rounded,
+          color: Colors.orange,
+          size: 18,
+        ),
+      ),
+    );
+  }
+}
+
+// ==================================================================
+// CURRENT WALKER LOCATION MARKER
 // ==================================================================
 
 class _WalkerLocationMarker
@@ -418,6 +674,10 @@ class _WalkerLocationMarker
     return Stack(
       alignment: Alignment.center,
       children: <Widget>[
+        // --------------------------------------------------------
+        // GPS ACCURACY / LOCATION PULSE
+        // --------------------------------------------------------
+
         Container(
           width: 46,
           height: 46,
@@ -429,6 +689,11 @@ class _WalkerLocationMarker
             shape: BoxShape.circle,
           ),
         ),
+
+        // --------------------------------------------------------
+        // WALKER
+        // --------------------------------------------------------
+
         Container(
           width: 28,
           height: 28,
