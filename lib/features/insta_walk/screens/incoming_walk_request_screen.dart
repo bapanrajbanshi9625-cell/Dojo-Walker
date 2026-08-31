@@ -10,6 +10,7 @@ import 'package:latlong2/latlong.dart';
 import '../../live_walk/screens/live_walk_screen.dart';
 import '../models/insta_walk_request.dart';
 import '../services/insta_walk_accept_service.dart';
+import '../services/insta_walk_reach_service.dart';
 import '../services/insta_walk_reject_service.dart';
 import '../widgets/incoming_walk_bottom_panel.dart';
 import '../widgets/incoming_walk_map.dart';
@@ -41,6 +42,9 @@ class _IncomingWalkRequestScreenState
 
   final InstaWalkRejectService _rejectService =
       InstaWalkRejectService.instance;
+
+  final InstaWalkReachService _reachService =
+      InstaWalkReachService.instance;
 
   StreamSubscription<Position>? _locationSubscription;
 
@@ -100,6 +104,18 @@ class _IncomingWalkRequestScreenState
     return widget.request.ownerPhone.trim();
   }
 
+  String get _walkerId {
+    return widget.request.walkerId.trim();
+  }
+
+  String get _walkerName {
+    return widget.request.walkerName.trim();
+  }
+
+  String get _walkerPhone {
+    return widget.request.walkerPhone.trim();
+  }
+
   String get _dogName {
     final String value =
         widget.request.dogName.trim();
@@ -120,10 +136,6 @@ class _IncomingWalkRequestScreenState
     }
 
     return widget.request.address.trim();
-  }
-
-  String get _sessionId {
-    return widget.request.liveWalkSessionId.trim();
   }
 
   String get _walkId {
@@ -198,7 +210,10 @@ class _IncomingWalkRequestScreenState
                     .trim() ??
                 '';
 
-        // Current walker accepted the request.
+        // --------------------------------------------------------
+        // CURRENT WALKER ACCEPTED
+        // --------------------------------------------------------
+
         if (status == 'accepted' &&
             _isCurrentWalker(walkerUid)) {
           if (!_accepted) {
@@ -210,7 +225,10 @@ class _IncomingWalkRequestScreenState
           return;
         }
 
-        // Someone else accepted it.
+        // --------------------------------------------------------
+        // SOMEONE ELSE ACCEPTED
+        // --------------------------------------------------------
+
         if (!_accepted &&
             status.isNotEmpty &&
             status != 'searching') {
@@ -228,7 +246,9 @@ class _IncomingWalkRequestScreenState
     );
   }
 
-  bool _isCurrentWalker(String walkerUid) {
+  bool _isCurrentWalker(
+    String walkerUid,
+  ) {
     final User? user =
         _auth.currentUser;
 
@@ -709,21 +729,50 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    final String walkId = _walkId;
+    final String walkRequestId =
+        _walkId;
 
-    if (walkId.isEmpty) {
+    if (walkRequestId.isEmpty) {
       _showMessage(
-        'Walk ID is missing.',
+        'Walk request ID is missing.',
       );
       return;
     }
 
-    final String sessionId =
-        _sessionId;
+    // ----------------------------------------------------------
+    // CURRENT FIREBASE USER
+    // ----------------------------------------------------------
 
-    if (sessionId.isEmpty) {
+    final User? currentUser =
+        _auth.currentUser;
+
+    if (currentUser == null) {
       _showMessage(
-        'Live Walk session is not ready yet.',
+        'Walker authentication is unavailable.',
+      );
+      return;
+    }
+
+    final String walkerUid =
+        currentUser.uid.trim();
+
+    if (walkerUid.isEmpty) {
+      _showMessage(
+        'Walker UID is missing.',
+      );
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // WALKER ID
+    // ----------------------------------------------------------
+
+    final String walkerId =
+        _walkerId;
+
+    if (walkerId.isEmpty) {
+      _showMessage(
+        'Walker ID is missing.',
       );
       return;
     }
@@ -733,7 +782,61 @@ class _IncomingWalkRequestScreenState
     });
 
     try {
+      // --------------------------------------------------------
+      // CREATE A NEW LIVE WALK SESSION
+      // --------------------------------------------------------
+      //
+      // IMPORTANT:
+      // Do NOT use widget.request.liveWalkSessionId here.
+      //
+      // A NEW liveWalkSessions document is created when
+      // REACHED OWNER is pressed.
+      // --------------------------------------------------------
+
+      final String sessionId =
+          await _reachService.createLiveWalkSession(
+        walkRequestId: walkRequestId,
+        walkerUid: walkerUid,
+        walkerId: walkerId,
+        walkerName:
+            _walkerName.isEmpty
+                ? null
+                : _walkerName,
+        walkerPhone:
+            _walkerPhone.isEmpty
+                ? null
+                : _walkerPhone,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      // --------------------------------------------------------
+      // STOP REQUEST MONITOR
+      // --------------------------------------------------------
+
+      await _requestSubscription?.cancel();
+      _requestSubscription = null;
+
+      // --------------------------------------------------------
+      // STOP ARRIVAL GPS
+      //
+      // LiveWalkScreen will manage its own live tracking.
+      // --------------------------------------------------------
+
+      await _locationSubscription?.cancel();
+      _locationSubscription = null;
+
+      // --------------------------------------------------------
+      // PREVENT DOUBLE NAVIGATION
+      // --------------------------------------------------------
+
       _leavingScreen = true;
+
+      // --------------------------------------------------------
+      // OPEN LIVE WALK
+      // --------------------------------------------------------
 
       await Navigator.pushReplacement(
         context,
@@ -744,7 +847,7 @@ class _IncomingWalkRequestScreenState
             return LiveWalkScreen(
               ownerUid: _ownerUid,
               ownerName: _ownerName,
-              walkId: walkId,
+              walkId: walkRequestId,
               dogName: _dogName,
               dogBreed: _dogBreed,
               ownerPhone:
@@ -760,7 +863,7 @@ class _IncomingWalkRequestScreenState
       _leavingScreen = false;
 
       debugPrint(
-        'Live Walk navigation error: $error',
+        'Reach owner error: $error',
       );
 
       if (mounted) {
