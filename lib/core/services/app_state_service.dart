@@ -9,16 +9,35 @@ import 'package:firebase_auth/firebase_auth.dart';
 /// DOJO WALKER - CENTRAL APP STATE SERVICE
 /// ============================================================
 ///
-/// Primary collection:
-///     walk_request
+/// Firestore collections used by this service:
 ///
-/// Optional collections:
-///     active_walk
-///     liveWalkSessions
+///     1. walk_request
+///     2. liveWalkSessions
 ///
 /// IMPORTANT:
-/// ActiveWalkStrip के लिए walk_request ही primary source है.
-/// active_walk document होना जरूरी नहीं है.
+///     active_walk / active_walks are NOT used.
+///
+/// Request lifecycle:
+///
+///     pending/searching
+///          ↓
+///       accepted
+///          ↓
+///       reached
+///          ↓
+///       started/live
+///          ↓
+///       completed/ended
+///
+/// LIVE WALK UI:
+///
+///     Pending/Search → SHOW
+///     Accepted       → SHOW
+///     Rejected       → HIDE
+///     Cancelled      → HIDE
+///     Reached        → SHOW
+///     Started/Live   → SHOW
+///     Completed      → HIDE
 /// ============================================================
 
 class AppStateService {
@@ -46,10 +65,6 @@ class AppStateService {
           _firestore.collection('walk_request');
 
   CollectionReference<Map<String, dynamic>>
-      get _activeWalks =>
-          _firestore.collection('active_walk');
-
-  CollectionReference<Map<String, dynamic>>
       get _liveWalkSessions =>
           _firestore.collection('liveWalkSessions');
 
@@ -69,24 +84,25 @@ class AppStateService {
   // GETTERS
   // ============================================================
 
-  String? get activeWalkId =>
-      _activeWalkId;
+  String? get activeWalkId => _activeWalkId;
 
-  String? get activeSessionId =>
-      _activeSessionId;
+  String? get activeSessionId => _activeSessionId;
 
-  Map<String, dynamic>?
-      get activeWalkData =>
-          _activeWalkData;
+  Map<String, dynamic>? get activeWalkData =>
+      _activeWalkData;
 
-  Map<String, dynamic>?
-      get activeSessionData =>
-          _activeSessionData;
+  Map<String, dynamic>? get activeSessionData =>
+      _activeSessionData;
 
   bool get hasActiveWalk =>
       _activeWalkId != null &&
       _activeWalkData != null &&
       _activeWalkData!.isNotEmpty;
+
+  bool get hasActiveSession =>
+      _activeSessionId != null &&
+      _activeSessionData != null &&
+      _activeSessionData!.isNotEmpty;
 
   // ============================================================
   // SUBSCRIPTIONS
@@ -94,9 +110,6 @@ class AppStateService {
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _walkSubscription;
-
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
-      _activeWalkSubscription;
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
       _sessionSubscription;
@@ -130,11 +143,20 @@ class AppStateService {
 
   // ============================================================
   // RECOVER CURRENT STATE
+  //
+  // Used after:
+  // - app startup
+  // - app resume
+  // - login
+  //
+  // We intentionally read ALL request documents for this walker
+  // and resolve the current active one locally.
+  // This avoids depending on a Firestore whereIn list that could
+  // miss another valid request status.
   // ============================================================
 
   Future<void> recoverCurrentState() async {
-    final User? user =
-        _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
       await clearState();
@@ -149,107 +171,54 @@ class AppStateService {
                 'walkerUid',
                 isEqualTo: user.uid,
               )
-              .where(
-                'status',
-                whereIn: <String>[
-                  'accepted',
-                  'active',
-                  'started',
-                  'live',
-                ],
-              )
               .get();
 
-      if (snapshot.docs.isEmpty) {
-        await _clearIfNoActiveRequest();
-        return;
-      }
-
-      DocumentSnapshot<Map<String, dynamic>>
+      final QueryDocumentSnapshot<
+              Map<String, dynamic>>?
           selected =
-          snapshot.docs.first;
-
-      Map<String, dynamic>?
-          firstData =
-          selected.data();
-
-      if (firstData == null) {
-        await _clearIfNoActiveRequest();
-        return;
-      }
-
-      int selectedPriority =
-          _statusPriority(
-        firstData['status'],
+          _selectCurrentRequest(
+        snapshot.docs,
       );
 
-      for (final DocumentSnapshot<
-              Map<String, dynamic>> doc
-          in snapshot.docs) {
-        final Map<String, dynamic>?
-            docData =
-            doc.data();
-
-        if (docData == null) {
-          continue;
-        }
-
-        final int priority =
-            _statusPriority(
-          docData['status'],
-        );
-
-        if (priority > selectedPriority) {
-          selected = doc;
-          selectedPriority = priority;
-        }
+      if (selected == null) {
+        await _clearRequestAndSession();
+        return;
       }
 
       final Map<String, dynamic>?
-          selectedData =
+          data =
           selected.data();
 
-      if (selectedData == null) {
-        await _clearIfNoActiveRequest();
+      if (data == null) {
+        await _clearRequestAndSession();
         return;
       }
 
-      _activeWalkId =
-          selected.id;
-
-      _activeWalkData =
-          Map<String, dynamic>.from(
-        selectedData,
+      _setWalkData(
+        selected.id,
+        data,
       );
 
-      _activeSessionId =
-          _firstNonEmpty(
-        <dynamic>[
-          selectedData['liveWalkSessionId'],
-          selectedData['sessionId'],
-        ],
+      await _resolveSessionForCurrentWalk(
+        data,
       );
 
       await _startRequestListener();
 
-      await _startOptionalActiveWalkListener();
-
-      await _startSessionListener();
-
     } catch (_) {
-      // Keep cached state on temporary Firebase errors.
+      // Keep existing cached state on temporary
+      // Firebase/network errors.
     }
   }
 
   // ============================================================
-  // REALTIME WALK REQUEST LISTENER
+  // REALTIME REQUEST LISTENER
   // ============================================================
 
   Future<void> _startRequestListener() async {
     await _walkSubscription?.cancel();
 
-    final User? user =
-        _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
       return;
@@ -263,160 +232,334 @@ class AppStateService {
             )
             .snapshots()
             .listen(
-      (snapshot) {
-        DocumentSnapshot<Map<String, dynamic>>?
-            selected;
-
-        int bestPriority = 0;
-
-        for (final DocumentSnapshot<
-                Map<String, dynamic>> doc
-            in snapshot.docs) {
-          final Map<String, dynamic>?
-              docData =
-              doc.data();
-
-          if (docData == null) {
-            continue;
-          }
-
-          final int priority =
-              _statusPriority(
-            docData['status'],
-          );
-
-          if (priority > bestPriority ||
-              (priority == bestPriority &&
-                  doc.id == _activeWalkId)) {
-            selected = doc;
-            bestPriority = priority;
-          }
-        }
+      (
+        QuerySnapshot<Map<String, dynamic>>
+            snapshot,
+      ) {
+        final QueryDocumentSnapshot<
+                Map<String, dynamic>>?
+            selected =
+            _selectCurrentRequest(
+          snapshot.docs,
+        );
 
         if (selected == null) {
           unawaited(
-            _clearIfNoActiveRequest(),
+            _clearRequestAndSession(),
           );
           return;
         }
 
         final Map<String, dynamic>?
-            selectedData =
+            data =
             selected.data();
 
-        if (selectedData == null) {
+        if (data == null) {
           return;
         }
 
-        _activeWalkId =
-            selected.id;
-
-        _activeWalkData =
-            Map<String, dynamic>.from(
-          selectedData,
+        _setWalkData(
+          selected.id,
+          data,
         );
-
-        final String sessionId =
-            _firstNonEmpty(
-          <dynamic>[
-            selectedData['liveWalkSessionId'],
-            selectedData['sessionId'],
-          ],
-        );
-
-        if (sessionId !=
-            (_activeSessionId ?? '')) {
-          _activeSessionId =
-              sessionId.isEmpty
-                  ? null
-                  : sessionId;
-
-          unawaited(
-            _startSessionListener(),
-          );
-        }
 
         unawaited(
-          _startOptionalActiveWalkListener(),
+          _resolveSessionForCurrentWalk(
+            data,
+          ),
         );
       },
       onError: (_) {
-        // Preserve cached state.
+        // Preserve cached state if Firestore temporarily
+        // becomes unavailable.
       },
     );
   }
 
   // ============================================================
-  // OPTIONAL ACTIVE WALK
+  // SELECT CURRENT REQUEST
+  //
+  // Only these request statuses are considered active:
+  //
+  // PENDING
+  // SEARCHING
+  // REQUESTED
+  // CREATED
+  // ACCEPTED
+  // ACTIVE
+  // REACHED
+  // STARTED
+  // LIVE
+  //
+  // Rejected/cancelled/completed/ended are ignored.
   // ============================================================
 
-  Future<void>
-      _startOptionalActiveWalkListener() async {
-    final Map<String, dynamic>?
-        currentData =
-        _activeWalkData;
+  QueryDocumentSnapshot<
+          Map<String, dynamic>>?
+      _selectCurrentRequest(
+    List<QueryDocumentSnapshot<
+            Map<String, dynamic>>>
+        documents,
+  ) {
+    final List<QueryDocumentSnapshot<
+            Map<String, dynamic>>>
+        candidates =
+        documents.where(
+      (
+        QueryDocumentSnapshot<
+            Map<String, dynamic>>
+            document,
+      ) {
+        final Map<String, dynamic> data =
+            document.data();
 
-    if (currentData == null) {
-      return;
+        final String status =
+            _status(
+          data['status'],
+        );
+
+        return _isRequestActive(status);
+      },
+    ).toList();
+
+    if (candidates.isEmpty) {
+      return null;
     }
 
-    final String activeWalkId =
+    candidates.sort(
+      (
+        QueryDocumentSnapshot<
+                Map<String, dynamic>>
+            a,
+        QueryDocumentSnapshot<
+                Map<String, dynamic>>
+            b,
+      ) {
+        final int
+            priorityCompare =
+            _statusPriority(
+          b.data()['status'],
+        ).compareTo(
+          _statusPriority(
+            a.data()['status'],
+          ),
+        );
+
+        if (priorityCompare != 0) {
+          return priorityCompare;
+        }
+
+        return _documentTime(b)
+            .compareTo(
+          _documentTime(a),
+        );
+      },
+    );
+
+    return candidates.first;
+  }
+
+  // ============================================================
+  // SET WALK DATA
+  // ============================================================
+
+  void _setWalkData(
+    String walkId,
+    Map<String, dynamic> data,
+  ) {
+    _activeWalkId =
+        walkId.trim();
+
+    _activeWalkData =
+        Map<String, dynamic>.from(
+      data,
+    );
+
+    final String sessionId =
         _firstNonEmpty(
       <dynamic>[
-        currentData['activeWalkId'],
-        currentData['active_walk_id'],
+        data['liveWalkSessionId'],
+        data['sessionId'],
       ],
     );
 
-    if (activeWalkId.isEmpty) {
-      await _activeWalkSubscription?.cancel();
+    if (sessionId.isNotEmpty &&
+        sessionId !=
+            (_activeSessionId ?? '')) {
+      _activeSessionId =
+          sessionId;
+    }
+  }
 
-      _activeWalkSubscription = null;
+  // ============================================================
+  // RESOLVE LIVE SESSION
+  //
+  // First uses session ID stored in walk_request.
+  //
+  // If request does not contain session ID, searches
+  // liveWalkSessions using walkerUid + walkId.
+  // ============================================================
+
+  Future<void> _resolveSessionForCurrentWalk(
+    Map<String, dynamic> requestData,
+  ) async {
+    final String walkId =
+        _firstNonEmpty(
+      <dynamic>[
+        requestData['walkId'],
+        requestData['requestId'],
+        requestData['walkRequestId'],
+        _activeWalkId,
+      ],
+    );
+
+    String sessionId =
+        _firstNonEmpty(
+      <dynamic>[
+        requestData['liveWalkSessionId'],
+        requestData['sessionId'],
+        _activeSessionId,
+      ],
+    );
+
+    // ==========================================================
+    // SESSION ID ALREADY KNOWN
+    // ==========================================================
+
+    if (sessionId.isNotEmpty) {
+      _activeSessionId =
+          sessionId;
+
+      await _startSessionListener();
 
       return;
     }
 
-    await _activeWalkSubscription?.cancel();
+    // ==========================================================
+    // NO SESSION ID YET
+    //
+    // Search liveWalkSessions for this walk.
+    // ==========================================================
 
-    _activeWalkSubscription =
-        _activeWalks
-            .doc(activeWalkId)
-            .snapshots()
-            .listen(
-      (snapshot) {
-        if (!snapshot.exists) {
-          return;
-        }
+    if (walkId.isEmpty) {
+      _activeSessionData = null;
+      return;
+    }
 
-        final Map<String, dynamic>?
-            activeData =
-            snapshot.data();
+    final User? user =
+        _auth.currentUser;
 
-        if (activeData == null) {
-          return;
-        }
+    if (user == null) {
+      return;
+    }
 
-        final Map<String, dynamic>
-            baseData =
-            _activeWalkData == null
-                ? <String, dynamic>{}
-                : Map<String, dynamic>.from(
-                    _activeWalkData!,
-                  );
+    try {
+      final QuerySnapshot<Map<String, dynamic>>
+          snapshot =
+          await _liveWalkSessions
+              .where(
+                'walkerUid',
+                isEqualTo: user.uid,
+              )
+              .where(
+                'walkId',
+                isEqualTo: walkId,
+              )
+              .limit(10)
+              .get();
 
-        _activeWalkData = <String, dynamic>{
-          ...baseData,
-          ...activeData,
-        };
-      },
-      onError: (_) {
-        // Optional listener only.
-      },
-    );
+      final QueryDocumentSnapshot<
+              Map<String, dynamic>>?
+          session =
+          _selectCurrentSession(
+        snapshot.docs,
+      );
+
+      if (session == null) {
+        _activeSessionId = null;
+        _activeSessionData = null;
+        await _sessionSubscription?.cancel();
+        _sessionSubscription = null;
+        return;
+      }
+
+      sessionId = session.id;
+
+      _activeSessionId =
+          sessionId;
+
+      final Map<String, dynamic>?
+          sessionData =
+          session.data();
+
+      if (sessionData != null) {
+        _activeSessionData =
+            Map<String, dynamic>.from(
+          sessionData,
+        );
+      }
+
+      await _startSessionListener();
+
+    } catch (_) {
+      // Preserve cached session state.
+    }
   }
 
   // ============================================================
-  // LIVE SESSION
+  // CURRENT SESSION
+  // ============================================================
+
+  QueryDocumentSnapshot<
+          Map<String, dynamic>>?
+      _selectCurrentSession(
+    List<QueryDocumentSnapshot<
+            Map<String, dynamic>>>
+        documents,
+  ) {
+    final List<QueryDocumentSnapshot<
+            Map<String, dynamic>>>
+        candidates =
+        documents.where(
+      (
+        QueryDocumentSnapshot<
+            Map<String, dynamic>>
+            document,
+      ) {
+        final String status =
+            _status(
+          document.data()['status'],
+        );
+
+        return !_isSessionEnded(status);
+      },
+    ).toList();
+
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    candidates.sort(
+      (
+        QueryDocumentSnapshot<
+                Map<String, dynamic>>
+            a,
+        QueryDocumentSnapshot<
+                Map<String, dynamic>>
+            b,
+      ) {
+        return _documentTime(b)
+            .compareTo(
+          _documentTime(a),
+        );
+      },
+    );
+
+    return candidates.first;
+  }
+
+  // ============================================================
+  // LIVE SESSION LISTENER
   // ============================================================
 
   Future<void> _startSessionListener() async {
@@ -428,18 +571,23 @@ class AppStateService {
         _activeSessionId;
 
     if (sessionId == null ||
-        sessionId.isEmpty) {
+        sessionId.trim().isEmpty) {
       _activeSessionData = null;
       return;
     }
 
     _sessionSubscription =
         _liveWalkSessions
-            .doc(sessionId)
+            .doc(sessionId.trim())
             .snapshots()
             .listen(
-      (snapshot) {
+      (
+        DocumentSnapshot<
+                Map<String, dynamic>>
+            snapshot,
+      ) {
         if (!snapshot.exists) {
+          _activeSessionData = null;
           return;
         }
 
@@ -448,6 +596,26 @@ class AppStateService {
             snapshot.data();
 
         if (data == null) {
+          return;
+        }
+
+        final String status =
+            _status(
+          data['status'],
+        );
+
+        // ======================================================
+        // SESSION COMPLETED / ENDED
+        // ======================================================
+
+        if (_isSessionEnded(status)) {
+          _activeSessionData = null;
+          _activeSessionId = null;
+
+          unawaited(
+            _clearCompletedRequestIfNecessary(),
+          );
+
           return;
         }
 
@@ -464,111 +632,21 @@ class AppStateService {
 
   // ============================================================
   // WALK REQUEST MONITOR
+  //
+  // Kept for compatibility with existing callers.
   // ============================================================
 
   void startWalkRequestMonitor() {
-    final User? user =
-        _auth.currentUser;
-
-    if (user == null) {
-      return;
-    }
-
-    _walkSubscription?.cancel();
-
-    _walkSubscription =
-        _walkRequests
-            .where(
-              'walkerUid',
-              isEqualTo: user.uid,
-            )
-            .snapshots()
-            .listen(
-      (snapshot) {
-        DocumentSnapshot<Map<String, dynamic>>?
-            selected;
-
-        int bestPriority = 0;
-
-        for (final DocumentSnapshot<
-                Map<String, dynamic>> doc
-            in snapshot.docs) {
-          final Map<String, dynamic>?
-              docData =
-              doc.data();
-
-          if (docData == null) {
-            continue;
-          }
-
-          final int priority =
-              _statusPriority(
-            docData['status'],
-          );
-
-          if (priority > bestPriority ||
-              (priority == bestPriority &&
-                  doc.id == _activeWalkId)) {
-            selected = doc;
-            bestPriority = priority;
-          }
-        }
-
-        if (selected == null) {
-          unawaited(
-            _clearIfNoActiveRequest(),
-          );
-          return;
-        }
-
-        final Map<String, dynamic>?
-            selectedData =
-            selected.data();
-
-        if (selectedData == null) {
-          return;
-        }
-
-        _activeWalkId =
-            selected.id;
-
-        _activeWalkData =
-            Map<String, dynamic>.from(
-          selectedData,
-        );
-
-        final String sessionId =
-            _firstNonEmpty(
-          <dynamic>[
-            selectedData['liveWalkSessionId'],
-            selectedData['sessionId'],
-          ],
-        );
-
-        if (sessionId !=
-            (_activeSessionId ?? '')) {
-          _activeSessionId =
-              sessionId.isEmpty
-                  ? null
-                  : sessionId;
-
-          unawaited(
-            _startSessionListener(),
-          );
-        }
-
-        unawaited(
-          _startOptionalActiveWalkListener(),
-        );
-      },
-      onError: (_) {
-        // Preserve cached state.
-      },
+    unawaited(
+      _startRequestListener(),
     );
   }
 
   // ============================================================
   // SET ACTIVE WALK
+  //
+  // Compatibility API for existing code.
+  // No active_walk collection is used.
   // ============================================================
 
   Future<void> setActiveWalk({
@@ -631,12 +709,13 @@ class AppStateService {
 
       await _startRequestListener();
 
-      await _startOptionalActiveWalkListener();
-
-      await _startSessionListener();
-
+      if (_activeWalkData != null) {
+        await _resolveSessionForCurrentWalk(
+          _activeWalkData!,
+        );
+      }
     } catch (_) {
-      // Preserve state.
+      // Preserve current state.
     }
   }
 
@@ -649,15 +728,13 @@ class AppStateService {
   }
 
   // ============================================================
-  // CLEAR
+  // CLEAR REQUEST + SESSION
   // ============================================================
 
   Future<void>
-      _clearIfNoActiveRequest() async {
-    await _activeWalkSubscription?.cancel();
+      _clearRequestAndSession() async {
     await _sessionSubscription?.cancel();
 
-    _activeWalkSubscription = null;
     _sessionSubscription = null;
 
     _activeWalkId = null;
@@ -666,14 +743,36 @@ class AppStateService {
     _activeSessionData = null;
   }
 
+  // ============================================================
+  // CLEAR COMPLETED REQUEST
+  //
+  // Do not keep a completed session/request as active state.
+  // ============================================================
+
+  Future<void>
+      _clearCompletedRequestIfNecessary() async {
+    final String status =
+        _status(
+      _activeWalkData?['status'],
+    );
+
+    if (_isRequestEnded(status)) {
+      await _clearRequestAndSession();
+    }
+  }
+
+  // ============================================================
+  // CLEAR ALL STATE
+  // ============================================================
+
   Future<void> clearState() async {
     await _walkSubscription?.cancel();
-    await _activeWalkSubscription?.cancel();
     await _sessionSubscription?.cancel();
+    await _authSubscription?.cancel();
 
     _walkSubscription = null;
-    _activeWalkSubscription = null;
     _sessionSubscription = null;
+    _authSubscription = null;
 
     _activeWalkId = null;
     _activeSessionId = null;
@@ -687,12 +786,10 @@ class AppStateService {
 
   Future<void> dispose() async {
     await _walkSubscription?.cancel();
-    await _activeWalkSubscription?.cancel();
     await _sessionSubscription?.cancel();
     await _authSubscription?.cancel();
 
     _walkSubscription = null;
-    _activeWalkSubscription = null;
     _sessionSubscription = null;
     _authSubscription = null;
 
@@ -703,6 +800,72 @@ class AppStateService {
   }
 
   // ============================================================
+  // REQUEST ACTIVE STATUS
+  // ============================================================
+
+  bool _isRequestActive(
+    String status,
+  ) {
+    switch (status) {
+      case 'PENDING':
+      case 'SEARCHING':
+      case 'REQUESTED':
+      case 'CREATED':
+      case 'ACCEPTED':
+      case 'ACTIVE':
+      case 'REACHED':
+      case 'STARTED':
+      case 'LIVE':
+      case 'IN_PROGRESS':
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  // ============================================================
+  // REQUEST ENDED STATUS
+  // ============================================================
+
+  bool _isRequestEnded(
+    String status,
+  ) {
+    switch (status) {
+      case 'REJECTED':
+      case 'DECLINED':
+      case 'CANCELLED':
+      case 'CANCELED':
+      case 'COMPLETED':
+      case 'ENDED':
+      case 'EXPIRED':
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  // ============================================================
+  // SESSION ENDED STATUS
+  // ============================================================
+
+  bool _isSessionEnded(
+    String status,
+  ) {
+    switch (status) {
+      case 'COMPLETED':
+      case 'ENDED':
+      case 'CANCELLED':
+      case 'CANCELED':
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  // ============================================================
   // STATUS PRIORITY
   // ============================================================
 
@@ -710,24 +873,49 @@ class AppStateService {
     dynamic value,
   ) {
     final String status =
-        _readString(value).toLowerCase();
+        _status(value);
 
     switch (status) {
-      case 'live':
+      case 'LIVE':
+      case 'IN_PROGRESS':
+        return 7;
+
+      case 'STARTED':
+        return 6;
+
+      case 'REACHED':
+        return 5;
+
+      case 'ACTIVE':
         return 4;
 
-      case 'started':
+      case 'ACCEPTED':
         return 3;
 
-      case 'active':
+      case 'SEARCHING':
         return 2;
 
-      case 'accepted':
+      case 'PENDING':
+      case 'REQUESTED':
+      case 'CREATED':
         return 1;
 
       default:
         return 0;
     }
+  }
+
+  // ============================================================
+  // STATUS
+  // ============================================================
+
+  String _status(
+    dynamic value,
+  ) {
+    return _readString(value)
+        .toUpperCase()
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_');
   }
 
   // ============================================================
@@ -763,5 +951,42 @@ class AppStateService {
     }
 
     return '';
+  }
+
+  // ============================================================
+  // DOCUMENT TIME
+  // ============================================================
+
+  DateTime _documentTime(
+    QueryDocumentSnapshot<
+            Map<String, dynamic>>
+        document,
+  ) {
+    final Map<String, dynamic> data =
+        document.data();
+
+    final List<dynamic> values =
+        <dynamic>[
+      data['updatedAt'],
+      data['createdAt'],
+      data['acceptedAt'],
+      data['reachedAt'],
+      data['startedAt'],
+      data['endedAt'],
+    ];
+
+    for (final dynamic value in values) {
+      if (value is Timestamp) {
+        return value.toDate();
+      }
+
+      if (value is DateTime) {
+        return value;
+      }
+    }
+
+    return DateTime.fromMillisecondsSinceEpoch(
+      0,
+    );
   }
 }
