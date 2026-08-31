@@ -394,27 +394,39 @@ class _MainNavigationScreenState
     // OPEN LIVE WALK
     // ==========================================================
 
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) {
-          return LiveWalkScreen(
-            ownerUid: ownerUid,
-            ownerName: ownerName,
-            walkId: request.id,
-            dogName: dogName,
-            dogBreed: dogBreed,
-            ownerPhone:
-                ownerPhone.isEmpty
-                    ? null
-                    : ownerPhone,
-            sessionId:
-                sessionId.isEmpty
-                    ? null
-                    : sessionId,
-          );
-        },
+    if (sessionId.trim().isEmpty) {
+  if (!context.mounted) {
+    return;
+  }
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        'Live Walk session is not ready yet. Please try again.',
       ),
-    );
+    ),
+  );
+
+  return;
+}
+
+await Navigator.of(context).push(
+  MaterialPageRoute<void>(
+    builder: (_) {
+      return LiveWalkScreen(
+        ownerUid: ownerUid,
+        ownerName: ownerName,
+        walkId: request.id,
+        dogName: dogName,
+        dogBreed: dogBreed,
+        ownerPhone: ownerPhone.trim().isEmpty
+            ? null
+            : ownerPhone.trim(),
+        sessionId: sessionId.trim(),
+      );
+    },
+  ),
+);
 
     // ==========================================================
     // REFRESH AFTER RETURNING
