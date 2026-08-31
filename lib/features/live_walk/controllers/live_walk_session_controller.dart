@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../../core/services/live_walk_background_service.dart';
+import '../services/live_walk_background_service.dart';
+
 import '../../../core/services/live_walk_session_service.dart';
 
 class LiveWalkSessionController extends ChangeNotifier {
