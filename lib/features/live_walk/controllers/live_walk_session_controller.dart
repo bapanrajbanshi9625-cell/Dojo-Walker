@@ -28,7 +28,8 @@ class LiveWalkSessionController extends ChangeNotifier {
   final String dogBreed;
   final String? ownerPhone;
 
-  /// REAL document ID:
+  /// REAL FIRESTORE DOCUMENT ID
+  ///
   /// liveWalkSessions/{sessionId}
   final String sessionId;
 
@@ -53,7 +54,11 @@ class LiveWalkSessionController extends ChangeNotifier {
   double _distanceKm = 0.0;
   int _steps = 0;
 
-  Map<String, dynamic> _sessionData = <String, dynamic>{};
+  int _peeCount = 0;
+  int _poopCount = 0;
+
+  Map<String, dynamic> _sessionData =
+      <String, dynamic>{};
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
       _sessionSubscription;
@@ -70,7 +75,8 @@ class LiveWalkSessionController extends ChangeNotifier {
 
   bool get ending => _endingWalk;
 
-  bool get busy => _startingWalk || _endingWalk;
+  bool get busy =>
+      _startingWalk || _endingWalk;
 
   double get distanceKm => _distanceKm;
 
@@ -78,38 +84,52 @@ class LiveWalkSessionController extends ChangeNotifier {
 
   int get steps => _steps;
 
+  int get peeCount => _peeCount;
+
+  int get poopCount => _poopCount;
+
   Map<String, dynamic> get sessionData =>
-      Map<String, dynamic>.unmodifiable(_sessionData);
+      Map<String, dynamic>.unmodifiable(
+        _sessionData,
+      );
 
   // ============================================================
   // TIMELINE
   // ============================================================
 
-  dynamic get createdAt => _sessionData['createdAt'];
+  dynamic get createdAt =>
+      _sessionData['createdAt'];
 
-  dynamic get acceptedAt => _sessionData['acceptedAt'];
+  dynamic get acceptedAt =>
+      _sessionData['acceptedAt'];
 
-  dynamic get reachedAt => _sessionData['reachedAt'];
+  dynamic get reachedAt =>
+      _sessionData['reachedAt'];
 
-  dynamic get startedAt => _sessionData['startedAt'];
+  dynamic get startedAt =>
+      _sessionData['startedAt'];
 
-  dynamic get completedAt => _sessionData['completedAt'];
+  dynamic get completedAt =>
+      _sessionData['completedAt'];
 
-  dynamic get endedAt => _sessionData['endedAt'];
+  dynamic get endedAt =>
+      _sessionData['endedAt'];
 
   // ============================================================
   // GPS
   // ============================================================
 
   bool get gpsReady {
-    final dynamic location = _sessionData['currentLocation'];
+    final dynamic location =
+        _sessionData['currentLocation'];
 
     if (location is! Map) {
       return false;
     }
 
     final double? lat = _readDouble(
-      location['lat'] ?? location['latitude'],
+      location['lat'] ??
+          location['latitude'],
     );
 
     final double? lng = _readDouble(
@@ -129,15 +149,19 @@ class LiveWalkSessionController extends ChangeNotifier {
   // SESSION REFERENCE
   // ============================================================
 
-  DocumentReference<Map<String, dynamic>> get sessionRef {
-    return _sessionService.sessionRef(sessionId);
+  DocumentReference<Map<String, dynamic>>
+      get sessionRef {
+    return _sessionService.sessionRef(
+      sessionId,
+    );
   }
 
   // ============================================================
-  // STREAM
+  // SESSION STREAM
   // ============================================================
 
-  Stream<DocumentSnapshot<Map<String, dynamic>>> get sessionStream {
+  Stream<DocumentSnapshot<Map<String, dynamic>>>
+      get sessionStream {
     return sessionRef.snapshots();
   }
 
@@ -149,19 +173,29 @@ class LiveWalkSessionController extends ChangeNotifier {
     try {
       debugPrint(
         'LiveWalkSessionController.initialize '
-        'walkId=$walkId sessionId=$sessionId',
+        'walkId=$walkId '
+        'sessionId=$sessionId',
       );
 
       await _sessionSubscription?.cancel();
 
-      final DocumentSnapshot<Map<String, dynamic>> snapshot =
+      // --------------------------------------------------------
+      // FIRST SNAPSHOT
+      // --------------------------------------------------------
+
+      final DocumentSnapshot<
+              Map<String, dynamic>>
+          snapshot =
           await sessionRef.get();
 
       if (snapshot.exists) {
         final Map<String, dynamic> data =
-            snapshot.data() ?? <String, dynamic>{};
+            snapshot.data() ??
+                <String, dynamic>{};
 
-        updateFromSession(data);
+        if (data.isNotEmpty) {
+          updateFromSession(data);
+        }
       } else {
         debugPrint(
           'Live session not found: '
@@ -169,14 +203,24 @@ class LiveWalkSessionController extends ChangeNotifier {
         );
       }
 
-      _sessionSubscription = sessionStream.listen(
-        (DocumentSnapshot<Map<String, dynamic>> snapshot) {
+      // --------------------------------------------------------
+      // REAL-TIME STREAM
+      // --------------------------------------------------------
+
+      _sessionSubscription =
+          sessionStream.listen(
+        (
+          DocumentSnapshot<
+                  Map<String, dynamic>>
+              snapshot,
+        ) {
           if (!snapshot.exists) {
             return;
           }
 
           final Map<String, dynamic> data =
-              snapshot.data() ?? <String, dynamic>{};
+              snapshot.data() ??
+                  <String, dynamic>{};
 
           if (data.isEmpty) {
             return;
@@ -189,6 +233,7 @@ class LiveWalkSessionController extends ChangeNotifier {
             'LiveWalk session stream error: $error',
           );
         },
+        cancelOnError: false,
       );
     } catch (e) {
       debugPrint(
@@ -208,14 +253,17 @@ class LiveWalkSessionController extends ChangeNotifier {
       return;
     }
 
-    _sessionData = Map<String, dynamic>.from(data);
+    _sessionData =
+        Map<String, dynamic>.from(data);
 
     // ----------------------------------------------------------
     // DISTANCE
     // ----------------------------------------------------------
 
     final double? firestoreDistance =
-        _readDouble(data['distanceKm']);
+        _readDouble(
+      data['distanceKm'],
+    );
 
     if (firestoreDistance != null &&
         firestoreDistance >= 0) {
@@ -234,11 +282,41 @@ class LiveWalkSessionController extends ChangeNotifier {
     // ----------------------------------------------------------
 
     final int? firestoreSteps =
-        _readInt(data['steps']);
+        _readInt(
+      data['steps'],
+    );
 
     if (firestoreSteps != null &&
         firestoreSteps >= 0) {
       _steps = firestoreSteps;
+    }
+
+    // ----------------------------------------------------------
+    // PEE
+    // ----------------------------------------------------------
+
+    final int? firestorePee =
+        _readInt(
+      data['peeCount'],
+    );
+
+    if (firestorePee != null &&
+        firestorePee >= 0) {
+      _peeCount = firestorePee;
+    }
+
+    // ----------------------------------------------------------
+    // POOP
+    // ----------------------------------------------------------
+
+    final int? firestorePoop =
+        _readInt(
+      data['poopCount'],
+    );
+
+    if (firestorePoop != null &&
+        firestorePoop >= 0) {
+      _poopCount = firestorePoop;
     }
 
     // ----------------------------------------------------------
@@ -255,15 +333,23 @@ class LiveWalkSessionController extends ChangeNotifier {
     final bool walkStarted =
         data['walkStarted'] == true;
 
+    final bool trackingStarted =
+        data['trackingStarted'] == true;
+
+    final bool walkEnded =
+        data['walkEnded'] == true;
+
     if (status == 'active' ||
         status == 'started' ||
         status == 'live' ||
-        walkStarted) {
+        walkStarted ||
+        trackingStarted) {
       _walkStarted = true;
     }
 
     if (status == 'completed' ||
-        status == 'ended') {
+        status == 'ended' ||
+        walkEnded) {
       _walkStarted = false;
     }
 
@@ -304,6 +390,52 @@ class LiveWalkSessionController extends ChangeNotifier {
   }
 
   // ============================================================
+  // ACTIVITY UPDATE
+  // ============================================================
+
+  void updateActivities({
+    int? peeCount,
+    int? poopCount,
+  }) {
+    if (peeCount != null &&
+        peeCount >= 0) {
+      _peeCount = peeCount;
+    }
+
+    if (poopCount != null &&
+        poopCount >= 0) {
+      _poopCount = poopCount;
+    }
+
+    notifyListeners();
+
+    unawaited(
+      _backgroundService.updateActivities(
+        peeCount: _peeCount,
+        poopCount: _poopCount,
+      ),
+    );
+  }
+
+  // ============================================================
+  // STEPS UPDATE
+  // ============================================================
+
+  void updateSteps(int value) {
+    if (value < 0) {
+      return;
+    }
+
+    _steps = value;
+
+    notifyListeners();
+
+    _backgroundService.updateSteps(
+      value,
+    );
+  }
+
+  // ============================================================
   // START WALK
   // ============================================================
 
@@ -325,6 +457,10 @@ class LiveWalkSessionController extends ChangeNotifier {
         'sessionId=$sessionId',
       );
 
+      // --------------------------------------------------------
+      // UPDATE LIVE SESSION
+      // --------------------------------------------------------
+
       await _sessionService.startWalk(
         sessionId: sessionId,
         walkId: walkId,
@@ -344,6 +480,8 @@ class LiveWalkSessionController extends ChangeNotifier {
         sessionId: sessionId,
         initialDistanceKm: _distanceKm,
         initialSteps: _steps,
+        initialPeeCount: _peeCount,
+        initialPoopCount: _poopCount,
       );
 
       if (!gpsStarted) {
@@ -351,6 +489,10 @@ class LiveWalkSessionController extends ChangeNotifier {
           'Unable to start GPS tracking.',
         );
       }
+
+      // --------------------------------------------------------
+      // LOCAL STATE
+      // --------------------------------------------------------
 
       _walkStarted = true;
 
@@ -368,6 +510,8 @@ class LiveWalkSessionController extends ChangeNotifier {
         'trackingEnded': false,
         'walkEnded': false,
       };
+
+      notifyListeners();
     } catch (e) {
       debugPrint(
         'LiveWalkSessionController.startWalk: $e',
@@ -513,8 +657,11 @@ class LiveWalkSessionController extends ChangeNotifier {
 
     _distanceKm = 0.0;
     _steps = 0;
+    _peeCount = 0;
+    _poopCount = 0;
 
-    _sessionData = <String, dynamic>{};
+    _sessionData =
+        <String, dynamic>{};
 
     notifyListeners();
   }
