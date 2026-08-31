@@ -1,619 +1,1618 @@
+// File:
+// lib/features/live_walk/screens/live_walk_screen.dart
+
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 
-class LiveWalkSessionService {
-  LiveWalkSessionService._();
+import '../../../core/constants/app_colors.dart';
+import '../controllers/live_walk_session_controller.dart';
+import '../widgets/live_walk_complete_slider.dart';
+import '../widgets/live_walk_map_layer.dart';
+import '../widgets/live_walk_review_bottom_sheet.dart';
 
-  static final LiveWalkSessionService instance =
-      LiveWalkSessionService._();
+class LiveWalkScreen extends StatefulWidget {
+  const LiveWalkScreen({
+    super.key,
+    required this.ownerUid,
+    required this.ownerName,
+    required this.walkId,
+    required this.dogName,
+    this.dogBreed = '',
+    this.ownerPhone,
+    this.sessionId,
+  });
 
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+  final String ownerUid;
+  final String ownerName;
+  final String walkId;
+  final String dogName;
+  final String dogBreed;
+  final String? ownerPhone;
+  final String? sessionId;
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  @override
+  State<LiveWalkScreen> createState() => _LiveWalkScreenState();
+}
 
-  // ============================================================
-  // COLLECTIONS
-  // ============================================================
+class _LiveWalkScreenState extends State<LiveWalkScreen> {
+  late final LiveWalkSessionController _controller;
 
-  CollectionReference<Map<String, dynamic>>
-      get _sessions {
-    return _firestore.collection('liveWalkSessions');
+  bool _showingEndDialog = false;
+  bool _showingReview = false;
+
+  Map<String, dynamic> _lastSessionData = <String, dynamic>{};
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = LiveWalkSessionController(
+      ownerUid: widget.ownerUid,
+      ownerName: widget.ownerName,
+      walkId: widget.walkId,
+      dogName: widget.dogName,
+      dogBreed: widget.dogBreed,
+      ownerPhone: widget.ownerPhone,
+      sessionId: widget.sessionId,
+    );
+
+    _controller.addListener(_onControllerChanged);
+
+    unawaited(_controller.initialize());
   }
 
-  CollectionReference<Map<String, dynamic>>
-      get _activeWalks {
-    return _firestore.collection('active_walks');
-  }
-
-  // ============================================================
-  // CURRENT AUTH UID
-  // ============================================================
-
-  String get _currentAuthUid {
-    final User? user = _auth.currentUser;
-
-    final String uid =
-        user?.uid.trim() ?? '';
-
-    if (uid.isEmpty) {
-      throw Exception(
-        'Walker authentication is missing. Please login again.',
-      );
+  void _onControllerChanged() {
+    if (!mounted) {
+      return;
     }
 
-    return uid;
+    setState(() {});
+  }
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>> get _sessionStream {
+    return _controller.sessionStream;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: _sessionStream,
+      builder: (
+        BuildContext context,
+        AsyncSnapshot<DocumentSnapshot<Map<String, dynamic>>> snapshot,
+      ) {
+        final Map<String, dynamic> firestoreData =
+            snapshot.data?.data() ?? <String, dynamic>{};
+
+        if (firestoreData.isNotEmpty) {
+          _lastSessionData =
+              Map<String, dynamic>.from(firestoreData);
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) {
+              return;
+            }
+
+            _controller.updateFromSession(firestoreData);
+          });
+        }
+
+        final Map<String, dynamic> sessionData =
+            firestoreData.isNotEmpty
+                ? firestoreData
+                : _lastSessionData;
+
+        final bool walkStarted = _controller.walkStarted;
+        final bool ending = _controller.ending;
+        final bool starting = _controller.startingWalk;
+
+        return Scaffold(
+          backgroundColor: AppColors.cardBackground,
+
+          // ==========================================================
+          // APP BAR
+          // ==========================================================
+
+          appBar: AppBar(
+            automaticallyImplyLeading: true,
+            backgroundColor: AppColors.primary,
+            surfaceTintColor: AppColors.primary,
+            elevation: 0,
+            centerTitle: true,
+            title: const Text(
+              'LIVE WALK',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .5,
+              ),
+            ),
+            actions: [
+              IconButton(
+                tooltip: 'SOS',
+                onPressed: ending ? null : _openSos,
+                icon: const Icon(
+                  Icons.sos_rounded,
+                  color: Colors.white,
+                  size: 27,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Support',
+                onPressed: ending ? null : _openSupport,
+                icon: const Icon(
+                  Icons.support_agent_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ],
+          ),
+
+          // ==========================================================
+          // BODY
+          // ==========================================================
+
+          body: SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ==================================================
+                  // MAP
+                  // ==================================================
+
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      12,
+                      12,
+                      12,
+                      0,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: SizedBox(
+                        height: 340,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: LiveWalkMapLayer(
+                                sessionData: sessionData,
+                                gpsReady: _controller.gpsReady,
+                              ),
+                            ),
+                            Positioned(
+                              top: 12,
+                              left: 12,
+                              child: _liveMapBadge(),
+                            ),
+                            Positioned(
+                              top: 12,
+                              right: 12,
+                              child: _gpsBadge(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // ==================================================
+                  // DETAILS
+                  // ==================================================
+
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildDogOwnerCard(),
+
+                        const SizedBox(height: 14),
+
+                        // ==================================================
+                        // BEFORE START
+                        // ==================================================
+
+                        if (!walkStarted && !ending)
+                          _buildStartSection(starting),
+
+                        // ==================================================
+                        // ACTIVE WALK
+                        // ==================================================
+
+                        if (walkStarted && !ending) ...[
+                          _buildWalkingStatus(),
+
+                          const SizedBox(height: 14),
+
+                          _buildLiveStats(sessionData),
+
+                          const SizedBox(height: 14),
+
+                          _buildWalkInfo(),
+
+                          const SizedBox(height: 18),
+
+                          _buildCompleteSection(),
+                        ],
+
+                        // ==================================================
+                        // ENDING
+                        // ==================================================
+
+                        if (ending) _buildEndingSection(),
+
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   // ============================================================
-  // SESSION REFERENCE
+  // DOG / OWNER CARD
   // ============================================================
 
-  DocumentReference<Map<String, dynamic>> sessionRef(
-    String sessionId,
+  Widget _buildDogOwnerCard() {
+    final String cleanDogName =
+        widget.dogName.trim().isEmpty
+            ? 'Dog'
+            : widget.dogName.trim();
+
+    final String cleanOwnerName =
+        widget.ownerName.trim().isEmpty
+            ? 'Owner'
+            : widget.ownerName.trim();
+
+    final String cleanBreed =
+        widget.dogBreed.trim();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(
+                alpha: .10,
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.pets_rounded,
+              color: AppColors.primary,
+              size: 30,
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  cleanDogName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+
+                if (cleanBreed.isNotEmpty)
+                  Text(
+                    cleanBreed,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const Icon(
+                Icons.person_rounded,
+                size: 19,
+                color: Colors.black45,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                cleanOwnerName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // START SECTION
+  // ============================================================
+
+  Widget _buildStartSection(bool starting) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(
+                    alpha: .10,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: AppColors.primary,
+                  size: 28,
+                ),
+              ),
+
+              const SizedBox(width: 11),
+
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ready to Start?',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Start the walk when you are ready.',
+                      style: TextStyle(
+                        color: Colors.black54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          SizedBox(
+            width: double.infinity,
+            height: 58,
+            child: ElevatedButton(
+              onPressed:
+                  starting || _controller.ending
+                      ? null
+                      : _startWalk,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: Colors.black12,
+                disabledForegroundColor: Colors.black38,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child:
+                  starting
+                      ? const SizedBox(
+                        width: 25,
+                        height: 25,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                      : const Row(
+                        mainAxisAlignment:
+                            MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.play_arrow_rounded,
+                            size: 25,
+                          ),
+                          SizedBox(width: 7),
+                          Text(
+                            'START WALK',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: .5,
+                            ),
+                          ),
+                        ],
+                      ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // WALKING STATUS
+  // ============================================================
+
+  Widget _buildWalkingStatus() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 15,
+        vertical: 13,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.green.withValues(
+          alpha: .08,
+        ),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: Colors.green.withValues(
+            alpha: .25,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 11,
+            height: 11,
+            decoration: const BoxDecoration(
+              color: Colors.green,
+              shape: BoxShape.circle,
+            ),
+          ),
+
+          const SizedBox(width: 9),
+
+          const Expanded(
+            child: Text(
+              'WALKING • LIVE',
+              style: TextStyle(
+                color: Colors.green,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+                letterSpacing: .3,
+              ),
+            ),
+          ),
+
+          if (_controller.gpsReady)
+            const Icon(
+              Icons.gps_fixed_rounded,
+              color: Colors.green,
+              size: 19,
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // LIVE STATS
+  // ============================================================
+
+  Widget _buildLiveStats(
+    Map<String, dynamic> data,
   ) {
-    final String cleanId =
-        sessionId.trim();
+    final double distance =
+        _readDouble(data['distanceKm']) ??
+        _controller.totalDistanceKm;
 
-    if (cleanId.isEmpty) {
-      throw Exception(
-        'Live walk session ID is missing.',
-      );
-    }
+    final int steps =
+        _readInt(data['steps']) ??
+        _controller.steps;
 
-    return _sessions.doc(cleanId);
+    final String duration = _readDuration(data);
+
+    return Row(
+      children: [
+        Expanded(
+          child: _statCard(
+            Icons.route_rounded,
+            distance < 1
+                ? '${(distance * 1000).round()} m'
+                : '${distance.toStringAsFixed(2)} km',
+            'Distance',
+          ),
+        ),
+
+        const SizedBox(width: 10),
+
+        Expanded(
+          child: _statCard(
+            Icons.timer_rounded,
+            duration,
+            'Duration',
+          ),
+        ),
+
+        const SizedBox(width: 10),
+
+        Expanded(
+          child: _statCard(
+            Icons.directions_walk_rounded,
+            steps.toString(),
+            'Steps',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _statCard(
+    IconData icon,
+    String value,
+    String label,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        vertical: 15,
+        horizontal: 7,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: AppColors.primary,
+            size: 23,
+          ),
+
+          const SizedBox(height: 7),
+
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+
+          const SizedBox(height: 3),
+
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ============================================================
-  // FIND SESSION BY WALK ID
-  //
-  // IMPORTANT:
-  // Agar passed sessionId wrong/missing ho,
-  // to walkId se actual live session find hoga.
+  // WALK INFO
   // ============================================================
 
-  Future<DocumentSnapshot<Map<String, dynamic>>?>
-      _findSessionByWalkId(
-    String walkId,
-  ) async {
-    final String cleanWalkId =
-        walkId.trim();
+  Widget _buildWalkInfo() {
+    final String owner =
+        widget.ownerName.trim().isEmpty
+            ? 'Owner'
+            : widget.ownerName.trim();
 
-    if (cleanWalkId.isEmpty) {
-      return null;
-    }
+    final String dog =
+        widget.dogName.trim().isEmpty
+            ? 'Dog'
+            : widget.dogName.trim();
 
-    final QuerySnapshot<Map<String, dynamic>>
-        result =
-        await _sessions
-            .where(
-              'walkId',
-              isEqualTo: cleanWalkId,
-            )
-            .limit(1)
-            .get();
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          _infoRow(
+            Icons.person_rounded,
+            'Owner',
+            owner,
+          ),
 
-    if (result.docs.isEmpty) {
-      return null;
-    }
+          _infoDivider(),
 
-    return result.docs.first;
+          _infoRow(
+            Icons.pets_rounded,
+            'Dog',
+            dog,
+          ),
+
+          if (widget.dogBreed.trim().isNotEmpty) ...[
+            _infoDivider(),
+            _infoRow(
+              Icons.category_rounded,
+              'Breed',
+              widget.dogBreed.trim(),
+            ),
+          ],
+
+          if (widget.ownerPhone?.trim().isNotEmpty == true) ...[
+            _infoDivider(),
+            _infoRow(
+              Icons.phone_rounded,
+              'Phone',
+              widget.ownerPhone!.trim(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(
+    IconData icon,
+    String title,
+    String value,
+  ) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: AppColors.primary,
+        ),
+
+        const SizedBox(width: 10),
+
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.black54,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+
+        const Spacer(),
+
+        Flexible(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _infoDivider() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 10),
+      child: Divider(height: 1),
+    );
   }
 
   // ============================================================
-  // FIND ACTIVE WALK BY WALK ID
+  // COMPLETE SECTION
   // ============================================================
 
-  Future<DocumentSnapshot<Map<String, dynamic>>?>
-      _findActiveWalk(
-    String walkId,
-  ) async {
-    final String cleanWalkId =
-        walkId.trim();
+  Widget _buildCompleteSection() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        18,
+        16,
+        18,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(
+                alpha: .10,
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_rounded,
+              color: AppColors.primary,
+              size: 28,
+            ),
+          ),
 
-    if (cleanWalkId.isEmpty) {
-      return null;
-    }
+          const SizedBox(height: 10),
 
-    final QuerySnapshot<Map<String, dynamic>>
-        query =
-        await _activeWalks
-            .where(
-              'walkId',
-              isEqualTo: cleanWalkId,
-            )
-            .limit(1)
-            .get();
+          const Text(
+            'Finish Walk',
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+              color: AppColors.secondary,
+            ),
+          ),
 
-    if (query.docs.isNotEmpty) {
-      return query.docs.first;
-    }
+          const SizedBox(height: 5),
 
-    return null;
+          const Text(
+            'When you reach the destination, slide to complete the walk.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.black54,
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          LiveWalkCompleteSlider(
+            enabled:
+                !_controller.ending &&
+                _controller.walkStarted,
+            onCompleted: _confirmCompleteWalk,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ENDING
+  // ============================================================
+
+  Widget _buildEndingSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Column(
+        children: [
+          SizedBox(
+            width: 35,
+            height: 35,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+            ),
+          ),
+
+          SizedBox(height: 12),
+
+          Text(
+            'Completing walk...',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ============================================================
   // START WALK
   // ============================================================
 
-  Future<void> startWalk({
-    required String sessionId,
-    required String walkId,
-    required String ownerUid,
-    required String ownerName,
-    required String dogName,
-    String dogBreed = '',
-    String walkerUid = '',
-    String walkerId = '',
-    String walkerName = '',
-    String walkerPhone = '',
-  }) async {
-    final String cleanSessionId =
-        sessionId.trim();
-
-    final String cleanWalkId =
-        walkId.trim();
-
-    if (cleanSessionId.isEmpty) {
-      throw Exception(
-        'Live walk session ID is missing.',
-      );
-    }
-
-    if (cleanWalkId.isEmpty) {
-      throw Exception(
-        'Walk ID is missing.',
-      );
-    }
-
-    final String authUid =
-        _currentAuthUid;
-
-    final String cleanWalkerUid =
-        walkerUid.trim().isNotEmpty
-            ? walkerUid.trim()
-            : authUid;
-
-    if (cleanWalkerUid != authUid) {
-      throw Exception(
-        'Walker authentication mismatch.',
-      );
-    }
-
-    final DocumentReference<Map<String, dynamic>>
-        session =
-        sessionRef(cleanSessionId);
-
-    final DocumentSnapshot<Map<String, dynamic>>
-        sessionSnapshot =
-        await session.get();
-
-    final Map<String, dynamic> existing =
-        sessionSnapshot.data() ??
-            <String, dynamic>{};
-
-    final String currentStatus =
-        existing['status']
-                ?.toString()
-                .trim()
-                .toLowerCase() ??
-            '';
-
-    // Already active
-    if (currentStatus == 'active' ||
-        currentStatus == 'started' ||
-        currentStatus == 'live') {
+  Future<void> _startWalk() async {
+    if (_controller.startingWalk ||
+        _controller.walkStarted ||
+        _controller.ending) {
       return;
     }
 
-    // ==========================================================
-    // SESSION
-    // ==========================================================
+    try {
+      await _controller.startWalk();
 
-    final Map<String, dynamic>
-        sessionData =
-        <String, dynamic>{
-      'sessionId':
-          cleanSessionId,
+      if (!mounted) {
+        return;
+      }
 
-      'walkId':
-          cleanWalkId,
+      _showMessage('Walk started.');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
 
-      // OWNER
-      'ownerUid':
-          ownerUid.trim(),
+      _showError(_cleanError(error));
+    }
+  }
 
-      'ownerName':
-          ownerName.trim(),
+  // ============================================================
+  // COMPLETE CONFIRMATION
+  // ============================================================
 
-      // DOG
-      'dogName':
-          dogName.trim(),
-
-      'dogBreed':
-          dogBreed.trim(),
-
-      // WALKER
-      'walkerUid':
-          cleanWalkerUid,
-
-      'walkerId':
-          walkerId.trim(),
-
-      'walkerName':
-          walkerName.trim(),
-
-      'walkerPhone':
-          walkerPhone.trim(),
-
-      // STATUS
-      'status':
-          'active',
-
-      'walkStarted':
-          true,
-
-      'walkEnded':
-          false,
-
-      'trackingEnded':
-          false,
-
-      // START TIME
-      'startedAt':
-          FieldValue.serverTimestamp(),
-
-      'updatedAt':
-          FieldValue.serverTimestamp(),
-
-      // STATS
-      'distanceKm':
-          existing['distanceKm'] ?? 0.0,
-
-      'elapsedSeconds':
-          existing['elapsedSeconds'] ?? 0,
-
-      'steps':
-          existing['steps'] ?? 0,
-
-      'peeCount':
-          existing['peeCount'] ?? 0,
-
-      'poopCount':
-          existing['poopCount'] ?? 0,
-
-      // ROUTE
-      'routeCoordinates':
-          existing['routeCoordinates'] ??
-              <dynamic>[],
-
-      // LOCATION
-      if (existing['currentLocation'] != null)
-        'currentLocation':
-            existing['currentLocation'],
-
-      // IMPORTANT WALK EVENTS
-      'events':
-          existing['events'] ??
-              <dynamic>[],
-    };
-
-    // ==========================================================
-    // ACTIVE WALK
-    // ==========================================================
-
-    final Map<String, dynamic>
-        activeWalkData =
-        <String, dynamic>{
-      'walkId':
-          cleanWalkId,
-
-      'ownerUid':
-          ownerUid.trim(),
-
-      'ownerName':
-          ownerName.trim(),
-
-      'dogName':
-          dogName.trim(),
-
-      'dogBreed':
-          dogBreed.trim(),
-
-      'walkerUid':
-          cleanWalkerUid,
-
-      'walkerId':
-          walkerId.trim(),
-
-      'walkerName':
-          walkerName.trim(),
-
-      'walkerPhone':
-          walkerPhone.trim(),
-
-      'status':
-          'active',
-
-      'startedAt':
-          FieldValue.serverTimestamp(),
-
-      'updatedAt':
-          FieldValue.serverTimestamp(),
-    };
-
-    final WriteBatch batch =
-        _firestore.batch();
-
-    // ==========================================================
-    // LIVE SESSION
-    // ==========================================================
-
-    batch.set(
-      session,
-      sessionData,
-      SetOptions(
-        merge: true,
-      ),
-    );
-
-    // ==========================================================
-    // ACTIVE WALK
-    // ==========================================================
-
-    final DocumentSnapshot<
-            Map<String, dynamic>>?
-        existingActiveWalk =
-        await _findActiveWalk(
-      cleanWalkId,
-    );
-
-    if (existingActiveWalk != null) {
-      batch.set(
-        existingActiveWalk.reference,
-        activeWalkData,
-        SetOptions(
-          merge: true,
-        ),
-      );
-    } else {
-      batch.set(
-        _activeWalks.doc(cleanWalkId),
-        activeWalkData,
-        SetOptions(
-          merge: true,
-        ),
-      );
+  void _confirmCompleteWalk() {
+    if (_controller.ending ||
+        _showingEndDialog) {
+      return;
     }
 
-    await batch.commit();
+    if (!_controller.walkStarted) {
+      _showError('Start the walk first.');
+      return;
+    }
+
+    _showingEndDialog = true;
+
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Complete Walk?',
+            style: TextStyle(
+              color: AppColors.secondary,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          content: const Text(
+            'Are you sure you want to complete this walk?',
+            style: TextStyle(
+              color: Colors.grey,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: AppColors.secondary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+
+                unawaited(_completeWalk());
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Complete'),
+            ),
+          ],
+        );
+      },
+    ).whenComplete(() {
+      _showingEndDialog = false;
+    });
   }
 
   // ============================================================
   // COMPLETE WALK
-  //
-  // IMPORTANT FIX:
-  //
-  // sessionId से session नहीं मिले तो walkId से खोजेंगे.
   // ============================================================
 
-  Future<void> completeWalk({
-    required String sessionId,
-    String? walkId,
-  }) async {
-    final String cleanSessionId =
-        sessionId.trim();
-
-    final String cleanPassedWalkId =
-        walkId?.trim() ?? '';
-
-    if (cleanSessionId.isEmpty &&
-        cleanPassedWalkId.isEmpty) {
-      throw Exception(
-        'Live walk session ID and walk ID are missing.',
-      );
+  Future<void> _completeWalk() async {
+    if (_controller.ending ||
+        !_controller.walkStarted) {
+      return;
     }
 
-    // Ensure authenticated walker.
-    final String authUid =
-        _currentAuthUid;
+    try {
+      await _controller.endWalk();
 
-    DocumentSnapshot<Map<String, dynamic>>?
-        sessionSnapshot;
-
-    DocumentReference<Map<String, dynamic>>?
-        sessionReference;
-
-    // ==========================================================
-    // 1. TRY SESSION ID
-    // ==========================================================
-
-    if (cleanSessionId.isNotEmpty) {
-      final DocumentReference<
-              Map<String, dynamic>>
-          ref =
-          sessionRef(cleanSessionId);
-
-      final DocumentSnapshot<
-              Map<String, dynamic>>
-          snapshot =
-          await ref.get();
-
-      if (snapshot.exists) {
-        sessionSnapshot = snapshot;
-        sessionReference = ref;
+      if (!mounted) {
+        return;
       }
-    }
 
-    // ==========================================================
-    // 2. FALLBACK: FIND BY WALK ID
-    // ==========================================================
+      _showMessage('Walk completed.');
 
-    if (sessionSnapshot == null &&
-        cleanPassedWalkId.isNotEmpty) {
-      final DocumentSnapshot<
-              Map<String, dynamic>>?
-          found =
-          await _findSessionByWalkId(
-        cleanPassedWalkId,
+      await Future<void>.delayed(
+        const Duration(milliseconds: 300),
       );
 
-      if (found != null) {
-        sessionSnapshot = found;
-        sessionReference = found.reference;
+      if (!mounted) {
+        return;
       }
+
+      await _openReviewBottomSheet();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      _showError(_cleanError(error));
+    }
+  }
+
+  // ============================================================
+  // REVIEW
+  // ============================================================
+
+  Future<void> _openReviewBottomSheet() async {
+    if (!mounted || _showingReview) {
+      return;
     }
 
-    // ==========================================================
-    // 3. SESSION MUST EXIST
-    // ==========================================================
+    _showingReview = true;
 
-    if (sessionSnapshot == null ||
-        sessionReference == null) {
-      throw Exception(
-        'Live walk session was not found for this walk.',
+    final Map<String, dynamic> data =
+        Map<String, dynamic>.from(_lastSessionData);
+
+    final double distance =
+        _readDouble(data['distanceKm']) ??
+        _controller.totalDistanceKm;
+
+    final int steps =
+        _readInt(data['steps']) ??
+        _controller.steps;
+
+    final String duration =
+        _readDuration(data);
+
+    final List<Offset> routePoints =
+        _extractRoutePoints(data);
+
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        isDismissible: false,
+        enableDrag: false,
+        builder: (BuildContext sheetContext) {
+          return LiveWalkReviewBottomSheet(
+            routePoints: routePoints,
+            distanceKm: distance,
+            duration: duration,
+            steps: steps,
+            walkId: widget.walkId,
+            ownerUid: widget.ownerUid,
+            dogName: widget.dogName,
+            onBackToHome: () {
+              Navigator.of(sheetContext).pop();
+            },
+          );
+        },
       );
+    } finally {
+      _showingReview = false;
     }
 
-    final Map<String, dynamic>
-        sessionData =
-        sessionSnapshot.data() ??
-            <String, dynamic>{};
-
-    // ==========================================================
-    // SECURITY CHECK
-    //
-    // Only attached walker can complete.
-    // ==========================================================
-
-    final String sessionWalkerUid =
-        sessionData['walkerUid']
-                ?.toString()
-                .trim() ??
-            '';
-
-    if (sessionWalkerUid.isNotEmpty &&
-        sessionWalkerUid != authUid) {
-      throw Exception(
-        'You are not authorized to complete this walk.',
-      );
+    if (!mounted) {
+      return;
     }
 
-    // ==========================================================
-    // WALK ID
-    // ==========================================================
+    Navigator.of(context).pop(true);
+  }
 
-    final String cleanWalkId =
-        cleanPassedWalkId.isNotEmpty
-            ? cleanPassedWalkId
-            : (
-                sessionData['walkId']
-                        ?.toString()
-                        .trim() ??
-                    ''
-              );
+  // ============================================================
+  // MAP BADGE
+  // ============================================================
 
-    // ==========================================================
-    // BATCH
-    // ==========================================================
+  Widget _liveMapBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 9,
+            height: 9,
+            decoration: const BoxDecoration(
+              color: Colors.green,
+              shape: BoxShape.circle,
+            ),
+          ),
 
-    final WriteBatch batch =
-        _firestore.batch();
+          const SizedBox(width: 7),
 
-    // ==========================================================
-    // COMPLETE LIVE SESSION
-    // ==========================================================
-
-    batch.set(
-      sessionReference,
-      <String, dynamic>{
-        'status':
-            'completed',
-
-        'walkStarted':
-            false,
-
-        'walkEnded':
-            true,
-
-        'trackingEnded':
-            true,
-
-        'completedAt':
-            FieldValue.serverTimestamp(),
-
-        'endedAt':
-            FieldValue.serverTimestamp(),
-
-        'updatedAt':
-            FieldValue.serverTimestamp(),
-      },
-      SetOptions(
-        merge: true,
+          const Text(
+            'LIVE LOCATION',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
+  }
 
-    // ==========================================================
-    // COMPLETE ACTIVE WALK
-    // ==========================================================
+  Widget _gpsBadge() {
+    final bool ready = _controller.gpsReady;
 
-    if (cleanWalkId.isNotEmpty) {
-      final DocumentSnapshot<
-              Map<String, dynamic>>?
-          activeWalk =
-          await _findActiveWalk(
-        cleanWalkId,
-      );
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Icon(
+        ready
+            ? Icons.gps_fixed_rounded
+            : Icons.gps_off_rounded,
+        color:
+            ready
+                ? Colors.green
+                : Colors.red,
+        size: 20,
+      ),
+    );
+  }
 
-      final Map<String, dynamic>
-          activeData =
-          <String, dynamic>{
-        'walkId':
-            cleanWalkId,
+  // ============================================================
+  // SOS
+  // ============================================================
 
-        'status':
-            'completed',
+  void _openSos() {
+    if (_controller.ending) {
+      return;
+    }
 
-        'walkEnded':
-            true,
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext sheetContext) {
+        return _SosSheet(
+          ownerName: widget.ownerName,
+          ownerPhone: widget.ownerPhone,
+        );
+      },
+    );
+  }
 
-        'trackingEnded':
-            true,
+  // ============================================================
+  // SUPPORT
+  // ============================================================
 
-        'endedAt':
-            FieldValue.serverTimestamp(),
+  void _openSupport() {
+    if (_controller.ending) {
+      return;
+    }
 
-        'completedAt':
-            FieldValue.serverTimestamp(),
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext sheetContext) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(
+            20,
+            14,
+            20,
+            25,
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(25),
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius:
+                        BorderRadius.circular(10),
+                  ),
+                ),
 
-        'updatedAt':
-            FieldValue.serverTimestamp(),
-      };
+                const SizedBox(height: 18),
 
-      if (activeWalk != null) {
-        batch.set(
-          activeWalk.reference,
-          activeData,
-          SetOptions(
-            merge: true,
+                const Icon(
+                  Icons.support_agent_rounded,
+                  color: AppColors.primary,
+                  size: 38,
+                ),
+
+                const SizedBox(height: 10),
+
+                const Text(
+                  'Walk Support',
+                  style: TextStyle(
+                    color: AppColors.secondary,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+
+                const SizedBox(height: 6),
+
+                const Text(
+                  'Need help during this walk?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(
+                        sheetContext,
+                      ).pop();
+
+                      _showMessage(
+                        'Support contact will be connected soon.',
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.support_agent_rounded,
+                    ),
+                    label: const Text(
+                      'Contact Support',
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          AppColors.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape:
+                          RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
-      } else {
-        batch.set(
-          _activeWalks.doc(cleanWalkId),
-          activeData,
-          SetOptions(
-            merge: true,
+      },
+    );
+  }
+
+  // ============================================================
+  // ROUTE POINTS
+  // ============================================================
+
+  List<Offset> _extractRoutePoints(
+    Map<String, dynamic> data,
+  ) {
+    final dynamic raw =
+        data['routePoints'] ??
+        data['polylinePoints'] ??
+        data['locations'] ??
+        data['routeCoordinates'];
+
+    if (raw is! List) {
+      return <Offset>[];
+    }
+
+    final List<Offset> points = <Offset>[];
+
+    for (final dynamic item in raw) {
+      if (item is GeoPoint) {
+        points.add(
+          Offset(
+            item.latitude,
+            item.longitude,
           ),
         );
+        continue;
+      }
+
+      if (item is Map) {
+        final dynamic lat =
+            item['latitude'] ??
+            item['lat'];
+
+        final dynamic lng =
+            item['longitude'] ??
+            item['lng'] ??
+            item['lon'];
+
+        final double? latitude =
+            _readDouble(lat);
+
+        final double? longitude =
+            _readDouble(lng);
+
+        if (latitude != null &&
+            longitude != null) {
+          points.add(
+            Offset(
+              latitude,
+              longitude,
+            ),
+          );
+        }
       }
     }
 
-    // ==========================================================
-    // COMMIT
-    // ==========================================================
+    return points;
+  }
 
-    await batch.commit();
+  // ============================================================
+  // DURATION
+  // ============================================================
+
+  String _readDuration(
+    Map<String, dynamic> data,
+  ) {
+    final dynamic value =
+        data['durationMinutes'] ??
+        data['duration'] ??
+        data['elapsedMinutes'];
+
+    if (value is num) {
+      final int minutes = value.toInt();
+
+      if (minutes < 60) {
+        return '${minutes}m';
+      }
+
+      final int hours = minutes ~/ 60;
+      final int remaining = minutes % 60;
+
+      return '${hours}h ${remaining}m';
+    }
+
+    if (value != null) {
+      final String text =
+          value.toString().trim();
+
+      if (text.isNotEmpty) {
+        return text;
+      }
+    }
+
+    return '0m';
+  }
+
+  // ============================================================
+  // DOUBLE
+  // ============================================================
+
+  double? _readDouble(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    return double.tryParse(
+      value.toString().trim(),
+    );
+  }
+
+  // ============================================================
+  // INT
+  // ============================================================
+
+  int? _readInt(
+    dynamic value,
+  ) {
+    if (value == null) {
+      return null;
+    }
+
+    if (value is int) {
+      return value;
+    }
+
+    if (value is num) {
+      return value.toInt();
+    }
+
+    return int.tryParse(
+      value.toString().trim(),
+    );
+  }
+
+  // ============================================================
+  // ERROR
+  // ============================================================
+
+  String _cleanError(
+    Object error,
+  ) {
+    return error
+        .toString()
+        .replaceFirst(
+          'Exception: ',
+          '',
+        )
+        .trim();
+  }
+
+  void _showError(
+    String message,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
+
+  void _showMessage(
+    String message,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
+
+  @override
+  void dispose() {
+    _controller.removeListener(
+      _onControllerChanged,
+    );
+
+    _controller.dispose();
+
+    super.dispose();
+  }
+}
+
+// =================================================================
+// SOS SHEET
+// =================================================================
+
+class _SosSheet extends StatelessWidget {
+  const _SosSheet({
+    required this.ownerName,
+    required this.ownerPhone,
+  });
+
+  final String ownerName;
+  final String? ownerPhone;
+
+  @override
+  Widget build(BuildContext context) {
+    final String cleanOwnerName =
+        ownerName.trim();
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        25,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(25),
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 42,
+              height: 5,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius:
+                    BorderRadius.circular(10),
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            const Icon(
+              Icons.sos_rounded,
+              color: AppColors.error,
+              size: 48,
+            ),
+
+            const SizedBox(height: 10),
+
+            const Text(
+              'Emergency SOS',
+              style: TextStyle(
+                color: AppColors.secondary,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+
+            const SizedBox(height: 6),
+
+            Text(
+              cleanOwnerName.isEmpty
+                  ? 'Emergency assistance'
+                  : 'Emergency assistance for $cleanOwnerName',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 12,
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                icon: const Icon(
+                  Icons.emergency_rounded,
+                ),
+                label: const Text(
+                  'Emergency Assistance',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      AppColors.error,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
