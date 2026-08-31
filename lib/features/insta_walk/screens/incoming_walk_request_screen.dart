@@ -113,12 +113,12 @@ class _IncomingWalkRequestScreenState
   }
 
   String get _dogName {
-    final String value =
-        widget.request.dogName.trim();
+  final String value =
+      widget.request.dogName.trim();
 
-    return value.isEmpty ? 'Dog' : value;
+  return value.isEmpty ? 'Your Pet' : value;
   }
-
+  
   String get _dogBreed {
     return widget.request.dogBreed.trim();
   }
