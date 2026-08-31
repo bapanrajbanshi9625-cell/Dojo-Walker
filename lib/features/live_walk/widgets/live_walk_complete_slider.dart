@@ -29,14 +29,12 @@ class _LiveWalkCompleteSliderState
   // ============================================================
 
   void _onChanged(double value) {
-    if (!widget.enabled ||
-        _completed ||
-        _loading) {
+    if (!widget.enabled || _completed || _loading) {
       return;
     }
 
     setState(() {
-      _value = value;
+      _value = value.clamp(0.0, 1.0);
     });
   }
 
@@ -45,21 +43,16 @@ class _LiveWalkCompleteSliderState
   // ============================================================
 
   void _onChangeEnd(double value) {
-    if (!widget.enabled ||
-        _completed ||
-        _loading) {
+    if (!widget.enabled || _completed || _loading) {
       return;
     }
 
     // ----------------------------------------------------------
-    // NOT FULLY SLID
+    // NOT ENOUGH
     // ----------------------------------------------------------
 
-    if (value < 0.90) {
-      setState(() {
-        _value = 0.0;
-      });
-
+    if (value < 0.88) {
+      _resetSlider();
       return;
     }
 
@@ -72,39 +65,46 @@ class _LiveWalkCompleteSliderState
       _loading = true;
     });
 
-    // Give the UI one frame to show the completed state.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    try {
+      widget.onCompleted();
+
       if (!mounted) {
         return;
       }
 
-      try {
-        widget.onCompleted();
-
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          _completed = true;
-          _loading = false;
-        });
-      } catch (_) {
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          _value = 0.0;
-          _loading = false;
-          _completed = false;
-        });
+      setState(() {
+        _completed = true;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
       }
-    });
+
+      setState(() {
+        _value = 0.0;
+        _loading = false;
+        _completed = false;
+      });
+    }
   }
 
   // ============================================================
   // RESET
+  // ============================================================
+
+  void _resetSlider() {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _value = 0.0;
+    });
+  }
+
+  // ============================================================
+  // PUBLIC RESET
   // ============================================================
 
   void reset() {
@@ -120,6 +120,22 @@ class _LiveWalkCompleteSliderState
   }
 
   // ============================================================
+  // TITLE
+  // ============================================================
+
+  String get _title {
+    if (_loading) {
+      return 'Completing walk...';
+    }
+
+    if (_completed) {
+      return 'Walk completed';
+    }
+
+    return 'Slide to complete walk';
+  }
+
+  // ============================================================
   // BUILD
   // ============================================================
 
@@ -130,56 +146,80 @@ class _LiveWalkCompleteSliderState
         !_completed &&
         !_loading;
 
-    final String title;
+    final Color backgroundColor =
+        _completed
+            ? AppColors.success
+            : widget.enabled
+                ? AppColors.error
+                : Colors.grey.shade400;
 
-    if (_loading) {
-      title = 'Completing Walk...';
-    } else if (_completed) {
-      title = 'Walk Completed';
-    } else {
-      title = 'Slide to Complete Walk';
-    }
-
-    return Container(
-      height: 66,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      height: 68,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.error,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const <BoxShadow>[
           BoxShadow(
-            color: Color(0x26000000),
-            blurRadius: 12,
-            offset: Offset(0, 5),
+            color: Color(0x24000000),
+            blurRadius: 14,
+            offset: Offset(0, 6),
           ),
         ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Stack(
         alignment: Alignment.center,
-        children: [
+        children: <Widget>[
+          // ======================================================
+          // PROGRESS FILL
+          // ======================================================
+
+          Positioned.fill(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 80),
+                curve: Curves.easeOut,
+                width: MediaQuery.sizeOf(context).width *
+                    _value,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(
+                    alpha: 0.12,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           // ======================================================
           // TITLE
           // ======================================================
 
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(
-                left: 68,
-                right: 20,
-              ),
-              child: AnimatedSwitcher(
-                duration: const Duration(
-                  milliseconds: 180,
+          Positioned.fill(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 72,
                 ),
-                child: Text(
-                  title,
-                  key: ValueKey<String>(title),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: .2,
+                child: AnimatedSwitcher(
+                  duration: const Duration(
+                    milliseconds: 180,
+                  ),
+                  child: Text(
+                    _title,
+                    key: ValueKey<String>(_title),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.1,
+                    ),
                   ),
                 ),
               ),
@@ -196,38 +236,39 @@ class _LiveWalkCompleteSliderState
                 trackHeight: 0,
                 activeTrackColor: Colors.transparent,
                 inactiveTrackColor: Colors.transparent,
+                disabledActiveTrackColor:
+                    Colors.transparent,
+                disabledInactiveTrackColor:
+                    Colors.transparent,
+                overlayColor: Colors.white.withValues(
+                  alpha: 0.10,
+                ),
                 thumbColor: Colors.white,
-                overlayColor:
-                    Colors.white.withValues(alpha: .12),
-                thumbShape:
-                    const _CompleteThumbShape(),
+                disabledThumbColor: Colors.white,
+                thumbShape: const _CompleteThumbShape(),
                 overlayShape:
                     const RoundSliderOverlayShape(
-                  overlayRadius: 24,
+                  overlayRadius: 27,
                 ),
               ),
               child: Slider(
-                min: 0.0,
-                max: 1.0,
+                min: 0,
+                max: 1,
                 value: _value,
                 onChanged:
-                    sliderEnabled
-                        ? _onChanged
-                        : null,
+                    sliderEnabled ? _onChanged : null,
                 onChangeEnd:
-                    sliderEnabled
-                        ? _onChangeEnd
-                        : null,
+                    sliderEnabled ? _onChangeEnd : null,
               ),
             ),
           ),
 
           // ======================================================
-          // LEFT ICON
+          // LEFT / THUMB HINT
           // ======================================================
 
           Positioned(
-            left: 18,
+            left: 8,
             child: IgnorePointer(
               child: AnimatedSwitcher(
                 duration: const Duration(
@@ -235,37 +276,31 @@ class _LiveWalkCompleteSliderState
                 ),
                 child: _loading
                     ? const SizedBox(
-                        key: ValueKey<String>(
-                          'loading',
-                        ),
-                        width: 28,
-                        height: 28,
-                        child:
-                            CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor:
-                              AlwaysStoppedAnimation<
-                                  Color>(
-                            AppColors.error,
+                        key: ValueKey<String>('loading'),
+                        width: 52,
+                        height: 52,
+                        child: Center(
+                          child:
+                              CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor:
+                                AlwaysStoppedAnimation<
+                                    Color>(
+                              AppColors.error,
+                            ),
                           ),
                         ),
                       )
                     : _completed
-                        ? const Icon(
-                            Icons.check_rounded,
+                        ? const _CompleteIcon(
                             key: ValueKey<String>(
                               'completed',
                             ),
-                            color: AppColors.success,
-                            size: 28,
                           )
-                        : const Icon(
-                            Icons.arrow_forward_rounded,
+                        : const _ArrowIcon(
                             key: ValueKey<String>(
                               'arrow',
                             ),
-                            color: AppColors.error,
-                            size: 28,
                           ),
               ),
             ),
@@ -276,9 +311,9 @@ class _LiveWalkCompleteSliderState
   }
 }
 
-// ============================================================
-// CUSTOM THUMB
-// ============================================================
+// ==================================================================
+// THUMB
+// ==================================================================
 
 class _CompleteThumbShape
     extends SliderComponentShape {
@@ -289,7 +324,7 @@ class _CompleteThumbShape
     bool isEnabled,
     bool isDiscrete,
   ) {
-    return const Size(52, 52);
+    return const Size(54, 54);
   }
 
   @override
@@ -309,9 +344,26 @@ class _CompleteThumbShape
   }) {
     final Canvas canvas = context.canvas;
 
-    // ----------------------------------------------------------
+    // ------------------------------------------------------------
+    // SHADOW
+    // ------------------------------------------------------------
+
+    final Paint shadowPaint = Paint()
+      ..color = const Color(0x22000000)
+      ..maskFilter = const MaskFilter.blur(
+        BlurStyle.normal,
+        4,
+      );
+
+    canvas.drawCircle(
+      center.translate(0, 2),
+      26,
+      shadowPaint,
+    );
+
+    // ------------------------------------------------------------
     // WHITE THUMB
-    // ----------------------------------------------------------
+    // ------------------------------------------------------------
 
     final Paint thumbPaint = Paint()
       ..color = Colors.white
@@ -323,45 +375,96 @@ class _CompleteThumbShape
       thumbPaint,
     );
 
-    // ----------------------------------------------------------
+    // ------------------------------------------------------------
     // ARROW
-    // ----------------------------------------------------------
+    // ------------------------------------------------------------
 
-    final Paint iconPaint = Paint()
+    final Paint arrowPaint = Paint()
       ..color = AppColors.error
-      ..style = PaintingStyle.fill;
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
 
-    final double centerY = center.dy;
-    final double arrowX = center.dx - 6;
-
-    final Path arrowPath = Path()
+    final Path arrow = Path()
       ..moveTo(
-        arrowX,
-        centerY - 7,
+        center.dx - 8,
+        center.dy,
       )
       ..lineTo(
-        arrowX + 8,
-        centerY,
+        center.dx + 6,
+        center.dy,
+      )
+      ..moveTo(
+        center.dx,
+        center.dy - 7,
       )
       ..lineTo(
-        arrowX,
-        centerY + 7,
+        center.dx + 7,
+        center.dy,
       )
-      ..close();
+      ..lineTo(
+        center.dx,
+        center.dy + 7,
+      );
 
     canvas.drawPath(
-      arrowPath,
-      iconPaint,
+      arrow,
+      arrowPaint,
     );
+  }
+}
 
-    canvas.drawRect(
-      Rect.fromLTWH(
-        arrowX - 8,
-        centerY - 2,
-        10,
-        4,
+// ==================================================================
+// ARROW ICON
+// ==================================================================
+
+class _ArrowIcon extends StatelessWidget {
+  const _ArrowIcon({
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
       ),
-      iconPaint,
+      child: const Icon(
+        Icons.arrow_forward_rounded,
+        color: AppColors.error,
+        size: 26,
+      ),
+    );
+  }
+}
+
+// ==================================================================
+// COMPLETE ICON
+// ==================================================================
+
+class _CompleteIcon extends StatelessWidget {
+  const _CompleteIcon({
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(
+        Icons.check_rounded,
+        color: AppColors.success,
+        size: 28,
+      ),
     );
   }
 }
