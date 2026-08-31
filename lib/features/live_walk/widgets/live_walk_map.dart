@@ -38,6 +38,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   bool _loading = true;
   bool _followingUser = true;
   bool _mapReady = false;
+  bool _centeringLocation = false;
 
   // ============================================================
   // INIT
@@ -51,27 +52,16 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   }
 
   // ============================================================
-  // START LOCATION TRACKING
+  // LOCATION TRACKING
   //
-  // IMPORTANT FLOW:
-  //
-  // LiveWalkController
-  //        ↓
-  // Background GPS Service
-  //        ↓
-  // LiveWalkMap
-  //
-  // Map does NOT create another continuous
-  // Geolocator position stream.
-  //
-  // The map only listens to the existing background
-  // GPS stream.
+  // Uses the existing background GPS service.
+  // No second continuous Geolocator stream is created.
   // ============================================================
 
   Future<void> _startLocationTracking() async {
     try {
       // --------------------------------------------------------
-      // CHECK LOCATION SERVICE
+      // LOCATION SERVICE
       // --------------------------------------------------------
 
       final bool serviceEnabled =
@@ -82,20 +72,18 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
           ready: false,
           loading: false,
         );
-
         return;
       }
 
       // --------------------------------------------------------
-      // CHECK PERMISSION
+      // PERMISSION
       // --------------------------------------------------------
 
       LocationPermission permission =
           await Geolocator.checkPermission();
 
       if (permission == LocationPermission.denied) {
-        permission =
-            await Geolocator.requestPermission();
+        permission = await Geolocator.requestPermission();
       }
 
       if (permission == LocationPermission.denied ||
@@ -104,12 +92,11 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
           ready: false,
           loading: false,
         );
-
         return;
       }
 
       // --------------------------------------------------------
-      // USE LAST BACKGROUND POSITION FIRST
+      // LAST BACKGROUND POSITION
       // --------------------------------------------------------
 
       final Position? lastPosition =
@@ -120,7 +107,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       }
 
       // --------------------------------------------------------
-      // ATTACH TO EXISTING BACKGROUND GPS STREAM
+      // EXISTING BACKGROUND GPS STREAM
       // --------------------------------------------------------
 
       await _positionSubscription?.cancel();
@@ -137,44 +124,36 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       );
 
       // --------------------------------------------------------
-      // INITIAL POSITION FALLBACK
-      //
-      // This is ONLY one GPS request.
-      //
-      // It is NOT a continuous stream.
+      // ONE-TIME INITIAL GPS REQUEST
       // --------------------------------------------------------
 
       if (_currentLocation == null) {
         try {
           final Position position =
               await Geolocator.getCurrentPosition(
-            desiredAccuracy:
-                LocationAccuracy.high,
+            desiredAccuracy: LocationAccuracy.high,
           );
 
           _updatePosition(position);
-        } catch (e) {
+        } catch (error) {
           debugPrint(
-            'Initial GPS position error: $e',
+            'LiveWalkMap initial GPS error: $error',
           );
         }
       }
 
       // --------------------------------------------------------
-      // NO GPS POSITION
-      //
-      // We can still show the session location if available.
+      // FINISH LOADING
       // --------------------------------------------------------
 
-      if (mounted &&
-          _currentLocation == null) {
+      if (mounted && _currentLocation == null) {
         setState(() {
           _loading = false;
         });
       }
-    } catch (e) {
+    } catch (error) {
       debugPrint(
-        'LiveWalkMap location error: $e',
+        'LiveWalkMap location error: $error',
       );
 
       _setGpsState(
@@ -188,32 +167,22 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   // POSITION UPDATE
   // ============================================================
 
-  void _updatePosition(
-    Position position,
-  ) {
-    final double latitude =
-        position.latitude;
-
-    final double longitude =
-        position.longitude;
+  void _updatePosition(Position position) {
+    final double latitude = position.latitude;
+    final double longitude = position.longitude;
 
     // ----------------------------------------------------------
-    // VALIDATE GPS
+    // VALIDATE POSITION
     // ----------------------------------------------------------
 
-    if (!latitude.isFinite ||
-        !longitude.isFinite ||
-        latitude < -90 ||
-        latitude > 90 ||
-        longitude < -180 ||
-        longitude > 180 ||
-        (latitude == 0 &&
-            longitude == 0)) {
+    if (!_isValidCoordinate(
+      latitude,
+      longitude,
+    )) {
       return;
     }
 
-    final LatLng location =
-        LatLng(
+    final LatLng location = LatLng(
       latitude,
       longitude,
     );
@@ -232,8 +201,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
     // FOLLOW USER
     // ----------------------------------------------------------
 
-    if (_followingUser &&
-        _mapReady) {
+    if (_followingUser && _mapReady) {
       _moveToLocation(location);
     }
   }
@@ -263,25 +231,23 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   void _onMapReady() {
     _mapReady = true;
 
-    final LatLng? location =
+    final LatLng? currentLocation =
         _currentLocation;
 
-    if (location != null) {
-      _moveToLocation(location);
+    if (currentLocation != null) {
+      _moveToLocation(currentLocation);
       return;
     }
 
     // ----------------------------------------------------------
-    // FALLBACK TO FIRESTORE SESSION LOCATION
+    // FALLBACK TO SESSION LOCATION
     // ----------------------------------------------------------
 
     final LatLng? sessionLocation =
         _readSessionLocation();
 
     if (sessionLocation != null) {
-      _moveToLocation(
-        sessionLocation,
-      );
+      _moveToLocation(sessionLocation);
     }
   }
 
@@ -290,8 +256,9 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   // ============================================================
 
   void _moveToLocation(
-    LatLng location,
-  ) {
+    LatLng location, {
+    double zoom = 17,
+  }) {
     if (!_mapReady) {
       return;
     }
@@ -299,11 +266,11 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
     try {
       _mapController.move(
         location,
-        17,
+        zoom,
       );
-    } catch (e) {
+    } catch (error) {
       debugPrint(
-        'Map move error: $e',
+        'LiveWalkMap move error: $error',
       );
     }
   }
@@ -316,30 +283,167 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
     MapCamera camera,
     bool hasGesture,
   ) {
-    if (hasGesture) {
-      _followingUser = false;
+    if (!hasGesture) {
+      return;
+    }
+
+    if (_followingUser && mounted) {
+      setState(() {
+        _followingUser = false;
+      });
     }
   }
 
   // ============================================================
-  // FOLLOW CURRENT LOCATION
+  // MY LOCATION
+  //
+  // Real working location button.
   // ============================================================
 
-  void _followCurrentLocation() {
-    final LatLng? location =
-        _currentLocation;
-
-    if (location == null) {
+  Future<void> _goToMyLocation() async {
+    if (_centeringLocation) {
       return;
     }
 
-    _followingUser = true;
+    // ----------------------------------------------------------
+    // ALREADY HAVE CURRENT GPS
+    // ----------------------------------------------------------
 
-    _moveToLocation(location);
+    final LatLng? currentLocation =
+        _currentLocation;
+
+    if (currentLocation != null) {
+      _followingUser = true;
+
+      if (mounted) {
+        setState(() {
+          _centeringLocation = true;
+        });
+      }
+
+      _moveToLocation(
+        currentLocation,
+        zoom: 17,
+      );
+
+      await Future<void>.delayed(
+        const Duration(
+          milliseconds: 250,
+        ),
+      );
+
+      if (mounted) {
+        setState(() {
+          _centeringLocation = false;
+        });
+      }
+
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // GPS POSITION NOT AVAILABLE
+    //
+    // Ask for one fresh location.
+    // ----------------------------------------------------------
 
     if (mounted) {
-      setState(() {});
+      setState(() {
+        _centeringLocation = true;
+      });
     }
+
+    try {
+      final bool serviceEnabled =
+          await Geolocator.isLocationServiceEnabled();
+
+      if (!serviceEnabled) {
+        _showLocationMessage(
+          'Please turn on location services.',
+        );
+        return;
+      }
+
+      LocationPermission permission =
+          await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission =
+            await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied) {
+        _showLocationMessage(
+          'Location permission is required.',
+        );
+        return;
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        _showLocationMessage(
+          'Location permission is disabled. '
+          'Enable it from Settings.',
+        );
+        return;
+      }
+
+      final Position position =
+          await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      _updatePosition(position);
+
+      final LatLng location = LatLng(
+        position.latitude,
+        position.longitude,
+      );
+
+      _followingUser = true;
+
+      _moveToLocation(
+        location,
+        zoom: 17,
+      );
+    } catch (error) {
+      debugPrint(
+        'My Location error: $error',
+      );
+
+      _showLocationMessage(
+        'Unable to get your current location.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _centeringLocation = false;
+        });
+      }
+    }
+  }
+
+  // ============================================================
+  // LOCATION MESSAGE
+  // ============================================================
+
+  void _showLocationMessage(
+    String message,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(
+            seconds: 2,
+          ),
+        ),
+      );
   }
 
   // ============================================================
@@ -373,18 +477,10 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
     final double longitude =
         rawLng.toDouble();
 
-    // ----------------------------------------------------------
-    // VALIDATE SESSION LOCATION
-    // ----------------------------------------------------------
-
-    if (!latitude.isFinite ||
-        !longitude.isFinite ||
-        latitude < -90 ||
-        latitude > 90 ||
-        longitude < -180 ||
-        longitude > 180 ||
-        (latitude == 0 &&
-            longitude == 0)) {
+    if (!_isValidCoordinate(
+      latitude,
+      longitude,
+    )) {
       return null;
     }
 
@@ -392,6 +488,23 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       latitude,
       longitude,
     );
+  }
+
+  // ============================================================
+  // COORDINATE VALIDATION
+  // ============================================================
+
+  bool _isValidCoordinate(
+    double latitude,
+    double longitude,
+  ) {
+    return latitude.isFinite &&
+        longitude.isFinite &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180 &&
+        !(latitude == 0 && longitude == 0);
   }
 
   // ============================================================
@@ -403,9 +516,9 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
     BuildContext context,
   ) {
     // ----------------------------------------------------------
-    // PRIORITY:
+    // MAP CENTER PRIORITY
     //
-    // 1. Current background GPS
+    // 1. Current GPS
     // 2. Firestore session location
     // 3. India fallback
     // ----------------------------------------------------------
@@ -421,8 +534,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         // ========================================================
 
         FlutterMap(
-          mapController:
-              _mapController,
+          mapController: _mapController,
           options: MapOptions(
             initialCenter:
                 location ??
@@ -436,14 +548,12 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
                     : 17,
             minZoom: 3,
             maxZoom: 19,
-            onMapReady:
-                _onMapReady,
+            onMapReady: _onMapReady,
             onPositionChanged:
                 _onMapPositionChanged,
             interactionOptions:
                 const InteractionOptions(
-              flags:
-                  InteractiveFlag.all,
+              flags: InteractiveFlag.all,
             ),
           ),
           children: [
@@ -453,7 +563,8 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
 
             TileLayer(
               urlTemplate:
-                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  'https://tile.openstreetmap.org/'
+                  '{z}/{x}/{y}.png',
               userAgentPackageName:
                   'com.doojowalker.app',
               maxZoom: 19,
@@ -489,27 +600,14 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         ),
 
         // ========================================================
-        // GPS STATUS
+        // MY LOCATION BUTTON
         // ========================================================
 
         Positioned(
-          top: 14,
           right: 14,
-          child: _gpsStatus(),
+          bottom: 24,
+          child: _myLocationButton(),
         ),
-
-        // ========================================================
-        // FOLLOW BUTTON
-        // ========================================================
-
-        if (_gpsReady &&
-            !_followingUser)
-          Positioned(
-            right: 14,
-            bottom: 24,
-            child:
-                _followLocationButton(),
-          ),
 
         // ========================================================
         // LOADING
@@ -526,8 +624,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
                       CircularProgressIndicator(
                     strokeWidth: 3,
                     valueColor:
-                        AlwaysStoppedAnimation<
-                            Color>(
+                        AlwaysStoppedAnimation<Color>(
                       AppColors.primary,
                     ),
                   ),
@@ -540,85 +637,47 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   }
 
   // ============================================================
-  // GPS STATUS
+  // MY LOCATION BUTTON
   // ============================================================
 
-  Widget _gpsStatus() {
-    return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
-      decoration:
-          BoxDecoration(
-        color:
-            AppColors.cardBackground,
-        borderRadius:
-            BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color:
-                Color(0x26000000),
-            blurRadius: 10,
-            offset:
-                Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize:
-            MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.location_on_rounded,
-            color: _gpsReady
-                ? AppColors.success
-                : AppColors.error,
-            size: 15,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            _gpsReady
-                ? 'GPS LIVE'
-                : 'GPS OFF',
-            style: const TextStyle(
-              color:
-                  AppColors.secondary,
-              fontSize: 9,
-              fontWeight:
-                  FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget _myLocationButton() {
+    final bool active =
+        _gpsReady || _currentLocation != null;
 
-  // ============================================================
-  // FOLLOW LOCATION BUTTON
-  // ============================================================
-
-  Widget _followLocationButton() {
     return Material(
-      color:
-          AppColors.cardBackground,
+      color: Colors.white,
       elevation: 5,
-      borderRadius:
-          BorderRadius.circular(16),
+      shadowColor: Colors.black26,
+      shape: const CircleBorder(),
       child: InkWell(
-        onTap:
-            _followCurrentLocation,
-        borderRadius:
-            BorderRadius.circular(16),
-        child: const Padding(
-          padding:
-              EdgeInsets.all(13),
-          child: Icon(
-            Icons.my_location_rounded,
-            color:
-                AppColors.primary,
-            size: 23,
+        onTap: _centeringLocation
+            ? null
+            : _goToMyLocation,
+        customBorder: const CircleBorder(),
+        child: SizedBox(
+          width: 50,
+          height: 50,
+          child: Center(
+            child: _centeringLocation
+                ? const SizedBox(
+                    width: 21,
+                    height: 21,
+                    child:
+                        CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(
+                        AppColors.primary,
+                      ),
+                    ),
+                  )
+                : Icon(
+                    Icons.my_location_rounded,
+                    color: active
+                        ? AppColors.primary
+                        : Colors.grey,
+                    size: 23,
+                  ),
           ),
         ),
       ),
@@ -651,25 +710,20 @@ class _CurrentLocationMarker
     BuildContext context,
   ) {
     return Stack(
-      alignment:
-          Alignment.center,
+      alignment: Alignment.center,
       children: [
         // ========================================================
-        // ACCURACY CIRCLE
+        // LOCATION ACCURACY / PULSE AREA
         // ========================================================
 
         Container(
           width: 58,
           height: 58,
-          decoration:
-              BoxDecoration(
-            color:
-                AppColors.primary
-                    .withValues(
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(
               alpha: .16,
             ),
-            shape:
-                BoxShape.circle,
+            shape: BoxShape.circle,
           ),
         ),
 
@@ -680,35 +734,27 @@ class _CurrentLocationMarker
         Container(
           width: 38,
           height: 38,
-          decoration:
-              const BoxDecoration(
+          decoration: const BoxDecoration(
             color: Colors.white,
-            shape:
-                BoxShape.circle,
+            shape: BoxShape.circle,
           ),
         ),
 
         // ========================================================
-        // NAVIGATION MARKER
+        // LOCATION MARKER
         // ========================================================
 
         Container(
           width: 30,
           height: 30,
-          decoration:
-              BoxDecoration(
-            color:
-                AppColors.primary,
-            shape:
-                BoxShape.circle,
-            boxShadow:
-                const [
+          decoration: BoxDecoration(
+            color: AppColors.primary,
+            shape: BoxShape.circle,
+            boxShadow: const [
               BoxShadow(
-                color:
-                    Color(0x33000000),
+                color: Color(0x33000000),
                 blurRadius: 8,
-                offset:
-                    Offset(0, 3),
+                offset: Offset(0, 3),
               ),
             ],
           ),
