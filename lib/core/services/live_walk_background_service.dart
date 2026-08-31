@@ -330,29 +330,24 @@ class LiveWalkBackgroundService {
     // ==========================================================
 
     try {
-      await _positionSubscription?.cancel();
+  await _positionSubscription?.cancel();
 
-      _positionSubscription =
-          Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 5,
-        ),
-      ).listen(
-        (Position position) {
-          if (!_running) {
-            return;
-          }
+  _positionSubscription =
+      Geolocator.getPositionStream().listen(
+    (Position position) {
+      if (!_running) {
+        return;
+      }
 
-          unawaited(
-            _processPosition(position),
-          );
-        },
-        onError: (_) {
-          // GPS stream error does not terminate walk.
-        },
-        cancelOnError: false,
+      unawaited(
+        _processPosition(position),
       );
+    },
+    onError: (_) {
+      // GPS stream error does not terminate walk.
+    },
+    cancelOnError: false,
+  );
 
       // ========================================================
       // FIRST GPS FIX
@@ -417,27 +412,26 @@ class LiveWalkBackgroundService {
   // ============================================================
 
   Future<bool> _ensureLocationPermission() async {
-    final bool serviceEnabled =
-        await Geolocator.isLocationServiceEnabled();
+  final bool serviceEnabled =
+      await Geolocator.isLocationServiceEnabled();
 
-    if (!serviceEnabled) {
-      return false;
-    }
+  if (!serviceEnabled) {
+    return false;
+  }
 
-    LocationPermission permission =
-        await Geolocator.checkPermission();
+  LocationPermission permission =
+      await Geolocator.checkPermission();
 
-    if (permission == LocationPermission.denied) {
-      permission =
-          await Geolocator.requestPermission();
-    }
+  if (permission == LocationPermission.denied) {
+    permission = await Geolocator.requestPermission();
+  }
 
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      return false;
-    }
+  if (permission == LocationPermission.denied ||
+      permission == LocationPermission.deniedForever) {
+    return false;
+  }
 
-    return true;
+  return true;
   }
 
   // ============================================================
