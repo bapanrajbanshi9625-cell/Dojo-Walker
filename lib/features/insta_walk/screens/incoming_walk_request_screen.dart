@@ -142,29 +142,28 @@ class _IncomingWalkRequestScreenState
         widget.request.status.trim().toLowerCase() ==
             'accepted';
 
-    unawaited(
-      _startLocationTracking(),
-    );
+    unawaited(_startLocationTracking());
 
     _startRequestMonitoring();
   }
 
   // ============================================================
-  // FIRESTORE MONITOR
+  // FIRESTORE REQUEST MONITOR
   // ============================================================
 
   void _startRequestMonitoring() {
-    if (_walkId.isEmpty) {
+    final String walkId = _walkId;
+
+    if (walkId.isEmpty) {
       return;
     }
 
     final DocumentReference<Map<String, dynamic>> walkRef =
         _firestore
             .collection('walk_request')
-            .doc(_walkId);
+            .doc(walkId);
 
-    _requestSubscription =
-        walkRef.snapshots().listen(
+    _requestSubscription = walkRef.snapshots().listen(
       (
         DocumentSnapshot<Map<String, dynamic>> snapshot,
       ) {
@@ -199,6 +198,7 @@ class _IncomingWalkRequestScreenState
                     .trim() ??
                 '';
 
+        // Current walker accepted the request.
         if (status == 'accepted' &&
             _isCurrentWalker(walkerUid)) {
           if (!_accepted) {
@@ -210,6 +210,7 @@ class _IncomingWalkRequestScreenState
           return;
         }
 
+        // Someone else accepted it.
         if (!_accepted &&
             status.isNotEmpty &&
             status != 'searching') {
@@ -223,12 +224,11 @@ class _IncomingWalkRequestScreenState
           'Incoming walk monitor error: $error',
         );
       },
+      cancelOnError: false,
     );
   }
 
-  bool _isCurrentWalker(
-    String walkerUid,
-  ) {
+  bool _isCurrentWalker(String walkerUid) {
     final User? user =
         _auth.currentUser;
 
@@ -281,7 +281,7 @@ class _IncomingWalkRequestScreenState
   }
 
   // ============================================================
-  // LOCATION
+  // LOCATION TRACKING
   // ============================================================
 
   Future<void> _startLocationTracking() async {
@@ -295,6 +295,7 @@ class _IncomingWalkRequestScreenState
             'Please turn on Location/GPS.',
           );
         }
+
         return;
       }
 
@@ -316,6 +317,7 @@ class _IncomingWalkRequestScreenState
             'Location permission is required.',
           );
         }
+
         return;
       }
 
@@ -331,6 +333,8 @@ class _IncomingWalkRequestScreenState
 
       _updateWalkerLocation(position);
 
+      await _locationSubscription?.cancel();
+
       _locationSubscription =
           Geolocator.getPositionStream(
         locationSettings:
@@ -345,6 +349,7 @@ class _IncomingWalkRequestScreenState
             'Incoming walk GPS error: $error',
           );
         },
+        cancelOnError: false,
       );
     } catch (error) {
       debugPrint(
@@ -368,22 +373,22 @@ class _IncomingWalkRequestScreenState
   void _updateWalkerLocation(
     Position position,
   ) {
-    final double? latitude =
+    final double? ownerLatitude =
         _ownerLatitude;
 
-    final double? longitude =
+    final double? ownerLongitude =
         _ownerLongitude;
 
     double distance = 0;
 
-    if (latitude != null &&
-        longitude != null) {
+    if (ownerLatitude != null &&
+        ownerLongitude != null) {
       distance =
           Geolocator.distanceBetween(
         position.latitude,
         position.longitude,
-        latitude,
-        longitude,
+        ownerLatitude,
+        ownerLongitude,
       );
     }
 
@@ -471,10 +476,7 @@ class _IncomingWalkRequestScreenState
             60;
 
     final int rounded =
-        math.max(
-      1,
-      minutes.ceil(),
-    );
+        math.max(1, minutes.ceil());
 
     return '$rounded min';
   }
@@ -488,30 +490,34 @@ class _IncomingWalkRequestScreenState
   }
 
   // ============================================================
-  // REACH
+  // REACH CONDITION
   // ============================================================
 
   bool get _canReachOwner {
     return _accepted &&
         !_requestUnavailable &&
+        !_reaching &&
         _ownerLatitude != null &&
         _ownerLongitude != null &&
         _distanceMeters <= 100;
   }
 
   // ============================================================
-  // ACCEPT
+  // ACCEPT WALK
   // ============================================================
 
   Future<void> _acceptWalk() async {
     if (_accepting ||
         _rejecting ||
         _accepted ||
-        _requestUnavailable) {
+        _requestUnavailable ||
+        _leavingScreen) {
       return;
     }
 
-    if (_walkId.isEmpty) {
+    final String walkId = _walkId;
+
+    if (walkId.isEmpty) {
       _showMessage(
         'Walk request ID is missing.',
       );
@@ -524,7 +530,7 @@ class _IncomingWalkRequestScreenState
 
     try {
       await _acceptService.acceptWalk(
-        _walkId,
+        walkId,
       );
 
       if (!mounted) {
@@ -558,14 +564,15 @@ class _IncomingWalkRequestScreenState
   }
 
   // ============================================================
-  // REJECT
+  // REJECT WALK
   // ============================================================
 
   Future<void> _rejectWalk() async {
     if (_accepting ||
         _rejecting ||
         _accepted ||
-        _requestUnavailable) {
+        _requestUnavailable ||
+        _leavingScreen) {
       return;
     }
 
@@ -576,7 +583,8 @@ class _IncomingWalkRequestScreenState
         BuildContext dialogContext,
       ) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
+          shape:
+              RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(20),
           ),
@@ -624,7 +632,9 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    if (_walkId.isEmpty) {
+    final String walkId = _walkId;
+
+    if (walkId.isEmpty) {
       _showMessage(
         'Walk request ID is missing.',
       );
@@ -637,7 +647,7 @@ class _IncomingWalkRequestScreenState
 
     try {
       await _rejectService.rejectWalk(
-        _walkId,
+        walkId,
       );
 
       if (!mounted) {
@@ -699,7 +709,9 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    if (_walkId.isEmpty) {
+    final String walkId = _walkId;
+
+    if (walkId.isEmpty) {
       _showMessage(
         'Walk ID is missing.',
       );
@@ -732,7 +744,7 @@ class _IncomingWalkRequestScreenState
             return LiveWalkScreen(
               ownerUid: _ownerUid,
               ownerName: _ownerName,
-              walkId: _walkId,
+              walkId: walkId,
               dogName: _dogName,
               dogBreed: _dogBreed,
               ownerPhone:
@@ -776,6 +788,10 @@ class _IncomingWalkRequestScreenState
           const Color(0xFFE9EEF3),
       body: Stack(
         children: <Widget>[
+          // ------------------------------------------------------
+          // MAP
+          // ------------------------------------------------------
+
           Positioned.fill(
             child: IncomingWalkMap(
               walkerLocation:
@@ -785,6 +801,10 @@ class _IncomingWalkRequestScreenState
             ),
           ),
 
+          // ------------------------------------------------------
+          // TOP BAR
+          // ------------------------------------------------------
+
           Positioned(
             top: 0,
             left: 0,
@@ -792,12 +812,18 @@ class _IncomingWalkRequestScreenState
             child: IncomingWalkTopBar(
               accepted: _accepted,
               onBack: () {
-                if (!_leavingScreen) {
-                  Navigator.of(context).pop();
+                if (_leavingScreen) {
+                  return;
                 }
+
+                Navigator.of(context).pop();
               },
             ),
           ),
+
+          // ------------------------------------------------------
+          // BOTTOM PANEL
+          // ------------------------------------------------------
 
           Positioned(
             left: 0,
@@ -825,6 +851,10 @@ class _IncomingWalkRequestScreenState
             ),
           ),
 
+          // ------------------------------------------------------
+          // LOCATION LOADING
+          // ------------------------------------------------------
+
           if (_loadingLocation)
             const Positioned.fill(
               child: IgnorePointer(
@@ -837,6 +867,10 @@ class _IncomingWalkRequestScreenState
                 ),
               ),
             ),
+
+          // ------------------------------------------------------
+          // REQUEST UNAVAILABLE
+          // ------------------------------------------------------
 
           if (_requestUnavailable)
             const Positioned.fill(
@@ -854,7 +888,7 @@ class _IncomingWalkRequestScreenState
   }
 
   // ============================================================
-  // ERROR
+  // CLEAN ERROR
   // ============================================================
 
   String _cleanException(
@@ -904,8 +938,14 @@ class _IncomingWalkRequestScreenState
 
   @override
   void dispose() {
-    _locationSubscription?.cancel();
-    _requestSubscription?.cancel();
+    unawaited(
+      _locationSubscription?.cancel(),
+    );
+
+    unawaited(
+      _requestSubscription?.cancel(),
+    );
+
     super.dispose();
   }
 }
