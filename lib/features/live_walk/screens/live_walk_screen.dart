@@ -1,6 +1,3 @@
-// File:
-// lib/features/live_walk/screens/live_walk_screen.dart
-
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -19,9 +16,9 @@ class LiveWalkScreen extends StatefulWidget {
     required this.ownerName,
     required this.walkId,
     required this.dogName,
+    required this.sessionId,
     this.dogBreed = '',
     this.ownerPhone,
-    this.sessionId,
   });
 
   final String ownerUid;
@@ -30,7 +27,10 @@ class LiveWalkScreen extends StatefulWidget {
   final String dogName;
   final String dogBreed;
   final String? ownerPhone;
-  final String? sessionId;
+
+  /// REAL FIRESTORE DOCUMENT ID
+  /// liveWalkSessions/{sessionId}
+  final String sessionId;
 
   @override
   State<LiveWalkScreen> createState() => _LiveWalkScreenState();
@@ -41,7 +41,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   bool _showingEndDialog = false;
   bool _showingReview = false;
-  bool _initializing = true;
 
   Map<String, dynamic> _lastSessionData = <String, dynamic>{};
 
@@ -55,31 +54,13 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       walkId: widget.walkId,
       dogName: widget.dogName,
       dogBreed: widget.dogBreed,
-      ownerPhone: widget.ownerPhone ?? '',
+      ownerPhone: widget.ownerPhone,
       sessionId: widget.sessionId,
     );
 
     _controller.addListener(_onControllerChanged);
 
-    unawaited(_initializeController());
-  }
-
-  Future<void> _initializeController() async {
-    try {
-      await _controller.initialize();
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      _showError(_cleanError(error));
-    } finally {
-      if (mounted) {
-        setState(() {
-          _initializing = false;
-        });
-      }
-    }
+    unawaited(_controller.initialize());
   }
 
   void _onControllerChanged() {
@@ -96,10 +77,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_initializing) {
-      return _buildLoadingScreen();
-    }
-
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: _sessionStream,
       builder: (
@@ -208,37 +185,25 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                       ),
                     ),
                   ),
-
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _buildDogOwnerCard(),
-
                         const SizedBox(height: 14),
-
                         if (!walkStarted && !ending)
                           _buildStartSection(starting),
-
                         if (walkStarted && !ending) ...[
                           _buildWalkingStatus(),
-
                           const SizedBox(height: 14),
-
                           _buildLiveStats(sessionData),
-
                           const SizedBox(height: 14),
-
                           _buildWalkInfo(),
-
                           const SizedBox(height: 18),
-
                           _buildCompleteSection(),
                         ],
-
                         if (ending) _buildEndingSection(),
-
                         const SizedBox(height: 20),
                       ],
                     ),
@@ -252,49 +217,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     );
   }
 
-  // ============================================================
-  // LOADING
-  // ============================================================
-
-  Widget _buildLoadingScreen() {
-    return Scaffold(
-      backgroundColor: AppColors.cardBackground,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        surfaceTintColor: AppColors.primary,
-        elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'LIVE WALK',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ),
-      body: const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.primary,
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // DOG / OWNER CARD
-  // ============================================================
-
   Widget _buildDogOwnerCard() {
     final String cleanDogName =
-        widget.dogName.trim().isEmpty
-            ? 'Dog'
-            : widget.dogName.trim();
+        widget.dogName.trim().isEmpty ? 'Dog' : widget.dogName.trim();
 
     final String cleanOwnerName =
-        widget.ownerName.trim().isEmpty
-            ? 'Owner'
-            : widget.ownerName.trim();
+        widget.ownerName.trim().isEmpty ? 'Owner' : widget.ownerName.trim();
 
     final String cleanBreed = widget.dogBreed.trim();
 
@@ -355,37 +283,30 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Icon(
-                  Icons.person_rounded,
-                  size: 19,
-                  color: Colors.black45,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const Icon(
+                Icons.person_rounded,
+                size: 19,
+                color: Colors.black45,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                cleanOwnerName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  cleanOwnerName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
-
-  // ============================================================
-  // START SECTION
-  // ============================================================
 
   Widget _buildStartSection(bool starting) {
     return Container(
@@ -451,9 +372,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             height: 58,
             child: ElevatedButton(
               onPressed:
-                  starting || _controller.ending
-                      ? null
-                      : _startWalk,
+                  starting || _controller.ending ? null : _startWalk,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -471,8 +390,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                         height: 25,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(
+                          valueColor: AlwaysStoppedAnimation<Color>(
                             Colors.white,
                           ),
                         ),
@@ -501,10 +419,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ),
     );
   }
-
-  // ============================================================
-  // WALKING STATUS
-  // ============================================================
 
   Widget _buildWalkingStatus() {
     return Container(
@@ -551,10 +465,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ),
     );
   }
-
-  // ============================================================
-  // LIVE STATS
-  // ============================================================
 
   Widget _buildLiveStats(Map<String, dynamic> data) {
     final double distance =
@@ -650,10 +560,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     );
   }
 
-  // ============================================================
-  // WALK INFO
-  // ============================================================
-
   Widget _buildWalkInfo() {
     final String owner =
         widget.ownerName.trim().isEmpty
@@ -665,7 +571,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             ? 'Dog'
             : widget.dogName.trim();
 
-    final String breed = widget.dogBreed.trim();
     final String phone = widget.ownerPhone?.trim() ?? '';
 
     return Container(
@@ -682,32 +587,20 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ),
       child: Column(
         children: [
-          _infoRow(
-            Icons.person_rounded,
-            'Owner',
-            owner,
-          ),
+          _infoRow(Icons.person_rounded, 'Owner', owner),
           _infoDivider(),
-          _infoRow(
-            Icons.pets_rounded,
-            'Dog',
-            dog,
-          ),
-          if (breed.isNotEmpty) ...[
+          _infoRow(Icons.pets_rounded, 'Dog', dog),
+          if (widget.dogBreed.trim().isNotEmpty) ...[
             _infoDivider(),
             _infoRow(
               Icons.category_rounded,
               'Breed',
-              breed,
+              widget.dogBreed.trim(),
             ),
           ],
           if (phone.isNotEmpty) ...[
             _infoDivider(),
-            _infoRow(
-              Icons.phone_rounded,
-              'Phone',
-              phone,
-            ),
+            _infoRow(Icons.phone_rounded, 'Phone', phone),
           ],
         ],
       ),
@@ -758,10 +651,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       child: Divider(height: 1),
     );
   }
-
-  // ============================================================
-  // COMPLETE SECTION
-  // ============================================================
 
   Widget _buildCompleteSection() {
     return Container(
@@ -828,10 +717,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     );
   }
 
-  // ============================================================
-  // ENDING
-  // ============================================================
-
   Widget _buildEndingSection() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -846,7 +731,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             height: 35,
             child: CircularProgressIndicator(
               strokeWidth: 3,
-              color: AppColors.primary,
             ),
           ),
           SizedBox(height: 12),
@@ -861,10 +745,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ),
     );
   }
-
-  // ============================================================
-  // START WALK
-  // ============================================================
 
   Future<void> _startWalk() async {
     if (_controller.startingWalk ||
@@ -890,10 +770,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     }
   }
 
-  // ============================================================
-  // COMPLETE CONFIRMATION
-  // ============================================================
-
   void _confirmCompleteWalk() {
     if (_controller.ending || _showingEndDialog) {
       return;
@@ -908,7 +784,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     showDialog<void>(
       context: context,
-      barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor: AppColors.cardBackground,
@@ -961,15 +836,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         );
       },
     ).whenComplete(() {
-      if (mounted) {
-        _showingEndDialog = false;
-      }
+      _showingEndDialog = false;
     });
   }
-
-  // ============================================================
-  // COMPLETE WALK
-  // ============================================================
 
   Future<void> _completeWalk() async {
     if (_controller.ending || !_controller.walkStarted) {
@@ -1002,10 +871,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       _showError(_cleanError(error));
     }
   }
-
-  // ============================================================
-  // REVIEW
-  // ============================================================
 
   Future<void> _openReviewBottomSheet() async {
     if (!mounted || _showingReview) {
@@ -1062,10 +927,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     Navigator.of(context).pop(true);
   }
-
-  // ============================================================
-  // MAP BADGE
-  // ============================================================
 
   Widget _liveMapBadge() {
     return Container(
@@ -1127,18 +988,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         ready
             ? Icons.gps_fixed_rounded
             : Icons.gps_off_rounded,
-        color:
-            ready
-                ? Colors.green
-                : Colors.red,
+        color: ready ? Colors.green : Colors.red,
         size: 20,
       ),
     );
   }
-
-  // ============================================================
-  // SOS
-  // ============================================================
 
   void _openSos() {
     if (_controller.ending) {
@@ -1148,7 +1002,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      isScrollControlled: true,
       builder: (BuildContext sheetContext) {
         return _SosSheet(
           ownerName: widget.ownerName,
@@ -1158,10 +1011,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     );
   }
 
-  // ============================================================
-  // SUPPORT
-  // ============================================================
-
   void _openSupport() {
     if (_controller.ending) {
       return;
@@ -1170,7 +1019,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      isScrollControlled: true,
       builder: (BuildContext sheetContext) {
         return Container(
           padding: const EdgeInsets.fromLTRB(
@@ -1257,10 +1105,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     );
   }
 
-  // ============================================================
-  // ROUTE POINTS
-  // ============================================================
-
   List<Offset> _extractRoutePoints(
     Map<String, dynamic> data,
   ) {
@@ -1289,8 +1133,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
       if (item is Map) {
         final dynamic lat =
-            item['latitude'] ??
-            item['lat'];
+            item['latitude'] ?? item['lat'];
 
         final dynamic lng =
             item['longitude'] ??
@@ -1302,10 +1145,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
         if (latitude != null && longitude != null) {
           points.add(
-            Offset(
-              latitude,
-              longitude,
-            ),
+            Offset(latitude, longitude),
           );
         }
       }
@@ -1313,10 +1153,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     return points;
   }
-
-  // ============================================================
-  // DURATION
-  // ============================================================
 
   String _readDuration(
     Map<String, dynamic> data,
@@ -1350,10 +1186,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     return '0m';
   }
 
-  // ============================================================
-  // DOUBLE
-  // ============================================================
-
   double? _readDouble(dynamic value) {
     if (value == null) {
       return null;
@@ -1367,10 +1199,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       value.toString().trim(),
     );
   }
-
-  // ============================================================
-  // INT
-  // ============================================================
 
   int? _readInt(dynamic value) {
     if (value == null) {
@@ -1390,22 +1218,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     );
   }
 
-  // ============================================================
-  // ERROR
-  // ============================================================
-
   String _cleanError(Object error) {
-    final String message = error
+    return error
         .toString()
-        .replaceFirst(
-          'Exception: ',
-          '',
-        )
+        .replaceFirst('Exception: ', '')
         .trim();
-
-    return message.isEmpty
-        ? 'Something went wrong. Please try again.'
-        : message;
   }
 
   void _showError(String message) {
@@ -1440,10 +1257,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       );
   }
 
-  // ============================================================
-  // DISPOSE
-  // ============================================================
-
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
@@ -1451,10 +1264,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     super.dispose();
   }
 }
-
-// =================================================================
-// SOS SHEET
-// =================================================================
 
 class _SosSheet extends StatelessWidget {
   const _SosSheet({
@@ -1468,7 +1277,6 @@ class _SosSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String cleanOwnerName = ownerName.trim();
-    final String cleanPhone = ownerPhone?.trim() ?? '';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(
@@ -1521,17 +1329,6 @@ class _SosSheet extends StatelessWidget {
                 fontSize: 12,
               ),
             ),
-            if (cleanPhone.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                cleanPhone,
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
