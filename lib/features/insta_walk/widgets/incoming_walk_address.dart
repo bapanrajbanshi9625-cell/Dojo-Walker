@@ -10,8 +10,9 @@ class IncomingWalkAddress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String safeAddress =
-        address.trim().isEmpty ? 'Location unavailable' : address.trim();
+    if (address.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Container(
       width: double.infinity,
@@ -38,7 +39,7 @@ class IncomingWalkAddress extends StatelessWidget {
           const SizedBox(width: 9),
           Expanded(
             child: Text(
-              safeAddress,
+              address,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
