@@ -13,14 +13,11 @@ class ActiveWalkTopBar extends StatelessWidget {
   });
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     final String cleanStatus =
         status.trim().toLowerCase();
 
-    final bool active =
-        cleanStatus == 'active';
+    final bool active = cleanStatus == 'active';
 
     return SafeArea(
       child: Padding(
@@ -39,18 +36,18 @@ class ActiveWalkTopBar extends StatelessWidget {
               onTap: onBack,
             ),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(
+              padding: const EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 9,
               ),
               decoration: BoxDecoration(
                 color: AppColors.cardBackground,
-                borderRadius:
-                    BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.overlay.withOpacity(.15),
+                    color: AppColors.overlay.withValues(
+                      alpha: 0.15,
+                    ),
                     blurRadius: 14,
                   ),
                 ],
@@ -71,7 +68,7 @@ class ActiveWalkTopBar extends StatelessWidget {
                         : cleanStatus.isEmpty
                             ? 'INSTA WALK'
                             : cleanStatus.toUpperCase(),
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: AppColors.secondary,
                       fontSize: 11,
                       fontWeight: FontWeight.w900,
@@ -96,13 +93,12 @@ class ActiveWalkTopBar extends StatelessWidget {
       shape: const CircleBorder(),
       child: InkWell(
         onTap: onTap,
-        customBorder:
-            const CircleBorder(),
-        child: SizedBox(
+        customBorder: const CircleBorder(),
+        child: const SizedBox(
           width: 46,
           height: 46,
           child: Icon(
-            icon,
+            Icons.arrow_back_ios_new_rounded,
             color: AppColors.secondary,
             size: 20,
           ),
