@@ -942,15 +942,22 @@ class _IncomingWalkRequestScreenState
   // REACH OWNER
   // ============================================================
 
-  Future<void> _reachOwner() async {
+Future<void> _reachOwner() async {
     if (!_accepted ||
         _reaching ||
-        _requestUnavailable) {
+        _requestUnavailable ||
+        _leavingScreen) {
       return;
     }
 
-    if (_ownerLatitude == null ||
-        _ownerLongitude == null) {
+    final double? ownerLatitude =
+        _ownerLatitude;
+
+    final double? ownerLongitude =
+        _ownerLongitude;
+
+    if (ownerLatitude == null ||
+        ownerLongitude == null) {
       _showMessage(
         'Owner location is unavailable.',
       );
@@ -971,7 +978,10 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    if (_sessionId.isEmpty) {
+    final String sessionId =
+        _sessionId;
+
+    if (sessionId.isEmpty) {
       _showMessage(
         'Live Walk session is not ready yet.',
       );
@@ -1001,7 +1011,7 @@ class _IncomingWalkRequestScreenState
                   _ownerPhone.isEmpty
                       ? null
                       : _ownerPhone,
-              sessionId: _sessionId,
+              sessionId: sessionId,
             );
           },
         ),
@@ -1025,7 +1035,7 @@ class _IncomingWalkRequestScreenState
         });
       }
     }
-  }
+}
 
   // ============================================================
   // TOP BAR
