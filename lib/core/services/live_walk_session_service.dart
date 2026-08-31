@@ -14,32 +14,31 @@ class LiveWalkSessionService {
       FirebaseAuth.instance;
 
   // ============================================================
-  // LIVE SESSION COLLECTION
-  //
-  // ONLY liveWalkSessions is used by this service.
-  //
-  // walk_requests is the original request.
-  // liveWalkSessions is the actual running/completed walk.
+  // COLLECTION
   // ============================================================
 
   CollectionReference<Map<String, dynamic>>
       get _sessions {
-    return _firestore.collection('liveWalkSessions');
+    return _firestore.collection(
+      'liveWalkSessions',
+    );
   }
 
   // ============================================================
-  // CURRENT AUTH UID
+  // AUTH
   // ============================================================
 
   String get _currentAuthUid {
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     final String uid =
         user?.uid.trim() ?? '';
 
     if (uid.isEmpty) {
       throw Exception(
-        'Walker authentication is missing. Please login again.',
+        'Walker authentication is missing. '
+        'Please login again.',
       );
     }
 
@@ -48,8 +47,6 @@ class LiveWalkSessionService {
 
   // ============================================================
   // SESSION REFERENCE
-  //
-  // liveWalkSessions/{sessionId}
   // ============================================================
 
   DocumentReference<Map<String, dynamic>> sessionRef(
@@ -68,39 +65,23 @@ class LiveWalkSessionService {
   }
 
   // ============================================================
-  // GET LIVE SESSION
+  // GET SESSION
   // ============================================================
 
   Future<DocumentSnapshot<Map<String, dynamic>>>
       getSession(
     String sessionId,
   ) async {
-    final DocumentReference<Map<String, dynamic>>
-        reference =
-        sessionRef(sessionId);
-
-    return reference.get();
+    return sessionRef(sessionId).get();
   }
 
   // ============================================================
   // START WALK
   //
-  // IMPORTANT:
+  // ONLY liveWalkSessions/{sessionId}
   //
-  // sessionId = REAL liveWalkSessions document ID
-  //
-  // walkId = walk_requests document ID
-  //
-  // Example:
-  //
-  // walkId:
-  // 2GN4eWEi6XISWOqURYrF
-  //
-  // session:
-  // liveWalkSessions/{REAL_SESSION_ID}
-  //
-  // This method NEVER writes to walk_requests.
-  // This method NEVER writes to active_walks.
+  // walk_requests is NEVER modified.
+  // active_walk is handled by background service.
   // ============================================================
 
   Future<void> startWalk({
@@ -151,18 +132,11 @@ class LiveWalkSessionService {
         session =
         sessionRef(cleanSessionId);
 
-    // ==========================================================
-    // SESSION MUST ALREADY EXIST
-    //
-    // It should have been created after request acceptance.
-    // We do NOT create a new session here.
-    // ==========================================================
-
     final DocumentSnapshot<Map<String, dynamic>>
-        sessionSnapshot =
+        snapshot =
         await session.get();
 
-    if (!sessionSnapshot.exists) {
+    if (!snapshot.exists) {
       throw Exception(
         'Live walk session was not found. '
         'Please accept the walk again.',
@@ -170,11 +144,11 @@ class LiveWalkSessionService {
     }
 
     final Map<String, dynamic> existing =
-        sessionSnapshot.data() ??
+        snapshot.data() ??
             <String, dynamic>{};
 
     // ==========================================================
-    // SECURITY / OWNERSHIP CHECK
+    // VERIFY WALKER
     // ==========================================================
 
     final String existingWalkerUid =
@@ -191,9 +165,7 @@ class LiveWalkSessionService {
     }
 
     // ==========================================================
-    // WALK ID CHECK
-    //
-    // liveWalkSessions must contain the same walkId.
+    // VERIFY WALK ID
     // ==========================================================
 
     final String existingWalkId =
@@ -210,7 +182,7 @@ class LiveWalkSessionService {
     }
 
     // ==========================================================
-    // ALREADY COMPLETED
+    // STATUS
     // ==========================================================
 
     final String currentStatus =
@@ -227,10 +199,6 @@ class LiveWalkSessionService {
       );
     }
 
-    // ==========================================================
-    // ALREADY ACTIVE
-    // ==========================================================
-
     if (currentStatus == 'active' ||
         currentStatus == 'started' ||
         currentStatus == 'live') {
@@ -238,13 +206,12 @@ class LiveWalkSessionService {
     }
 
     // ==========================================================
-    // START LIVE SESSION
+    // START
     // ==========================================================
 
     final Map<String, dynamic>
         sessionData =
         <String, dynamic>{
-      // IDENTIFIERS
       'sessionId':
           cleanSessionId,
 
@@ -294,7 +261,7 @@ class LiveWalkSessionService {
       'trackingEnded':
           false,
 
-      // START
+      // TIME
       'startedAt':
           FieldValue.serverTimestamp(),
 
@@ -305,8 +272,11 @@ class LiveWalkSessionService {
       'distanceKm':
           existing['distanceKm'] ?? 0.0,
 
-      'elapsedSeconds':
-          existing['elapsedSeconds'] ?? 0,
+      'distanceMeters':
+          existing['distanceMeters'] ?? 0.0,
+
+      'durationSeconds':
+          existing['durationSeconds'] ?? 0,
 
       'steps':
           existing['steps'] ?? 0,
@@ -322,10 +292,18 @@ class LiveWalkSessionService {
           existing['routeCoordinates'] ??
               <dynamic>[],
 
-      // CURRENT LOCATION
+      // LOCATION
       if (existing['currentLocation'] != null)
         'currentLocation':
             existing['currentLocation'],
+
+      if (existing['currentLat'] != null)
+        'currentLat':
+            existing['currentLat'],
+
+      if (existing['currentLng'] != null)
+        'currentLng':
+            existing['currentLng'],
 
       // EVENTS
       'events':
@@ -344,19 +322,9 @@ class LiveWalkSessionService {
   // ============================================================
   // COMPLETE WALK
   //
-  // IMPORTANT:
+  // ONLY liveWalkSessions/{sessionId}
   //
-  // ONLY:
-  // liveWalkSessions/{sessionId}
-  //
-  // is updated here.
-  //
-  // NO:
-  // walk_requests
-  //
-  // NO:
-  // active_walks
-  //
+  // walk_requests is NEVER modified.
   // ============================================================
 
   Future<void> completeWalk({
@@ -384,10 +352,6 @@ class LiveWalkSessionService {
     final String authUid =
         _currentAuthUid;
 
-    // ==========================================================
-    // LIVE SESSION
-    // ==========================================================
-
     final DocumentReference<Map<String, dynamic>>
         session =
         sessionRef(cleanSessionId);
@@ -407,7 +371,7 @@ class LiveWalkSessionService {
             <String, dynamic>{};
 
     // ==========================================================
-    // VERIFY WALK ID
+    // WALK ID
     // ==========================================================
 
     final String sessionWalkId =
@@ -429,7 +393,7 @@ class LiveWalkSessionService {
     }
 
     // ==========================================================
-    // VERIFY WALKER
+    // WALKER
     // ==========================================================
 
     final String sessionWalkerUid =
@@ -451,7 +415,7 @@ class LiveWalkSessionService {
     }
 
     // ==========================================================
-    // VERIFY STATUS
+    // STATUS
     // ==========================================================
 
     final String status =
@@ -475,9 +439,7 @@ class LiveWalkSessionService {
     }
 
     // ==========================================================
-    // COMPLETE LIVE SESSION
-    //
-    // ONLY THIS DOCUMENT IS UPDATED.
+    // COMPLETE
     // ==========================================================
 
     await session.set(
