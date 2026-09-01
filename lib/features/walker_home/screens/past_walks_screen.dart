@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/dojo_colors.dart';
-import '../models/past_walk_model.dart';
+import '../../my_walks/models/past_walk_model.dart';
 import '../widgets/past_walk_card.dart';
 
 enum _PastWalkFilterType {
