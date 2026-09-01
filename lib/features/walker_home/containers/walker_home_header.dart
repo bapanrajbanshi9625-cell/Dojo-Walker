@@ -1,4 +1,4 @@
-// File location:
+// File:
 // lib/features/walker_home/containers/walker_home_header.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -23,115 +23,134 @@ class WalkerHomeHeader extends StatelessWidget {
       child: SafeArea(
         top: true,
         bottom: false,
-        child: Container(
-          height: 72,
+        child: SizedBox(
+          height: 68,
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: const BoxDecoration(
-            color: DojoColors.orange,
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .15),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: .38),
-                    width: 1,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                // ==================================================
+                // LOGO
+                // ==================================================
+
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.28),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.pets_rounded,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ),
-                child: const Icon(
-                  Icons.pets_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
 
-              const SizedBox(width: 10),
+                const SizedBox(width: 10),
 
-              const Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Dojo Walker',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
+                // ==================================================
+                // TITLE
+                // ==================================================
+
+                const Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Dojo Walker',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 1),
-                    Text(
-                      "Buddy's Dashboard",
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w400,
+                      SizedBox(height: 1),
+                      Text(
+                        "Buddy's Dashboard",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w400,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
 
-              _HeaderButton(
-                icon: Icons.notifications_none_rounded,
-                iconColor: const Color(0xFFFFE082),
-                backgroundColor: Colors.white.withValues(alpha: .14),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const NotificationsScreen(),
-                    ),
-                  );
-                },
-              ),
+                // ==================================================
+                // NOTIFICATION
+                // ==================================================
 
-              const SizedBox(width: 6),
+                _HeaderButton(
+                  icon: Icons.notifications_none_rounded,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen(),
+                      ),
+                    );
+                  },
+                ),
 
-              _HeaderButton(
-                icon: Icons.headset_mic_outlined,
-                iconColor: const Color(0xFFB3E5FC),
-                backgroundColor: Colors.white.withValues(alpha: .14),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const WalkerHelpSupportScreen(),
-                    ),
-                  );
-                },
-              ),
+                const SizedBox(width: 6),
 
-              const SizedBox(width: 6),
+                // ==================================================
+                // HELP
+                // ==================================================
 
-              _ProfileButton(
-                user: user,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ProfileScreen(),
-                    ),
-                  );
-                },
-              ),
-            ],
+                _HeaderButton(
+                  icon: Icons.headset_mic_outlined,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WalkerHelpSupportScreen(),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(width: 6),
+
+                // ==================================================
+                // PROFILE
+                // ==================================================
+
+                _ProfileButton(
+                  user: user,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ProfileScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 }
+
+// ================================================================
+// PROFILE BUTTON
+// ================================================================
 
 class _ProfileButton extends StatelessWidget {
   final User? user;
@@ -170,22 +189,22 @@ class _ProfileButton extends StatelessWidget {
           onTap: onTap,
           behavior: HitTestBehavior.opaque,
           child: Container(
-            width: 36,
-            height: 36,
+            width: 34,
+            height: 34,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .14),
+              color: Colors.white.withValues(alpha: 0.12),
               shape: BoxShape.circle,
               border: Border.all(
-                color: const Color(0xFFFFD180),
-                width: 1.5,
+                color: Colors.white.withValues(alpha: 0.55),
+                width: 1,
               ),
             ),
             clipBehavior: Clip.antiAlias,
             child: selfieUrl.isNotEmpty
                 ? Image.network(
                     selfieUrl,
-                    width: 36,
-                    height: 36,
+                    width: 34,
+                    height: 34,
                     fit: BoxFit.cover,
                     errorBuilder: (
                       BuildContext context,
@@ -194,15 +213,15 @@ class _ProfileButton extends StatelessWidget {
                     ) {
                       return const Icon(
                         Icons.person_outline_rounded,
-                        color: Color(0xFFFFD180),
-                        size: 19,
+                        color: Colors.white,
+                        size: 18,
                       );
                     },
                   )
                 : const Icon(
                     Icons.person_outline_rounded,
-                    color: Color(0xFFFFD180),
-                    size: 19,
+                    color: Colors.white,
+                    size: 18,
                   ),
           ),
         );
@@ -215,36 +234,36 @@ class _ProfileButton extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 36,
-        height: 36,
+        width: 34,
+        height: 34,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: .14),
+          color: Colors.white.withValues(alpha: 0.12),
           shape: BoxShape.circle,
           border: Border.all(
-            color: const Color(0xFFFFD180),
-            width: 1.5,
+            color: Colors.white.withValues(alpha: 0.55),
+            width: 1,
           ),
         ),
         child: const Icon(
           Icons.person_outline_rounded,
-          color: Color(0xFFFFD180),
-          size: 19,
+          color: Colors.white,
+          size: 18,
         ),
       ),
     );
   }
 }
 
+// ================================================================
+// HEADER BUTTON
+// ================================================================
+
 class _HeaderButton extends StatelessWidget {
   final IconData icon;
-  final Color iconColor;
-  final Color backgroundColor;
   final VoidCallback onTap;
 
   const _HeaderButton({
     required this.icon,
-    required this.iconColor,
-    required this.backgroundColor,
     required this.onTap,
   });
 
@@ -254,20 +273,20 @@ class _HeaderButton extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 36,
-        height: 36,
+        width: 34,
+        height: 34,
         decoration: BoxDecoration(
-          color: backgroundColor,
+          color: Colors.white.withValues(alpha: 0.12),
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.white.withValues(alpha: .30),
+            color: Colors.white.withValues(alpha: 0.25),
             width: 1,
           ),
         ),
         child: Icon(
           icon,
-          color: iconColor,
-          size: 19,
+          color: Colors.white,
+          size: 18,
         ),
       ),
     );
