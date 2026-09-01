@@ -1,10 +1,14 @@
+// File location:
+// lib/features/walker_home/containers/walker_home_header.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/dojo_colors.dart';
-import '../../../screens/profile_screen.dart';
 import '../../../screens/notifications_screen.dart';
+import '../../../screens/profile_screen.dart';
+import '../../../screens/walker_help_support_screen.dart';
 
 class WalkerHomeHeader extends StatelessWidget {
   const WalkerHomeHeader({
@@ -146,12 +150,11 @@ class WalkerHomeHeader extends StatelessWidget {
                   alpha: .14,
                 ),
                 onTap: () {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Support coming soon.',
-                      ),
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          const WalkerHelpSupportScreen(),
                     ),
                   );
                 },
@@ -209,8 +212,11 @@ class _ProfileButton extends StatelessWidget {
           .doc(user!.uid)
           .snapshots(),
       builder: (
-        context,
-        snapshot,
+        BuildContext context,
+        AsyncSnapshot<
+                DocumentSnapshot<
+                    Map<String, dynamic>>>
+            snapshot,
       ) {
         String selfieUrl = '';
 
@@ -251,9 +257,9 @@ class _ProfileButton extends StatelessWidget {
                     height: 36,
                     fit: BoxFit.cover,
                     errorBuilder: (
-                      context,
-                      error,
-                      stackTrace,
+                      BuildContext context,
+                      Object error,
+                      StackTrace? stackTrace,
                     ) {
                       return const Icon(
                         Icons
