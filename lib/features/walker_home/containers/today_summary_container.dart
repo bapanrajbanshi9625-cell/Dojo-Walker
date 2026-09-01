@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/dojo_colors.dart';
 import '../widgets/section_title.dart';
 import '../widgets/summary_stat_card.dart';
-import '../services/walker_home_service.dart';
 
 class TodaySummaryContainer extends StatelessWidget {
   final void Function({
@@ -30,14 +30,14 @@ class TodaySummaryContainer extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: DojoColors.surface,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: const Color(0xFFE1E4E8),
+              color: DojoColors.border,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: .035),
+                color: Colors.black.withValues(alpha: 0.035),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -52,13 +52,14 @@ class TodaySummaryContainer extends StatelessWidget {
                     icon: Icons.directions_walk_rounded,
                     title: 'Total Walks',
                     value: '0',
-                    background: const Color(0xFFFFE9E2),
-                    iconColor: const Color(0xFFFF6B35),
+                    background: DojoColors.orangeLight,
+                    iconColor: DojoColors.orange,
                     onTap: () {
                       onDetails(
                         title: 'Total Walks',
                         icon: Icons.directions_walk_rounded,
-                        description: 'Your total completed walks.',
+                        description:
+                            'Your total completed walks.',
                       );
                     },
                   ),
@@ -74,13 +75,14 @@ class TodaySummaryContainer extends StatelessWidget {
                     icon: Icons.route_rounded,
                     title: 'Distance',
                     value: '0 km',
-                    background: const Color(0xFFE5F1FF),
-                    iconColor: Colors.blue,
+                    background: DojoColors.blueLight,
+                    iconColor: DojoColors.blue,
                     onTap: () {
                       onDetails(
                         title: 'Distance',
                         icon: Icons.route_rounded,
-                        description: 'Your total walking distance.',
+                        description:
+                            'Your total walking distance.',
                       );
                     },
                   ),
@@ -96,13 +98,14 @@ class TodaySummaryContainer extends StatelessWidget {
                     icon: Icons.timer_outlined,
                     title: 'Duration',
                     value: '0 min',
-                    background: const Color(0xFFE7F5EA),
-                    iconColor: Colors.green,
+                    background: DojoColors.greenLight,
+                    iconColor: DojoColors.green,
                     onTap: () {
                       onDetails(
                         title: 'Walk Duration',
                         icon: Icons.timer_outlined,
-                        description: 'Your total walking duration.',
+                        description:
+                            'Your total walking duration.',
                       );
                     },
                   ),
@@ -118,13 +121,14 @@ class TodaySummaryContainer extends StatelessWidget {
                     icon: Icons.bar_chart_rounded,
                     title: 'Report Card',
                     value: '—',
-                    background: const Color(0xFFFFEEE8),
-                    iconColor: const Color(0xFFFF6B35),
+                    background: DojoColors.orangeLight,
+                    iconColor: DojoColors.orange,
                     onTap: () {
                       onDetails(
                         title: 'Performance Report',
                         icon: Icons.bar_chart_rounded,
-                        description: 'Your walking performance report.',
+                        description:
+                            'Your walking performance report.',
                       );
                     },
                   ),
