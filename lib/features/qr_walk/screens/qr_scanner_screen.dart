@@ -1,6 +1,3 @@
-// File:
-// lib/features/qr_walk/screens/qr_scanner_screen.dart
-
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -44,7 +41,7 @@ class _QrScannerScreenState
   bool _isFlashOn = false;
 
   // ==========================================================
-  // SCAN QR
+  // QR PROCESS
   // ==========================================================
 
   Future<void> _processQr(
@@ -68,10 +65,6 @@ class _QrScannerScreenState
     await _scannerController.stop();
 
     try {
-      // ======================================================
-      // PROCESS OWNER QR
-      // ======================================================
-
       final Map<String, dynamic> result =
           await _qrWalkService.processOwnerQr(
         rawData: cleanData,
@@ -81,14 +74,10 @@ class _QrScannerScreenState
         return;
       }
 
-      // ======================================================
-      // RETURN RESULT
-      // ======================================================
-
       Navigator.of(context).pop(
         jsonEncode(result),
       );
-    } catch (e) {
+    } catch (error) {
       if (!mounted) {
         return;
       }
@@ -100,10 +89,13 @@ class _QrScannerScreenState
       await _scannerController.start();
 
       _showError(
-        e.toString().replaceFirst(
+        error
+            .toString()
+            .replaceFirst(
               'Exception: ',
               '',
-            ),
+            )
+            .trim(),
       );
     }
   }
@@ -123,12 +115,27 @@ class _QrScannerScreenState
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(
-            message,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-            ),
+          content: Row(
+            children: [
+              const Icon(
+                Icons.error_outline_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  message.isEmpty
+                      ? 'Unable to scan QR code.'
+                      : message,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
           ),
           backgroundColor:
               AppColors.errorDark,
@@ -199,9 +206,7 @@ class _QrScannerScreenState
     BuildContext context,
   ) {
     return Scaffold(
-      backgroundColor:
-          Colors.black,
-
+      backgroundColor: Colors.black,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -235,14 +240,38 @@ class _QrScannerScreenState
           ),
 
           // ====================================================
-          // DARK OVERLAY
+          // CAMERA OVERLAY
           // ====================================================
 
           IgnorePointer(
             child: Container(
-              color:
-                  Colors.black.withOpacity(
-                0.38,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin:
+                      Alignment.topCenter,
+                  end:
+                      Alignment.bottomCenter,
+                  stops: const [
+                    0.0,
+                    0.28,
+                    0.62,
+                    1.0,
+                  ],
+                  colors: [
+                    Colors.black.withValues(
+                      alpha: .68,
+                    ),
+                    Colors.black.withValues(
+                      alpha: .18,
+                    ),
+                    Colors.black.withValues(
+                      alpha: .10,
+                    ),
+                    Colors.black.withValues(
+                      alpha: .72,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -269,9 +298,7 @@ class _QrScannerScreenState
                         _closeScanner,
                   ),
 
-                  const SizedBox(
-                    width: 14,
-                  ),
+                  const SizedBox(width: 14),
 
                   const Expanded(
                     child: Column(
@@ -284,16 +311,16 @@ class _QrScannerScreenState
                             color: Colors.white,
                             fontSize: 19,
                             fontWeight:
-                                FontWeight.w800,
+                                FontWeight.w900,
+                            letterSpacing: -.2,
                           ),
                         ),
-                        SizedBox(
-                          height: 2,
-                        ),
+                        SizedBox(height: 3),
                         Text(
-                          'Connect to a live walk',
+                          'Connect to a Live Walk',
                           style: TextStyle(
-                            color: Colors.white70,
+                            color:
+                                Colors.white70,
                             fontSize: 12,
                             fontWeight:
                                 FontWeight.w500,
@@ -325,89 +352,129 @@ class _QrScannerScreenState
                   MainAxisSize.min,
               children: [
                 // ----------------------------------------------
-                // QR FRAME
+                // SCANNER FRAME
                 // ----------------------------------------------
 
                 SizedBox(
-                  width: 286,
-                  height: 286,
+                  width: 300,
+                  height: 300,
                   child: Stack(
+                    alignment:
+                        Alignment.center,
                     children: [
                       // ----------------------------------------
-                      // CENTER GUIDE
+                      // SOFT CENTER BOX
                       // ----------------------------------------
 
-                      Center(
-                        child: Container(
-                          width: 250,
-                          height: 250,
-                          decoration:
-                              BoxDecoration(
-                            borderRadius:
-                                BorderRadius.circular(
-                              24,
+                      Container(
+                        width: 258,
+                        height: 258,
+                        decoration:
+                            BoxDecoration(
+                          borderRadius:
+                              BorderRadius.circular(
+                            26,
+                          ),
+                          border:
+                              Border.all(
+                            color: Colors.white
+                                .withValues(
+                              alpha: .16,
                             ),
-                            border:
-                                Border.all(
-                              color:
-                                  Colors.white.withOpacity(
-                                0.12,
-                              ),
-                              width: 1,
-                            ),
+                            width: 1,
                           ),
                         ),
                       ),
 
                       // ----------------------------------------
-                      // CORNERS
+                      // TOP LEFT
                       // ----------------------------------------
 
                       Positioned(
-                        top: 16,
-                        left: 16,
-                        child: _scannerCorner(
+                        top: 21,
+                        left: 21,
+                        child:
+                            _scannerCorner(
                           top: true,
                           left: true,
                         ),
                       ),
 
+                      // ----------------------------------------
+                      // TOP RIGHT
+                      // ----------------------------------------
+
                       Positioned(
-                        top: 16,
-                        right: 16,
-                        child: _scannerCorner(
+                        top: 21,
+                        right: 21,
+                        child:
+                            _scannerCorner(
                           top: true,
                           left: false,
                         ),
                       ),
 
+                      // ----------------------------------------
+                      // BOTTOM LEFT
+                      // ----------------------------------------
+
                       Positioned(
-                        bottom: 16,
-                        left: 16,
-                        child: _scannerCorner(
+                        bottom: 21,
+                        left: 21,
+                        child:
+                            _scannerCorner(
                           top: false,
                           left: true,
                         ),
                       ),
 
+                      // ----------------------------------------
+                      // BOTTOM RIGHT
+                      // ----------------------------------------
+
                       Positioned(
-                        bottom: 16,
-                        right: 16,
-                        child: _scannerCorner(
+                        bottom: 21,
+                        right: 21,
+                        child:
+                            _scannerCorner(
                           top: false,
                           left: false,
+                        ),
+                      ),
+
+                      // ----------------------------------------
+                      // CENTER QR ICON
+                      // ----------------------------------------
+
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration:
+                            BoxDecoration(
+                          color: Colors.black
+                              .withValues(
+                            alpha: .32,
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons
+                              .qr_code_scanner_rounded,
+                          color: Colors.white
+                              .withValues(
+                            alpha: .65,
+                          ),
+                          size: 23,
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(
-                  height: 26,
-                ),
+                const SizedBox(height: 24),
 
                 // ----------------------------------------------
-                // INSTRUCTION
+                // MAIN INSTRUCTION
                 // ----------------------------------------------
 
                 Container(
@@ -416,14 +483,18 @@ class _QrScannerScreenState
                     horizontal: 30,
                   ),
                   padding:
-                      const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 14,
+                      const EdgeInsets.fromLTRB(
+                    18,
+                    14,
+                    20,
+                    14,
                   ),
                   decoration:
                       BoxDecoration(
                     color: Colors.black
-                        .withOpacity(0.62),
+                        .withValues(
+                      alpha: .68,
+                    ),
                     borderRadius:
                         BorderRadius.circular(
                       18,
@@ -431,31 +502,49 @@ class _QrScannerScreenState
                     border:
                         Border.all(
                       color: Colors.white
-                          .withOpacity(
-                        0.12,
+                          .withValues(
+                        alpha: .12,
                       ),
                     ),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize:
                         MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.qr_code_2_rounded,
-                        color: Colors.white,
-                        size: 22,
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration:
+                            BoxDecoration(
+                          color: AppColors
+                              .primary
+                              .withValues(
+                            alpha: .18,
+                          ),
+                          borderRadius:
+                              BorderRadius.circular(
+                            11,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.qr_code_2_rounded,
+                          color:
+                              AppColors.primary,
+                          size: 21,
+                        ),
                       ),
-                      SizedBox(
-                        width: 10,
-                      ),
-                      Flexible(
+
+                      const SizedBox(width: 11),
+
+                      const Flexible(
                         child: Text(
-                          'Place the Owner QR inside the frame',
+                          'Place the Owner QR\ninside the frame',
                           textAlign:
-                              TextAlign.center,
+                              TextAlign.left,
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 13,
+                            height: 1.3,
                             fontWeight:
                                 FontWeight.w700,
                           ),
@@ -469,24 +558,26 @@ class _QrScannerScreenState
           ),
 
           // ====================================================
-          // PROCESSING OVERLAY
+          // PROCESSING
           // ====================================================
 
           if (_isProcessing)
             Container(
-              color:
-                  Colors.black.withOpacity(
-                0.72,
+              color: Colors.black.withValues(
+                alpha: .78,
               ),
               child: Center(
                 child: Container(
                   margin:
                       const EdgeInsets.symmetric(
-                    horizontal: 34,
+                    horizontal: 30,
                   ),
                   padding:
-                      const EdgeInsets.all(
+                      const EdgeInsets.fromLTRB(
                     26,
+                    28,
+                    26,
+                    25,
                   ),
                   decoration:
                       BoxDecoration(
@@ -494,57 +585,78 @@ class _QrScannerScreenState
                         AppColors.surface,
                     borderRadius:
                         BorderRadius.circular(
-                      24,
+                      26,
                     ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black38,
+                        blurRadius: 25,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
                   ),
                   child: Column(
                     mainAxisSize:
                         MainAxisSize.min,
                     children: [
-                      SizedBox(
-                        width: 42,
-                        height: 42,
-                        child:
-                            CircularProgressIndicator(
-                          strokeWidth: 3.5,
-                          valueColor:
-                              const AlwaysStoppedAnimation<
-                                  Color>(
-                            AppColors.primary,
+                      Container(
+                        width: 66,
+                        height: 66,
+                        decoration:
+                            BoxDecoration(
+                          color: AppColors
+                              .primary
+                              .withValues(
+                            alpha: .10,
+                          ),
+                          shape:
+                              BoxShape.circle,
+                        ),
+                        child: const Padding(
+                          padding:
+                              EdgeInsets.all(
+                            16,
+                          ),
+                          child:
+                              CircularProgressIndicator(
+                            strokeWidth: 3,
+                            valueColor:
+                                AlwaysStoppedAnimation<
+                                    Color>(
+                              AppColors.primary,
+                            ),
                           ),
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       const Text(
                         'Connecting to Owner',
                         textAlign:
                             TextAlign.center,
                         style: TextStyle(
-                          fontSize: 17,
+                          fontSize: 18,
                           fontWeight:
-                              FontWeight.w800,
+                              FontWeight.w900,
                           color:
                               AppColors.textPrimary,
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 7,
-                      ),
+                      const SizedBox(height: 7),
 
                       const Text(
-                        'Verifying QR and creating your Live Walk session.',
+                        'Verifying QR and creating\nyour Live Walk session.',
                         textAlign:
                             TextAlign.center,
                         style: TextStyle(
                           fontSize: 12,
-                          height: 1.4,
+                          height: 1.45,
                           color:
                               AppColors.textSecondary,
+                          fontWeight:
+                              FontWeight.w500,
                         ),
                       ),
                     ],
@@ -559,21 +671,23 @@ class _QrScannerScreenState
 
           if (!_isProcessing)
             Positioned(
-              left: 20,
-              right: 20,
-              bottom: 28,
+              left: 16,
+              right: 16,
+              bottom: 22,
               child: SafeArea(
                 top: false,
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 15,
+                    horizontal: 16,
+                    vertical: 13,
                   ),
                   decoration:
                       BoxDecoration(
                     color: Colors.black
-                        .withOpacity(0.70),
+                        .withValues(
+                      alpha: .72,
+                    ),
                     borderRadius:
                         BorderRadius.circular(
                       18,
@@ -581,22 +695,22 @@ class _QrScannerScreenState
                     border:
                         Border.all(
                       color: Colors.white
-                          .withOpacity(
-                        0.10,
+                          .withValues(
+                        alpha: .10,
                       ),
                     ),
                   ),
                   child: Row(
                     children: [
                       Container(
-                        width: 38,
-                        height: 38,
+                        width: 40,
+                        height: 40,
                         decoration:
                             BoxDecoration(
-                          color:
-                              AppColors.primary
-                                  .withOpacity(
-                            0.18,
+                          color: AppColors
+                              .primary
+                              .withValues(
+                            alpha: .16,
                           ),
                           borderRadius:
                               BorderRadius.circular(
@@ -608,18 +722,17 @@ class _QrScannerScreenState
                               .center_focus_strong_rounded,
                           color:
                               AppColors.primary,
-                          size: 20,
+                          size: 21,
                         ),
                       ),
 
-                      const SizedBox(
-                        width: 12,
-                      ),
+                      const SizedBox(width: 12),
 
                       const Expanded(
                         child: Column(
                           crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                              CrossAxisAlignment
+                                  .start,
                           children: [
                             Text(
                               'Ready to scan',
@@ -631,15 +744,15 @@ class _QrScannerScreenState
                                     FontWeight.w800,
                               ),
                             ),
-                            SizedBox(
-                              height: 3,
-                            ),
+                            SizedBox(height: 3),
                             Text(
-                              'Keep the QR code clear and well lit.',
+                              'Keep the QR clear and well lit.',
                               style: TextStyle(
                                 color:
                                     Colors.white70,
                                 fontSize: 11,
+                                fontWeight:
+                                    FontWeight.w500,
                               ),
                             ),
                           ],
@@ -664,17 +777,18 @@ class _QrScannerScreenState
     required VoidCallback onTap,
   }) {
     return Material(
-      color:
-          Colors.black.withOpacity(0.48),
+      color: Colors.black.withValues(
+        alpha: .52,
+      ),
       borderRadius:
-          BorderRadius.circular(15),
+          BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
         borderRadius:
-            BorderRadius.circular(15),
+            BorderRadius.circular(16),
         child: SizedBox(
-          width: 46,
-          height: 46,
+          width: 48,
+          height: 48,
           child: Icon(
             icon,
             color: Colors.white,
@@ -693,7 +807,7 @@ class _QrScannerScreenState
     required bool top,
     required bool left,
   }) {
-    const double size = 46;
+    const double size = 48;
     const double thickness = 4;
 
     return SizedBox(
@@ -701,6 +815,10 @@ class _QrScannerScreenState
       height: size,
       child: Stack(
         children: [
+          // -----------------------------------------------
+          // HORIZONTAL
+          // -----------------------------------------------
+
           Positioned(
             top: top ? 0 : null,
             bottom: top ? null : 0,
@@ -715,11 +833,26 @@ class _QrScannerScreenState
                     AppColors.primary,
                 borderRadius:
                     BorderRadius.circular(
-                  4,
+                  5,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors
+                        .primary
+                        .withValues(
+                      alpha: .35,
+                    ),
+                    blurRadius: 7,
+                  ),
+                ],
               ),
             ),
           ),
+
+          // -----------------------------------------------
+          // VERTICAL
+          // -----------------------------------------------
+
           Positioned(
             top: top ? 0 : null,
             bottom: top ? null : 0,
@@ -734,8 +867,18 @@ class _QrScannerScreenState
                     AppColors.primary,
                 borderRadius:
                     BorderRadius.circular(
-                  4,
+                  5,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors
+                        .primary
+                        .withValues(
+                      alpha: .35,
+                    ),
+                    blurRadius: 7,
+                  ),
+                ],
               ),
             ),
           ),
