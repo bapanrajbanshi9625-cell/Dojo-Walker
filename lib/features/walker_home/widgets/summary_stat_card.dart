@@ -29,13 +29,18 @@ class SummaryStatCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(13),
         child: Container(
-          height: 110,
-          padding: const EdgeInsets.all(12),
+          height: 104,
+          padding: const EdgeInsets.fromLTRB(
+            8,
+            9,
+            7,
+            8,
+          ),
           decoration: BoxDecoration(
             color: AppColors.cardBackground,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(13),
             border: Border.all(
               color: AppColors.border,
             ),
@@ -48,16 +53,16 @@ class SummaryStatCard extends StatelessWidget {
               // ==================================================
 
               Container(
-                width: 42,
-                height: 42,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: background,
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   icon,
                   color: iconColor,
-                  size: 24,
+                  size: 20,
                 ),
               ),
 
@@ -73,12 +78,13 @@ class SummaryStatCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: AppColors.textSecondary,
-                  fontSize: 12,
+                  fontSize: 10.5,
+                  height: 1.1,
                   fontWeight: FontWeight.w600,
                 ),
               ),
 
-              const SizedBox(height: 2),
+              const SizedBox(height: 3),
 
               // ==================================================
               // VALUE
@@ -90,7 +96,8 @@ class SummaryStatCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: AppColors.textPrimary,
-                  fontSize: 18,
+                  fontSize: 15,
+                  height: 1.05,
                   fontWeight: FontWeight.w800,
                 ),
               ),
