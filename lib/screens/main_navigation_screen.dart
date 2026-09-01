@@ -1,6 +1,8 @@
 // File:
 // lib/screens/main_navigation_screen.dart
 
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -9,6 +11,7 @@ import '../core/services/active_walk_strip_service.dart';
 import '../core/services/app_state_service.dart';
 import '../features/insta_walk/models/insta_walk_request.dart';
 import '../features/live_walk/screens/live_walk_screen.dart';
+import '../features/qr_walk/screens/qr_scanner_screen.dart';
 import '../widgets/active_walk_strip.dart';
 import 'menu_screen.dart';
 import 'walker_home_screen.dart';
@@ -106,20 +109,101 @@ class _MainNavigationScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
+
       body: _screens[_currentIndex],
+
+      // ==========================================================
+      // BOTTOM AREA
+      // ==========================================================
 
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
+          // ------------------------------------------------------
+          // ACTIVE WALK
+          // ------------------------------------------------------
+
           ActiveWalkStrip(
             onTap: _openCurrentWalk,
           ),
 
-          BottomNavigationBar(
+          // ------------------------------------------------------
+          // NAVIGATION BAR
+          // ------------------------------------------------------
+
+          _buildBottomNavigation(),
+        ],
+      ),
+
+      // ==========================================================
+      // PHONEPE STYLE QR BUTTON
+      // ==========================================================
+
+      floatingActionButton: _buildQrButton(),
+
+      floatingActionButtonLocation:
+          FloatingActionButtonLocation.centerDocked,
+    );
+  }
+
+  // ============================================================
+  // BOTTOM NAVIGATION
+  // ============================================================
+
+  Widget _buildBottomNavigation() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: .10,
+            ),
+            blurRadius: 18,
+            offset: const Offset(
+              0,
+              -5,
+            ),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 72,
+          child: BottomNavigationBar(
             currentIndex: _currentIndex,
+
             selectedItemColor: _selectedColor,
-            unselectedItemColor: AppColors.textGrey,
-            type: BottomNavigationBarType.fixed,
+
+            unselectedItemColor:
+                AppColors.textGrey,
+
+            backgroundColor:
+                Colors.transparent,
+
+            elevation: 0,
+
+            type:
+                BottomNavigationBarType.fixed,
+
+            selectedFontSize: 11,
+
+            unselectedFontSize: 10,
+
+            selectedLabelStyle:
+                const TextStyle(
+              fontWeight:
+                  FontWeight.w800,
+            ),
+
+            unselectedLabelStyle:
+                const TextStyle(
+              fontWeight:
+                  FontWeight.w600,
+            ),
+
             onTap: (int index) {
               if (index == _currentIndex) {
                 return;
@@ -129,30 +213,266 @@ class _MainNavigationScreenState
                 _currentIndex = index;
               });
             },
-            items: const <BottomNavigationBarItem>[
+
+            items: const <
+                BottomNavigationBarItem>[
               BottomNavigationBarItem(
-                icon: Icon(
-                  Icons.home_rounded,
+                icon: Padding(
+                  padding:
+                      EdgeInsets.only(
+                    bottom: 3,
+                  ),
+                  child: Icon(
+                    Icons.home_rounded,
+                    size: 25,
+                  ),
+                ),
+                activeIcon: Padding(
+                  padding:
+                      EdgeInsets.only(
+                    bottom: 3,
+                  ),
+                  child: Icon(
+                    Icons.home_rounded,
+                    size: 27,
+                  ),
                 ),
                 label: 'Home',
               ),
+
               BottomNavigationBarItem(
-                icon: Icon(
-                  Icons.directions_walk_rounded,
+                icon: Padding(
+                  padding:
+                      EdgeInsets.only(
+                    bottom: 3,
+                  ),
+                  child: Icon(
+                    Icons
+                        .directions_walk_rounded,
+                    size: 25,
+                  ),
+                ),
+                activeIcon: Padding(
+                  padding:
+                      EdgeInsets.only(
+                    bottom: 3,
+                  ),
+                  child: Icon(
+                    Icons
+                        .directions_walk_rounded,
+                    size: 27,
+                  ),
                 ),
                 label: 'Walks',
               ),
+
               BottomNavigationBarItem(
-                icon: Icon(
-                  Icons.menu_rounded,
+                icon: Padding(
+                  padding:
+                      EdgeInsets.only(
+                    bottom: 3,
+                  ),
+                  child: Icon(
+                    Icons.menu_rounded,
+                    size: 25,
+                  ),
+                ),
+                activeIcon: Padding(
+                  padding:
+                      EdgeInsets.only(
+                    bottom: 3,
+                  ),
+                  child: Icon(
+                    Icons.menu_rounded,
+                    size: 27,
+                  ),
                 ),
                 label: 'Menu',
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
+  }
+
+  // ============================================================
+  // QR BUTTON
+  //
+  // PHONEPE STYLE CENTRAL SCANNER
+  // ============================================================
+
+  Widget _buildQrButton() {
+    return Container(
+      width: 68,
+      height: 68,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white,
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppColors.primary.withValues(
+              alpha: .22,
+            ),
+            blurRadius: 16,
+            spreadRadius: 2,
+            offset: const Offset(
+              0,
+              5,
+            ),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(5),
+      child: Material(
+        color: AppColors.primary,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder:
+              const CircleBorder(),
+          onTap: _openQrScanner,
+          child: Center(
+            child: Column(
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.qr_code_scanner_rounded,
+                  color: Colors.white,
+                  size: 29,
+                ),
+
+                const SizedBox(
+                  height: 1,
+                ),
+
+                const Text(
+                  'SCAN',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 8,
+                    fontWeight:
+                        FontWeight.w900,
+                    letterSpacing: .7,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // OPEN QR SCANNER
+  // ============================================================
+
+  Future<void> _openQrScanner() async {
+    final dynamic result =
+        await Navigator.of(context).push(
+      MaterialPageRoute<dynamic>(
+        builder: (_) =>
+            const QrScannerScreen(),
+      ),
+    );
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // QR SCANNER RETURNS JSON STRING
+    // ----------------------------------------------------------
+
+    if (result is String &&
+        result.trim().isNotEmpty) {
+      _handleQrResult(result);
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // ALSO SUPPORT MAP RESULT
+    // ----------------------------------------------------------
+
+    if (result is Map) {
+      _handleQrMapResult(
+        Map<String, dynamic>.from(result),
+      );
+    }
+  }
+
+  // ============================================================
+  // HANDLE QR RESULT
+  // ============================================================
+
+  void _handleQrResult(
+    String rawResult,
+  ) {
+    try {
+      final dynamic decoded =
+          jsonDecode(rawResult);
+
+      if (decoded is Map) {
+        _handleQrMapResult(
+          Map<String, dynamic>.from(
+            decoded,
+          ),
+        );
+
+        return;
+      }
+
+      _showMessage(
+        'QR scanned successfully.',
+      );
+    } catch (_) {
+      _showMessage(
+        'QR scanned successfully.',
+      );
+    }
+  }
+
+  // ============================================================
+  // HANDLE QR MAP RESULT
+  // ============================================================
+
+  void _handleQrMapResult(
+    Map<String, dynamic> result,
+  ) {
+    final String status =
+        _readString(
+      result['status'],
+    ).toUpperCase();
+
+    final String message =
+        _readString(
+      result['message'],
+    );
+
+    if (status == 'ERROR' ||
+        status == 'FAILED') {
+      _showMessage(
+        message.isNotEmpty
+            ? message
+            : 'Unable to connect QR.',
+      );
+
+      return;
+    }
+
+    if (message.isNotEmpty) {
+      _showMessage(message);
+      return;
+    }
+
+    _showMessage(
+      'Owner connected successfully.',
+    );
+
+    // Refresh app state because QR service
+    // may have created a live session.
+    AppStateService.instance.refresh();
   }
 
   // ============================================================
@@ -198,7 +518,11 @@ class _MainNavigationScreenState
 
     if (walkData == null ||
         walkData.isEmpty ||
-        _requestId(walkData, walkId) != walkId) {
+        _requestId(
+              walkData,
+              walkId,
+            ) !=
+            walkId) {
       walkData =
           await _getWalkRequest(walkId);
     }
@@ -257,8 +581,7 @@ class _MainNavigationScreenState
     );
 
     // ==========================================================
-    // IF SESSION ID IS NOT IN REQUEST,
-    // FIND IT FROM liveWalkSessions.
+    // FIND LIVE SESSION
     // ==========================================================
 
     if (sessionId.isEmpty) {
@@ -272,7 +595,8 @@ class _MainNavigationScreenState
             _firstNonEmpty(
           <dynamic>[
             sessionData['sessionId'],
-            sessionData['liveWalkSessionId'],
+            sessionData[
+                'liveWalkSessionId'],
           ],
         );
       }
@@ -342,10 +666,7 @@ class _MainNavigationScreenState
     );
 
     // ==========================================================
-    // SESSION ID FALLBACK
-    //
-    // Do NOT manufacture a fake session for Live Walk.
-    // The actual liveWalkSessions document must exist.
+    // SESSION REQUIRED
     // ==========================================================
 
     if (sessionId.isEmpty) {
@@ -375,9 +696,10 @@ class _MainNavigationScreenState
             walkId: request.id,
             dogName: dogName,
             dogBreed: dogBreed,
-            ownerPhone: ownerPhone.trim().isEmpty
-                ? null
-                : ownerPhone.trim(),
+            ownerPhone:
+                ownerPhone.trim().isEmpty
+                    ? null
+                    : ownerPhone.trim(),
             sessionId: sessionId,
           );
         },
@@ -389,16 +711,13 @@ class _MainNavigationScreenState
     // ==========================================================
 
     if (mounted) {
-      await AppStateService.instance.refresh();
+      await AppStateService.instance
+          .refresh();
     }
   }
 
   // ============================================================
   // GET WALK REQUEST
-  //
-  // Exact collection:
-  //
-  //     walk_request
   // ============================================================
 
   Future<Map<String, dynamic>?> _getWalkRequest(
@@ -413,8 +732,7 @@ class _MainNavigationScreenState
 
     try {
       final DocumentSnapshot<
-              Map<String, dynamic>>
-          document =
+          Map<String, dynamic>> document =
           await FirebaseFirestore.instance
               .collection('walk_request')
               .doc(id)
@@ -424,8 +742,7 @@ class _MainNavigationScreenState
         return null;
       }
 
-      final Map<String, dynamic>?
-          data =
+      final Map<String, dynamic>? data =
           document.data();
 
       if (data == null) {
@@ -466,10 +783,6 @@ class _MainNavigationScreenState
 
   // ============================================================
   // FIND LIVE SESSION
-  //
-  // Exact collection:
-  //
-  //     liveWalkSessions
   // ============================================================
 
   Future<Map<String, dynamic>?> _findLiveSession(
@@ -484,8 +797,7 @@ class _MainNavigationScreenState
 
     try {
       final QuerySnapshot<
-              Map<String, dynamic>>
-          snapshot =
+          Map<String, dynamic>> snapshot =
           await FirebaseFirestore.instance
               .collection('liveWalkSessions')
               .where(
@@ -500,10 +812,9 @@ class _MainNavigationScreenState
       }
 
       for (final QueryDocumentSnapshot<
-              Map<String, dynamic>>
-          document in snapshot.docs) {
-        final Map<String, dynamic>
-            data =
+          Map<String, dynamic>> document
+          in snapshot.docs) {
+        final Map<String, dynamic> data =
             document.data();
 
         final String status =
@@ -672,11 +983,13 @@ class _MainNavigationScreenState
               ) ??
               0.0,
 
-      durationMinutes: _readInt(
+      durationMinutes:
+          _readInt(
         data['durationMinutes'],
       ),
 
-      timeFormatted: _readString(
+      timeFormatted:
+          _readString(
         data['timeFormatted'],
       ),
 
@@ -684,14 +997,16 @@ class _MainNavigationScreenState
         data['date'],
       ),
 
-      activeWalkId: _firstNonEmpty(
+      activeWalkId:
+          _firstNonEmpty(
         <dynamic>[
           data['activeWalkId'],
           data['walkId'],
         ],
       ),
 
-      liveWalkSessionId: _firstNonEmpty(
+      liveWalkSessionId:
+          _firstNonEmpty(
         <dynamic>[
           data['liveWalkSessionId'],
           data['sessionId'],
@@ -701,31 +1016,38 @@ class _MainNavigationScreenState
         ],
       ),
 
-      createdAt: _readTimestamp(
+      createdAt:
+          _readTimestamp(
         data['createdAt'],
       ),
 
-      acceptedAt: _readTimestamp(
+      acceptedAt:
+          _readTimestamp(
         data['acceptedAt'],
       ),
 
-      startedAt: _readTimestamp(
+      startedAt:
+          _readTimestamp(
         data['startedAt'],
       ),
 
-      endedAt: _readTimestamp(
+      endedAt:
+          _readTimestamp(
         data['endedAt'],
       ),
 
-      cancelledAt: _readTimestamp(
+      cancelledAt:
+          _readTimestamp(
         data['cancelledAt'],
       ),
 
-      rejectedAt: _readTimestamp(
+      rejectedAt:
+          _readTimestamp(
         data['rejectedAt'],
       ),
 
-      updatedAt: _readTimestamp(
+      updatedAt:
+          _readTimestamp(
         data['updatedAt'],
       ),
     );
@@ -914,7 +1236,20 @@ class _MainNavigationScreenState
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior: SnackBarBehavior.floating,
+          behavior:
+              SnackBarBehavior.floating,
+          margin:
+              const EdgeInsets.fromLTRB(
+            16,
+            0,
+            16,
+            90,
+          ),
+          shape:
+              RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(14),
+          ),
         ),
       );
   }
