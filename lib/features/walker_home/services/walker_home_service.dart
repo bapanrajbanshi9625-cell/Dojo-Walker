@@ -3,14 +3,26 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../my_walks/models/past_walk_model.dart';
 
+class WalkerHomeSummary {
+  final int totalWalks;
+  final double distanceKm;
+  final double durationMinutes;
+  final String performance;
+
+  const WalkerHomeSummary({
+    this.totalWalks = 0,
+    this.distanceKm = 0,
+    this.durationMinutes = 0,
+    this.performance = 'No data',
+  });
+}
+
 class WalkerHomeService {
   WalkerHomeService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-  })  : _firestore =
-            firestore ?? FirebaseFirestore.instance,
-        _auth =
-            auth ?? FirebaseAuth.instance;
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
@@ -70,6 +82,98 @@ class WalkerHomeService {
   }
 
   // ============================================================
+  // TODAY'S SUMMARY
+  //
+  // Uses today's completed walks from walk_history.
+  // ============================================================
+
+  Stream<WalkerHomeSummary> watchTodaySummary() {
+    return watchPastWalks().map(
+      (List<PastWalkModel> walks) {
+        final DateTime now = DateTime.now();
+
+        final DateTime startOfDay = DateTime(
+          now.year,
+          now.month,
+          now.day,
+        );
+
+        final DateTime endOfDay = startOfDay.add(
+          const Duration(days: 1),
+        );
+
+        final List<PastWalkModel> todayWalks =
+            walks.where(
+          (PastWalkModel walk) {
+            final DateTime? walkDate = _getWalkDate(walk);
+
+            if (walkDate == null) {
+              return false;
+            }
+
+            return !walkDate.isBefore(startOfDay) &&
+                walkDate.isBefore(endOfDay);
+          },
+        ).toList();
+
+        final int total = totalWalks(todayWalks);
+        final double distance = totalDistanceKm(todayWalks);
+        final double duration =
+            totalDurationMinutes(todayWalks);
+
+        return WalkerHomeSummary(
+          totalWalks: total,
+          distanceKm: distance,
+          durationMinutes: duration,
+          performance: _performanceText(
+            todayWalks,
+          ),
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // PERFORMANCE
+  // ============================================================
+
+  String _performanceText(
+    List<PastWalkModel> walks,
+  ) {
+    if (walks.isEmpty) {
+      return 'No data';
+    }
+
+    final double rating = averageRating(walks);
+
+    if (rating >= 4.5) {
+      return 'Excellent';
+    }
+
+    if (rating >= 4.0) {
+      return 'Great';
+    }
+
+    if (rating >= 3.0) {
+      return 'Good';
+    }
+
+    if (rating > 0) {
+      return 'Average';
+    }
+
+    if (walks.length >= 3) {
+      return 'Excellent';
+    }
+
+    if (walks.length >= 2) {
+      return 'Good';
+    }
+
+    return 'Active';
+  }
+
+  // ============================================================
   // WALKS FOR SELECTED DATE
   // ============================================================
 
@@ -86,8 +190,7 @@ class WalkerHomeService {
 
         return walks.where(
           (PastWalkModel walk) {
-            final DateTime? walkDate =
-                _getWalkDate(walk);
+            final DateTime? walkDate = _getWalkDate(walk);
 
             if (walkDate == null) {
               return false;
@@ -125,8 +228,7 @@ class WalkerHomeService {
       (List<PastWalkModel> walks) {
         return walks.where(
           (PastWalkModel walk) {
-            final DateTime? walkDate =
-                _getWalkDate(walk);
+            final DateTime? walkDate = _getWalkDate(walk);
 
             if (walkDate == null) {
               return false;
@@ -169,12 +271,6 @@ class WalkerHomeService {
 
   // ============================================================
   // TOTAL DISTANCE
-  //
-  // Primary:
-  // distanceKm
-  //
-  // Fallback:
-  // routeDistanceKm
   // ============================================================
 
   double totalDistanceKm(
@@ -195,12 +291,6 @@ class WalkerHomeService {
 
   // ============================================================
   // TOTAL DURATION
-  //
-  // Primary:
-  // durationMinutes
-  //
-  // Fallback:
-  // routeDurationMinutes
   // ============================================================
 
   double totalDurationMinutes(
@@ -329,11 +419,8 @@ class WalkerHomeService {
         PastWalkModel a,
         PastWalkModel b,
       ) {
-        final DateTime? aDate =
-            _getWalkDate(a);
-
-        final DateTime? bDate =
-            _getWalkDate(b);
+        final DateTime? aDate = _getWalkDate(a);
+        final DateTime? bDate = _getWalkDate(b);
 
         if (aDate == null && bDate == null) {
           return 0;
