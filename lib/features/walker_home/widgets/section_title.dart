@@ -21,15 +21,15 @@ class WalkerSectionTitle extends StatelessWidget {
         // ========================================================
 
         Container(
-          width: 5,
-          height: 28,
+          width: 4,
+          height: 21,
           decoration: BoxDecoration(
             color: DojoColors.orange,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
           ),
         ),
 
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
 
         // ========================================================
         // SECTION TITLE
@@ -38,10 +38,13 @@ class WalkerSectionTitle extends StatelessWidget {
         Expanded(
           child: Text(
             title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: DojoColors.dark,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              height: 1.15,
+              fontWeight: FontWeight.w750,
             ),
           ),
         ),
@@ -53,26 +56,26 @@ class WalkerSectionTitle extends StatelessWidget {
         if (live)
           Container(
             padding: const EdgeInsets.symmetric(
-              horizontal: 9,
-              vertical: 5,
+              horizontal: 8,
+              vertical: 4,
             ),
             decoration: BoxDecoration(
               color: DojoColors.greenLight,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.circle,
-                  size: 7,
+                  size: 6,
                   color: DojoColors.green,
                 ),
-                const SizedBox(width: 5),
+                const SizedBox(width: 4),
                 Text(
                   'LIVE',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: FontWeight.w800,
                     color: DojoColors.green,
                   ),
