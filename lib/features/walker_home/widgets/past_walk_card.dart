@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/dojo_colors.dart';
+import '../../../../core/theme/dojo_walker_colors.dart';
 
 class PastWalkCard extends StatelessWidget {
   final String id;
