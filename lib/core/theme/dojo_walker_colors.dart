@@ -267,23 +267,28 @@ class DojoWalkerColors {
   static const Color greenShadow = Color(0x4015803D);
 }
 
-
 /// ===============================================================
 /// COMPATIBILITY ALIAS
 /// ===============================================================
 ///
 /// Existing screens use DojoColors.
-/// Keep this class so old imports/usages continue to compile.
+/// This compatibility class keeps those screens working while
+/// the main design system remains DojoWalkerColors.
 ///
-/// Example:
+/// Examples:
 ///   DojoColors.orange
 ///   DojoColors.background
 ///   DojoColors.textPrimary
+///   DojoColors.dark
 ///
+
 class DojoColors {
   DojoColors._();
 
-  // Brand
+  // ===============================================================
+  // BRAND
+  // ===============================================================
+
   static const Color orange = DojoWalkerColors.primary;
   static const Color orangeDark = DojoWalkerColors.primaryDark;
   static const Color orangeLight = DojoWalkerColors.primaryLight;
@@ -293,38 +298,81 @@ class DojoColors {
   static const Color primaryDark = DojoWalkerColors.primaryDark;
   static const Color primaryLight = DojoWalkerColors.primaryLight;
 
-  // Basic
+  static const Color secondary = DojoWalkerColors.secondary;
+  static const Color secondaryDark = DojoWalkerColors.secondaryDark;
+  static const Color secondaryLight = DojoWalkerColors.secondaryLight;
+
+  // ===============================================================
+  // BASIC
+  // ===============================================================
+
   static const Color white = DojoWalkerColors.white;
   static const Color black = DojoWalkerColors.black;
 
-  // Dark
+  // ===============================================================
+  // DARK
+  // ===============================================================
+
+  static const Color dark = DojoWalkerColors.slate;
   static const Color hero = DojoWalkerColors.hero;
   static const Color heroDark = DojoWalkerColors.heroDark;
   static const Color slate = DojoWalkerColors.slate;
   static const Color midnight = DojoWalkerColors.midnight;
   static const Color obsidian = DojoWalkerColors.obsidian;
 
-  // Active
+  // ===============================================================
+  // ACTIVE / GLOW
+  // ===============================================================
+
   static const Color active = DojoWalkerColors.active;
   static const Color glow = DojoWalkerColors.glow;
   static const Color cyan = DojoWalkerColors.cyan;
   static const Color aqua = DojoWalkerColors.aqua;
 
-  // Background
+  static const Color activeSoft = DojoWalkerColors.activeSoft;
+  static const Color glowSoft = DojoWalkerColors.glowSoft;
+
+  // ===============================================================
+  // CTA
+  // ===============================================================
+
+  static const Color buttonPrimary = DojoWalkerColors.buttonPrimary;
+  static const Color buttonPrimaryPressed =
+      DojoWalkerColors.buttonPrimaryPressed;
+
+  static const Color buttonSecondary =
+      DojoWalkerColors.buttonSecondary;
+  static const Color buttonSecondaryPressed =
+      DojoWalkerColors.buttonSecondaryPressed;
+
+  static const Color buttonText = DojoWalkerColors.buttonText;
+
+  // ===============================================================
+  // BACKGROUND
+  // ===============================================================
+
   static const Color background = DojoWalkerColors.background;
   static const Color surface = DojoWalkerColors.surface;
   static const Color surfaceSoft = DojoWalkerColors.surfaceSoft;
   static const Color surfaceWarm = DojoWalkerColors.surfaceWarm;
 
-  // Text
+  // ===============================================================
+  // TEXT
+  // ===============================================================
+
   static const Color textPrimary = DojoWalkerColors.textPrimary;
   static const Color textSecondary = DojoWalkerColors.textSecondary;
   static const Color textMuted = DojoWalkerColors.textMuted;
   static const Color textLight = DojoWalkerColors.textLight;
-  static const Color textOnDark = DojoWalkerColors.textOnDark;
-  static const Color textOnPrimary = DojoWalkerColors.textOnPrimary;
 
-  // Status
+  static const Color textOnDark = DojoWalkerColors.textOnDark;
+  static const Color textOnPrimary =
+      DojoWalkerColors.textOnPrimary;
+
+  // ===============================================================
+  // STATUS
+  // ===============================================================
+
   static const Color success = DojoWalkerColors.success;
   static const Color successSoft = DojoWalkerColors.successSoft;
   static const Color successDark = DojoWalkerColors.successDark;
@@ -341,23 +389,34 @@ class DojoColors {
   static const Color infoSoft = DojoWalkerColors.infoSoft;
   static const Color infoDark = DojoWalkerColors.infoDark;
 
-  // Borders
+  // ===============================================================
+  // BORDERS
+  // ===============================================================
+
   static const Color border = DojoWalkerColors.border;
   static const Color borderStrong = DojoWalkerColors.borderStrong;
   static const Color borderMedium = DojoWalkerColors.borderMedium;
   static const Color borderLight = DojoWalkerColors.borderLight;
   static const Color divider = DojoWalkerColors.divider;
 
-  // Icons
+  // ===============================================================
+  // ICONS
+  // ===============================================================
+
   static const Color iconPrimary = DojoWalkerColors.iconPrimary;
-  static const Color iconSecondary = DojoWalkerColors.iconSecondary;
+  static const Color iconSecondary =
+      DojoWalkerColors.iconSecondary;
   static const Color iconMuted = DojoWalkerColors.iconMuted;
-  static const Color iconOnPrimary = DojoWalkerColors.iconOnPrimary;
+  static const Color iconOnPrimary =
+      DojoWalkerColors.iconOnPrimary;
   static const Color iconOrange = DojoWalkerColors.iconOrange;
   static const Color iconGreen = DojoWalkerColors.iconGreen;
   static const Color iconBlue = DojoWalkerColors.iconBlue;
 
-  // Navigation
+  // ===============================================================
+  // NAVIGATION
+  // ===============================================================
+
   static const Color bottomBar = DojoWalkerColors.bottomBar;
   static const Color bottomBarBorder =
       DojoWalkerColors.bottomBarBorder;
@@ -365,7 +424,10 @@ class DojoColors {
   static const Color navUnselected =
       DojoWalkerColors.navUnselected;
 
-  // Cards
+  // ===============================================================
+  // CARDS
+  // ===============================================================
+
   static const Color card = DojoWalkerColors.card;
   static const Color cardBorder = DojoWalkerColors.cardBorder;
   static const Color cardDark = DojoWalkerColors.cardDark;
@@ -375,7 +437,10 @@ class DojoColors {
   static const Color cardGreen = DojoWalkerColors.cardGreen;
   static const Color cardBlue = DojoWalkerColors.cardBlue;
 
-  // Inputs
+  // ===============================================================
+  // INPUT
+  // ===============================================================
+
   static const Color inputBackground =
       DojoWalkerColors.inputBackground;
   static const Color inputBorder =
@@ -386,18 +451,31 @@ class DojoColors {
       DojoWalkerColors.inputErrorBorder;
   static const Color inputHint = DojoWalkerColors.inputHint;
 
-  // Overlay
+  // ===============================================================
+  // OVERLAY
+  // ===============================================================
+
   static const Color overlay = DojoWalkerColors.overlay;
   static const Color darkOverlay = DojoWalkerColors.darkOverlay;
 
-  // Disabled
-  static const Color disabled = DojoWalkerColors.disabled;
-  static const Color disabledText = DojoWalkerColors.disabledText;
+  // ===============================================================
+  // DISABLED
+  // ===============================================================
 
-  // Rainbow
+  static const Color disabled = DojoWalkerColors.disabled;
+  static const Color disabledText =
+      DojoWalkerColors.disabledText;
+
+  // ===============================================================
+  // RAINBOW
+  // ===============================================================
+
   static const List<Color> rainbow = DojoWalkerColors.rainbow;
 
-  // Gradients
+  // ===============================================================
+  // GRADIENTS
+  // ===============================================================
+
   static const LinearGradient heroGradient =
       DojoWalkerColors.heroGradient;
 
@@ -413,7 +491,10 @@ class DojoColors {
   static const LinearGradient darkGradient =
       DojoWalkerColors.darkGradient;
 
-  // Shadows
+  // ===============================================================
+  // SHADOWS
+  // ===============================================================
+
   static const Color shadow = DojoWalkerColors.shadow;
   static const Color orangeShadow =
       DojoWalkerColors.orangeShadow;
