@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../walker_home_features.dart';
+import '../../../../core/theme/dojo_colors.dart';
 
 class WalkerSectionTitle extends StatelessWidget {
   final String title;
@@ -16,58 +16,70 @@ class WalkerSectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        // ========================================================
+        // ORANGE ACCENT
+        // ========================================================
+
         Container(
           width: 5,
           height: 28,
           decoration: BoxDecoration(
-            color: WalkerHomeFeatures.orange,
+            color: DojoColors.orange,
             borderRadius: BorderRadius.circular(10),
           ),
         ),
 
         const SizedBox(width: 10),
 
-        Text(
-          title,
-          style: const TextStyle(
-            color: WalkerHomeFeatures.dark,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
+        // ========================================================
+        // SECTION TITLE
+        // ========================================================
+
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: DojoColors.dark,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+            ),
           ),
         ),
 
-        if (live) ...[
-          const SizedBox(width: 9),
+        // ========================================================
+        // LIVE BADGE
+        // ========================================================
 
+        if (live)
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 9,
               vertical: 5,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFFE5F7E9),
+              color: DojoColors.greenLight,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Row(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.circle,
                   size: 7,
-                  color: Colors.green,
+                  color: DojoColors.green,
                 ),
-                SizedBox(width: 5),
+                const SizedBox(width: 5),
                 Text(
                   'LIVE',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
-                    color: Colors.green,
+                    color: DojoColors.green,
                   ),
                 ),
               ],
             ),
           ),
-        ],
       ],
     );
   }
