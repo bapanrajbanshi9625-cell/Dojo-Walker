@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../services/live_walk_review_service.dart';
 
 class LiveWalkReviewBottomSheet extends StatefulWidget {
   const LiveWalkReviewBottomSheet({
@@ -33,11 +34,13 @@ class LiveWalkReviewBottomSheet extends StatefulWidget {
 
 class _LiveWalkReviewBottomSheetState
     extends State<LiveWalkReviewBottomSheet> {
-  int _rating = 0;
+  final LiveWalkReviewService _reviewService =
+      LiveWalkReviewService();
 
   final TextEditingController _reviewController =
       TextEditingController();
 
+  int _rating = 0;
   bool _submitting = false;
   bool _finished = false;
 
@@ -60,34 +63,64 @@ class _LiveWalkReviewBottomSheetState
       _submitting = true;
     });
 
-    // Review backend can be connected here later.
-    await Future<void>.delayed(
-      const Duration(milliseconds: 350),
-    );
+    try {
+      await _reviewService.saveReview(
+        walkId: widget.walkId,
+        ownerUid: widget.ownerUid,
+        rating: _rating,
+        walkerNote: _reviewController.text,
+      );
 
-    if (!mounted) {
-      return;
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _submitting = false;
+        _finished = true;
+      });
+
+      await Future<void>.delayed(
+        const Duration(milliseconds: 300),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      // --------------------------------------------------------
+      // CLOSE BOTTOM SHEET
+      // --------------------------------------------------------
+
+      Navigator.of(context).pop();
+
+      // --------------------------------------------------------
+      // RETURN TO MAIN NAVIGATION
+      // --------------------------------------------------------
+
+      widget.onBackToHome();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _submitting = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not save review. Please try again.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
-
-    setState(() {
-      _submitting = false;
-      _finished = true;
-    });
-
-    await Future<void>.delayed(
-      const Duration(milliseconds: 250),
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    Navigator.of(context).pop();
-    widget.onBackToHome();
   }
 
   // ============================================================
-  // SKIP
+  // SKIP REVIEW
   // ============================================================
 
   void _skipReview() {
@@ -100,6 +133,7 @@ class _LiveWalkReviewBottomSheetState
     });
 
     Navigator.of(context).pop();
+
     widget.onBackToHome();
   }
 
@@ -111,14 +145,19 @@ class _LiveWalkReviewBottomSheetState
     switch (_rating) {
       case 1:
         return 'Needs improvement';
+
       case 2:
         return 'Could be better';
+
       case 3:
         return 'Good experience';
+
       case 4:
         return 'Great experience';
+
       case 5:
         return 'Excellent walk!';
+
       default:
         return 'Tap a star to rate your experience';
     }
@@ -261,11 +300,10 @@ class _LiveWalkReviewBottomSheetState
                       ),
                     ),
 
-                    // MAP LABEL
                     Positioned(
                       left: 12,
                       top: 12,
-                      child: _MapLabel(
+                      child: const _MapLabel(
                         icon: Icons.route_rounded,
                         label: 'WALK ROUTE',
                       ),
@@ -313,7 +351,9 @@ class _LiveWalkReviewBottomSheetState
                       title: 'DISTANCE',
                     ),
                   ),
+
                   const SizedBox(width: 8),
+
                   Expanded(
                     child: _Stat(
                       icon: Icons.schedule_rounded,
@@ -321,7 +361,9 @@ class _LiveWalkReviewBottomSheetState
                       title: 'DURATION',
                     ),
                   ),
+
                   const SizedBox(width: 8),
+
                   Expanded(
                     child: _Stat(
                       icon: Icons.directions_walk_rounded,
@@ -495,7 +537,7 @@ class _LiveWalkReviewBottomSheetState
               const SizedBox(height: 14),
 
               // ==================================================
-              // SUBMIT
+              // SUBMIT BUTTON
               // ==================================================
 
               SizedBox(
