@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/dojo_walker_colors.dart';
-import '../models/past_walk_model.dart';
 import '../services/walker_home_service.dart';
 import '../widgets/section_title.dart';
 import '../widgets/summary_stat_card.dart';
