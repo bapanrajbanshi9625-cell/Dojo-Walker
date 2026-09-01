@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_walker_colors.dart';
+import '../../../core/theme/colors/dojo_walker_colors.dart';
 import '../services/walker_home_service.dart';
 import '../widgets/section_title.dart';
 import '../widgets/summary_stat_card.dart';
@@ -27,130 +27,156 @@ class TodaySummaryContainer extends StatelessWidget {
         const WalkerSectionTitle(
           title: "Today's Summary",
         ),
+
         const SizedBox(height: 8),
-        StreamBuilder<WalkerHomeSummary>(
+
+        StreamBuilder(
           stream: _service.watchTodaySummary(),
           builder: (context, snapshot) {
-            final WalkerHomeSummary summary =
-                snapshot.data ?? const WalkerHomeSummary();
+            final summary = snapshot.data;
 
-            return Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: DojoWalkerColors.surface,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: DojoWalkerColors.border,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.035),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: SummaryStatCard(
-                        icon: Icons.directions_walk_rounded,
-                        title: 'Total Walks',
-                        value: '${summary.totalWalks}',
-                        background:
-                            DojoWalkerColors.orangeLight,
-                        iconColor: DojoWalkerColors.orange,
-                        onTap: () {
-                          onDetails(
-                            title: 'Total Walks',
-                            icon: Icons.directions_walk_rounded,
-                            description:
-                                'Today you completed '
-                                '${summary.totalWalks} walk(s).',
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: SummaryStatCard(
-                        icon: Icons.route_rounded,
-                        title: 'Distance',
-                        value:
-                            '${summary.distanceKm.toStringAsFixed(1)} km',
-                        background:
-                            DojoWalkerColors.blueLight,
-                        iconColor: DojoWalkerColors.blue,
-                        onTap: () {
-                          onDetails(
-                            title: 'Distance',
-                            icon: Icons.route_rounded,
-                            description:
-                                'Today you walked '
-                                '${summary.distanceKm.toStringAsFixed(1)} km.',
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: SummaryStatCard(
-                        icon: Icons.timer_outlined,
-                        title: 'Duration',
-                        value:
-                            '${summary.durationMinutes} min',
-                        background:
-                            DojoWalkerColors.greenLight,
-                        iconColor: DojoWalkerColors.green,
-                        onTap: () {
-                          onDetails(
-                            title: 'Walk Duration',
-                            icon: Icons.timer_outlined,
-                            description:
-                                'Today you walked for '
-                                '${summary.durationMinutes} minutes.',
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: SummaryStatCard(
-                        icon: Icons.bar_chart_rounded,
-                        title: 'Report Card',
-                        value: summary.performance,
-                        background:
-                            DojoWalkerColors.orangeLight,
-                        iconColor: DojoWalkerColors.orange,
-                        onTap: () {
-                          onDetails(
-                            title: 'Performance Report',
-                            icon: Icons.bar_chart_rounded,
-                            description:
-                                'Your performance for today is '
-                                '${summary.performance}.',
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            if (summary == null) {
+              return _buildSummaryCard(
+                context,
+                totalWalks: 0,
+                distanceKm: 0,
+                durationMinutes: 0,
+                performance: '—',
+              );
+            }
+
+            return _buildSummaryCard(
+              context,
+              totalWalks: summary.totalWalks,
+              distanceKm: summary.distanceKm,
+              durationMinutes: summary.durationMinutes,
+              performance: summary.performance,
             );
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildSummaryCard(
+    BuildContext context, {
+    required int totalWalks,
+    required double distanceKm,
+    required double durationMinutes,
+    required String performance,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: DojoWalkerColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: DojoWalkerColors.border,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x090F172A),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: SummaryStatCard(
+                icon: Icons.directions_walk_rounded,
+                title: 'Total Walks',
+                value: '$totalWalks',
+                background: DojoWalkerColors.primaryLight,
+                iconColor: DojoWalkerColors.primary,
+                onTap: () {
+                  onDetails(
+                    title: 'Total Walks',
+                    icon: Icons.directions_walk_rounded,
+                    description:
+                        'Today you completed $totalWalks walk(s).',
+                  );
+                },
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 6),
+
+          Expanded(
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: SummaryStatCard(
+                icon: Icons.route_rounded,
+                title: 'Distance',
+                value: '${distanceKm.toStringAsFixed(1)} km',
+                background: DojoWalkerColors.infoSoft,
+                iconColor: DojoWalkerColors.info,
+                onTap: () {
+                  onDetails(
+                    title: 'Distance',
+                    icon: Icons.route_rounded,
+                    description:
+                        'Today you walked '
+                        '${distanceKm.toStringAsFixed(1)} km.',
+                  );
+                },
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 6),
+
+          Expanded(
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: SummaryStatCard(
+                icon: Icons.timer_outlined,
+                title: 'Duration',
+                value: '${durationMinutes.round()} min',
+                background: DojoWalkerColors.successSoft,
+                iconColor: DojoWalkerColors.success,
+                onTap: () {
+                  onDetails(
+                    title: 'Walk Duration',
+                    icon: Icons.timer_outlined,
+                    description:
+                        'Today you walked for '
+                        '${durationMinutes.round()} minutes.',
+                  );
+                },
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 6),
+
+          Expanded(
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: SummaryStatCard(
+                icon: Icons.bar_chart_rounded,
+                title: 'Report Card',
+                value: performance,
+                background: DojoWalkerColors.primaryLight,
+                iconColor: DojoWalkerColors.primary,
+                onTap: () {
+                  onDetails(
+                    title: 'Performance Report',
+                    icon: Icons.bar_chart_rounded,
+                    description:
+                        'Your performance for today is $performance.',
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
