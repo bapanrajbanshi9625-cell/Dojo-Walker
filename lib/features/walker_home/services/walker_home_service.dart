@@ -7,46 +7,254 @@ class WalkerHomeService {
   WalkerHomeService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+  })  : _firestore =
+            firestore ?? FirebaseFirestore.instance,
+        _auth =
+            auth ?? FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
 
   // ============================================================
-  // PAST WALKS
+  // CURRENT WALKER UID
+  // ============================================================
+
+  String? get currentWalkerId {
+    return _auth.currentUser?.uid;
+  }
+
+  // ============================================================
+  // WATCH ALL COMPLETED PAST WALKS
+  //
+  // Collection:
+  // walk_history
+  //
+  // Walker identification:
+  // walkerUid OR walkerId
   // ============================================================
 
   Stream<List<PastWalkModel>> watchPastWalks() {
-    final user = _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
-      return Stream.value(const <PastWalkModel>[]);
+      return Stream.value(
+        const <PastWalkModel>[],
+      );
     }
 
     return _firestore
         .collection('walk_history')
         .where(
-          'walkerId',
+          'walkerUid',
           isEqualTo: user.uid,
         )
         .snapshots()
-        .map((snapshot) {
-      final walks = snapshot.docs
-          .map(PastWalkModel.fromDocument)
-          .where((walk) {
-        final status = walk.status.toLowerCase();
+        .map(
+      (QuerySnapshot<Map<String, dynamic>>
+          snapshot) {
+        final List<PastWalkModel> walks =
+            snapshot.docs
+                .map(
+                  PastWalkModel.fromDocument,
+                )
+                .where(
+                  (PastWalkModel walk) =>
+                      walk.isCompleted,
+                )
+                .toList();
 
-        return status == 'completed' ||
-            status == 'complete' ||
-            status == 'done';
-      }).toList();
+        _sortWalks(walks);
 
-      walks.sort((a, b) {
-        final aDate = a.completedAt;
-        final bDate = b.completedAt;
+        return walks;
+      },
+    );
+  }
 
-        if (aDate == null && bDate == null) {
+  // ============================================================
+  // WATCH WALKS FOR SELECTED DATE
+  // ============================================================
+
+  Stream<List<PastWalkModel>> watchWalksForDate(
+    DateTime date,
+  ) {
+    return watchPastWalks().map(
+      (List<PastWalkModel> walks) {
+        return walks.where(
+          (PastWalkModel walk) {
+            final DateTime? activityDate =
+                walk.activityDate;
+
+            if (activityDate == null) {
+              return false;
+            }
+
+            return activityDate.year ==
+                    date.year &&
+                activityDate.month ==
+                    date.month &&
+                activityDate.day ==
+                    date.day;
+          },
+        ).toList();
+      },
+    );
+  }
+
+  // ============================================================
+  // WATCH WALKS FOR SELECTED WEEK
+  //
+  // Monday → Sunday
+  // ============================================================
+
+  Stream<List<PastWalkModel>> watchWalksForWeek(
+    DateTime date,
+  ) {
+    final DateTime start =
+        _startOfWeek(date);
+
+    final DateTime end =
+        start.add(
+      const Duration(days: 7),
+    );
+
+    return watchPastWalks().map(
+      (List<PastWalkModel> walks) {
+        return walks.where(
+          (PastWalkModel walk) {
+            final DateTime? activityDate =
+                walk.activityDate;
+
+            if (activityDate == null) {
+              return false;
+            }
+
+            return !activityDate.isBefore(start) &&
+                activityDate.isBefore(end);
+          },
+        ).toList();
+      },
+    );
+  }
+
+  // ============================================================
+  // TOTAL WALKS
+  // ============================================================
+
+  int totalWalks(
+    List<PastWalkModel> walks,
+  ) {
+    return walks.length;
+  }
+
+  // ============================================================
+  // TOTAL DISTANCE
+  //
+  // Uses PastWalkModel.effectiveDistanceKm
+  // ============================================================
+
+  double totalDistanceKm(
+    List<PastWalkModel> walks,
+  ) {
+    double total = 0;
+
+    for (final PastWalkModel walk in walks) {
+      total += walk.effectiveDistanceKm;
+    }
+
+    return total;
+  }
+
+  // ============================================================
+  // TOTAL DURATION
+  //
+  // Uses PastWalkModel.effectiveDurationMinutes
+  // ============================================================
+
+  double totalDurationMinutes(
+    List<PastWalkModel> walks,
+  ) {
+    double total = 0;
+
+    for (final PastWalkModel walk in walks) {
+      total += walk.effectiveDurationMinutes;
+    }
+
+    return total;
+  }
+
+  // ============================================================
+  // AVERAGE RATING
+  // ============================================================
+
+  double averageRating(
+    List<PastWalkModel> walks,
+  ) {
+    final List<PastWalkModel> ratedWalks =
+        walks
+            .where(
+              (PastWalkModel walk) =>
+                  walk.rating > 0,
+            )
+            .toList();
+
+    if (ratedWalks.isEmpty) {
+      return 0;
+    }
+
+    int totalRating = 0;
+
+    for (final PastWalkModel walk
+        in ratedWalks) {
+      totalRating += walk.rating;
+    }
+
+    return totalRating / ratedWalks.length;
+  }
+
+  // ============================================================
+  // START OF WEEK
+  //
+  // Monday = first day
+  // ============================================================
+
+  DateTime _startOfWeek(
+    DateTime date,
+  ) {
+    final DateTime day = DateTime(
+      date.year,
+      date.month,
+      date.day,
+    );
+
+    return day.subtract(
+      Duration(
+        days: day.weekday - 1,
+      ),
+    );
+  }
+
+  // ============================================================
+  // SORT
+  //
+  // Newest completed walk first
+  // ============================================================
+
+  void _sortWalks(
+    List<PastWalkModel> walks,
+  ) {
+    walks.sort(
+      (
+        PastWalkModel a,
+        PastWalkModel b,
+      ) {
+        final DateTime? aDate =
+            a.activityDate;
+
+        final DateTime? bDate =
+            b.activityDate;
+
+        if (aDate == null &&
+            bDate == null) {
           return 0;
         }
 
@@ -59,199 +267,7 @@ class WalkerHomeService {
         }
 
         return bDate.compareTo(aDate);
-      });
-
-      return walks;
-    });
+      },
+    );
   }
-
-  // ============================================================
-  // TODAY SUMMARY
-  // ============================================================
-
-  Stream<WalkerHomeSummary> watchTodaySummary() {
-    final user = _auth.currentUser;
-
-    if (user == null) {
-      return Stream.value(
-        const WalkerHomeSummary(),
-      );
-    }
-
-    return _firestore
-        .collection('walk_history')
-        .where(
-          'walkerId',
-          isEqualTo: user.uid,
-        )
-        .snapshots()
-        .map((snapshot) {
-      final now = DateTime.now();
-
-      final todayWalks = snapshot.docs.where((doc) {
-        final data = doc.data();
-
-        final status =
-            (data['status'] ?? '').toString().toLowerCase();
-
-        final completedAt = _readDate(
-          data['completedAt'] ??
-              data['completed_at'] ??
-              data['completedTime'] ??
-              data['endedAt'],
-        );
-
-        final isCompleted =
-            status == 'completed' ||
-            status == 'complete' ||
-            status == 'done';
-
-        if (!isCompleted || completedAt == null) {
-          return false;
-        }
-
-        return completedAt.year == now.year &&
-            completedAt.month == now.month &&
-            completedAt.day == now.day;
-      }).toList();
-
-      double totalDistance = 0;
-      int totalDuration = 0;
-
-      for (final doc in todayWalks) {
-        final data = doc.data();
-
-        totalDistance += _readDouble(
-          data['distanceKm'] ??
-              data['distance'] ??
-              data['totalDistance'],
-        );
-
-        totalDuration += _readInt(
-          data['durationMinutes'] ??
-              data['duration'] ??
-              data['walkDuration'],
-        );
-      }
-
-      return WalkerHomeSummary(
-        totalWalks: todayWalks.length,
-        distanceKm: totalDistance,
-        durationMinutes: totalDuration,
-        performance: _calculatePerformance(
-          totalWalks: todayWalks.length,
-          distanceKm: totalDistance,
-          durationMinutes: totalDuration,
-        ),
-      );
-    });
-  }
-
-  // ============================================================
-  // PERFORMANCE
-  // ============================================================
-
-  String _calculatePerformance({
-    required int totalWalks,
-    required double distanceKm,
-    required int durationMinutes,
-  }) {
-    if (totalWalks == 0) {
-      return '—';
-    }
-
-    if (totalWalks >= 4 ||
-        distanceKm >= 8 ||
-        durationMinutes >= 120) {
-      return 'Excellent';
-    }
-
-    if (totalWalks >= 2 ||
-        distanceKm >= 4 ||
-        durationMinutes >= 60) {
-      return 'Good';
-    }
-
-    return 'Active';
-  }
-
-  // ============================================================
-  // DATE PARSER
-  // ============================================================
-
-  DateTime? _readDate(dynamic value) {
-    if (value == null) {
-      return null;
-    }
-
-    if (value is Timestamp) {
-      return value.toDate();
-    }
-
-    if (value is DateTime) {
-      return value;
-    }
-
-    if (value is String) {
-      return DateTime.tryParse(value);
-    }
-
-    return null;
-  }
-
-  // ============================================================
-  // DOUBLE PARSER
-  // ============================================================
-
-  double _readDouble(dynamic value) {
-    if (value == null) {
-      return 0;
-    }
-
-    if (value is num) {
-      return value.toDouble();
-    }
-
-    return double.tryParse(
-          value.toString(),
-        ) ??
-        0;
-  }
-
-  // ============================================================
-  // INT PARSER
-  // ============================================================
-
-  int _readInt(dynamic value) {
-    if (value == null) {
-      return 0;
-    }
-
-    if (value is num) {
-      return value.round();
-    }
-
-    return int.tryParse(
-          value.toString(),
-        ) ??
-        0;
-  }
-}
-
-// ================================================================
-// WALKER HOME SUMMARY MODEL
-// ================================================================
-
-class WalkerHomeSummary {
-  final int totalWalks;
-  final double distanceKm;
-  final int durationMinutes;
-  final String performance;
-
-  const WalkerHomeSummary({
-    this.totalWalks = 0,
-    this.distanceKm = 0,
-    this.durationMinutes = 0,
-    this.performance = '—',
-  });
 }
