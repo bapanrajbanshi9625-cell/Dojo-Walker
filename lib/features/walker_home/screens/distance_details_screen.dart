@@ -29,11 +29,6 @@ class _DistanceDetailsScreenState
 
   DateTime _selectedDate = DateTime.now();
 
-  // ============================================================
-  // START OF WEEK
-  // Monday = first day
-  // ============================================================
-
   DateTime _startOfWeek(
     DateTime date,
   ) {
@@ -50,29 +45,17 @@ class _DistanceDetailsScreenState
     );
   }
 
-  // ============================================================
-  // WEEK START
-  // ============================================================
-
   DateTime get _weekStart {
     return _startOfWeek(
       _selectedDate,
     );
   }
 
-  // ============================================================
-  // WEEK END
-  // ============================================================
-
   DateTime get _weekEnd {
     return _weekStart.add(
       const Duration(days: 7),
     );
   }
-
-  // ============================================================
-  // DATE START
-  // ============================================================
 
   DateTime get _dateStart {
     return DateTime(
@@ -82,27 +65,19 @@ class _DistanceDetailsScreenState
     );
   }
 
-  // ============================================================
-  // DATE END
-  // ============================================================
-
   DateTime get _dateEnd {
     return _dateStart.add(
       const Duration(days: 1),
     );
   }
 
-  // ============================================================
-  // DATE MATCH
-  // ============================================================
-
   bool _matchesFilter(
     PastWalkModel walk,
   ) {
     final DateTime? date =
         walk.completedAt ??
-            walk.startedAt ??
-            walk.createdAt;
+        walk.startedAt ??
+        walk.createdAt;
 
     if (date == null) {
       return false;
@@ -117,10 +92,6 @@ class _DistanceDetailsScreenState
     return !date.isBefore(_weekStart) &&
         date.isBefore(_weekEnd);
   }
-
-  // ============================================================
-  // CALENDAR
-  // ============================================================
 
   Future<void> _pickDate() async {
     final DateTime today = DateTime.now();
@@ -173,10 +144,6 @@ class _DistanceDetailsScreenState
     });
   }
 
-  // ============================================================
-  // WEEK PICKER
-  // ============================================================
-
   Future<void> _showWeekPicker() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -218,22 +185,18 @@ class _DistanceDetailsScreenState
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 18),
-
                 const Text(
                   'Distance Details',
                   style: TextStyle(
                     color:
-                        DojoColors.dark,
+                        DojoColors.textPrimary,
                     fontSize: 19,
                     fontWeight:
                         FontWeight.w800,
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
                 _WeekActionTile(
                   icon:
                       Icons.today_rounded,
@@ -263,9 +226,7 @@ class _DistanceDetailsScreenState
                     });
                   },
                 ),
-
                 const SizedBox(height: 8),
-
                 _WeekActionTile(
                   icon:
                       Icons.chevron_left_rounded,
@@ -295,16 +256,13 @@ class _DistanceDetailsScreenState
                           days: 7,
                         ),
                       );
-
                       _filterType =
                           _DistanceFilterType
                               .week;
                     });
                   },
                 ),
-
                 const SizedBox(height: 8),
-
                 _WeekActionTile(
                   icon:
                       Icons.chevron_right_rounded,
@@ -338,7 +296,6 @@ class _DistanceDetailsScreenState
                                     days: 7,
                                   ),
                                 );
-
                                 _filterType =
                                     _DistanceFilterType
                                         .week;
@@ -346,9 +303,7 @@ class _DistanceDetailsScreenState
                             }
                           : null,
                 ),
-
                 const SizedBox(height: 8),
-
                 _WeekActionTile(
                   icon:
                       Icons.calendar_month_rounded,
@@ -360,7 +315,6 @@ class _DistanceDetailsScreenState
                     Navigator.pop(
                       sheetContext,
                     );
-
                     _pickDate();
                   },
                 ),
@@ -372,10 +326,6 @@ class _DistanceDetailsScreenState
     );
   }
 
-  // ============================================================
-  // NEXT WEEK
-  // ============================================================
-
   bool get _canGoToNextWeek {
     final DateTime currentWeek =
         _startOfWeek(
@@ -386,10 +336,6 @@ class _DistanceDetailsScreenState
       currentWeek,
     );
   }
-
-  // ============================================================
-  // FILTER VALUE
-  // ============================================================
 
   String get _filterValue {
     if (_filterType ==
@@ -404,10 +350,6 @@ class _DistanceDetailsScreenState
     );
   }
 
-  // ============================================================
-  // DATE FORMAT
-  // ============================================================
-
   String _formatDate(
     DateTime date,
   ) {
@@ -415,10 +357,6 @@ class _DistanceDetailsScreenState
         '${date.month.toString().padLeft(2, '0')}/'
         '${date.year}';
   }
-
-  // ============================================================
-  // WEEK FORMAT
-  // ============================================================
 
   String _formatWeek(
     DateTime start,
@@ -445,10 +383,6 @@ class _DistanceDetailsScreenState
         '${end.year}';
   }
 
-  // ============================================================
-  // MONTH
-  // ============================================================
-
   String _monthName(
     int month,
   ) {
@@ -470,10 +404,6 @@ class _DistanceDetailsScreenState
     return months[month - 1];
   }
 
-  // ============================================================
-  // BUILD
-  // ============================================================
-
   @override
   Widget build(
     BuildContext context,
@@ -481,7 +411,6 @@ class _DistanceDetailsScreenState
     return Scaffold(
       backgroundColor:
           DojoColors.background,
-
       appBar: AppBar(
         backgroundColor:
             DojoColors.orange,
@@ -496,13 +425,8 @@ class _DistanceDetailsScreenState
           ),
         ),
       ),
-
       body: Column(
         children: [
-          // ======================================================
-          // FILTER BAR
-          // ======================================================
-
           Material(
             color:
                 DojoColors.surface,
@@ -535,9 +459,7 @@ class _DistanceDetailsScreenState
                     color:
                         DojoColors.iconPrimary,
                   ),
-
                   const SizedBox(width: 8),
-
                   Expanded(
                     child: Text(
                       _filterValue,
@@ -555,7 +477,6 @@ class _DistanceDetailsScreenState
                       ),
                     ),
                   ),
-
                   InkWell(
                     onTap: _pickDate,
                     borderRadius:
@@ -574,9 +495,7 @@ class _DistanceDetailsScreenState
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 5),
-
                   InkWell(
                     onTap:
                         _showWeekPicker,
@@ -621,11 +540,6 @@ class _DistanceDetailsScreenState
               ),
             ),
           ),
-
-          // ======================================================
-          // CONTENT
-          // ======================================================
-
           Expanded(
             child: StreamBuilder<
                 List<PastWalkModel>>(
@@ -692,13 +606,7 @@ class _DistanceDetailsScreenState
                             FontWeight.w800,
                       ),
                     ),
-
                     const SizedBox(height: 14),
-
-                    // ==================================================
-                    // TOTAL DISTANCE
-                    // ==================================================
-
                     Container(
                       width: double.infinity,
                       padding:
@@ -745,11 +653,9 @@ class _DistanceDetailsScreenState
                               size: 25,
                             ),
                           ),
-
                           const SizedBox(
                             width: 14,
                           ),
-
                           Expanded(
                             child: Column(
                               crossAxisAlignment:
@@ -793,13 +699,7 @@ class _DistanceDetailsScreenState
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 16),
-
-                    // ==================================================
-                    // STATUS
-                    // ==================================================
-
                     if (walks.isEmpty)
                       const _EmptyState()
                     else
@@ -816,10 +716,6 @@ class _DistanceDetailsScreenState
     );
   }
 }
-
-// ================================================================
-// WALK LIST
-// ================================================================
 
 class _DistanceWalkList
     extends StatelessWidget {
@@ -868,11 +764,9 @@ class _DistanceWalkList
                       DojoColors.orange,
                   size: 23,
                 ),
-
                 const SizedBox(
                   width: 12,
                 ),
-
                 Expanded(
                   child: Column(
                     crossAxisAlignment:
@@ -907,7 +801,6 @@ class _DistanceWalkList
                     ],
                   ),
                 ),
-
                 Text(
                   '${distance.toStringAsFixed(2)} km',
                   style:
@@ -927,10 +820,6 @@ class _DistanceWalkList
     );
   }
 }
-
-// ================================================================
-// WEEK TILE
-// ================================================================
 
 class _WeekActionTile
     extends StatelessWidget {
@@ -990,11 +879,9 @@ class _WeekActionTile
                     size: 22,
                   ),
                 ),
-
                 const SizedBox(
                   width: 12,
                 ),
-
                 Expanded(
                   child: Column(
                     crossAxisAlignment:
@@ -1029,7 +916,6 @@ class _WeekActionTile
                     ],
                   ),
                 ),
-
                 const Icon(
                   Icons
                       .chevron_right_rounded,
@@ -1045,10 +931,6 @@ class _WeekActionTile
     );
   }
 }
-
-// ================================================================
-// EMPTY STATE
-// ================================================================
 
 class _EmptyState
     extends StatelessWidget {
@@ -1112,10 +994,6 @@ class _EmptyState
   }
 }
 
-// ================================================================
-// ERROR STATE
-// ================================================================
-
 class _ErrorState
     extends StatelessWidget {
   const _ErrorState();
@@ -1146,7 +1024,7 @@ class _ErrorState
               style:
                   TextStyle(
                 color:
-                    DojoColors.dark,
+                    DojoColors.textPrimary,
                 fontSize: 14,
                 fontWeight:
                     FontWeight.w600,
