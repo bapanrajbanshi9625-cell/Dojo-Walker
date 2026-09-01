@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/dojo_walker_colors.dart';
 import '../../../screens/notifications_screen.dart';
 import '../../../screens/profile_screen.dart';
-import '../../../screens/walker_help_support_screen.dart';
+import '../../../screens/help_support_screen.dart';
 
 class WalkerHomeHeader extends StatelessWidget {
   const WalkerHomeHeader({super.key});
