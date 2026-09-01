@@ -98,7 +98,7 @@ class WalkerHomeHeader extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const WalkerHelpSupportScreen(),
+                      builder: (_) => const HelpSupportScreen(),
                     ),
                   );
                 },
