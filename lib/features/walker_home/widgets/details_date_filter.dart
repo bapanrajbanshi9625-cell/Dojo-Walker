@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_colors.dart';
 
 enum DetailsFilterType {
   date,
@@ -11,11 +11,8 @@ class DetailsDateFilter extends StatelessWidget {
   final DetailsFilterType selectedType;
   final DateTime selectedDate;
 
-  final ValueChanged<DetailsFilterType>
-      onTypeChanged;
-
-  final ValueChanged<DateTime>
-      onDateChanged;
+  final ValueChanged<DetailsFilterType> onTypeChanged;
+  final ValueChanged<DateTime> onDateChanged;
 
   const DetailsDateFilter({
     super.key,
@@ -32,15 +29,13 @@ class DetailsDateFilter extends StatelessWidget {
   }
 
   String _weekText() {
-    final DateTime start =
-        selectedDate.subtract(
+    final DateTime start = selectedDate.subtract(
       Duration(
         days: selectedDate.weekday - 1,
       ),
     );
 
-    final DateTime end =
-        start.add(
+    final DateTime end = start.add(
       const Duration(days: 6),
     );
 
@@ -58,14 +53,15 @@ class DetailsDateFilter extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () async {
-          final RenderBox box =
-              context.findRenderObject()
-                  as RenderBox;
+          final RenderBox? box =
+              context.findRenderObject() as RenderBox?;
+
+          if (box == null) {
+            return;
+          }
 
           final Offset position =
-              box.localToGlobal(
-            Offset.zero,
-          );
+              box.localToGlobal(Offset.zero);
 
           final RelativeRect menuPosition =
               RelativeRect.fromLTRB(
@@ -79,7 +75,7 @@ class DetailsDateFilter extends StatelessWidget {
               await showMenu<DetailsFilterType>(
             context: context,
             position: menuPosition,
-            color: AppColors.surface,
+            color: DojoColors.surface,
             items: const [
               PopupMenuItem(
                 value: DetailsFilterType.date,
@@ -98,15 +94,14 @@ class DetailsDateFilter extends StatelessWidget {
         },
         child: Container(
           height: 44,
-          padding:
-              const EdgeInsets.symmetric(
+          padding: const EdgeInsets.symmetric(
             horizontal: 14,
           ),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: DojoColors.surface,
             border: Border(
               bottom: BorderSide(
-                color: AppColors.divider,
+                color: DojoColors.divider,
               ),
             ),
           ),
@@ -117,7 +112,7 @@ class DetailsDateFilter extends StatelessWidget {
                     ? Icons.calendar_today_rounded
                     : Icons.date_range_rounded,
                 size: 18,
-                color: AppColors.iconPrimary,
+                color: DojoColors.iconPrimary,
               ),
 
               const SizedBox(width: 9),
@@ -127,7 +122,7 @@ class DetailsDateFilter extends StatelessWidget {
                     ? _dateText()
                     : _weekText(),
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: DojoColors.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
@@ -138,7 +133,7 @@ class DetailsDateFilter extends StatelessWidget {
               Text(
                 isDate ? 'Date' : 'Week',
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
+                  color: DojoColors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -147,9 +142,8 @@ class DetailsDateFilter extends StatelessWidget {
               const SizedBox(width: 5),
 
               Icon(
-                Icons
-                    .keyboard_arrow_down_rounded,
-                color: AppColors.iconSecondary,
+                Icons.keyboard_arrow_down_rounded,
+                color: DojoColors.iconSecondary,
                 size: 21,
               ),
             ],
