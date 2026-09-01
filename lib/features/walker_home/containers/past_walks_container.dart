@@ -36,7 +36,7 @@ class PastWalksContainer extends StatelessWidget {
             if (snapshot.connectionState ==
                 ConnectionState.waiting) {
               return const SizedBox(
-                height: 100,
+                height: 90,
                 child: Center(
                   child: CircularProgressIndicator(),
                 ),
@@ -62,20 +62,17 @@ class PastWalksContainer extends StatelessWidget {
                   padding: const EdgeInsets.only(
                     bottom: 8,
                   ),
-                  child: SizedBox(
-                    height: 64,
-                    child: PastWalkCard(
-                      id: walk.displayId,
-                      time: walk.displayTime,
-                      details: walk.displayDetails,
-                      onTap: () {
-                        onDetails(
-                          title: 'Walk ${walk.displayId}',
-                          icon: Icons.pets_rounded,
-                          description: _buildDetails(walk),
-                        );
-                      },
-                    ),
+                  child: PastWalkCard(
+                    id: walk.displayId,
+                    time: walk.displayTime,
+                    details: walk.displayDetails,
+                    onTap: () {
+                      onDetails(
+                        title: 'Walk ${walk.displayId}',
+                        icon: Icons.pets_rounded,
+                        description: _buildDetails(walk),
+                      );
+                    },
                   ),
                 );
               }).toList(),
@@ -117,6 +114,10 @@ class PastWalksContainer extends StatelessWidget {
   }
 }
 
+// ================================================================
+// EMPTY STATE
+// ================================================================
+
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
@@ -126,11 +127,11 @@ class _EmptyState extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
         horizontal: 16,
-        vertical: 20,
+        vertical: 18,
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: const Color(0xFFE1E4E8),
         ),
@@ -139,25 +140,25 @@ class _EmptyState extends StatelessWidget {
         children: [
           Icon(
             Icons.pets_rounded,
-            size: 30,
+            size: 28,
             color: Colors.grey,
           ),
-          SizedBox(height: 8),
+          SizedBox(height: 7),
           Text(
             'No past walks yet',
             style: TextStyle(
               color: Color(0xFF27394A),
               fontWeight: FontWeight.w700,
-              fontSize: 14,
+              fontSize: 13,
             ),
           ),
-          SizedBox(height: 4),
+          SizedBox(height: 3),
           Text(
             'Your completed walks will appear here.',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Color(0xFF7A8491),
-              fontSize: 12,
+              fontSize: 11,
             ),
           ),
         ],
@@ -165,6 +166,10 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
+
+// ================================================================
+// ERROR STATE
+// ================================================================
 
 class _ErrorState extends StatelessWidget {
   final String message;
@@ -177,10 +182,10 @@ class _ErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: const Color(0xFFE1E4E8),
         ),
@@ -190,14 +195,15 @@ class _ErrorState extends StatelessWidget {
           const Icon(
             Icons.error_outline_rounded,
             color: Colors.redAccent,
+            size: 20,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 9),
           Expanded(
             child: Text(
               message,
               style: const TextStyle(
                 color: Color(0xFF7A8491),
-                fontSize: 13,
+                fontSize: 12,
               ),
             ),
           ),
