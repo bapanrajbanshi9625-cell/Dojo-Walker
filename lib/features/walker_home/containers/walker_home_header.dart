@@ -6,19 +6,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/dojo_walker_colors.dart';
+import '../../../screens/help_support_screen.dart';
 import '../../../screens/notifications_screen.dart';
 import '../../../screens/profile_screen.dart';
-import '../../../screens/walker_help_support_screen.dart';
 
 class WalkerHomeHeader extends StatelessWidget {
-  const WalkerHomeHeader({
-    super.key,
-  });
+  const WalkerHomeHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final User? user =
-        FirebaseAuth.instance.currentUser;
+    final User? user = FirebaseAuth.instance.currentUser;
 
     return Container(
       width: double.infinity,
@@ -27,39 +24,22 @@ class WalkerHomeHeader extends StatelessWidget {
         top: true,
         bottom: false,
         child: Container(
-          // ==================================================
-          // COMPACT HEADER
-          // ==================================================
-
           height: 72,
           width: double.infinity,
-
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-          ),
-
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: const BoxDecoration(
             color: DojoColors.orange,
           ),
-
           child: Row(
             children: [
-              // ==================================================
-              // PAW LOGO
-              // ==================================================
-
               Container(
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(
-                    alpha: .15,
-                  ),
+                  color: Colors.white.withValues(alpha: .15),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: Colors.white.withValues(
-                      alpha: .38,
-                    ),
+                    color: Colors.white.withValues(alpha: .38),
                     width: 1,
                   ),
                 ),
@@ -72,22 +52,15 @@ class WalkerHomeHeader extends StatelessWidget {
 
               const SizedBox(width: 10),
 
-              // ==================================================
-              // TITLE
-              // ==================================================
-
               const Expanded(
                 child: Column(
-                  mainAxisAlignment:
-                      MainAxisAlignment.center,
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Dojo Walker',
                       maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
@@ -98,8 +71,7 @@ class WalkerHomeHeader extends StatelessWidget {
                     Text(
                       "Buddy's Dashboard",
                       maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 10,
@@ -110,25 +82,15 @@ class WalkerHomeHeader extends StatelessWidget {
                 ),
               ),
 
-              // ==================================================
-              // NOTIFICATION
-              // ==================================================
-
               _HeaderButton(
-                icon:
-                    Icons.notifications_none_rounded,
-                iconColor:
-                    const Color(0xFFFFE082),
-                backgroundColor:
-                    Colors.white.withValues(
-                  alpha: .14,
-                ),
+                icon: Icons.notifications_none_rounded,
+                iconColor: const Color(0xFFFFE082),
+                backgroundColor: Colors.white.withValues(alpha: .14),
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
-                          const NotificationsScreen(),
+                      builder: (_) => const NotificationsScreen(),
                     ),
                   );
                 },
@@ -136,35 +98,21 @@ class WalkerHomeHeader extends StatelessWidget {
 
               const SizedBox(width: 6),
 
-              // ==================================================
-              // SUPPORT
-              // ==================================================
-
               _HeaderButton(
-                icon:
-                    Icons.headset_mic_outlined,
-                iconColor:
-                    const Color(0xFFB3E5FC),
-                backgroundColor:
-                    Colors.white.withValues(
-                  alpha: .14,
-                ),
+                icon: Icons.headset_mic_outlined,
+                iconColor: const Color(0xFFB3E5FC),
+                backgroundColor: Colors.white.withValues(alpha: .14),
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
-                          const WalkerHelpSupportScreen(),
+                      builder: (_) => const HelpSupportScreen(),
                     ),
                   );
                 },
               ),
 
               const SizedBox(width: 6),
-
-              // ==================================================
-              // PROFILE
-              // ==================================================
 
               _ProfileButton(
                 user: user,
@@ -172,8 +120,7 @@ class WalkerHomeHeader extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
-                          const ProfileScreen(),
+                      builder: (_) => const ProfileScreen(),
                     ),
                   );
                 },
@@ -185,10 +132,6 @@ class WalkerHomeHeader extends StatelessWidget {
     );
   }
 }
-
-// ================================================================
-// PROFILE BUTTON
-// ================================================================
 
 class _ProfileButton extends StatelessWidget {
   final User? user;
@@ -205,31 +148,22 @@ class _ProfileButton extends StatelessWidget {
       return _fallbackButton();
     }
 
-    return StreamBuilder<
-        DocumentSnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
           .collection('walkers')
           .doc(user!.uid)
           .snapshots(),
       builder: (
         BuildContext context,
-        AsyncSnapshot<
-                DocumentSnapshot<
-                    Map<String, dynamic>>>
-            snapshot,
+        AsyncSnapshot<DocumentSnapshot<Map<String, dynamic>>> snapshot,
       ) {
         String selfieUrl = '';
 
-        if (snapshot.hasData &&
-            snapshot.data!.exists) {
+        if (snapshot.hasData && snapshot.data!.exists) {
           final Map<String, dynamic> data =
-              snapshot.data!.data() ??
-                  <String, dynamic>{};
+              snapshot.data!.data() ?? <String, dynamic>{};
 
-          selfieUrl =
-              (data['Profile Selfie'] ?? '')
-                  .toString()
-                  .trim();
+          selfieUrl = (data['Profile Selfie'] ?? '').toString().trim();
         }
 
         return GestureDetector(
@@ -239,13 +173,10 @@ class _ProfileButton extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(
-                alpha: .14,
-              ),
+              color: Colors.white.withValues(alpha: .14),
               shape: BoxShape.circle,
               border: Border.all(
-                color:
-                    const Color(0xFFFFD180),
+                color: const Color(0xFFFFD180),
                 width: 1.5,
               ),
             ),
@@ -262,19 +193,15 @@ class _ProfileButton extends StatelessWidget {
                       StackTrace? stackTrace,
                     ) {
                       return const Icon(
-                        Icons
-                            .person_outline_rounded,
-                        color:
-                            Color(0xFFFFD180),
+                        Icons.person_outline_rounded,
+                        color: Color(0xFFFFD180),
                         size: 19,
                       );
                     },
                   )
                 : const Icon(
-                    Icons
-                        .person_outline_rounded,
-                    color:
-                        Color(0xFFFFD180),
+                    Icons.person_outline_rounded,
+                    color: Color(0xFFFFD180),
                     size: 19,
                   ),
           ),
@@ -291,9 +218,7 @@ class _ProfileButton extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(
-            alpha: .14,
-          ),
+          color: Colors.white.withValues(alpha: .14),
           shape: BoxShape.circle,
           border: Border.all(
             color: const Color(0xFFFFD180),
@@ -309,10 +234,6 @@ class _ProfileButton extends StatelessWidget {
     );
   }
 }
-
-// ================================================================
-// COMMON HEADER BUTTON
-// ================================================================
 
 class _HeaderButton extends StatelessWidget {
   final IconData icon;
@@ -339,9 +260,7 @@ class _HeaderButton extends StatelessWidget {
           color: backgroundColor,
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.white.withValues(
-              alpha: .30,
-            ),
+            color: Colors.white.withValues(alpha: .30),
             width: 1,
           ),
         ),
