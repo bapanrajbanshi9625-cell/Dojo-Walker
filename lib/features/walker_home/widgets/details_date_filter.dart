@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker_colors.dart';
 
 enum DetailsFilterType {
   date,
@@ -86,10 +86,9 @@ class DetailsDateFilter extends StatelessWidget {
   Future<void> _pickDate(BuildContext context) async {
     final DateTime today = DateTime.now();
 
-    final DateTime initialDate =
-        selectedDate.isAfter(today)
-            ? today
-            : selectedDate;
+    final DateTime initialDate = selectedDate.isAfter(today)
+        ? today
+        : selectedDate;
 
     final DateTime? picked = await showDatePicker(
       context: context,
@@ -102,10 +101,10 @@ class DetailsDateFilter extends StatelessWidget {
       ) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppColors.primary,
-              surface: AppColors.surface,
-              onSurface: AppColors.textPrimary,
+            colorScheme: const ColorScheme.light(
+              primary: DojoColors.primary,
+              surface: DojoColors.surface,
+              onSurface: DojoColors.textPrimary,
             ),
           ),
           child: child ?? const SizedBox.shrink(),
@@ -126,7 +125,7 @@ class DetailsDateFilter extends StatelessWidget {
   ) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: DojoColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(24),
@@ -150,54 +149,41 @@ class DetailsDateFilter extends StatelessWidget {
                   width: 42,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius:
-                        BorderRadius.circular(20),
+                    color: DojoColors.border,
+                    borderRadius: BorderRadius.circular(20),
                   ),
                 ),
-
                 const SizedBox(height: 18),
-
                 const Text(
                   'Select Period',
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: DojoColors.textPrimary,
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
                 _FilterTile(
                   icon: Icons.calendar_today_rounded,
                   title: 'Date',
-                  subtitle:
-                      _formatDate(selectedDate),
+                  subtitle: _formatDate(selectedDate),
                   selected:
-                      selectedType ==
-                          DetailsFilterType.date,
+                      selectedType == DetailsFilterType.date,
                   onTap: () {
                     Navigator.pop(sheetContext);
                     _pickDate(context);
                   },
                 ),
-
                 const SizedBox(height: 8),
-
                 _FilterTile(
                   icon: Icons.date_range_rounded,
                   title: 'Week',
-                  subtitle:
-                      _formatWeek(selectedDate),
+                  subtitle: _formatWeek(selectedDate),
                   selected:
-                      selectedType ==
-                          DetailsFilterType.week,
+                      selectedType == DetailsFilterType.week,
                   onTap: () {
                     Navigator.pop(sheetContext);
-                    onTypeChanged(
-                      DetailsFilterType.week,
-                    );
+                    onTypeChanged(DetailsFilterType.week);
                   },
                 ),
               ],
@@ -211,7 +197,7 @@ class DetailsDateFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.surface,
+      color: DojoColors.surface,
       child: Container(
         height: 50,
         padding: const EdgeInsets.symmetric(
@@ -220,84 +206,70 @@ class DetailsDateFilter extends StatelessWidget {
         decoration: const BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: AppColors.divider,
+              color: DojoColors.divider,
             ),
           ),
         ),
         child: Row(
           children: [
             Icon(
-              selectedType ==
-                      DetailsFilterType.date
+              selectedType == DetailsFilterType.date
                   ? Icons.calendar_today_rounded
                   : Icons.date_range_rounded,
               size: 18,
-              color: AppColors.iconPrimary,
+              color: DojoColors.iconPrimary,
             ),
-
             const SizedBox(width: 8),
-
             Expanded(
               child: Text(
                 _displayValue,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: DojoColors.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-
             InkWell(
               onTap: () => _pickDate(context),
-              borderRadius:
-                  BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(10),
               child: const Padding(
                 padding: EdgeInsets.all(6),
                 child: Icon(
                   Icons.calendar_month_rounded,
                   size: 20,
-                  color: AppColors.primary,
+                  color: DojoColors.primary,
                 ),
               ),
             ),
-
             const SizedBox(width: 4),
-
             InkWell(
               onTap: () => _showFilterMenu(context),
-              borderRadius:
-                  BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(10),
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(
+                padding: const EdgeInsets.symmetric(
                   horizontal: 5,
                   vertical: 6,
                 ),
                 child: Row(
                   children: [
                     Text(
-                      selectedType ==
-                              DetailsFilterType.date
+                      selectedType == DetailsFilterType.date
                           ? 'Date'
                           : 'Week',
                       style: const TextStyle(
-                        color:
-                            AppColors.textSecondary,
+                        color: DojoColors.textSecondary,
                         fontSize: 12,
-                        fontWeight:
-                            FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(width: 2),
                     const Icon(
-                      Icons
-                          .keyboard_arrow_down_rounded,
+                      Icons.keyboard_arrow_down_rounded,
                       size: 19,
-                      color:
-                          AppColors.iconSecondary,
+                      color: DojoColors.iconSecondary,
                     ),
                   ],
                 ),
@@ -330,13 +302,11 @@ class _FilterTile extends StatelessWidget {
     return Opacity(
       opacity: selected ? 1.0 : 0.85,
       child: Material(
-        color: AppColors.background,
-        borderRadius:
-            BorderRadius.circular(16),
+        color: DojoColors.background,
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
-          borderRadius:
-              BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(13),
             child: Row(
@@ -345,19 +315,16 @@ class _FilterTile extends StatelessWidget {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: AppColors.primarySoft,
-                    borderRadius:
-                        BorderRadius.circular(12),
+                    color: DojoColors.orangeSoft,
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     icon,
-                    color: AppColors.primary,
+                    color: DojoColors.primary,
                     size: 22,
                   ),
                 ),
-
                 const SizedBox(width: 12),
-
                 Expanded(
                   child: Column(
                     crossAxisAlignment:
@@ -366,37 +333,32 @@ class _FilterTile extends StatelessWidget {
                       Text(
                         title,
                         style: const TextStyle(
-                          color:
-                              AppColors.textPrimary,
+                          color: DojoColors.textPrimary,
                           fontSize: 14,
-                          fontWeight:
-                              FontWeight.w700,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
                         style: const TextStyle(
-                          color:
-                              AppColors.textSecondary,
+                          color: DojoColors.textSecondary,
                           fontSize: 12,
                         ),
                       ),
                     ],
                   ),
                 ),
-
                 if (selected)
                   const Icon(
                     Icons.check_circle_rounded,
-                    color: AppColors.primary,
+                    color: DojoColors.primary,
                     size: 21,
                   )
                 else
                   const Icon(
                     Icons.chevron_right_rounded,
-                    color:
-                        AppColors.iconSecondary,
+                    color: DojoColors.iconSecondary,
                   ),
               ],
             ),
