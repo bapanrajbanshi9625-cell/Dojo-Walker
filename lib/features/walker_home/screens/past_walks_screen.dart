@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_walker_colors.dart';
+import '../../../../core/theme/dojo_walker_colors.dart';
 import '../../my_walks/models/past_walk_model.dart';
 import '../widgets/past_walk_card.dart';
 
