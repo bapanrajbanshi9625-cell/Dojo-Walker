@@ -1,11 +1,54 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../core/theme/dojo_walker_colors.dart';
 
-class WalkerHelpSupportScreen extends StatelessWidget {
+class WalkerHelpSupportScreen extends StatefulWidget {
   const WalkerHelpSupportScreen({
     super.key,
   });
+
+  @override
+  State<WalkerHelpSupportScreen> createState() =>
+      _WalkerHelpSupportScreenState();
+}
+
+class _WalkerHelpSupportScreenState
+    extends State<WalkerHelpSupportScreen> {
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  final TextEditingController _subjectController =
+      TextEditingController();
+
+  final TextEditingController _descriptionController =
+      TextEditingController();
+
+  final TextEditingController _walkIdController =
+      TextEditingController();
+
+  String _selectedCategory = 'Walk Issue';
+  bool _isSubmitting = false;
+
+  final List<String> _categories = const [
+    'Walk Issue',
+    'QR Walk',
+    'Insta Walk',
+    'Reach / Arrival',
+    'Payment',
+    'Profile / Verification',
+    'Technical Issue',
+    'Other',
+  ];
+
+  @override
+  void dispose() {
+    _subjectController.dispose();
+    _descriptionController.dispose();
+    _walkIdController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,220 +74,474 @@ class WalkerHelpSupportScreen extends StatelessWidget {
             28,
           ),
           children: [
-            // =====================================================
-            // HEADER CARD
-            // =====================================================
+            _buildHeaderCard(),
+            const SizedBox(height: 18),
+            _buildRaiseTicketCard(),
+            const SizedBox(height: 22),
+            _buildMyTicketsSection(),
+          ],
+        ),
+      ),
+    );
+  }
 
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: DojoColors.surface,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: DojoColors.border,
+  // =============================================================
+  // HEADER
+  // =============================================================
+
+  Widget _buildHeaderCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: DojoColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: DojoColors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: DojoColors.orangeLight,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: const Icon(
+              Icons.support_agent_rounded,
+              color: DojoColors.orange,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'How can we help?',
+                  style: TextStyle(
+                    color: DojoColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Raise a support ticket and our team '
+                  'can review your problem.',
+                  style: TextStyle(
+                    color: DojoColors.textSecondary,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =============================================================
+  // RAISE TICKET
+  // =============================================================
+
+  Widget _buildRaiseTicketCard() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: DojoColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: DojoColors.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Raise a Support Ticket',
+            style: TextStyle(
+              color: DojoColors.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Tell us what went wrong and provide as much '
+            'detail as possible.',
+            style: TextStyle(
+              color: DojoColors.textSecondary,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          const Text(
+            'Problem Category',
+            style: TextStyle(
+              color: DojoColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 7),
+
+          DropdownButtonFormField<String>(
+            initialValue: _selectedCategory,
+            decoration: _inputDecoration(
+              'Select category',
+              Icons.category_outlined,
+            ),
+            items: _categories
+                .map(
+                  (String category) =>
+                      DropdownMenuItem<String>(
+                    value: category,
+                    child: Text(category),
+                  ),
+                )
+                .toList(),
+            onChanged: _isSubmitting
+                ? null
+                : (String? value) {
+                    if (value == null) return;
+
+                    setState(() {
+                      _selectedCategory = value;
+                    });
+                  },
+          ),
+
+          const SizedBox(height: 14),
+
+          const Text(
+            'Subject',
+            style: TextStyle(
+              color: DojoColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 7),
+
+          TextField(
+            controller: _subjectController,
+            enabled: !_isSubmitting,
+            textInputAction: TextInputAction.next,
+            maxLength: 100,
+            decoration: _inputDecoration(
+              'Example: QR scan is not connecting',
+              Icons.title_rounded,
+            ).copyWith(
+              counterText: '',
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          const Text(
+            'Describe Your Problem',
+            style: TextStyle(
+              color: DojoColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 7),
+
+          TextField(
+            controller: _descriptionController,
+            enabled: !_isSubmitting,
+            minLines: 5,
+            maxLines: 8,
+            maxLength: 1000,
+            textInputAction: TextInputAction.newline,
+            decoration: _inputDecoration(
+              'Explain what happened...',
+              Icons.description_outlined,
+            ).copyWith(
+              alignLabelWithHint: true,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          const Text(
+            'Walk ID (Optional)',
+            style: TextStyle(
+              color: DojoColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 7),
+
+          TextField(
+            controller: _walkIdController,
+            enabled: !_isSubmitting,
+            textInputAction: TextInputAction.done,
+            decoration: _inputDecoration(
+              'Enter Walk ID if related to a walk',
+              Icons.directions_walk_rounded,
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: _isSubmitting
+                  ? null
+                  : _submitTicket,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: DojoColors.orange,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor:
+                    DojoColors.disabled,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: DojoColors.orangeLight,
-                      borderRadius: BorderRadius.circular(15),
+              icon: _isSubmitting
+                  ? const SizedBox(
+                      width: 19,
+                      height: 19,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(
+                          Colors.white,
+                        ),
+                      ),
+                    )
+                  : const Icon(
+                      Icons.send_rounded,
+                      size: 19,
                     ),
-                    child: const Icon(
-                      Icons.support_agent_rounded,
-                      color: DojoColors.orange,
-                      size: 28,
+              label: Text(
+                _isSubmitting
+                    ? 'Submitting...'
+                    : 'Raise Support Ticket',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =============================================================
+  // MY TICKETS
+  // =============================================================
+
+  Widget _buildMyTicketsSection() {
+    final User? user =
+        FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'My Tickets',
+          style: TextStyle(
+            color: DojoColors.textPrimary,
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        StreamBuilder<
+            QuerySnapshot<Map<String, dynamic>>>(
+          stream: _firestore
+              .collection('support_tickets')
+              .where(
+                'walkerId',
+                isEqualTo: user.uid,
+              )
+              .orderBy(
+                'createdAt',
+                descending: true,
+              )
+              .snapshots(),
+          builder: (
+            BuildContext context,
+            AsyncSnapshot<
+                    QuerySnapshot<Map<String, dynamic>>>
+                snapshot,
+          ) {
+            if (snapshot.hasError) {
+              return _buildMessageCard(
+                icon: Icons.info_outline_rounded,
+                title: 'Tickets unavailable',
+                message:
+                    'Your tickets could not be loaded right now.',
+              );
+            }
+
+            if (snapshot.connectionState ==
+                ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: CircularProgressIndicator(
+                    color: DojoColors.orange,
+                  ),
+                ),
+              );
+            }
+
+            final List<
+                    QueryDocumentSnapshot<
+                        Map<String, dynamic>>> docs =
+                snapshot.data?.docs ?? [];
+
+            if (docs.isEmpty) {
+              return _buildMessageCard(
+                icon: Icons.inbox_outlined,
+                title: 'No tickets yet',
+                message:
+                    'Your support tickets will appear here.',
+              );
+            }
+
+            return Column(
+              children: docs
+                  .map(
+                    (
+                      QueryDocumentSnapshot<
+                              Map<String, dynamic>>
+                          doc,
+                    ) {
+                      return Padding(
+                        padding:
+                            const EdgeInsets.only(
+                          bottom: 10,
+                        ),
+                        child: _buildTicketCard(
+                          doc,
+                        ),
+                      );
+                    },
+                  )
+                  .toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  // =============================================================
+  // TICKET CARD
+  // =============================================================
+
+  Widget _buildTicketCard(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    final Map<String, dynamic> data = doc.data();
+
+    final String subject =
+        (data['subject'] ?? 'Support Request').toString();
+
+    final String category =
+        (data['category'] ?? 'Other').toString();
+
+    final String status =
+        (data['status'] ?? 'open').toString();
+
+    final String description =
+        (data['description'] ?? '').toString();
+
+    final String ticketId = doc.id;
+
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: DojoColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: DojoColors.border,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          _showTicketDetails(
+            ticketId: ticketId,
+            subject: subject,
+            category: category,
+            status: status,
+            description: description,
+          );
+        },
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: DojoColors.orangeLight,
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: const Icon(
+                Icons.confirmation_number_outlined,
+                color: DojoColors.orange,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            Expanded(
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    subject,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: DojoColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'How can we help?',
-                          style: TextStyle(
-                            color: DojoColors.textPrimary,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Get help with your walks, account, '
-                          'verification and other issues.',
-                          style: TextStyle(
-                            color: DojoColors.textSecondary,
-                            fontSize: 12,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: 4),
+                  Text(
+                    '$category • #${_shortTicketId(ticketId)}',
+                    style: const TextStyle(
+                      color: DojoColors.textSecondary,
+                      fontSize: 11,
                     ),
+                  ),
+                  const SizedBox(height: 7),
+                  _StatusChip(
+                    status: status,
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 18),
-
-            // =====================================================
-            // WALK SUPPORT
-            // =====================================================
-
-            const _SectionTitle(
-              title: 'Walk Support',
-            ),
-
-            const SizedBox(height: 8),
-
-            _SupportTile(
-              icon: Icons.directions_walk_rounded,
-              title: 'Walk Issue',
-              subtitle:
-                  'Problems with an active or completed walk',
-              onTap: () {
-                _showSupportMessage(
-                  context,
-                  'Walk Support',
-                  'If you are facing a problem during a walk, '
-                      'please contact Dojo Support with your walk details.',
-                );
-              },
-            ),
-
-            const SizedBox(height: 8),
-
-            _SupportTile(
-              icon: Icons.qr_code_scanner_rounded,
-              title: 'QR Walk Help',
-              subtitle:
-                  'Help with QR connection or starting a walk',
-              onTap: () {
-                _showSupportMessage(
-                  context,
-                  'QR Walk Help',
-                  'Make sure the owner QR is active and scan it '
-                      'from the Walker app.',
-                );
-              },
-            ),
-
-            const SizedBox(height: 8),
-
-            _SupportTile(
-              icon: Icons.location_on_outlined,
-              title: 'Reach / Arrival Issue',
-              subtitle:
-                  'Problems while reaching the owner',
-              onTap: () {
-                _showSupportMessage(
-                  context,
-                  'Arrival Support',
-                  'If you have reached the owner but the walk '
-                      'cannot continue, contact Dojo Support.',
-                );
-              },
-            ),
-
-            const SizedBox(height: 18),
-
-            // =====================================================
-            // ACCOUNT SUPPORT
-            // =====================================================
-
-            const _SectionTitle(
-              title: 'Account',
-            ),
-
-            const SizedBox(height: 8),
-
-            _SupportTile(
-              icon: Icons.verified_user_outlined,
-              title: 'Verification Help',
-              subtitle:
-                  'Questions about Walker verification',
-              onTap: () {
-                _showSupportMessage(
-                  context,
-                  'Verification Help',
-                  'For verification-related problems, please '
-                      'contact Dojo Support with your registered '
-                      'Walker details.',
-                );
-              },
-            ),
-
-            const SizedBox(height: 8),
-
-            _SupportTile(
-              icon: Icons.person_outline_rounded,
-              title: 'Profile Help',
-              subtitle:
-                  'Problems with your Walker profile',
-              onTap: () {
-                _showSupportMessage(
-                  context,
-                  'Profile Help',
-                  'Check your profile information and make sure '
-                      'all required details are completed.',
-                );
-              },
-            ),
-
-            const SizedBox(height: 18),
-
-            // =====================================================
-            // GENERAL SUPPORT
-            // =====================================================
-
-            const _SectionTitle(
-              title: 'General',
-            ),
-
-            const SizedBox(height: 8),
-
-            _SupportTile(
-              icon: Icons.help_outline_rounded,
-              title: 'Frequently Asked Questions',
-              subtitle:
-                  'Common questions about Dojo Walker',
-              onTap: () {
-                _showFaq(context);
-              },
-            ),
-
-            const SizedBox(height: 8),
-
-            _SupportTile(
-              icon: Icons.support_agent_rounded,
-              title: 'Contact Support',
-              subtitle:
-                  'Get assistance from Dojo Support',
-              onTap: () {
-                _showContactSupport(context);
-              },
-            ),
-
-            const SizedBox(height: 24),
-
-            // =====================================================
-            // FOOTER
-            // =====================================================
-
-            Center(
-              child: Text(
-                'Dojo Walker',
-                style: TextStyle(
-                  color: DojoColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: DojoColors.iconSecondary,
             ),
           ],
         ),
@@ -253,101 +550,228 @@ class WalkerHelpSupportScreen extends StatelessWidget {
   }
 
   // =============================================================
-  // SUPPORT MESSAGE
+  // SUBMIT TICKET
   // =============================================================
 
-  void _showSupportMessage(
-    BuildContext context,
-    String title,
-    String message,
-  ) {
-    showModalBottomSheet<void>(
+  Future<void> _submitTicket() async {
+    final User? user =
+        FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      _showSnackBar(
+        'Please login again to raise a ticket.',
+        isError: true,
+      );
+      return;
+    }
+
+    final String subject =
+        _subjectController.text.trim();
+
+    final String description =
+        _descriptionController.text.trim();
+
+    final String walkId =
+        _walkIdController.text.trim();
+
+    if (subject.isEmpty) {
+      _showSnackBar(
+        'Please enter a subject.',
+        isError: true,
+      );
+      return;
+    }
+
+    if (subject.length < 4) {
+      _showSnackBar(
+        'Subject is too short.',
+        isError: true,
+      );
+      return;
+    }
+
+    if (description.isEmpty) {
+      _showSnackBar(
+        'Please describe your problem.',
+        isError: true,
+      );
+      return;
+    }
+
+    if (description.length < 10) {
+      _showSnackBar(
+        'Please provide more details about the problem.',
+        isError: true,
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      final DocumentReference<
+              Map<String, dynamic>> ticketRef =
+          _firestore.collection('support_tickets').doc();
+
+      await ticketRef.set({
+        'ticketId': ticketRef.id,
+        'walkerId': user.uid,
+        'walkerPhone': user.phoneNumber ?? '',
+        'category': _selectedCategory,
+        'subject': subject,
+        'description': description,
+        'walkId': walkId,
+        'status': 'open',
+        'priority': 'normal',
+        'adminReply': '',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted) return;
+
+      _subjectController.clear();
+      _descriptionController.clear();
+      _walkIdController.clear();
+
+      setState(() {
+        _selectedCategory = 'Walk Issue';
+        _isSubmitting = false;
+      });
+
+      await _showTicketCreatedDialog(
+        ticketId: ticketRef.id,
+      );
+    } on FirebaseException catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isSubmitting = false;
+      });
+
+      if (e.code == 'permission-denied') {
+        _showSnackBar(
+          'Permission denied. Please check Firestore rules.',
+          isError: true,
+        );
+      } else {
+        _showSnackBar(
+          'Could not create ticket. Please try again.',
+          isError: true,
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _isSubmitting = false;
+      });
+
+      _showSnackBar(
+        'Something went wrong. Please try again.',
+        isError: true,
+      );
+    }
+  }
+
+  // =============================================================
+  // CREATED DIALOG
+  // =============================================================
+
+  Future<void> _showTicketCreatedDialog({
+    required String ticketId,
+  }) async {
+    await showDialog<void>(
       context: context,
-      backgroundColor: DojoColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
-      ),
+      barrierDismissible: false,
       builder: (BuildContext context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              20,
-              20,
-              20,
-              24,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: DojoColors.orangeLight,
-                        borderRadius:
-                            BorderRadius.circular(13),
-                      ),
-                      child: const Icon(
-                        Icons.support_agent_rounded,
-                        color: DojoColors.orange,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          color: DojoColors.textPrimary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ],
+        return AlertDialog(
+          backgroundColor: DojoColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: const BoxDecoration(
+                  color: DojoColors.successSoft,
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  message,
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: DojoColors.success,
+                  size: 38,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Ticket Raised',
+                style: TextStyle(
+                  color: DojoColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Your support request has been submitted successfully.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: DojoColors.textSecondary,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: DojoColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Ticket #${_shortTicketId(ticketId)}',
                   style: const TextStyle(
-                    color: DojoColors.textSecondary,
-                    fontSize: 14,
-                    height: 1.5,
+                    color: DojoColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          DojoColors.orange,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(14),
-                      ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: DojoColors.orange,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(13),
                     ),
-                    child: const Text(
-                      'Okay',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                      ),
+                  ),
+                  child: const Text(
+                    'Done',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
@@ -355,14 +779,20 @@ class WalkerHelpSupportScreen extends StatelessWidget {
   }
 
   // =============================================================
-  // FAQ
+  // TICKET DETAILS
   // =============================================================
 
-  void _showFaq(BuildContext context) {
+  void _showTicketDetails({
+    required String ticketId,
+    required String subject,
+    required String category,
+    required String status,
+    required String description,
+  }) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: DojoColors.surface,
       isScrollControlled: true,
+      backgroundColor: DojoColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(24),
@@ -380,109 +810,94 @@ class WalkerHelpSupportScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment:
                   CrossAxisAlignment.start,
-              children: const [
-                Text(
-                  'Frequently Asked Questions',
-                  style: TextStyle(
-                    color: DojoColors.textPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 16),
-                _FaqItem(
-                  question:
-                      'How do I start a walk?',
-                  answer:
-                      'Complete the required connection or arrival '
-                      'step first. Once the walk is ready, the Start '
-                      'Walk control will become available.',
-                ),
-                _FaqItem(
-                  question:
-                      'How do I complete a walk?',
-                  answer:
-                      'Use the Slide to Complete Walk control '
-                      'available at the bottom of the active walk screen.',
-                ),
-                _FaqItem(
-                  question:
-                      'What should I do if something goes wrong?',
-                  answer:
-                      'Open Help & Support and contact Dojo Support '
-                      'with your walk details.',
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // =============================================================
-  // CONTACT SUPPORT
-  // =============================================================
-
-  void _showContactSupport(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: DojoColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
-      ),
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              20,
-              20,
-              20,
-              24,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: DojoColors.orangeLight,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.support_agent_rounded,
-                    color: DojoColors.orange,
-                    size: 30,
+                Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: DojoColors.orangeLight,
+                        borderRadius:
+                            BorderRadius.circular(13),
+                      ),
+                      child: const Icon(
+                        Icons.confirmation_number_outlined,
+                        color: DojoColors.orange,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        subject,
+                        style: const TextStyle(
+                          color: DojoColors.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                Text(
+                  'Ticket #$ticketId',
+                  style: const TextStyle(
+                    color: DojoColors.textMuted,
+                    fontSize: 11,
                   ),
                 ),
-                const SizedBox(height: 14),
+
+                const SizedBox(height: 10),
+
+                Row(
+                  children: [
+                    _InfoChip(
+                      label: category,
+                    ),
+                    const SizedBox(width: 8),
+                    _StatusChip(
+                      status: status,
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 18),
+
                 const Text(
-                  'Contact Dojo Support',
+                  'Problem',
                   style: TextStyle(
                     color: DojoColors.textPrimary,
-                    fontSize: 19,
+                    fontSize: 14,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Support contact options can be connected '
-                  'here when the official Dojo support channel '
-                  'is configured.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: DojoColors.textSecondary,
-                    fontSize: 13,
-                    height: 1.4,
+                const SizedBox(height: 7),
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: DojoColors.background,
+                    borderRadius:
+                        BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    description,
+                    style: const TextStyle(
+                      color: DojoColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 20),
+
+                const SizedBox(height: 18),
+
                 SizedBox(
                   width: double.infinity,
-                  height: 48,
+                  height: 46,
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.pop(context);
@@ -494,13 +909,13 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius:
-                            BorderRadius.circular(14),
+                            BorderRadius.circular(13),
                       ),
                     ),
                     child: const Text(
                       'Close',
                       style: TextStyle(
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
@@ -512,118 +927,200 @@ class WalkerHelpSupportScreen extends StatelessWidget {
       },
     );
   }
-}
 
-// ================================================================
-// SECTION TITLE
-// ================================================================
+  // =============================================================
+  // HELPERS
+  // =============================================================
 
-class _SectionTitle extends StatelessWidget {
-  final String title;
-
-  const _SectionTitle({
-    required this.title,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: DojoColors.textPrimary,
-        fontSize: 14,
-        fontWeight: FontWeight.w800,
+  InputDecoration _inputDecoration(
+    String hint,
+    IconData icon,
+  ) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(
+        color: DojoColors.textMuted,
+        fontSize: 13,
+      ),
+      prefixIcon: Icon(
+        icon,
+        color: DojoColors.iconSecondary,
+        size: 20,
+      ),
+      filled: true,
+      fillColor: DojoColors.inputBackground,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 14,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
+        borderSide: const BorderSide(
+          color: DojoColors.inputBorder,
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
+        borderSide: const BorderSide(
+          color: DojoColors.inputBorder,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(13),
+        borderSide: const BorderSide(
+          color: DojoColors.orange,
+          width: 1.5,
+        ),
       ),
     );
+  }
+
+  Widget _buildMessageCard({
+    required IconData icon,
+    required String title,
+    required String message,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: DojoColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: DojoColors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: DojoColors.iconSecondary,
+            size: 25,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: DojoColors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    color: DojoColors.textSecondary,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _shortTicketId(String id) {
+    if (id.length <= 8) {
+      return id.toUpperCase();
+    }
+
+    return id
+        .substring(id.length - 8)
+        .toUpperCase();
+  }
+
+  void _showSnackBar(
+    String message, {
+    required bool isError,
+  }) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: isError
+              ? DojoColors.error
+              : DojoColors.success,
+        ),
+      );
   }
 }
 
 // ================================================================
-// SUPPORT TILE
+// STATUS CHIP
 // ================================================================
 
-class _SupportTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
+class _StatusChip extends StatelessWidget {
+  final String status;
 
-  const _SupportTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
+  const _StatusChip({
+    required this.status,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: DojoColors.surface,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: DojoColors.border,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: DojoColors.orangeLight,
-                  borderRadius:
-                      BorderRadius.circular(13),
-                ),
-                child: Icon(
-                  icon,
-                  color: DojoColors.orange,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: DojoColors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow:
-                          TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color:
-                            DojoColors.textSecondary,
-                        fontSize: 12,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: DojoColors.iconSecondary,
-              ),
-            ],
-          ),
+    final String normalized =
+        status.toLowerCase().trim();
+
+    Color background;
+    Color foreground;
+    String label;
+
+    switch (normalized) {
+      case 'resolved':
+      case 'closed':
+        background = DojoColors.successSoft;
+        foreground = DojoColors.successDark;
+        label = normalized == 'closed'
+            ? 'Closed'
+            : 'Resolved';
+        break;
+
+      case 'in_progress':
+      case 'in progress':
+        background = DojoColors.infoSoft;
+        foreground = DojoColors.infoDark;
+        label = 'In Progress';
+        break;
+
+      case 'pending':
+        background = DojoColors.warningSoft;
+        foreground = DojoColors.warningDark;
+        label = 'Pending';
+        break;
+
+      default:
+        background = DojoColors.orangeLight;
+        foreground = DojoColors.orangeDark;
+        label = 'Open';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: foreground,
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
@@ -631,65 +1128,37 @@ class _SupportTile extends StatelessWidget {
 }
 
 // ================================================================
-// FAQ ITEM
+// INFO CHIP
 // ================================================================
 
-class _FaqItem extends StatelessWidget {
-  final String question;
-  final String answer;
+class _InfoChip extends StatelessWidget {
+  final String label;
 
-  const _FaqItem({
-    required this.question,
-    required this.answer,
+  const _InfoChip({
+    required this.label,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 5,
+      ),
       decoration: BoxDecoration(
         color: DojoColors.background,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: DojoColors.border,
         ),
       ),
-      child: ExpansionTile(
-        tilePadding:
-            const EdgeInsets.symmetric(
-          horizontal: 14,
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: DojoColors.textSecondary,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
         ),
-        childrenPadding:
-            const EdgeInsets.fromLTRB(
-          14,
-          0,
-          14,
-          14,
-        ),
-        iconColor: DojoColors.orange,
-        collapsedIconColor:
-            DojoColors.iconSecondary,
-        title: Text(
-          question,
-          style: const TextStyle(
-            color: DojoColors.textPrimary,
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              answer,
-              style: const TextStyle(
-                color: DojoColors.textSecondary,
-                fontSize: 12,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
