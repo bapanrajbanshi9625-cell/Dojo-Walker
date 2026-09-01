@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../walker_home_features.dart';
 import '../widgets/section_title.dart';
 import '../widgets/summary_stat_card.dart';
+import '../services/walker_home_service.dart';
 
 class TodaySummaryContainer extends StatelessWidget {
   final void Function({
@@ -37,110 +37,98 @@ class TodaySummaryContainer extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(.035),
+                color: Colors.black.withValues(alpha: .035),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Column(
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 110,
-                      child: SummaryStatCard(
-                        icon: Icons.directions_walk_rounded,
+              Expanded(
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: SummaryStatCard(
+                    icon: Icons.directions_walk_rounded,
+                    title: 'Total Walks',
+                    value: '0',
+                    background: const Color(0xFFFFE9E2),
+                    iconColor: const Color(0xFFFF6B35),
+                    onTap: () {
+                      onDetails(
                         title: 'Total Walks',
-                        value: WalkerHomeFeatures.totalWalks,
-                        background: const Color(0xFFFFE9E2),
-                        iconColor: WalkerHomeFeatures.orange,
-                        onTap: () {
-                          onDetails(
-                            title: 'Total Walks',
-                            icon: Icons.directions_walk_rounded,
-                            description:
-                                WalkerHomeFeatures.summaryDetails('walks'),
-                          );
-                        },
-                      ),
-                    ),
+                        icon: Icons.directions_walk_rounded,
+                        description: 'Your total completed walks.',
+                      );
+                    },
                   ),
-
-                  const SizedBox(width: 10),
-
-                  Expanded(
-                    child: SizedBox(
-                      height: 110,
-                      child: SummaryStatCard(
-                        icon: Icons.route_rounded,
-                        title: 'Distance',
-                        value: WalkerHomeFeatures.distance,
-                        background: const Color(0xFFE5F1FF),
-                        iconColor: Colors.blue,
-                        onTap: () {
-                          onDetails(
-                            title: 'Distance',
-                            icon: Icons.route_rounded,
-                            description:
-                                WalkerHomeFeatures.summaryDetails('distance'),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
 
-              const SizedBox(height: 10),
+              const SizedBox(width: 6),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 110,
-                      child: SummaryStatCard(
+              Expanded(
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: SummaryStatCard(
+                    icon: Icons.route_rounded,
+                    title: 'Distance',
+                    value: '0 km',
+                    background: const Color(0xFFE5F1FF),
+                    iconColor: Colors.blue,
+                    onTap: () {
+                      onDetails(
+                        title: 'Distance',
+                        icon: Icons.route_rounded,
+                        description: 'Your total walking distance.',
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 6),
+
+              Expanded(
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: SummaryStatCard(
+                    icon: Icons.timer_outlined,
+                    title: 'Duration',
+                    value: '0 min',
+                    background: const Color(0xFFE7F5EA),
+                    iconColor: Colors.green,
+                    onTap: () {
+                      onDetails(
+                        title: 'Walk Duration',
                         icon: Icons.timer_outlined,
-                        title: 'Duration',
-                        value: WalkerHomeFeatures.duration,
-                        background: const Color(0xFFE7F5EA),
-                        iconColor: Colors.green,
-                        onTap: () {
-                          onDetails(
-                            title: 'Walk Duration',
-                            icon: Icons.timer_outlined,
-                            description:
-                                WalkerHomeFeatures.summaryDetails('duration'),
-                          );
-                        },
-                      ),
-                    ),
+                        description: 'Your total walking duration.',
+                      );
+                    },
                   ),
+                ),
+              ),
 
-                  const SizedBox(width: 10),
+              const SizedBox(width: 6),
 
-                  Expanded(
-                    child: SizedBox(
-                      height: 110,
-                      child: SummaryStatCard(
+              Expanded(
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: SummaryStatCard(
+                    icon: Icons.bar_chart_rounded,
+                    title: 'Report Card',
+                    value: '—',
+                    background: const Color(0xFFFFEEE8),
+                    iconColor: const Color(0xFFFF6B35),
+                    onTap: () {
+                      onDetails(
+                        title: 'Performance Report',
                         icon: Icons.bar_chart_rounded,
-                        title: 'Report Card',
-                        value: WalkerHomeFeatures.performance,
-                        background: const Color(0xFFFFEEE8),
-                        iconColor: WalkerHomeFeatures.orange,
-                        onTap: () {
-                          onDetails(
-                            title: 'Performance Report',
-                            icon: Icons.bar_chart_rounded,
-                            description:
-                                WalkerHomeFeatures.summaryDetails('report'),
-                          );
-                        },
-                      ),
-                    ),
+                        description: 'Your walking performance report.',
+                      );
+                    },
                   ),
-                ],
+                ),
               ),
             ],
           ),
