@@ -61,7 +61,9 @@ class PastWalkModel {
 
   // ============================================================
   // FIRESTORE → MODEL
-  // Collection: walk_history
+  //
+  // Collection:
+  // walk_history
   // ============================================================
 
   factory PastWalkModel.fromDocument(
@@ -70,108 +72,99 @@ class PastWalkModel {
     final Map<String, dynamic> data =
         document.data() ?? <String, dynamic>{};
 
-    final String walkId = _readString(
-      data['walkId'] ?? document.id,
-    );
-
-    final String walkerId = _readString(
-      data['walkerUid'] ??
-          data['walkerId'] ??
-          '',
-    );
-
-    final String walkerName = _readString(
-      data['walkerName'],
-    );
-
-    final String ownerId = _readString(
-      data['ownerId'],
-    );
-
-    final String ownerName = _readString(
-      data['ownerName'],
-    );
-
-    final String dogName = _readString(
-      data['dogName'],
-    );
-
-    final String dogBreed = _readString(
-      data['dogBreed'],
-    );
-
-    final String dogPhoto = _readString(
-      data['dogPhoto'],
-    );
-
-    final String status = _readString(
-      data['status'],
-    );
-
-    final DateTime? startedAt =
-        _readDate(data['startedAt']);
-
-    final DateTime? completedAt =
-        _readDate(data['completedAt']);
-
-    final DateTime? createdAt =
-        _readDate(data['createdAt']);
-
-    final String timeFormatted =
-        _readString(data['timeFormatted']);
-
-    final double distanceKm =
-        _readDouble(data['distanceKm']);
-
-    final double routeDistanceKm =
-        _readDouble(data['routeDistanceKm']);
-
-    final double durationMinutes =
-        _readDouble(data['durationMinutes']);
-
-    final double routeDurationMinutes =
-        _readDouble(data['routeDurationMinutes']);
-
-    final int peeCount =
-        _readInt(data['peeCount']);
-
-    final int poopCount =
-        _readInt(data['poopCount']);
-
-    final int rating =
-        _readInt(data['rating']);
-
-    final String walkerNote =
-        _readString(data['walkerNote']);
-
     return PastWalkModel(
       id: document.id,
-      walkId: walkId,
-      walkerId: walkerId,
-      walkerName: walkerName,
-      ownerId: ownerId,
-      ownerName: ownerName,
-      dogName: dogName,
-      dogBreed: dogBreed,
-      dogPhoto: dogPhoto,
-      status: status,
-      startedAt: startedAt,
-      completedAt: completedAt,
-      createdAt: createdAt,
-      timeFormatted: timeFormatted,
-      distanceKm: distanceKm,
-      routeDistanceKm: routeDistanceKm,
-      durationMinutes: durationMinutes,
-      routeDurationMinutes: routeDurationMinutes,
-      peeCount: peeCount,
-      poopCount: poopCount,
-      rating: rating,
-      walkerNote: walkerNote,
+
+      walkId: _readString(
+        data['walkId'] ?? document.id,
+      ),
+
+      walkerId: _readString(
+        data['walkerUid'] ??
+            data['walkerId'] ??
+            '',
+      ),
+
+      walkerName: _readString(
+        data['walkerName'],
+      ),
+
+      ownerId: _readString(
+        data['ownerId'],
+      ),
+
+      ownerName: _readString(
+        data['ownerName'],
+      ),
+
+      dogName: _readString(
+        data['dogName'],
+      ),
+
+      dogBreed: _readString(
+        data['dogBreed'],
+      ),
+
+      dogPhoto: _readString(
+        data['dogPhoto'],
+      ),
+
+      status: _readString(
+        data['status'],
+      ),
+
+      startedAt: _readDate(
+        data['startedAt'],
+      ),
+
+      completedAt: _readDate(
+        data['completedAt'],
+      ),
+
+      createdAt: _readDate(
+        data['createdAt'],
+      ),
+
+      timeFormatted: _readString(
+        data['timeFormatted'],
+      ),
+
+      distanceKm: _readDouble(
+        data['distanceKm'],
+      ),
+
+      routeDistanceKm: _readDouble(
+        data['routeDistanceKm'],
+      ),
+
+      durationMinutes: _readDouble(
+        data['durationMinutes'],
+      ),
+
+      routeDurationMinutes: _readDouble(
+        data['routeDurationMinutes'],
+      ),
+
+      peeCount: _readInt(
+        data['peeCount'],
+      ),
+
+      poopCount: _readInt(
+        data['poopCount'],
+      ),
+
+      rating: _readInt(
+        data['rating'],
+      ),
+
+      walkerNote: _readString(
+        data['walkerNote'],
+      ),
     );
   }
 
   // ============================================================
-  // CARD ID
+  // DISPLAY ID
   // ============================================================
 
   String get displayId {
@@ -192,7 +185,9 @@ class PastWalkModel {
     }
 
     final DateTime? date =
-        completedAt ?? startedAt;
+        completedAt ??
+        startedAt ??
+        createdAt;
 
     if (date == null) {
       return 'Completed';
@@ -202,29 +197,70 @@ class PastWalkModel {
   }
 
   // ============================================================
+  // EFFECTIVE DISTANCE
+  //
+  // distanceKm is primary.
+  // routeDistanceKm is fallback.
+  // ============================================================
+
+  double get effectiveDistanceKm {
+    if (distanceKm > 0) {
+      return distanceKm;
+    }
+
+    if (routeDistanceKm > 0) {
+      return routeDistanceKm;
+    }
+
+    return 0;
+  }
+
+  // ============================================================
+  // EFFECTIVE DURATION
+  //
+  // durationMinutes is primary.
+  // routeDurationMinutes is fallback.
+  // ============================================================
+
+  double get effectiveDurationMinutes {
+    if (durationMinutes > 0) {
+      return durationMinutes;
+    }
+
+    if (routeDurationMinutes > 0) {
+      return routeDurationMinutes;
+    }
+
+    return 0;
+  }
+
+  // ============================================================
   // DISPLAY DETAILS
   // ============================================================
 
   String get displayDetails {
-    final List<String> parts = <String>[];
+    final List<String> parts =
+        <String>[];
 
     if (dogName.isNotEmpty) {
       parts.add(dogName);
     }
 
     if (ownerName.isNotEmpty) {
-      parts.add('Owner: $ownerName');
-    }
-
-    if (durationMinutes > 0) {
       parts.add(
-        '${durationMinutes.round()} min',
+        'Owner: $ownerName',
       );
     }
 
-    if (distanceKm > 0) {
+    if (effectiveDurationMinutes > 0) {
       parts.add(
-        '${distanceKm.toStringAsFixed(1)} km',
+        '${effectiveDurationMinutes.round()} min',
+      );
+    }
+
+    if (effectiveDistanceKm > 0) {
+      parts.add(
+        '${effectiveDistanceKm.toStringAsFixed(1)} km',
       );
     }
 
@@ -236,7 +272,7 @@ class PastWalkModel {
   }
 
   // ============================================================
-  // STATUS
+  // COMPLETED STATUS
   // ============================================================
 
   bool get isCompleted {
@@ -249,7 +285,20 @@ class PastWalkModel {
   }
 
   // ============================================================
-  // STRING
+  // FILTER DATE
+  //
+  // completedAt is preferred.
+  // startedAt and createdAt are fallbacks.
+  // ============================================================
+
+  DateTime? get activityDate {
+    return completedAt ??
+        startedAt ??
+        createdAt;
+  }
+
+  // ============================================================
+  // READ STRING
   // ============================================================
 
   static String _readString(
@@ -259,11 +308,13 @@ class PastWalkModel {
       return '';
     }
 
-    return value.toString().trim();
+    return value
+        .toString()
+        .trim();
   }
 
   // ============================================================
-  // DOUBLE
+  // READ DOUBLE
   // ============================================================
 
   static double _readDouble(
@@ -288,7 +339,7 @@ class PastWalkModel {
   }
 
   // ============================================================
-  // INT
+  // READ INT
   // ============================================================
 
   static int _readInt(
@@ -317,7 +368,7 @@ class PastWalkModel {
   }
 
   // ============================================================
-  // DATE
+  // READ DATE
   // ============================================================
 
   static DateTime? _readDate(
@@ -342,7 +393,8 @@ class PastWalkModel {
     }
 
     if (value is int) {
-      return DateTime.fromMillisecondsSinceEpoch(
+      return DateTime
+          .fromMillisecondsSinceEpoch(
         value,
       );
     }
@@ -351,26 +403,28 @@ class PastWalkModel {
   }
 
   // ============================================================
-  // TIME FORMAT
+  // FORMAT TIME
   // ============================================================
 
   static String _formatTime(
     DateTime date,
   ) {
-    final int hour = date.hour == 0
-        ? 12
-        : date.hour > 12
-            ? date.hour - 12
-            : date.hour;
+    final int hour =
+        date.hour == 0
+            ? 12
+            : date.hour > 12
+                ? date.hour - 12
+                : date.hour;
 
     final String minute =
-        date.minute.toString().padLeft(
-              2,
-              '0',
-            );
+        date.minute
+            .toString()
+            .padLeft(2, '0');
 
     final String period =
-        date.hour >= 12 ? 'PM' : 'AM';
+        date.hour >= 12
+            ? 'PM'
+            : 'AM';
 
     return '$hour:$minute $period';
   }
