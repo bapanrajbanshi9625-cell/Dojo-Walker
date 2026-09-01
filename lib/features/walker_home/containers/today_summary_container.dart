@@ -27,15 +27,10 @@ class TodaySummaryContainer extends StatelessWidget {
         const WalkerSectionTitle(
           title: "Today's Summary",
         ),
-
         const SizedBox(height: 8),
-
         StreamBuilder<WalkerHomeSummary>(
           stream: _service.watchTodaySummary(),
-          builder: (
-            BuildContext context,
-            AsyncSnapshot<WalkerHomeSummary> snapshot,
-          ) {
+          builder: (context, snapshot) {
             final WalkerHomeSummary summary =
                 snapshot.data ?? const WalkerHomeSummary();
 
@@ -79,9 +74,7 @@ class TodaySummaryContainer extends StatelessWidget {
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 6),
-
                   Expanded(
                     child: AspectRatio(
                       aspectRatio: 1,
@@ -105,9 +98,7 @@ class TodaySummaryContainer extends StatelessWidget {
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 6),
-
                   Expanded(
                     child: AspectRatio(
                       aspectRatio: 1,
@@ -115,7 +106,7 @@ class TodaySummaryContainer extends StatelessWidget {
                         icon: Icons.timer_outlined,
                         title: 'Duration',
                         value:
-                            '${summary.durationMinutes.round()} min',
+                            '${summary.durationMinutes} min',
                         background:
                             DojoWalkerColors.greenLight,
                         iconColor: DojoWalkerColors.green,
@@ -125,15 +116,13 @@ class TodaySummaryContainer extends StatelessWidget {
                             icon: Icons.timer_outlined,
                             description:
                                 'Today you walked for '
-                                '${summary.durationMinutes.round()} minutes.',
+                                '${summary.durationMinutes} minutes.',
                           );
                         },
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 6),
-
                   Expanded(
                     child: AspectRatio(
                       aspectRatio: 1,
