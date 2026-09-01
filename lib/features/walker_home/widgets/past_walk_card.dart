@@ -22,12 +22,12 @@ class PastWalkCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: DojoColors.surface,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: DojoColors.border,
             ),
@@ -39,20 +39,20 @@ class PastWalkCard extends StatelessWidget {
               // ==================================================
 
               Container(
-                width: 52,
-                height: 52,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: DojoColors.greenLight,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   Icons.pets_rounded,
                   color: DojoColors.green,
-                  size: 28,
+                  size: 22,
                 ),
               ),
 
-              const SizedBox(width: 13),
+              const SizedBox(width: 10),
 
               // ==================================================
               // WALK INFORMATION
@@ -69,12 +69,13 @@ class PastWalkCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: DojoColors.dark,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        height: 1.1,
                       ),
                     ),
 
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 4),
 
                     Text(
                       details,
@@ -82,14 +83,15 @@ class PastWalkCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: DojoColors.textSecondary,
-                        fontSize: 13,
+                        fontSize: 11,
+                        height: 1.1,
                       ),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
 
               // ==================================================
               // DONE BADGE
@@ -97,32 +99,33 @@ class PastWalkCard extends StatelessWidget {
 
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 11,
-                  vertical: 8,
+                  horizontal: 7,
+                  vertical: 5,
                 ),
                 decoration: BoxDecoration(
                   color: DojoColors.greenLight,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(9),
                 ),
                 child: Text(
                   'DONE',
                   style: TextStyle(
                     color: DojoColors.green,
                     fontWeight: FontWeight.w800,
-                    fontSize: 12,
+                    fontSize: 9,
                   ),
                 ),
               ),
 
-              const SizedBox(width: 6),
+              const SizedBox(width: 3),
 
               // ==================================================
               // ARROW
               // ==================================================
 
-              Icon(
+              const Icon(
                 Icons.chevron_right_rounded,
                 color: DojoColors.textSecondary,
+                size: 20,
               ),
             ],
           ),
