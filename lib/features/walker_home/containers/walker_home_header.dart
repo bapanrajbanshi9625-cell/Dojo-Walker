@@ -1,14 +1,11 @@
-// File location:
-// lib/features/walker_home/containers/walker_home_header.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/dojo_walker_colors.dart';
-import '../../../screens/help_support_screen.dart';
 import '../../../screens/notifications_screen.dart';
 import '../../../screens/profile_screen.dart';
+import '../../../screens/walker_help_support_screen.dart';
 
 class WalkerHomeHeader extends StatelessWidget {
   const WalkerHomeHeader({super.key});
@@ -49,9 +46,7 @@ class WalkerHomeHeader extends StatelessWidget {
                   size: 22,
                 ),
               ),
-
               const SizedBox(width: 10),
-
               const Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -81,7 +76,6 @@ class WalkerHomeHeader extends StatelessWidget {
                   ],
                 ),
               ),
-
               _HeaderButton(
                 icon: Icons.notifications_none_rounded,
                 iconColor: const Color(0xFFFFE082),
@@ -95,9 +89,7 @@ class WalkerHomeHeader extends StatelessWidget {
                   );
                 },
               ),
-
               const SizedBox(width: 6),
-
               _HeaderButton(
                 icon: Icons.headset_mic_outlined,
                 iconColor: const Color(0xFFB3E5FC),
@@ -106,14 +98,12 @@ class WalkerHomeHeader extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const HelpSupportScreen(),
+                      builder: (_) => const WalkerHelpSupportScreen(),
                     ),
                   );
                 },
               ),
-
               const SizedBox(width: 6),
-
               _ProfileButton(
                 user: user,
                 onTap: () {
