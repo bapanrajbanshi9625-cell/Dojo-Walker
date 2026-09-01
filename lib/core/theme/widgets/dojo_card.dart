@@ -6,8 +6,7 @@ class DojoCard extends StatelessWidget {
   const DojoCard({
     super.key,
     required this.child,
-    this.padding =
-        const EdgeInsets.all(18),
+    this.padding = const EdgeInsets.all(18),
     this.radius = 20,
     this.backgroundColor,
     this.borderColor,
@@ -27,15 +26,10 @@ class DojoCard extends StatelessWidget {
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color:
-            backgroundColor ??
-            DojoWalkerColors.white,
-        borderRadius:
-            BorderRadius.circular(radius),
+        color: backgroundColor ?? DojoWalkerColors.white,
+        borderRadius: BorderRadius.circular(radius),
         border: Border.all(
-          color:
-              borderColor ??
-              DojoWalkerColors.border,
+          color: borderColor ?? DojoWalkerColors.border,
         ),
         boxShadow: shadow
             ? const <BoxShadow>[
