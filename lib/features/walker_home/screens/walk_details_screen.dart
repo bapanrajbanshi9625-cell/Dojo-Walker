@@ -18,55 +18,51 @@ class _WalkDetailsScreenState
 
   DateTime _selectedDate = DateTime.now();
 
-  Future<void> _selectDate() async {
-    final DateTime? picked =
-        await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      builder: (
-        BuildContext context,
-        Widget? child,
-      ) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppColors.primary,
-              surface: AppColors.surface,
-              onSurface: AppColors.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked == null) {
-      return;
-    }
-
-    setState(() {
-      _selectedDate = picked;
-    });
-  }
+  // ============================================================
+  // FILTER TYPE
+  // ============================================================
 
   void _changeFilterType(
     DetailsFilterType type,
   ) {
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       _filterType = type;
     });
-
-    if (type == DetailsFilterType.date) {
-      _selectDate();
-    }
   }
+
+  // ============================================================
+  // DATE
+  // ============================================================
+
+  void _changeDate(DateTime date) {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedDate = date;
+    });
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
+    final bool isDateFilter =
+        _filterType == DetailsFilterType.date;
+
     return Scaffold(
       backgroundColor: AppColors.background,
+
+      // ========================================================
+      // APP BAR
+      // ========================================================
 
       appBar: AppBar(
         elevation: 0,
@@ -80,26 +76,26 @@ class _WalkDetailsScreenState
         ),
       ),
 
+      // ========================================================
+      // BODY
+      // ========================================================
+
       body: Column(
         children: [
-          // ====================================================
+          // ======================================================
           // DATE / WEEK FILTER
-          // ====================================================
+          // ======================================================
 
           DetailsDateFilter(
             selectedType: _filterType,
             selectedDate: _selectedDate,
             onTypeChanged: _changeFilterType,
-            onDateChanged: (DateTime date) {
-              setState(() {
-                _selectedDate = date;
-              });
-            },
+            onDateChanged: _changeDate,
           ),
 
-          // ====================================================
+          // ======================================================
           // CONTENT
-          // ====================================================
+          // ======================================================
 
           Expanded(
             child: SingleChildScrollView(
@@ -108,9 +104,12 @@ class _WalkDetailsScreenState
                 crossAxisAlignment:
                     CrossAxisAlignment.start,
                 children: [
+                  // ==================================================
+                  // TITLE
+                  // ==================================================
+
                   Text(
-                    _filterType ==
-                            DetailsFilterType.date
+                    isDateFilter
                         ? 'Walks for selected date'
                         : 'Walks for selected week',
                     style: const TextStyle(
@@ -143,13 +142,16 @@ class _WalkDetailsScreenState
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: AppColors.primaryLight,
+                            color:
+                                AppColors.primaryLight,
                             borderRadius:
                                 BorderRadius.circular(14),
                           ),
-                          child: Icon(
-                            Icons.directions_walk_rounded,
-                            color: AppColors.iconPrimary,
+                          child: const Icon(
+                            Icons
+                                .directions_walk_rounded,
+                            color:
+                                AppColors.iconPrimary,
                             size: 25,
                           ),
                         ),
@@ -165,7 +167,8 @@ class _WalkDetailsScreenState
                                 'Total Walks',
                                 style: TextStyle(
                                   color:
-                                      AppColors.textSecondary,
+                                      AppColors
+                                          .textSecondary,
                                   fontSize: 13,
                                   fontWeight:
                                       FontWeight.w600,
@@ -176,7 +179,8 @@ class _WalkDetailsScreenState
                                 '0',
                                 style: TextStyle(
                                   color:
-                                      AppColors.textPrimary,
+                                      AppColors
+                                          .textPrimary,
                                   fontSize: 24,
                                   fontWeight:
                                       FontWeight.w800,
@@ -192,7 +196,7 @@ class _WalkDetailsScreenState
                   const SizedBox(height: 16),
 
                   // ==================================================
-                  // WALK LIST
+                  // WALK HISTORY
                   // ==================================================
 
                   Container(
@@ -208,10 +212,11 @@ class _WalkDetailsScreenState
                     ),
                     child: Column(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.pets_rounded,
                           size: 42,
-                          color: AppColors.iconMuted,
+                          color:
+                              AppColors.iconMuted,
                         ),
 
                         const SizedBox(height: 10),
@@ -231,10 +236,12 @@ class _WalkDetailsScreenState
 
                         const Text(
                           'Walk history for the selected period will appear here.',
-                          textAlign: TextAlign.center,
+                          textAlign:
+                              TextAlign.center,
                           style: TextStyle(
                             color:
-                                AppColors.textSecondary,
+                                AppColors
+                                    .textSecondary,
                             fontSize: 13,
                           ),
                         ),
