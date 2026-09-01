@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../models/past_walk_model.dart';
+import '../../my_walks/models/past_walk_model.dart';
 import '../services/walker_home_service.dart';
 import '../widgets/past_walk_card.dart';
 import '../widgets/section_title.dart';
