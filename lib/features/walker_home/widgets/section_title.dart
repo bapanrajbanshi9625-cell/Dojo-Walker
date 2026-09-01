@@ -44,7 +44,7 @@ class WalkerSectionTitle extends StatelessWidget {
               color: DojoColors.dark,
               fontSize: 18,
               height: 1.15,
-              fontWeight: FontWeight.w750,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
