@@ -1,26 +1,18 @@
-// File location:
-// lib/screens/walker_help_support_screen.dart
-
 import 'package:flutter/material.dart';
+
+import '../core/theme/dojo_colors.dart';
 
 class WalkerHelpSupportScreen extends StatelessWidget {
   const WalkerHelpSupportScreen({
     super.key,
   });
 
-  static const Color _orange = Color(0xFFFF7A00);
-  static const Color _orangeLight = Color(0xFFFFF1E6);
-  static const Color _background = Color(0xFFF5F6F8);
-  static const Color _textPrimary = Color(0xFF202124);
-  static const Color _textSecondary = Color(0xFF6B7280);
-  static const Color _border = Color(0xFFE5E7EB);
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _background,
+      backgroundColor: DojoColors.background,
       appBar: AppBar(
-        backgroundColor: _orange,
+        backgroundColor: DojoColors.orange,
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(
@@ -40,16 +32,16 @@ class WalkerHelpSupportScreen extends StatelessWidget {
           ),
           children: [
             // =====================================================
-            // WALKER SUPPORT HEADER
+            // HEADER CARD
             // =====================================================
 
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: DojoColors.surface,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: _border,
+                  color: DojoColors.border,
                 ),
               ),
               child: Row(
@@ -58,33 +50,35 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                     width: 52,
                     height: 52,
                     decoration: BoxDecoration(
-                      color: _orangeLight,
+                      color: DojoColors.orangeLight,
                       borderRadius: BorderRadius.circular(15),
                     ),
                     child: const Icon(
                       Icons.support_agent_rounded,
-                      color: _orange,
+                      color: DojoColors.orange,
                       size: 28,
                     ),
                   ),
                   const SizedBox(width: 14),
                   const Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment:
+                          CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Walker Support',
+                          'How can we help?',
                           style: TextStyle(
-                            color: _textPrimary,
-                            fontSize: 17,
+                            color: DojoColors.textPrimary,
+                            fontSize: 18,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'Need help with your Walker account or walks?',
+                          'Get help with your walks, account, '
+                          'verification and other issues.',
                           style: TextStyle(
-                            color: _textSecondary,
+                            color: DojoColors.textSecondary,
                             fontSize: 12,
                             height: 1.4,
                           ),
@@ -99,65 +93,60 @@ class WalkerHelpSupportScreen extends StatelessWidget {
             const SizedBox(height: 18),
 
             // =====================================================
-            // WALKER HELP
+            // WALK SUPPORT
             // =====================================================
 
             const _SectionTitle(
-              title: 'Walker Help',
+              title: 'Walk Support',
             ),
+
+            const SizedBox(height: 8),
 
             _SupportTile(
               icon: Icons.directions_walk_rounded,
-              title: 'How to complete a walk',
+              title: 'Walk Issue',
               subtitle:
-                  'Learn how the Walker walk process works.',
+                  'Problems with an active or completed walk',
               onTap: () {
-                _showInfo(
+                _showSupportMessage(
                   context,
-                  'How to complete a walk',
-                  'Accept the walk request, reach the owner, start the walk, complete the walk, and submit the required walk details.',
+                  'Walk Support',
+                  'If you are facing a problem during a walk, '
+                      'please contact Dojo Support with your walk details.',
                 );
               },
             ),
+
+            const SizedBox(height: 8),
 
             _SupportTile(
               icon: Icons.qr_code_scanner_rounded,
-              title: 'QR Walk help',
+              title: 'QR Walk Help',
               subtitle:
-                  'Get help with QR connection and starting a walk.',
+                  'Help with QR connection or starting a walk',
               onTap: () {
-                _showInfo(
+                _showSupportMessage(
                   context,
-                  'QR Walk',
-                  'Scan the owner QR code to establish the walk connection. After reaching the active walk, you can start the walk.',
+                  'QR Walk Help',
+                  'Make sure the owner QR is active and scan it '
+                      'from the Walker app.',
                 );
               },
             ),
 
-            _SupportTile(
-              icon: Icons.person_search_rounded,
-              title: 'Insta Walk help',
-              subtitle:
-                  'Learn about Walker requests and accepting walks.',
-              onTap: () {
-                _showInfo(
-                  context,
-                  'Insta Walk',
-                  'Insta Walk allows an owner to find a Walker nearby and send a walk request. Accept the request to continue with the walk flow.',
-                );
-              },
-            ),
+            const SizedBox(height: 8),
 
             _SupportTile(
-              icon: Icons.cancel_outlined,
-              title: 'Cancel a walk',
+              icon: Icons.location_on_outlined,
+              title: 'Reach / Arrival Issue',
               subtitle:
-                  'Understand when and how a walk can be cancelled.',
+                  'Problems while reaching the owner',
               onTap: () {
-                _showInfo(
+                _showSupportMessage(
                   context,
-                  'Cancel a walk',
-                  'If you cannot complete an accepted walk, use the available cancellation option and follow the confirmation steps shown in the app.',
+                  'Arrival Support',
+                  'If you have reached the owner but the walk '
+                      'cannot continue, contact Dojo Support.',
                 );
               },
             ),
@@ -165,37 +154,44 @@ class WalkerHelpSupportScreen extends StatelessWidget {
             const SizedBox(height: 18),
 
             // =====================================================
-            // ACCOUNT
+            // ACCOUNT SUPPORT
             // =====================================================
 
             const _SectionTitle(
               title: 'Account',
             ),
 
-            _SupportTile(
-              icon: Icons.person_outline_rounded,
-              title: 'Walker profile',
-              subtitle:
-                  'Help with your Walker profile and verification.',
-              onTap: () {
-                _showInfo(
-                  context,
-                  'Walker Profile',
-                  'Keep your Walker profile information accurate and complete. If verification is pending, allow the verification process to finish.',
-                );
-              },
-            ),
+            const SizedBox(height: 8),
 
             _SupportTile(
               icon: Icons.verified_user_outlined,
-              title: 'Verification',
+              title: 'Verification Help',
               subtitle:
-                  'Information about Walker verification.',
+                  'Questions about Walker verification',
               onTap: () {
-                _showInfo(
+                _showSupportMessage(
                   context,
-                  'Walker Verification',
-                  'Your Walker verification status is managed by Dojo. If additional information is required, the app will guide you through the required steps.',
+                  'Verification Help',
+                  'For verification-related problems, please '
+                      'contact Dojo Support with your registered '
+                      'Walker details.',
+                );
+              },
+            ),
+
+            const SizedBox(height: 8),
+
+            _SupportTile(
+              icon: Icons.person_outline_rounded,
+              title: 'Profile Help',
+              subtitle:
+                  'Problems with your Walker profile',
+              onTap: () {
+                _showSupportMessage(
+                  context,
+                  'Profile Help',
+                  'Check your profile information and make sure '
+                      'all required details are completed.',
                 );
               },
             ),
@@ -203,86 +199,50 @@ class WalkerHelpSupportScreen extends StatelessWidget {
             const SizedBox(height: 18),
 
             // =====================================================
-            // WALK INFORMATION
+            // GENERAL SUPPORT
             // =====================================================
 
             const _SectionTitle(
-              title: 'Walk Information',
+              title: 'General',
             ),
 
-            _SupportTile(
-              icon: Icons.history_rounded,
-              title: 'Past walks',
-              subtitle:
-                  'Need help understanding your completed walks?',
-              onTap: () {
-                _showInfo(
-                  context,
-                  'Past Walks',
-                  'Your completed walks are available in Past Walks. You can review walk information such as dog, owner, time, distance, duration, rating, pee and poop records when available.',
-                );
-              },
-            ),
-
-            _SupportTile(
-              icon: Icons.star_outline_rounded,
-              title: 'Walk rating',
-              subtitle:
-                  'Understand ratings after completing walks.',
-              onTap: () {
-                _showInfo(
-                  context,
-                  'Walk Rating',
-                  'Ratings are associated with completed walks. Your available rating information can be viewed with the relevant completed walk.',
-                );
-              },
-            ),
-
-            const SizedBox(height: 18),
-
-            // =====================================================
-            // CONTACT SUPPORT
-            // =====================================================
-
-            const _SectionTitle(
-              title: 'Contact Support',
-            ),
+            const SizedBox(height: 8),
 
             _SupportTile(
               icon: Icons.help_outline_rounded,
-              title: 'Contact Dojo Support',
+              title: 'Frequently Asked Questions',
               subtitle:
-                  'Get help when you cannot resolve an issue yourself.',
+                  'Common questions about Dojo Walker',
+              onTap: () {
+                _showFaq(context);
+              },
+            ),
+
+            const SizedBox(height: 8),
+
+            _SupportTile(
+              icon: Icons.support_agent_rounded,
+              title: 'Contact Support',
+              subtitle:
+                  'Get assistance from Dojo Support',
               onTap: () {
                 _showContactSupport(context);
               },
             ),
 
-            const SizedBox(height: 22),
+            const SizedBox(height: 24),
 
             // =====================================================
             // FOOTER
             // =====================================================
 
-            const Center(
+            Center(
               child: Text(
                 'Dojo Walker',
                 style: TextStyle(
-                  color: _textSecondary,
+                  color: DojoColors.textSecondary,
                   fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 4),
-
-            const Center(
-              child: Text(
-                'Walker Help & Support',
-                style: TextStyle(
-                  color: _textSecondary,
-                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -293,50 +253,168 @@ class WalkerHelpSupportScreen extends StatelessWidget {
   }
 
   // =============================================================
-  // INFO DIALOG
+  // SUPPORT MESSAGE
   // =============================================================
 
-  static void _showInfo(
+  void _showSupportMessage(
     BuildContext context,
     String title,
     String message,
   ) {
-    showDialog<void>(
+    showModalBottomSheet<void>(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            title,
-            style: const TextStyle(
-              color: _textPrimary,
-              fontWeight: FontWeight.w800,
+      backgroundColor: DojoColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              24,
             ),
-          ),
-          content: Text(
-            message,
-            style: const TextStyle(
-              color: _textSecondary,
-              fontSize: 14,
-              height: 1.5,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text(
-                'OK',
-                style: TextStyle(
-                  color: _orange,
-                  fontWeight: FontWeight.w700,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: DojoColors.orangeLight,
+                        borderRadius:
+                            BorderRadius.circular(13),
+                      ),
+                      child: const Icon(
+                        Icons.support_agent_rounded,
+                        color: DojoColors.orange,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          color: DojoColors.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+                const SizedBox(height: 16),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    color: DojoColors.textSecondary,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          DojoColors.orange,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Okay',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
+        );
+      },
+    );
+  }
+
+  // =============================================================
+  // FAQ
+  // =============================================================
+
+  void _showFaq(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: DojoColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              28,
+            ),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'Frequently Asked Questions',
+                  style: TextStyle(
+                    color: DojoColors.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                SizedBox(height: 16),
+                _FaqItem(
+                  question:
+                      'How do I start a walk?',
+                  answer:
+                      'Complete the required connection or arrival '
+                      'step first. Once the walk is ready, the Start '
+                      'Walk control will become available.',
+                ),
+                _FaqItem(
+                  question:
+                      'How do I complete a walk?',
+                  answer:
+                      'Use the Slide to Complete Walk control '
+                      'available at the bottom of the active walk screen.',
+                ),
+                _FaqItem(
+                  question:
+                      'What should I do if something goes wrong?',
+                  answer:
+                      'Open Help & Support and contact Dojo Support '
+                      'with your walk details.',
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -346,95 +424,86 @@ class WalkerHelpSupportScreen extends StatelessWidget {
   // CONTACT SUPPORT
   // =============================================================
 
-  static void _showContactSupport(
-    BuildContext context,
-  ) {
+  void _showContactSupport(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: DojoColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(24),
         ),
       ),
-      builder: (BuildContext sheetContext) {
+      builder: (BuildContext context) {
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(
               20,
-              14,
+              20,
               20,
               24,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Container(
-                    width: 42,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: _border,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: DojoColors.orangeLight,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.support_agent_rounded,
+                    color: DojoColors.orange,
+                    size: 30,
                   ),
                 ),
-
-                const SizedBox(height: 20),
-
+                const SizedBox(height: 14),
                 const Text(
                   'Contact Dojo Support',
                   style: TextStyle(
-                    color: _textPrimary,
-                    fontSize: 20,
+                    color: DojoColors.textPrimary,
+                    fontSize: 19,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-
                 const SizedBox(height: 8),
-
                 const Text(
-                  'For account, verification, walk, or other Walker-related issues, contact Dojo Support.',
+                  'Support contact options can be connected '
+                  'here when the official Dojo support channel '
+                  'is configured.',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: _textSecondary,
+                    color: DojoColors.textSecondary,
                     fontSize: 13,
-                    height: 1.5,
+                    height: 1.4,
                   ),
                 ),
-
-                const SizedBox(height: 18),
-
-                _ContactOption(
-                  icon: Icons.chat_bubble_outline_rounded,
-                  title: 'Support',
-                  subtitle: 'Open a support request',
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-
-                    _showInfo(
-                      context,
-                      'Support Request',
-                      'Support request functionality can be connected here when the support service is added.',
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 8),
-
-                _ContactOption(
-                  icon: Icons.email_outlined,
-                  title: 'Email Support',
-                  subtitle: 'Contact Dojo by email',
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-
-                    _showInfo(
-                      context,
-                      'Email Support',
-                      'Email support can be connected here when the official Dojo support email is configured.',
-                    );
-                  },
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          DojoColors.orange,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Close',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -445,9 +514,9 @@ class WalkerHelpSupportScreen extends StatelessWidget {
   }
 }
 
-// =================================================================
+// ================================================================
 // SECTION TITLE
-// =================================================================
+// ================================================================
 
 class _SectionTitle extends StatelessWidget {
   final String title;
@@ -458,26 +527,20 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(
-        left: 4,
-        bottom: 8,
-      ),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: _textPrimary,
-          fontSize: 14,
-          fontWeight: FontWeight.w800,
-        ),
+    return Text(
+      title,
+      style: const TextStyle(
+        color: DojoColors.textPrimary,
+        fontSize: 14,
+        fontWeight: FontWeight.w800,
       ),
     );
   }
 }
 
-// =================================================================
+// ================================================================
 // SUPPORT TILE
-// =================================================================
+// ================================================================
 
 class _SupportTile extends StatelessWidget {
   final IconData icon;
@@ -494,101 +557,34 @@ class _SupportTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(
-        bottom: 8,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: _border,
-        ),
-      ),
-      child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 4,
-        ),
-        leading: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: _orangeLight,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            icon,
-            color: _orange,
-            size: 21,
-          ),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: _textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: const TextStyle(
-            color: _textSecondary,
-            fontSize: 11.5,
-            height: 1.3,
-          ),
-        ),
-        trailing: const Icon(
-          Icons.chevron_right_rounded,
-          color: Color(0xFF9CA3AF),
-        ),
-      ),
-    );
-  }
-}
-
-// =================================================================
-// CONTACT OPTION
-// =================================================================
-
-class _ContactOption extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _ContactOption({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
     return Material(
-      color: _background,
+      color: DojoColors.surface,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(13),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: DojoColors.border,
+            ),
+          ),
           child: Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: _orangeLight,
-                  borderRadius: BorderRadius.circular(12),
+                  color: DojoColors.orangeLight,
+                  borderRadius:
+                      BorderRadius.circular(13),
                 ),
                 child: Icon(
                   icon,
-                  color: _orange,
-                  size: 21,
+                  color: DojoColors.orange,
+                  size: 22,
                 ),
               ),
               const SizedBox(width: 12),
@@ -600,29 +596,100 @@ class _ContactOption extends StatelessWidget {
                     Text(
                       title,
                       style: const TextStyle(
-                        color: _textPrimary,
+                        color: DojoColors.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       subtitle,
+                      maxLines: 2,
+                      overflow:
+                          TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: _textSecondary,
+                        color:
+                            DojoColors.textSecondary,
                         fontSize: 12,
+                        height: 1.3,
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               const Icon(
                 Icons.chevron_right_rounded,
-                color: Color(0xFF9CA3AF),
+                color: DojoColors.iconSecondary,
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ================================================================
+// FAQ ITEM
+// ================================================================
+
+class _FaqItem extends StatelessWidget {
+  final String question;
+  final String answer;
+
+  const _FaqItem({
+    required this.question,
+    required this.answer,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: DojoColors.background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: DojoColors.border,
+        ),
+      ),
+      child: ExpansionTile(
+        tilePadding:
+            const EdgeInsets.symmetric(
+          horizontal: 14,
+        ),
+        childrenPadding:
+            const EdgeInsets.fromLTRB(
+          14,
+          0,
+          14,
+          14,
+        ),
+        iconColor: DojoColors.orange,
+        collapsedIconColor:
+            DojoColors.iconSecondary,
+        title: Text(
+          question,
+          style: const TextStyle(
+            color: DojoColors.textPrimary,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              answer,
+              style: const TextStyle(
+                color: DojoColors.textSecondary,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
