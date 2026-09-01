@@ -67,112 +67,100 @@ class TodaySummaryContainer extends StatelessWidget {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: DojoWalkerColors.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: DojoWalkerColors.border,
         ),
         boxShadow: const [
           BoxShadow(
             color: Color(0x090F172A),
-            blurRadius: 10,
-            offset: Offset(0, 4),
+            blurRadius: 8,
+            offset: Offset(0, 3),
           ),
         ],
       ),
       child: Row(
         children: [
           Expanded(
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: SummaryStatCard(
-                icon: Icons.directions_walk_rounded,
-                title: 'Total Walks',
-                value: '$totalWalks',
-                background: DojoWalkerColors.primaryLight,
-                iconColor: DojoWalkerColors.primary,
-                onTap: () {
-                  onDetails(
-                    title: 'Total Walks',
-                    icon: Icons.directions_walk_rounded,
-                    description:
-                        'Today you completed $totalWalks walk(s).',
-                  );
-                },
-              ),
+            child: SummaryStatCard(
+              icon: Icons.directions_walk_rounded,
+              title: 'Total Walks',
+              value: '$totalWalks',
+              background: DojoColors.orange.withValues(alpha: 0.10),
+              iconColor: DojoColors.orange,
+              onTap: () {
+                onDetails(
+                  title: 'Total Walks',
+                  icon: Icons.directions_walk_rounded,
+                  description:
+                      'Today you completed $totalWalks walk(s).',
+                );
+              },
             ),
           ),
 
           const SizedBox(width: 6),
 
           Expanded(
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: SummaryStatCard(
-                icon: Icons.route_rounded,
-                title: 'Distance',
-                value: '${distanceKm.toStringAsFixed(1)} km',
-                background: DojoWalkerColors.infoSoft,
-                iconColor: DojoWalkerColors.info,
-                onTap: () {
-                  onDetails(
-                    title: 'Distance',
-                    icon: Icons.route_rounded,
-                    description:
-                        'Today you walked '
-                        '${distanceKm.toStringAsFixed(1)} km.',
-                  );
-                },
-              ),
+            child: SummaryStatCard(
+              icon: Icons.route_rounded,
+              title: 'Distance',
+              value: '${distanceKm.toStringAsFixed(1)} km',
+              background: DojoWalkerColors.infoSoft,
+              iconColor: DojoWalkerColors.info,
+              onTap: () {
+                onDetails(
+                  title: 'Distance',
+                  icon: Icons.route_rounded,
+                  description:
+                      'Today you walked '
+                      '${distanceKm.toStringAsFixed(1)} km.',
+                );
+              },
             ),
           ),
 
           const SizedBox(width: 6),
 
           Expanded(
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: SummaryStatCard(
-                icon: Icons.timer_outlined,
-                title: 'Duration',
-                value: '${durationMinutes.round()} min',
-                background: DojoWalkerColors.successSoft,
-                iconColor: DojoWalkerColors.success,
-                onTap: () {
-                  onDetails(
-                    title: 'Walk Duration',
-                    icon: Icons.timer_outlined,
-                    description:
-                        'Today you walked for '
-                        '${durationMinutes.round()} minutes.',
-                  );
-                },
-              ),
+            child: SummaryStatCard(
+              icon: Icons.timer_outlined,
+              title: 'Duration',
+              value: '${durationMinutes.round()} min',
+              background: DojoWalkerColors.successSoft,
+              iconColor: DojoWalkerColors.success,
+              onTap: () {
+                onDetails(
+                  title: 'Walk Duration',
+                  icon: Icons.timer_outlined,
+                  description:
+                      'Today you walked for '
+                      '${durationMinutes.round()} minutes.',
+                );
+              },
             ),
           ),
 
           const SizedBox(width: 6),
 
           Expanded(
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: SummaryStatCard(
-                icon: Icons.bar_chart_rounded,
-                title: 'Report Card',
-                value: performance,
-                background: DojoWalkerColors.primaryLight,
-                iconColor: DojoWalkerColors.primary,
-                onTap: () {
-                  onDetails(
-                    title: 'Performance Report',
-                    icon: Icons.bar_chart_rounded,
-                    description:
-                        'Your performance for today is $performance.',
-                  );
-                },
-              ),
+            child: SummaryStatCard(
+              icon: Icons.bar_chart_rounded,
+              title: 'Report Card',
+              value: performance,
+              background: DojoColors.orange.withValues(alpha: 0.10),
+              iconColor: DojoColors.orange,
+              onTap: () {
+                onDetails(
+                  title: 'Performance Report',
+                  icon: Icons.bar_chart_rounded,
+                  description:
+                      'Your performance for today is $performance.',
+                );
+              },
             ),
           ),
         ],
