@@ -33,7 +33,8 @@ class PastWalksContainer extends StatelessWidget {
         StreamBuilder<List<PastWalkModel>>(
           stream: _service.watchPastWalks(),
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+            if (snapshot.connectionState ==
+                ConnectionState.waiting) {
               return const SizedBox(
                 height: 100,
                 child: Center(
@@ -43,12 +44,13 @@ class PastWalksContainer extends StatelessWidget {
             }
 
             if (snapshot.hasError) {
-              return _ErrorState(
+              return const _ErrorState(
                 message: 'Unable to load past walks.',
               );
             }
 
-            final walks = snapshot.data ?? const <PastWalkModel>[];
+            final List<PastWalkModel> walks =
+                snapshot.data ?? const <PastWalkModel>[];
 
             if (walks.isEmpty) {
               return const _EmptyState();
@@ -57,16 +59,18 @@ class PastWalksContainer extends StatelessWidget {
             return Column(
               children: walks.map((walk) {
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(
+                    bottom: 8,
+                  ),
                   child: SizedBox(
                     height: 64,
                     child: PastWalkCard(
-                      id: walk.id,
-                      time: walk.time,
-                      details: walk.details,
+                      id: walk.displayId,
+                      time: walk.displayTime,
+                      details: walk.displayDetails,
                       onTap: () {
                         onDetails(
-                          title: 'Walk ${walk.id}',
+                          title: 'Walk ${walk.displayId}',
                           icon: Icons.pets_rounded,
                           description: _buildDetails(walk),
                         );
@@ -83,11 +87,30 @@ class PastWalksContainer extends StatelessWidget {
   }
 
   String _buildDetails(PastWalkModel walk) {
-    final details = <String>[
-      'Dog: ${walk.dogName}',
-      'Owner: ${walk.ownerName}',
-      if (walk.time != 'Completed') 'Time: ${walk.time}',
-      if (walk.status.isNotEmpty) 'Status: ${walk.status}',
+    final List<String> details = <String>[
+      if (walk.dogName.isNotEmpty)
+        'Dog: ${walk.dogName}',
+      if (walk.ownerName.isNotEmpty)
+        'Owner: ${walk.ownerName}',
+      if (walk.dogBreed.isNotEmpty)
+        'Breed: ${walk.dogBreed}',
+      'Time: ${walk.displayTime}',
+      if (walk.status.isNotEmpty)
+        'Status: ${walk.status}',
+      if (walk.effectiveDistanceKm > 0)
+        'Distance: '
+            '${walk.effectiveDistanceKm.toStringAsFixed(1)} km',
+      if (walk.effectiveDurationMinutes > 0)
+        'Duration: '
+            '${walk.effectiveDurationMinutes.round()} min',
+      if (walk.peeCount > 0)
+        'Pee: ${walk.peeCount}',
+      if (walk.poopCount > 0)
+        'Poop: ${walk.poopCount}',
+      if (walk.rating > 0)
+        'Rating: ${walk.rating}/5',
+      if (walk.walkerNote.isNotEmpty)
+        'Note: ${walk.walkerNote}',
     ];
 
     return details.join('\n');
