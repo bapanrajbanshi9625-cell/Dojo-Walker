@@ -24,13 +24,13 @@ class WalkerHomeService {
   }
 
   // ============================================================
-  // WATCH ALL COMPLETED PAST WALKS
+  // ALL COMPLETED PAST WALKS
   //
   // Collection:
   // walk_history
   //
-  // Walker identification:
-  // walkerUid OR walkerId
+  // Primary walker field:
+  // walkerUid
   // ============================================================
 
   Stream<List<PastWalkModel>> watchPastWalks() {
@@ -50,18 +50,17 @@ class WalkerHomeService {
         )
         .snapshots()
         .map(
-      (QuerySnapshot<Map<String, dynamic>>
-          snapshot) {
-        final List<PastWalkModel> walks =
-            snapshot.docs
-                .map(
-                  PastWalkModel.fromDocument,
-                )
-                .where(
-                  (PastWalkModel walk) =>
-                      walk.isCompleted,
-                )
-                .toList();
+      (
+        QuerySnapshot<Map<String, dynamic>> snapshot,
+      ) {
+        final List<PastWalkModel> walks = snapshot.docs
+            .map(
+              PastWalkModel.fromDocument,
+            )
+            .where(
+              (PastWalkModel walk) => walk.isCompleted,
+            )
+            .toList();
 
         _sortWalks(walks);
 
@@ -71,7 +70,7 @@ class WalkerHomeService {
   }
 
   // ============================================================
-  // WATCH WALKS FOR SELECTED DATE
+  // WALKS FOR SELECTED DATE
   // ============================================================
 
   Stream<List<PastWalkModel>> watchWalksForDate(
@@ -79,21 +78,28 @@ class WalkerHomeService {
   ) {
     return watchPastWalks().map(
       (List<PastWalkModel> walks) {
+        final DateTime selectedDate = DateTime(
+          date.year,
+          date.month,
+          date.day,
+        );
+
         return walks.where(
           (PastWalkModel walk) {
-            final DateTime? activityDate =
-                walk.activityDate;
+            final DateTime? walkDate =
+                _getWalkDate(walk);
 
-            if (activityDate == null) {
+            if (walkDate == null) {
               return false;
             }
 
-            return activityDate.year ==
-                    date.year &&
-                activityDate.month ==
-                    date.month &&
-                activityDate.day ==
-                    date.day;
+            final DateTime day = DateTime(
+              walkDate.year,
+              walkDate.month,
+              walkDate.day,
+            );
+
+            return day == selectedDate;
           },
         ).toList();
       },
@@ -101,7 +107,7 @@ class WalkerHomeService {
   }
 
   // ============================================================
-  // WATCH WALKS FOR SELECTED WEEK
+  // WALKS FOR SELECTED WEEK
   //
   // Monday → Sunday
   // ============================================================
@@ -109,11 +115,9 @@ class WalkerHomeService {
   Stream<List<PastWalkModel>> watchWalksForWeek(
     DateTime date,
   ) {
-    final DateTime start =
-        _startOfWeek(date);
+    final DateTime start = _startOfWeek(date);
 
-    final DateTime end =
-        start.add(
+    final DateTime end = start.add(
       const Duration(days: 7),
     );
 
@@ -121,19 +125,36 @@ class WalkerHomeService {
       (List<PastWalkModel> walks) {
         return walks.where(
           (PastWalkModel walk) {
-            final DateTime? activityDate =
-                walk.activityDate;
+            final DateTime? walkDate =
+                _getWalkDate(walk);
 
-            if (activityDate == null) {
+            if (walkDate == null) {
               return false;
             }
 
-            return !activityDate.isBefore(start) &&
-                activityDate.isBefore(end);
+            return !walkDate.isBefore(start) &&
+                walkDate.isBefore(end);
           },
         ).toList();
       },
     );
+  }
+
+  // ============================================================
+  // GET WALK ACTIVITY DATE
+  //
+  // Priority:
+  // completedAt
+  // startedAt
+  // createdAt
+  // ============================================================
+
+  DateTime? _getWalkDate(
+    PastWalkModel walk,
+  ) {
+    return walk.completedAt ??
+        walk.startedAt ??
+        walk.createdAt;
   }
 
   // ============================================================
@@ -149,7 +170,11 @@ class WalkerHomeService {
   // ============================================================
   // TOTAL DISTANCE
   //
-  // Uses PastWalkModel.effectiveDistanceKm
+  // Primary:
+  // distanceKm
+  //
+  // Fallback:
+  // routeDistanceKm
   // ============================================================
 
   double totalDistanceKm(
@@ -158,7 +183,11 @@ class WalkerHomeService {
     double total = 0;
 
     for (final PastWalkModel walk in walks) {
-      total += walk.effectiveDistanceKm;
+      if (walk.distanceKm > 0) {
+        total += walk.distanceKm;
+      } else if (walk.routeDistanceKm > 0) {
+        total += walk.routeDistanceKm;
+      }
     }
 
     return total;
@@ -167,7 +196,11 @@ class WalkerHomeService {
   // ============================================================
   // TOTAL DURATION
   //
-  // Uses PastWalkModel.effectiveDurationMinutes
+  // Primary:
+  // durationMinutes
+  //
+  // Fallback:
+  // routeDurationMinutes
   // ============================================================
 
   double totalDurationMinutes(
@@ -176,7 +209,11 @@ class WalkerHomeService {
     double total = 0;
 
     for (final PastWalkModel walk in walks) {
-      total += walk.effectiveDurationMinutes;
+      if (walk.durationMinutes > 0) {
+        total += walk.durationMinutes;
+      } else if (walk.routeDurationMinutes > 0) {
+        total += walk.routeDurationMinutes;
+      }
     }
 
     return total;
@@ -190,12 +227,11 @@ class WalkerHomeService {
     List<PastWalkModel> walks,
   ) {
     final List<PastWalkModel> ratedWalks =
-        walks
-            .where(
-              (PastWalkModel walk) =>
-                  walk.rating > 0,
-            )
-            .toList();
+        walks.where(
+      (PastWalkModel walk) {
+        return walk.rating > 0;
+      },
+    ).toList();
 
     if (ratedWalks.isEmpty) {
       return 0;
@@ -203,8 +239,7 @@ class WalkerHomeService {
 
     int totalRating = 0;
 
-    for (final PastWalkModel walk
-        in ratedWalks) {
+    for (final PastWalkModel walk in ratedWalks) {
       totalRating += walk.rating;
     }
 
@@ -212,9 +247,56 @@ class WalkerHomeService {
   }
 
   // ============================================================
+  // TOTAL PEE COUNT
+  // ============================================================
+
+  int totalPeeCount(
+    List<PastWalkModel> walks,
+  ) {
+    int total = 0;
+
+    for (final PastWalkModel walk in walks) {
+      total += walk.peeCount;
+    }
+
+    return total;
+  }
+
+  // ============================================================
+  // TOTAL POOP COUNT
+  // ============================================================
+
+  int totalPoopCount(
+    List<PastWalkModel> walks,
+  ) {
+    int total = 0;
+
+    for (final PastWalkModel walk in walks) {
+      total += walk.poopCount;
+    }
+
+    return total;
+  }
+
+  // ============================================================
+  // RATED WALKS COUNT
+  // ============================================================
+
+  int ratedWalksCount(
+    List<PastWalkModel> walks,
+  ) {
+    return walks.where(
+      (PastWalkModel walk) {
+        return walk.rating > 0;
+      },
+    ).length;
+  }
+
+  // ============================================================
   // START OF WEEK
   //
   // Monday = first day
+  // Sunday = last day
   // ============================================================
 
   DateTime _startOfWeek(
@@ -234,7 +316,7 @@ class WalkerHomeService {
   }
 
   // ============================================================
-  // SORT
+  // SORT WALKS
   //
   // Newest completed walk first
   // ============================================================
@@ -248,13 +330,12 @@ class WalkerHomeService {
         PastWalkModel b,
       ) {
         final DateTime? aDate =
-            a.activityDate;
+            _getWalkDate(a);
 
         final DateTime? bDate =
-            b.activityDate;
+            _getWalkDate(b);
 
-        if (aDate == null &&
-            bDate == null) {
+        if (aDate == null && bDate == null) {
           return 0;
         }
 
