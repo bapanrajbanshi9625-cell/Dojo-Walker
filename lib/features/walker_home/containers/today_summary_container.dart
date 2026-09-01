@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/colors/dojo_walker_colors.dart';
+import '../../../core/theme/dojo_walker_colors.dart';
 import '../services/walker_home_service.dart';
 import '../widgets/section_title.dart';
 import '../widgets/summary_stat_card.dart';
