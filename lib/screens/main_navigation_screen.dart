@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
+import '../core/services/active_walk_strip_service.dart';
 import '../core/services/app_state_service.dart';
 import '../features/insta_walk/models/insta_walk_request.dart';
 import '../features/live_walk/screens/live_walk_screen.dart';
