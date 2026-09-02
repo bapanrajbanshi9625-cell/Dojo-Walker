@@ -7,7 +7,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
-import '../core/services/active_walk_strip_service.dart';
 import '../core/services/app_state_service.dart';
 import '../features/insta_walk/models/insta_walk_request.dart';
 import '../features/live_walk/screens/live_walk_screen.dart';
@@ -51,6 +50,9 @@ class _MainNavigationScreenState
     _screens = const <Widget>[
       WalkerHomeScreen(),
       WalksScreen(),
+      // QR does not need a permanent screen.
+      // Index 2 is handled by _openQrScanner().
+      SizedBox.shrink(),
       MenuScreen(),
     ];
 
@@ -95,6 +97,9 @@ class _MainNavigationScreenState
         return Colors.green;
 
       case 2:
+        return AppColors.primary;
+
+      case 3:
         return Colors.deepPurple;
 
       default:
@@ -135,20 +140,17 @@ class _MainNavigationScreenState
           _buildBottomNavigation(),
         ],
       ),
-
-      // ==========================================================
-      // PHONEPE STYLE QR BUTTON
-      // ==========================================================
-
-      floatingActionButton: _buildQrButton(),
-
-      floatingActionButtonLocation:
-          FloatingActionButtonLocation.centerDocked,
     );
   }
 
   // ============================================================
   // BOTTOM NAVIGATION
+  //
+  // 4 EQUAL ITEMS:
+  //
+  // HOME | WALKS | QR SCAN | MENU
+  //
+  // QR IS NOT FLOATING.
   // ============================================================
 
   Widget _buildBottomNavigation() {
@@ -204,22 +206,41 @@ class _MainNavigationScreenState
                   FontWeight.w600,
             ),
 
-            onTap: (int index) {
+            onTap: (int index) async {
+              // ==================================================
+              // QR TAB
+              // ==================================================
+
+              if (index == 2) {
+                await _openQrScanner();
+                return;
+              }
+
+              // ==================================================
+              // SAME TAB
+              // ==================================================
+
               if (index == _currentIndex) {
                 return;
               }
+
+              // ==================================================
+              // NORMAL NAVIGATION
+              // ==================================================
 
               setState(() {
                 _currentIndex = index;
               });
             },
 
-            items: const <
-                BottomNavigationBarItem>[
-              BottomNavigationBarItem(
+            items: <BottomNavigationBarItem>[
+              // ==================================================
+              // HOME
+              // ==================================================
+
+              const BottomNavigationBarItem(
                 icon: Padding(
-                  padding:
-                      EdgeInsets.only(
+                  padding: EdgeInsets.only(
                     bottom: 3,
                   ),
                   child: Icon(
@@ -228,8 +249,7 @@ class _MainNavigationScreenState
                   ),
                 ),
                 activeIcon: Padding(
-                  padding:
-                      EdgeInsets.only(
+                  padding: EdgeInsets.only(
                     bottom: 3,
                   ),
                   child: Icon(
@@ -240,36 +260,72 @@ class _MainNavigationScreenState
                 label: 'Home',
               ),
 
-              BottomNavigationBarItem(
+              // ==================================================
+              // WALKS
+              // ==================================================
+
+              const BottomNavigationBarItem(
                 icon: Padding(
-                  padding:
-                      EdgeInsets.only(
+                  padding: EdgeInsets.only(
                     bottom: 3,
                   ),
                   child: Icon(
-                    Icons
-                        .directions_walk_rounded,
+                    Icons.directions_walk_rounded,
                     size: 25,
                   ),
                 ),
                 activeIcon: Padding(
-                  padding:
-                      EdgeInsets.only(
+                  padding: EdgeInsets.only(
                     bottom: 3,
                   ),
                   child: Icon(
-                    Icons
-                        .directions_walk_rounded,
+                    Icons.directions_walk_rounded,
                     size: 27,
                   ),
                 ),
                 label: 'Walks',
               ),
 
+              // ==================================================
+              // QR SCAN
+              //
+              // SAME SIZE AS OTHER ITEMS
+              // NOT FLOATING
+              // ==================================================
+
               BottomNavigationBarItem(
                 icon: Padding(
-                  padding:
-                      EdgeInsets.only(
+                  padding: const EdgeInsets.only(
+                    bottom: 3,
+                  ),
+                  child: Icon(
+                    Icons.qr_code_scanner_rounded,
+                    size: 25,
+                    color:
+                        AppColors.textGrey,
+                  ),
+                ),
+                activeIcon: Padding(
+                  padding: const EdgeInsets.only(
+                    bottom: 3,
+                  ),
+                  child: Icon(
+                    Icons.qr_code_scanner_rounded,
+                    size: 27,
+                    color:
+                        AppColors.primary,
+                  ),
+                ),
+                label: 'Scan',
+              ),
+
+              // ==================================================
+              // MENU
+              // ==================================================
+
+              const BottomNavigationBarItem(
+                icon: Padding(
+                  padding: EdgeInsets.only(
                     bottom: 3,
                   ),
                   child: Icon(
@@ -278,8 +334,7 @@ class _MainNavigationScreenState
                   ),
                 ),
                 activeIcon: Padding(
-                  padding:
-                      EdgeInsets.only(
+                  padding: EdgeInsets.only(
                     bottom: 3,
                   ),
                   child: Icon(
@@ -290,74 +345,6 @@ class _MainNavigationScreenState
                 label: 'Menu',
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
-  // QR BUTTON
-  //
-  // PHONEPE STYLE CENTRAL SCANNER
-  // ============================================================
-
-  Widget _buildQrButton() {
-    return Container(
-      width: 68,
-      height: 68,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white,
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.primary.withValues(
-              alpha: .22,
-            ),
-            blurRadius: 16,
-            spreadRadius: 2,
-            offset: const Offset(
-              0,
-              5,
-            ),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(5),
-      child: Material(
-        color: AppColors.primary,
-        shape: const CircleBorder(),
-        child: InkWell(
-          customBorder:
-              const CircleBorder(),
-          onTap: _openQrScanner,
-          child: Center(
-            child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.qr_code_scanner_rounded,
-                  color: Colors.white,
-                  size: 29,
-                ),
-
-                const SizedBox(
-                  height: 1,
-                ),
-
-                const Text(
-                  'SCAN',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight:
-                        FontWeight.w900,
-                    letterSpacing: .7,
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),
@@ -595,8 +582,7 @@ class _MainNavigationScreenState
             _firstNonEmpty(
           <dynamic>[
             sessionData['sessionId'],
-            sessionData[
-                'liveWalkSessionId'],
+            sessionData['liveWalkSessionId'],
           ],
         );
       }
