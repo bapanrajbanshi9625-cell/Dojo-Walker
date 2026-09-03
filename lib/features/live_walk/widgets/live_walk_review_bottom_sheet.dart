@@ -48,8 +48,6 @@ class _LiveWalkReviewBottomSheetState
       TextEditingController();
 
   bool _saving = false;
-
-  // Prevents Home navigation from being triggered twice.
   bool _navigatingHome = false;
 
   // ============================================================
@@ -131,7 +129,8 @@ class _LiveWalkReviewBottomSheetState
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(
+                      color:
+                          AppColors.primary.withValues(
                         alpha: .10,
                       ),
                       shape: BoxShape.circle,
@@ -582,10 +581,6 @@ class _LiveWalkReviewBottomSheetState
       return;
     }
 
-    if (!mounted) {
-      return;
-    }
-
     await _closeAndReturnHome();
   }
 
@@ -604,11 +599,8 @@ class _LiveWalkReviewBottomSheetState
       return;
     }
 
-    // Close this bottom sheet first.
     Navigator.of(context).pop();
 
-    // Allow the modal route to be removed before
-    // the parent starts Home navigation.
     await Future<void>.delayed(
       const Duration(milliseconds: 80),
     );
@@ -621,7 +613,11 @@ class _LiveWalkReviewBottomSheetState
   }
 
   // ============================================================
-  // SAVE REVIEW
+  // SAVE WALKER REVIEW
+  //
+  // 1. walkerReviews/{walkId}
+  // 2. walk_history/{walkId}.walkerReview
+  //
   // ============================================================
 
   Future<void> _saveReview() async {
@@ -658,6 +654,54 @@ class _LiveWalkReviewBottomSheetState
     final String note =
         _noteController.text.trim();
 
+    final Timestamp now =
+        Timestamp.now();
+
+    // ==========================================================
+    // WALKER REVIEW DOCUMENT
+    //
+    // walkerReviews/{walkId}
+    // ==========================================================
+
+    final DocumentReference<
+            Map<String, dynamic>>
+        walkerReviewRef =
+        _firestore
+            .collection('walkerReviews')
+            .doc(walkId);
+
+    final Map<String, dynamic> walkerReviewData =
+        <String, dynamic>{
+      'walkId': walkId,
+      'walkerUid': walkerUid,
+      if (ownerUid.isNotEmpty)
+        'ownerUid': ownerUid,
+      'rating': _rating,
+      'note': note,
+      'reviewSubmitted': true,
+      'reviewedAt': now,
+    };
+
+    // ==========================================================
+    // HISTORY REVIEW MAP
+    //
+    // walk_history/{walkId}
+    //
+    // walkerReview → Map
+    // ==========================================================
+
+    final Map<String, dynamic> walkerReviewMap =
+        <String, dynamic>{
+      'walkId': walkId,
+      'walkerUid': walkerUid,
+      if (ownerUid.isNotEmpty)
+        'ownerUid': ownerUid,
+      'rating': _rating,
+      'note': note,
+      'reviewSubmitted': true,
+      'reviewedAt': now,
+    };
+
     final DocumentReference<
             Map<String, dynamic>>
         historyRef =
@@ -666,103 +710,36 @@ class _LiveWalkReviewBottomSheetState
             .doc(walkId);
 
     // ==========================================================
-    // CHECK EXISTING HISTORY
+    // SAVE BOTH
+    //
+    // Firestore batch keeps both writes together.
     // ==========================================================
 
-    final DocumentSnapshot<
-            Map<String, dynamic>>
-        existing =
-        await historyRef.get();
+    final WriteBatch batch =
+        _firestore.batch();
 
-    // ==========================================================
-    // REVIEW DATA
-    // ==========================================================
-
-    final Map<String, dynamic> reviewData =
-        <String, dynamic>{
-      'rating': _rating,
-      'walkerNote': note,
-      'reviewSubmitted': true,
-      'reviewedByWalkerUid': walkerUid,
-      'reviewedAt':
-          FieldValue.serverTimestamp(),
-      'updatedAt':
-          FieldValue.serverTimestamp(),
-    };
-
-    // ==========================================================
-    // EXISTING DOCUMENT
-    // ==========================================================
-
-    if (existing.exists) {
-      final Map<String, dynamic> data =
-          existing.data() ??
-              <String, dynamic>{};
-
-      final bool belongsToWalker =
-          data['walkerUid'] == walkerUid ||
-          data['walkerId'] == walkerUid;
-
-      // Current Firestore rules allow the walker to update
-      // only when this history already belongs to that walker.
-      if (!belongsToWalker) {
-        throw Exception(
-          'This walk history is not linked to the current walker. '
-          'The walk history must contain the correct walkerUid.',
-        );
-      }
-
-      // Preserve all existing history fields.
-      // Only review fields are merged.
-      await historyRef.set(
-        reviewData,
-        SetOptions(
-          merge: true,
-        ),
-      );
-
-      return;
-    }
-
-    // ==========================================================
-    // NEW HISTORY DOCUMENT
-    // ==========================================================
-
-    final Map<String, dynamic> newHistoryData =
-        <String, dynamic>{
-      'walkId': walkId,
-
-      // Required for Firestore walker authorization.
-      'walkerUid': walkerUid,
-
-      // Owner identity when available.
-      if (ownerUid.isNotEmpty)
-        'ownerUid': ownerUid,
-
-      // Walk summary.
-      'distanceKm': widget.distanceKm,
-      'duration': widget.duration,
-      'steps': widget.steps,
-
-      // Review.
-      'rating': _rating,
-      'walkerNote': note,
-      'reviewSubmitted': true,
-      'reviewedByWalkerUid': walkerUid,
-      'reviewedAt':
-          FieldValue.serverTimestamp(),
-      'createdAt':
-          FieldValue.serverTimestamp(),
-      'updatedAt':
-          FieldValue.serverTimestamp(),
-    };
-
-    await historyRef.set(
-      newHistoryData,
+    batch.set(
+      walkerReviewRef,
+      walkerReviewData,
       SetOptions(
         merge: true,
       ),
     );
+
+    batch.set(
+      historyRef,
+      <String, dynamic>{
+        'walkerReview':
+            walkerReviewMap,
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    await batch.commit();
   }
 
   // ============================================================
@@ -779,7 +756,7 @@ class _LiveWalkReviewBottomSheetState
       if (error.code ==
           'permission-denied') {
         return message.isEmpty
-            ? 'Firestore permission denied for this walk history.'
+            ? 'Firestore permission denied while saving the review.'
             : message;
       }
 
