@@ -131,8 +131,7 @@ class _LiveWalkReviewBottomSheetState
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color:
-                          AppColors.primary.withValues(
+                      color: AppColors.primary.withValues(
                         alpha: .10,
                       ),
                       shape: BoxShape.circle,
@@ -162,7 +161,8 @@ class _LiveWalkReviewBottomSheetState
                 Text(
                   widget.dogName.trim().isEmpty
                       ? 'How was your walk?'
-                      : 'How was your walk with ${widget.dogName.trim()}?',
+                      : 'How was your walk with '
+                          '${widget.dogName.trim()}?',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.black54,
@@ -253,24 +253,25 @@ class _LiveWalkReviewBottomSheetState
                     border: OutlineInputBorder(
                       borderRadius:
                           BorderRadius.circular(15),
-                      borderSide: BorderSide.none,
+                      borderSide:
+                          BorderSide.none,
                     ),
                     enabledBorder:
                         OutlineInputBorder(
                       borderRadius:
                           BorderRadius.circular(15),
-                      borderSide: BorderSide(
-                        color:
-                            AppColors.border,
+                      borderSide:
+                          const BorderSide(
+                        color: AppColors.border,
                       ),
                     ),
                     focusedBorder:
                         OutlineInputBorder(
                       borderRadius:
                           BorderRadius.circular(15),
-                      borderSide: const BorderSide(
-                        color:
-                            AppColors.primary,
+                      borderSide:
+                          const BorderSide(
+                        color: AppColors.primary,
                         width: 1.5,
                       ),
                     ),
@@ -488,9 +489,7 @@ class _LiveWalkReviewBottomSheetState
         5,
         (int index) {
           final int star = index + 1;
-
-          final bool selected =
-              star <= _rating;
+          final bool selected = star <= _rating;
 
           return GestureDetector(
             behavior:
@@ -562,7 +561,8 @@ class _LiveWalkReviewBottomSheetState
         ..showSnackBar(
           SnackBar(
             content: Text(
-              'Review save failed: ${_cleanError(error)}',
+              'Review save failed: '
+              '${_cleanError(error)}',
             ),
             backgroundColor:
                 AppColors.error,
@@ -591,11 +591,6 @@ class _LiveWalkReviewBottomSheetState
 
   // ============================================================
   // CLOSE SHEET + HOME
-  //
-  // Important:
-  // The bottom sheet is closed FIRST.
-  // Home callback runs only AFTER the sheet is removed.
-  // This prevents navigation stack conflicts.
   // ============================================================
 
   Future<void> _closeAndReturnHome() async {
@@ -609,11 +604,11 @@ class _LiveWalkReviewBottomSheetState
       return;
     }
 
-    // Close only this review bottom sheet.
+    // Close this bottom sheet first.
     Navigator.of(context).pop();
 
-    // Give Flutter one frame to remove the modal route
-    // before parent navigation starts.
+    // Allow the modal route to be removed before
+    // the parent starts Home navigation.
     await Future<void>.delayed(
       const Duration(milliseconds: 80),
     );
@@ -627,17 +622,6 @@ class _LiveWalkReviewBottomSheetState
 
   // ============================================================
   // SAVE REVIEW
-  //
-  // Collection:
-  //
-  // walk_history/{walkId}
-  //
-  // Existing document:
-  //   Only review fields are merged.
-  //
-  // Missing document:
-  //   A valid history document is created with walkerUid,
-  //   allowing the current Firestore rules to authorize it.
   // ============================================================
 
   Future<void> _saveReview() async {
@@ -719,16 +703,8 @@ class _LiveWalkReviewBottomSheetState
           data['walkerUid'] == walkerUid ||
           data['walkerId'] == walkerUid;
 
-      final bool belongsToOwner =
-          ownerUid.isNotEmpty &&
-          (
-            data['ownerUid'] == ownerUid ||
-            data['ownerId'] == ownerUid ||
-            data['ownerAuthUid'] == ownerUid
-          );
-
-      // The current Firestore rules allow the walker to update
-      // only when walker identity is already present.
+      // Current Firestore rules allow the walker to update
+      // only when this history already belongs to that walker.
       if (!belongsToWalker) {
         throw Exception(
           'This walk history is not linked to the current walker. '
@@ -736,8 +712,8 @@ class _LiveWalkReviewBottomSheetState
         );
       }
 
-      // Preserve the existing history document.
-      // Only review information is merged.
+      // Preserve all existing history fields.
+      // Only review fields are merged.
       await historyRef.set(
         reviewData,
         SetOptions(
@@ -750,17 +726,13 @@ class _LiveWalkReviewBottomSheetState
 
     // ==========================================================
     // NEW HISTORY DOCUMENT
-    //
-    // walkerUid is intentionally included here because the
-    // Firestore rules require an authenticated owner/walker
-    // identity during CREATE.
     // ==========================================================
 
     final Map<String, dynamic> newHistoryData =
         <String, dynamic>{
       'walkId': walkId,
 
-      // Walker identity required by Firestore rules.
+      // Required for Firestore walker authorization.
       'walkerUid': walkerUid,
 
       // Owner identity when available.
@@ -771,10 +743,6 @@ class _LiveWalkReviewBottomSheetState
       'distanceKm': widget.distanceKm,
       'duration': widget.duration,
       'steps': widget.steps,
-
-      // Route data is intentionally not written here.
-      // Existing live-walk/history services remain responsible
-      // for route/session data.
 
       // Review.
       'rating': _rating,
