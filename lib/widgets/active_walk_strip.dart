@@ -18,8 +18,11 @@ class ActiveWalkStrip extends StatefulWidget {
       _ActiveWalkStripState();
 }
 
-class _ActiveWalkStripState extends State<ActiveWalkStrip> {
+class _ActiveWalkStripState extends State<ActiveWalkStrip>
+    with SingleTickerProviderStateMixin {
   StreamSubscription<ActiveWalkStripState>? _subscription;
+
+  late final AnimationController _pulseController;
 
   ActiveWalkStripState _state =
       const ActiveWalkStripState.hidden();
@@ -27,13 +30,23 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip> {
   @override
   void initState() {
     super.initState();
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(
+        milliseconds: 1600,
+      ),
+    )..repeat(reverse: true);
+
     _startListening();
   }
 
   void _startListening() {
     _subscription =
         ActiveWalkStripService.instance.watch().listen(
-      (ActiveWalkStripState state) {
+      (
+        ActiveWalkStripState state,
+      ) {
         if (!mounted) {
           return;
         }
@@ -62,13 +75,13 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip> {
   String get _title {
     return _state.isLive
         ? 'LIVE WALK'
-        : 'WALK REQUEST';
+        : 'WALK ACCEPTED';
   }
 
   String get _subtitle {
     return _state.isLive
-        ? 'Walk is in progress'
-        : 'Your walk request is active';
+        ? 'Your walk is in progress'
+        : 'Tap to open your live walk';
   }
 
   IconData get _icon {
@@ -93,136 +106,228 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           onTap: _handleTap,
-          child: Container(
-            constraints: const BoxConstraints(
-              minHeight: 72,
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 10,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: AppColors.primary.withValues(
-                  alpha: 0.14,
-                ),
-              ),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: Colors.black.withValues(
-                    alpha: 0.08,
-                  ),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Row(
-              children: <Widget>[
-                // =================================================
-                // STATUS ICON
-                // =================================================
+          child: AnimatedBuilder(
+            animation: _pulseController,
+            builder: (
+              BuildContext context,
+              Widget? child,
+            ) {
+              final double pulse =
+                  _state.isLive
+                      ? _pulseController.value * 0.035
+                      : 0.0;
 
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(
-                      alpha: 0.10,
+              return Container(
+                constraints: const BoxConstraints(
+                  minHeight: 78,
+                ),
+                padding:
+                    const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius:
+                      BorderRadius.circular(20),
+                  border: Border.all(
+                    color:
+                        AppColors.primary.withValues(
+                      alpha: 0.16 + pulse,
                     ),
-                    borderRadius:
-                        BorderRadius.circular(14),
                   ),
-                  child: Icon(
-                    _icon,
-                    color: AppColors.primary,
-                    size: 24,
-                  ),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color:
+                          AppColors.primary.withValues(
+                        alpha: 0.08 + pulse,
+                      ),
+                      blurRadius: 18,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 7),
+                    ),
+                    BoxShadow(
+                      color:
+                          Colors.black.withValues(
+                        alpha: 0.045,
+                      ),
+                      blurRadius: 5,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
+                child: Row(
+                  children: <Widget>[
+                    // =================================================
+                    // ICON
+                    // =================================================
 
-                const SizedBox(width: 12),
-
-                // =================================================
-                // TEXT
-                // =================================================
-
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: BoxDecoration(
-                              color: _state.isLive
-                                  ? Colors.red
-                                  : AppColors.primary,
-                              shape: BoxShape.circle,
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: <Color>[
+                            AppColors.primary.withValues(
+                              alpha: 0.16,
                             ),
+                            AppColors.primary.withValues(
+                              alpha: 0.07,
+                            ),
+                          ],
+                        ),
+                        borderRadius:
+                            BorderRadius.circular(15),
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: <Widget>[
+                          if (_state.isLive)
+                            Container(
+                              width: 34,
+                              height: 34,
+                              decoration:
+                                  BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.red
+                                      .withValues(
+                                    alpha: 0.18,
+                                  ),
+                                  width: 1.5,
+                                ),
+                              ),
+                            ),
+                          Icon(
+                            _icon,
+                            color: _state.isLive
+                                ? Colors.red
+                                : AppColors.primary,
+                            size: 25,
                           ),
-                          const SizedBox(width: 6),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 12),
+
+                    // =================================================
+                    // TEXT
+                    // =================================================
+
+                    Expanded(
+                      child: Column(
+                        mainAxisSize:
+                            MainAxisSize.min,
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration:
+                                    BoxDecoration(
+                                  color: _state.isLive
+                                      ? Colors.red
+                                      : AppColors.primary,
+                                  shape:
+                                      BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  _title,
+                                  maxLines: 1,
+                                  overflow:
+                                      TextOverflow.ellipsis,
+                                  style:
+                                      const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight:
+                                        FontWeight.w800,
+                                    letterSpacing: 0.45,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
                           Text(
-                            _title,
+                            _subtitle,
                             maxLines: 1,
                             overflow:
                                 TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13,
+                            style: TextStyle(
+                              fontSize: 11.5,
                               fontWeight:
-                                  FontWeight.w800,
-                              letterSpacing: 0.3,
+                                  FontWeight.w500,
+                              color:
+                                  Colors.grey.shade600,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _subtitle,
-                        maxLines: 1,
-                        overflow:
-                            TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight:
-                              FontWeight.w500,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(width: 8),
-
-                // =================================================
-                // ACTION
-                // =================================================
-
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(
-                      alpha: 0.08,
                     ),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.chevron_right_rounded,
-                    color: AppColors.primary,
-                    size: 24,
-                  ),
+
+                    const SizedBox(width: 10),
+
+                    // =================================================
+                    // OPEN BUTTON
+                    // =================================================
+
+                    Container(
+                      height: 38,
+                      padding:
+                          const EdgeInsets.symmetric(
+                        horizontal: 11,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            AppColors.primary.withValues(
+                          alpha: 0.09,
+                        ),
+                        borderRadius:
+                            BorderRadius.circular(13),
+                      ),
+                      child: Row(
+                        mainAxisSize:
+                            MainAxisSize.min,
+                        children: <Widget>[
+                          Text(
+                            _state.isLive
+                                ? 'OPEN'
+                                : 'VIEW',
+                            style: const TextStyle(
+                              color:
+                                  AppColors.primary,
+                              fontSize: 10,
+                              fontWeight:
+                                  FontWeight.w800,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          const Icon(
+                            Icons
+                                .arrow_forward_ios_rounded,
+                            color:
+                                AppColors.primary,
+                            size: 13,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),
@@ -232,6 +337,7 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip> {
   @override
   void dispose() {
     _subscription?.cancel();
+    _pulseController.dispose();
     super.dispose();
   }
 }
