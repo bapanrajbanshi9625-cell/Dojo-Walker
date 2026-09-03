@@ -28,27 +28,48 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class InstaWalkRequest {
   const InstaWalkRequest({
     required this.id,
+
+    // OWNER
     this.ownerId = '',
     this.ownerAuthUid = '',
     this.ownerUid = '',
     this.ownerName = '',
     this.ownerPhone = '',
+
+    // WALKER
     this.walkerUid = '',
     this.walkerId = '',
+
+    // DOG
     this.dogName = '',
     this.dogBreed = '',
     this.dogPhoto = '',
+
+    // STATUS
     this.status = '',
+
+    // ADDRESS
     this.pickupAddress = '',
     this.address = '',
+
+    // OWNER LOCATION
     this.latitude,
     this.longitude,
+
+    // WALKER LIVE LOCATION
+    this.walkerLocation,
+
+    // WALK INFO
     this.distanceKm = 0.0,
     this.durationMinutes = 0,
     this.timeFormatted = '',
     this.date = '',
+
+    // LIVE WALK
     this.activeWalkId = '',
     this.liveWalkSessionId = '',
+
+    // TIMESTAMPS
     this.createdAt,
     this.acceptedAt,
     this.startedAt,
@@ -96,29 +117,51 @@ class InstaWalkRequest {
   final String status;
 
   // ============================================================
-  // LOCATION
-  //
-  // Firestore walk_request currently uses:
-  //
-  // ownerLocation: GeoPoint
-  //
-  // We expose it as latitude / longitude so the
-  // existing IncomingWalkRequestScreen does not need
-  // any changes.
+  // ADDRESS
   // ============================================================
 
   final String pickupAddress;
   final String address;
 
+  // ============================================================
+  // OWNER LOCATION
+  //
+  // Firestore:
+  //     ownerLocation: GeoPoint
+  //
+  // Exposed through latitude / longitude so existing
+  // Owner/Home map code can continue to work.
+  // ============================================================
+
   final double? latitude;
   final double? longitude;
 
-  final double distanceKm;
+  // ============================================================
+  // WALKER LIVE LOCATION
+  //
+  // Firestore:
+  //     walkerLocation: GeoPoint
+  //
+  // This is the Walker's CURRENT location while travelling
+  // toward the Owner.
+  //
+  // IMPORTANT:
+  // This is separate from latitude / longitude above.
+  //
+  // latitude / longitude
+  //     = Owner/Home location
+  //
+  // walkerLocation
+  //     = Walker current live location
+  // ============================================================
+
+  final GeoPoint? walkerLocation;
 
   // ============================================================
   // WALK INFO
   // ============================================================
 
+  final double distanceKm;
   final int durationMinutes;
   final String timeFormatted;
   final String date;
@@ -155,15 +198,17 @@ class InstaWalkRequest {
     // ----------------------------------------------------------
     // OWNER LOCATION
     //
-    // Actual Firestore structure:
+    // Primary:
+    //     ownerLocation: GeoPoint
     //
-    // ownerLocation
-    //   GeoPoint(28.6250401, 77.4266773)
+    // Fallback:
+    //     latitude
+    //     lat
+    //     pickupLatitude
     //
-    // Also support old/alternate fields:
-    //
-    // latitude / lat / pickupLatitude
-    // longitude / lng / pickupLongitude
+    //     longitude
+    //     lng
+    //     pickupLongitude
     // ----------------------------------------------------------
 
     final GeoPoint? ownerLocation =
@@ -186,6 +231,20 @@ class InstaWalkRequest {
                   data['lng'] ??
                   data['pickupLongitude'],
             );
+
+    // ----------------------------------------------------------
+    // WALKER LIVE LOCATION
+    //
+    // Firestore:
+    //     walkerLocation: GeoPoint
+    //
+    // This must NOT replace ownerLocation.
+    // ----------------------------------------------------------
+
+    final GeoPoint? walkerLocation =
+        _geoPoint(
+      data['walkerLocation'],
+    );
 
     return InstaWalkRequest(
       id: snapshot.id,
@@ -249,8 +308,6 @@ class InstaWalkRequest {
 
       // --------------------------------------------------------
       // DOG
-      //
-      // Keep existing direct fields.
       // --------------------------------------------------------
 
       dogName: _string(
@@ -299,25 +356,28 @@ class InstaWalkRequest {
       ),
 
       // --------------------------------------------------------
-      // LOCATION
-      //
-      // IMPORTANT:
-      // ownerLocation GeoPoint is now the primary source.
+      // OWNER LOCATION
       // --------------------------------------------------------
 
       latitude: latitude,
 
       longitude: longitude,
 
+      // --------------------------------------------------------
+      // WALKER LIVE LOCATION
+      // --------------------------------------------------------
+
+      walkerLocation: walkerLocation,
+
+      // --------------------------------------------------------
+      // WALK INFO
+      // --------------------------------------------------------
+
       distanceKm:
           _double(
             data['distanceKm'],
           ) ??
           0.0,
-
-      // --------------------------------------------------------
-      // WALK INFO
-      // --------------------------------------------------------
 
       durationMinutes: _int(
         data['durationMinutes'],
@@ -383,41 +443,47 @@ class InstaWalkRequest {
 
   Map<String, dynamic> toFirestore() {
     return <String, dynamic>{
+      // OWNER
       'ownerId': ownerId,
       'ownerAuthUid': ownerAuthUid,
       'ownerUid': ownerUid,
       'ownerName': ownerName,
       'ownerPhone': ownerPhone,
 
+      // WALKER
       'walkerUid': walkerUid,
       'walkerId': walkerId,
 
+      // DOG
       'dogName': dogName,
       'dogBreed': dogBreed,
       'dogPhoto': dogPhoto,
 
+      // STATUS
       'status': status,
 
+      // ADDRESS
       'pickupAddress': pickupAddress,
       'address': address,
 
-      // --------------------------------------------------------
-      // Keep latitude / longitude for compatibility with
-      // existing code.
-      // --------------------------------------------------------
-
+      // OWNER LOCATION
       'latitude': latitude,
       'longitude': longitude,
 
-      'distanceKm': distanceKm,
+      // WALKER LIVE LOCATION
+      'walkerLocation': walkerLocation,
 
+      // WALK INFO
+      'distanceKm': distanceKm,
       'durationMinutes': durationMinutes,
       'timeFormatted': timeFormatted,
       'date': date,
 
+      // LIVE WALK
       'activeWalkId': activeWalkId,
       'liveWalkSessionId': liveWalkSessionId,
 
+      // TIMESTAMPS
       'createdAt': createdAt,
       'acceptedAt': acceptedAt,
       'startedAt': startedAt,
@@ -434,27 +500,48 @@ class InstaWalkRequest {
 
   InstaWalkRequest copyWith({
     String? id,
+
+    // OWNER
     String? ownerId,
     String? ownerAuthUid,
     String? ownerUid,
     String? ownerName,
     String? ownerPhone,
+
+    // WALKER
     String? walkerUid,
     String? walkerId,
+
+    // DOG
     String? dogName,
     String? dogBreed,
     String? dogPhoto,
+
+    // STATUS
     String? status,
+
+    // ADDRESS
     String? pickupAddress,
     String? address,
+
+    // OWNER LOCATION
     double? latitude,
     double? longitude,
+
+    // WALKER LIVE LOCATION
+    GeoPoint? walkerLocation,
+
+    // WALK INFO
     double? distanceKm,
     int? durationMinutes,
     String? timeFormatted,
     String? date,
+
+    // LIVE WALK
     String? activeWalkId,
     String? liveWalkSessionId,
+
+    // TIMESTAMPS
     Timestamp? createdAt,
     Timestamp? acceptedAt,
     Timestamp? startedAt,
@@ -465,6 +552,8 @@ class InstaWalkRequest {
   }) {
     return InstaWalkRequest(
       id: id ?? this.id,
+
+      // OWNER
       ownerId: ownerId ?? this.ownerId,
       ownerAuthUid:
           ownerAuthUid ?? this.ownerAuthUid,
@@ -474,26 +563,42 @@ class InstaWalkRequest {
           ownerName ?? this.ownerName,
       ownerPhone:
           ownerPhone ?? this.ownerPhone,
+
+      // WALKER
       walkerUid:
           walkerUid ?? this.walkerUid,
       walkerId:
           walkerId ?? this.walkerId,
+
+      // DOG
       dogName:
           dogName ?? this.dogName,
       dogBreed:
           dogBreed ?? this.dogBreed,
       dogPhoto:
           dogPhoto ?? this.dogPhoto,
+
+      // STATUS
       status:
           status ?? this.status,
+
+      // ADDRESS
       pickupAddress:
           pickupAddress ?? this.pickupAddress,
       address:
           address ?? this.address,
+
+      // OWNER LOCATION
       latitude:
           latitude ?? this.latitude,
       longitude:
           longitude ?? this.longitude,
+
+      // WALKER LIVE LOCATION
+      walkerLocation:
+          walkerLocation ?? this.walkerLocation,
+
+      // WALK INFO
       distanceKm:
           distanceKm ?? this.distanceKm,
       durationMinutes:
@@ -502,11 +607,15 @@ class InstaWalkRequest {
           timeFormatted ?? this.timeFormatted,
       date:
           date ?? this.date,
+
+      // LIVE WALK
       activeWalkId:
           activeWalkId ?? this.activeWalkId,
       liveWalkSessionId:
           liveWalkSessionId ??
               this.liveWalkSessionId,
+
+      // TIMESTAMPS
       createdAt:
           createdAt ?? this.createdAt,
       acceptedAt:
@@ -660,4 +769,17 @@ class InstaWalkRequest {
 
   bool get isRejected =>
       status.toLowerCase() == 'rejected';
+
+  // ============================================================
+  // WALKER LOCATION HELPER
+  // ============================================================
+
+  bool get hasWalkerLocation =>
+      walkerLocation != null;
+
+  double? get walkerLatitude =>
+      walkerLocation?.latitude;
+
+  double? get walkerLongitude =>
+      walkerLocation?.longitude;
 }
