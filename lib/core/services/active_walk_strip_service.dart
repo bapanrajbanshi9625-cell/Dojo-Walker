@@ -35,17 +35,15 @@ class ActiveWalkStripService {
   // ============================================================
   // PUBLIC WATCH
   //
-  // ONLY THESE TWO COLLECTIONS ARE USED:
-  //
+  // Collections used:
   // 1. walk_requests
   // 2. liveWalkSessions
   //
-  // active_walks is NOT USED.
+  // active_walks is NOT used.
   // ============================================================
 
   Stream<ActiveWalkStripState> watch() {
     final User? user = _auth.currentUser;
-
     final String uid = user?.uid.trim() ?? '';
 
     if (uid.isEmpty) {
@@ -79,7 +77,7 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // COMBINE REQUEST + LIVE SESSION
+  // COMBINE STREAMS
   // ============================================================
 
   Stream<ActiveWalkStripState> _combineStreams(
@@ -88,13 +86,15 @@ class ActiveWalkStripService {
     Stream<QuerySnapshot<Map<String, dynamic>>>
         sessionStream,
   ) {
-    late StreamSubscription<
+    StreamSubscription<
             QuerySnapshot<Map<String, dynamic>>>
-        requestSubscription;
+        requestSubscription =
+        requestStream.listen((_) {});
 
-    late StreamSubscription<
+    StreamSubscription<
             QuerySnapshot<Map<String, dynamic>>>
-        sessionSubscription;
+        sessionSubscription =
+        sessionStream.listen((_) {});
 
     QuerySnapshot<Map<String, dynamic>>?
         latestRequests;
@@ -113,14 +113,15 @@ class ActiveWalkStripService {
         return;
       }
 
-      final ActiveWalkStripState state =
-          _resolve(
-        requestSnapshot: latestRequests,
-        sessionSnapshot: latestSessions,
+      controller.add(
+        _resolve(
+          requestSnapshot: latestRequests,
+          sessionSnapshot: latestSessions,
+        ),
       );
-
-      controller.add(state);
     }
+
+    requestSubscription.cancel();
 
     requestSubscription = requestStream.listen(
       (
@@ -130,7 +131,10 @@ class ActiveWalkStripService {
         latestRequests = snapshot;
         emit();
       },
-      onError: (Object error, StackTrace stackTrace) {
+      onError: (
+        Object error,
+        StackTrace stackTrace,
+      ) {
         if (!controller.isClosed) {
           controller.addError(
             error,
@@ -140,6 +144,8 @@ class ActiveWalkStripService {
       },
     );
 
+    sessionSubscription.cancel();
+
     sessionSubscription = sessionStream.listen(
       (
         QuerySnapshot<Map<String, dynamic>>
@@ -148,7 +154,10 @@ class ActiveWalkStripService {
         latestSessions = snapshot;
         emit();
       },
-      onError: (Object error, StackTrace stackTrace) {
+      onError: (
+        Object error,
+        StackTrace stackTrace,
+      ) {
         if (!controller.isClosed) {
           controller.addError(
             error,
@@ -169,17 +178,16 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // RESOLVE CURRENT LIVE WALK
+  // RESOLVE
   //
   // PRIORITY:
   //
-  // 1. Active liveWalkSessions
-  // 2. Accepted/request state
-  // 3. Pending request
-  // 4. Nothing
+  // 1. Active live session
+  // 2. Accepted request
+  // 3. Nothing
   //
-  // REJECTED/CANCELLED/COMPLETED/ENDED
-  // NEVER SHOW.
+  // IMPORTANT:
+  // Pending/searching/requested are NOT shown.
   // ============================================================
 
   ActiveWalkStripState _resolve({
@@ -194,7 +202,7 @@ class ActiveWalkStripService {
         sessionSnapshot?.docs ??
             const <
                 QueryDocumentSnapshot<
-                    Map<String, dynamic>> >[];
+                    Map<String, dynamic>>>[];
 
     final List<QueryDocumentSnapshot<
             Map<String, dynamic>>>
@@ -202,13 +210,13 @@ class ActiveWalkStripService {
         requestSnapshot?.docs ??
             const <
                 QueryDocumentSnapshot<
-                    Map<String, dynamic>> >[];
+                    Map<String, dynamic>>>[];
 
     // ==========================================================
     // STEP 1
     // ACTIVE LIVE SESSION
     //
-    // reached / started / live
+    // reached / arrived / active / started / live
     // ==========================================================
 
     final QueryDocumentSnapshot<
@@ -239,29 +247,29 @@ class ActiveWalkStripService {
 
     // ==========================================================
     // STEP 2
-    // CURRENT REQUEST
+    // ONLY ACCEPTED REQUEST
     //
-    // pending/searching/requested/accepted
+    // Pending/searching/requested are intentionally ignored.
     // ==========================================================
 
     final QueryDocumentSnapshot<
             Map<String, dynamic>>?
-        requestDocument =
-        _findCurrentRequest(
+        acceptedRequest =
+        _findAcceptedRequest(
       requestDocs,
     );
 
-    if (requestDocument == null) {
+    if (acceptedRequest == null) {
       return const ActiveWalkStripState.hidden();
     }
 
     final Map<String, dynamic> requestData =
-        requestDocument.data();
+        acceptedRequest.data();
 
     final String walkId =
         _walkIdFromData(
       requestData,
-      requestDocument.id,
+      acceptedRequest.id,
     );
 
     if (walkId.isEmpty) {
@@ -277,15 +285,12 @@ class ActiveWalkStripService {
     // HARD HIDE
     // ==========================================================
 
-    if (_isRejectedOrEnded(requestStatus)) {
+    if (_isEndedStatus(requestStatus)) {
       return const ActiveWalkStripState.hidden();
     }
 
     // ==========================================================
-    // CHECK MATCHING LIVE SESSION
-    //
-    // If this particular walk has a completed/ended session,
-    // do not show its old request.
+    // CHECK MATCHING SESSION
     // ==========================================================
 
     final QueryDocumentSnapshot<
@@ -305,10 +310,12 @@ class ActiveWalkStripService {
         sessionData['status'],
       );
 
+      // Completed session = hide old walk.
       if (_isSessionEnded(sessionStatus)) {
         return const ActiveWalkStripState.hidden();
       }
 
+      // Active session = live strip.
       if (_isLiveStatus(sessionStatus)) {
         return ActiveWalkStripState(
           show: true,
@@ -319,25 +326,16 @@ class ActiveWalkStripService {
     }
 
     // ==========================================================
-    // ACTIVE REQUEST
-    //
-    // pending/searching/requested
-    // accepted
+    // ACCEPTED REQUEST
     // ==========================================================
 
-    if (_isRequestActive(requestStatus)) {
+    if (_isAcceptedStatus(requestStatus)) {
       return ActiveWalkStripState(
         show: true,
         isLive: false,
         walkId: walkId,
       );
     }
-
-    // ==========================================================
-    // UNKNOWN STATUS
-    //
-    // Safer to hide rather than showing a stale walk.
-    // ==========================================================
 
     return const ActiveWalkStripState.hidden();
   }
@@ -362,12 +360,9 @@ class ActiveWalkStripService {
             Map<String, dynamic>>
             doc,
       ) {
-        final Map<String, dynamic> data =
-            doc.data();
-
         final String status =
             _status(
-          data['status'],
+          doc.data()['status'],
         );
 
         return _isLiveStatus(status);
@@ -387,8 +382,7 @@ class ActiveWalkStripService {
                 Map<String, dynamic>>
             b,
       ) {
-        return _documentTime(b)
-            .compareTo(
+        return _documentTime(b).compareTo(
           _documentTime(a),
         );
       },
@@ -398,12 +392,12 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // FIND CURRENT REQUEST
+  // FIND ONLY ACCEPTED REQUEST
   // ============================================================
 
   QueryDocumentSnapshot<
           Map<String, dynamic>>?
-      _findCurrentRequest(
+      _findAcceptedRequest(
     List<QueryDocumentSnapshot<
             Map<String, dynamic>>>
         documents,
@@ -417,15 +411,12 @@ class ActiveWalkStripService {
             Map<String, dynamic>>
             doc,
       ) {
-        final Map<String, dynamic> data =
-            doc.data();
-
         final String status =
             _status(
-          data['status'],
+          doc.data()['status'],
         );
 
-        return _isRequestActive(status);
+        return _isAcceptedStatus(status);
       },
     ).toList();
 
@@ -442,8 +433,7 @@ class ActiveWalkStripService {
                 Map<String, dynamic>>
             b,
       ) {
-        return _documentTime(b)
-            .compareTo(
+        return _documentTime(b).compareTo(
           _documentTime(a),
         );
       },
@@ -453,7 +443,7 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // FIND SESSION FOR SPECIFIC WALK
+  // FIND SESSION FOR WALK
   // ============================================================
 
   QueryDocumentSnapshot<
@@ -464,8 +454,7 @@ class ActiveWalkStripService {
         documents,
     String walkId,
   ) {
-    final String targetId =
-        walkId.trim();
+    final String targetId = walkId.trim();
 
     if (targetId.isEmpty) {
       return null;
@@ -474,12 +463,9 @@ class ActiveWalkStripService {
     for (final QueryDocumentSnapshot<
             Map<String, dynamic>>
         doc in documents) {
-      final Map<String, dynamic> data =
-          doc.data();
-
       final String sessionWalkId =
           _walkIdFromData(
-        data,
+        doc.data(),
         '',
       );
 
@@ -492,17 +478,13 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // REQUEST STATUS
+  // ACCEPTED ONLY
   // ============================================================
 
-  bool _isRequestActive(
+  bool _isAcceptedStatus(
     String status,
   ) {
     switch (status) {
-      case 'PENDING':
-      case 'SEARCHING':
-      case 'REQUESTED':
-      case 'CREATED':
       case 'ACCEPTED':
       case 'ACCEPT':
         return true;
@@ -513,7 +495,7 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // LIVE SESSION STATUS
+  // LIVE SESSION
   // ============================================================
 
   bool _isLiveStatus(
@@ -534,10 +516,10 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // REQUEST REJECTED / ENDED
+  // REQUEST ENDED
   // ============================================================
 
-  bool _isRejectedOrEnded(
+  bool _isEndedStatus(
     String status,
   ) {
     switch (status) {
@@ -576,12 +558,6 @@ class ActiveWalkStripService {
 
   // ============================================================
   // WALK ID
-  //
-  // Supports both:
-  // walkId
-  // requestId
-  // id
-  // document ID
   // ============================================================
 
   String _walkIdFromData(
@@ -596,8 +572,7 @@ class ActiveWalkStripService {
     ];
 
     for (final dynamic value in values) {
-      final String result =
-          _string(value);
+      final String result = _string(value);
 
       if (result.isNotEmpty) {
         return result;
@@ -636,9 +611,6 @@ class ActiveWalkStripService {
 
   // ============================================================
   // DOCUMENT TIME
-  //
-  // Used only to choose the newest request/session when
-  // multiple documents exist.
   // ============================================================
 
   DateTime _documentTime(
@@ -649,8 +621,7 @@ class ActiveWalkStripService {
     final Map<String, dynamic> data =
         document.data();
 
-    final List<dynamic> values =
-        <dynamic>[
+    final List<dynamic> values = <dynamic>[
       data['updatedAt'],
       data['createdAt'],
       data['acceptedAt'],
@@ -668,8 +639,6 @@ class ActiveWalkStripService {
       }
     }
 
-    return DateTime.fromMillisecondsSinceEpoch(
-      0,
-    );
+    return DateTime.fromMillisecondsSinceEpoch(0);
   }
 }
