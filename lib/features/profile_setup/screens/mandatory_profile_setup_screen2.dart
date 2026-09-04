@@ -63,8 +63,8 @@ class _MandatoryProfileSetupScreen2State
   // CONTROLLERS
   //
   // IMPORTANT:
-  // These controllers now store Cloudinary URLs internally.
-  // There is NO URL input field in the UI.
+  // These controllers store Cloudinary secure URLs internally.
+  // There is NO manual URL input field.
   // ============================================================
 
   final TextEditingController aadhaarController =
@@ -160,7 +160,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // BUSY
+  // IMAGE UPLOAD STATUS
   // ============================================================
 
   bool get imageUploading {
@@ -168,6 +168,10 @@ class _MandatoryProfileSetupScreen2State
         _uploadingAadhaarBack ||
         _uploadingPanCard;
   }
+
+  // ============================================================
+  // BUSY
+  // ============================================================
 
   bool get busy {
     return _saving || imageUploading;
@@ -261,11 +265,12 @@ class _MandatoryProfileSetupScreen2State
                   height: 5,
                   decoration: BoxDecoration(
                     color: AppColors.border,
-                    borderRadius:
-                        BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
+
                 const SizedBox(height: 20),
+
                 Text(
                   title,
                   textAlign: TextAlign.center,
@@ -275,7 +280,9 @@ class _MandatoryProfileSetupScreen2State
                     color: AppColors.textDark,
                   ),
                 ),
+
                 const SizedBox(height: 6),
+
                 const Text(
                   'Take a photo or choose from gallery',
                   style: TextStyle(
@@ -283,28 +290,28 @@ class _MandatoryProfileSetupScreen2State
                     color: AppColors.muted,
                   ),
                 ),
+
                 const SizedBox(height: 20),
+
                 Row(
                   children: [
                     Expanded(
                       child: _sourceButton(
                         context: sheetContext,
-                        icon:
-                            Icons.camera_alt_rounded,
+                        icon: Icons.camera_alt_rounded,
                         title: 'Camera',
-                        source:
-                            ImageSource.camera,
+                        source: ImageSource.camera,
                       ),
                     ),
+
                     const SizedBox(width: 12),
+
                     Expanded(
                       child: _sourceButton(
                         context: sheetContext,
-                        icon:
-                            Icons.photo_library_rounded,
+                        icon: Icons.photo_library_rounded,
                         title: 'Gallery',
-                        source:
-                            ImageSource.gallery,
+                        source: ImageSource.gallery,
                       ),
                     ),
                   ],
@@ -333,14 +340,12 @@ class _MandatoryProfileSetupScreen2State
       },
       borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(
+        padding: const EdgeInsets.symmetric(
           vertical: 18,
         ),
         decoration: BoxDecoration(
           color: AppColors.background,
-          borderRadius:
-              BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: AppColors.border,
           ),
@@ -352,7 +357,9 @@ class _MandatoryProfileSetupScreen2State
               size: 30,
               color: AppColors.orange,
             ),
+
             const SizedBox(height: 8),
+
             Text(
               title,
               style: const TextStyle(
@@ -367,7 +374,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // GENERIC IMAGE PICK + CLOUDINARY UPLOAD
+  // PICK + CLOUDINARY UPLOAD
   // ============================================================
 
   Future<String?> pickAndUploadImage({
@@ -425,22 +432,22 @@ class _MandatoryProfileSetupScreen2State
         _uploadingAadhaarFront = true;
       });
 
-      showMessage(
-        'Select Aadhaar Front image...',
-        true,
-      );
-
       final String? url =
           await pickAndUploadImage(
         pickerTitle: 'Aadhaar Front',
-        cloudinaryFolder:
-            'dojo_walker/aadhaar',
+        cloudinaryFolder: 'dojo_walker/aadhaar',
       );
 
-      if (url == null || !mounted) {
-        setState(() {
-          _uploadingAadhaarFront = false;
-        });
+      if (url == null) {
+        if (mounted) {
+          setState(() {
+            _uploadingAadhaarFront = false;
+          });
+        }
+        return;
+      }
+
+      if (!mounted) {
         return;
       }
 
@@ -491,22 +498,22 @@ class _MandatoryProfileSetupScreen2State
         _uploadingAadhaarBack = true;
       });
 
-      showMessage(
-        'Select Aadhaar Back image...',
-        true,
-      );
-
       final String? url =
           await pickAndUploadImage(
         pickerTitle: 'Aadhaar Back',
-        cloudinaryFolder:
-            'dojo_walker/aadhaar',
+        cloudinaryFolder: 'dojo_walker/aadhaar',
       );
 
-      if (url == null || !mounted) {
-        setState(() {
-          _uploadingAadhaarBack = false;
-        });
+      if (url == null) {
+        if (mounted) {
+          setState(() {
+            _uploadingAadhaarBack = false;
+          });
+        }
+        return;
+      }
+
+      if (!mounted) {
         return;
       }
 
@@ -544,7 +551,7 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // PAN IMAGE
+  // PAN CARD
   // ============================================================
 
   Future<void> selectPanCard() async {
@@ -557,22 +564,22 @@ class _MandatoryProfileSetupScreen2State
         _uploadingPanCard = true;
       });
 
-      showMessage(
-        'Select PAN Card image...',
-        true,
-      );
-
       final String? url =
           await pickAndUploadImage(
         pickerTitle: 'PAN Card',
-        cloudinaryFolder:
-            'dojo_walker/pan',
+        cloudinaryFolder: 'dojo_walker/pan',
       );
 
-      if (url == null || !mounted) {
-        setState(() {
-          _uploadingPanCard = false;
-        });
+      if (url == null) {
+        if (mounted) {
+          setState(() {
+            _uploadingPanCard = false;
+          });
+        }
+        return;
+      }
+
+      if (!mounted) {
         return;
       }
 
@@ -658,8 +665,7 @@ class _MandatoryProfileSetupScreen2State
     final String aadhaar =
         aadhaarController.text.trim();
 
-    if (!RegExp(r'^\d{12}$')
-        .hasMatch(aadhaar)) {
+    if (!RegExp(r'^\d{12}$').hasMatch(aadhaar)) {
       showMessage(
         'Enter a valid 12-digit Aadhaar number.',
         false,
@@ -770,8 +776,7 @@ class _MandatoryProfileSetupScreen2State
     final String pin =
         pinController.text.trim();
 
-    if (!RegExp(r'^\d{6}$')
-        .hasMatch(pin)) {
+    if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
       showMessage(
         'Enter a valid 6-digit PIN code.',
         false,
@@ -807,8 +812,7 @@ class _MandatoryProfileSetupScreen2State
         return false;
       }
 
-      if (!RegExp(r'^\d{10}$')
-          .hasMatch(emergencyMobile)) {
+      if (!RegExp(r'^\d{10}$').hasMatch(emergencyMobile)) {
         showMessage(
           'Enter a valid 10-digit emergency mobile number.',
           false,
@@ -821,13 +825,13 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // SUBMIT
+  // SUBMIT PROFILE
   // ============================================================
 
   Future<void> submitProfile() async {
     FocusScope.of(context).unfocus();
 
-    if (_saving || imageUploading) {
+    if (busy) {
       return;
     }
 
@@ -1033,25 +1037,17 @@ class _MandatoryProfileSetupScreen2State
           // ADDRESS
           // ----------------------------------------------------
 
-          'village':
-              villageController.text.trim(),
-          'Village':
-              villageController.text.trim(),
+          'village': villageController.text.trim(),
+          'Village': villageController.text.trim(),
 
-          'city':
-              cityController.text.trim(),
-          'City':
-              cityController.text.trim(),
+          'city': cityController.text.trim(),
+          'City': cityController.text.trim(),
 
-          'district':
-              districtController.text.trim(),
-          'District':
-              districtController.text.trim(),
+          'district': districtController.text.trim(),
+          'District': districtController.text.trim(),
 
-          'state':
-              stateController.text.trim(),
-          'State':
-              stateController.text.trim(),
+          'state': stateController.text.trim(),
+          'State': stateController.text.trim(),
 
           'pincode': pinCode,
           'Pincode': pinCode,
@@ -1065,11 +1061,8 @@ class _MandatoryProfileSetupScreen2State
           // EMERGENCY
           // ----------------------------------------------------
 
-          'emergencyContactName':
-              emergencyName,
-
-          'emergencyContactMobile':
-              emergencyMobile,
+          'emergencyContactName': emergencyName,
+          'emergencyContactMobile': emergencyMobile,
 
           // ----------------------------------------------------
           // VERIFICATION
@@ -1105,8 +1098,7 @@ class _MandatoryProfileSetupScreen2State
           // TIMESTAMP
           // ----------------------------------------------------
 
-          'updatedAt':
-              FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
       );
@@ -1137,8 +1129,7 @@ class _MandatoryProfileSetupScreen2State
 
             'gender': gender,
 
-            'dateOfBirth':
-                formattedDateOfBirth,
+            'dateOfBirth': formattedDateOfBirth,
 
             'profileImage': selfie,
             'profileImageUrl': selfie,
@@ -1146,14 +1137,11 @@ class _MandatoryProfileSetupScreen2State
 
             'profileCompleted': true,
 
-            'verificationStatus':
-                'pending',
+            'verificationStatus': 'pending',
 
-            'approvalStatus':
-                'pending',
+            'approvalStatus': 'pending',
 
-            'updatedAt':
-                FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
           },
           SetOptions(merge: true),
         );
@@ -1180,9 +1168,7 @@ class _MandatoryProfileSetupScreen2State
       );
 
       await Future<void>.delayed(
-        const Duration(
-          milliseconds: 500,
-        ),
+        const Duration(milliseconds: 500),
       );
 
       if (!mounted) {
@@ -1273,11 +1259,10 @@ class _MandatoryProfileSetupScreen2State
       ),
       child: TextField(
         controller: panNumberController,
-        enabled: !_saving,
+        enabled: !busy,
         textCapitalization:
             TextCapitalization.characters,
-        keyboardType:
-            TextInputType.text,
+        keyboardType: TextInputType.text,
         maxLength: 10,
         style: const TextStyle(
           color: AppColors.textDark,
@@ -1298,20 +1283,17 @@ class _MandatoryProfileSetupScreen2State
           filled: true,
           fillColor: AppColors.surface,
           border: OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(
               color: AppColors.border,
             ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius:
-                BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(
               color: AppColors.green,
               width: 1.5,
@@ -1329,10 +1311,9 @@ class _MandatoryProfileSetupScreen2State
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !_saving && !imageUploading,
+      canPop: !busy,
       child: Scaffold(
-        backgroundColor:
-            AppColors.background,
+        backgroundColor: AppColors.background,
         body: SafeArea(
           child: Column(
             children: [
@@ -1342,20 +1323,17 @@ class _MandatoryProfileSetupScreen2State
 
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.fromLTRB(
+                padding: const EdgeInsets.fromLTRB(
                   20,
                   18,
                   20,
                   18,
                 ),
-                decoration:
-                    const BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppColors.surface,
                   border: Border(
                     bottom: BorderSide(
-                      color:
-                          AppColors.borderLight,
+                      color: AppColors.borderLight,
                     ),
                   ),
                 ),
@@ -1364,89 +1342,62 @@ class _MandatoryProfileSetupScreen2State
                     Container(
                       width: 46,
                       height: 46,
-                      decoration:
-                          BoxDecoration(
-                        color:
-                            AppColors.orange,
+                      decoration: BoxDecoration(
+                        color: AppColors.orange,
                         borderRadius:
-                            BorderRadius
-                                .circular(14),
+                            BorderRadius.circular(14),
                       ),
                       child: const Icon(
                         Icons.pets_rounded,
-                        color:
-                            AppColors.onPrimary,
+                        color: AppColors.onPrimary,
                       ),
                     ),
-                    const SizedBox(
-                      width: 12,
-                    ),
+
+                    const SizedBox(width: 12),
+
                     const Expanded(
                       child: Column(
                         crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
+                            CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Walker',
-                            style:
-                                TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
-                              color:
-                                  AppColors
-                                      .orange,
-                              fontWeight:
-                                  FontWeight
-                                      .w800,
+                              color: AppColors.orange,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                          SizedBox(
-                            height: 2,
-                          ),
+                          SizedBox(height: 2),
                           Text(
                             'Verification Details',
-                            style:
-                                TextStyle(
+                            style: TextStyle(
                               fontSize: 19,
-                              color:
-                                  AppColors
-                                      .textDark,
-                              fontWeight:
-                                  FontWeight
-                                      .w900,
+                              color: AppColors.textDark,
+                              fontWeight: FontWeight.w900,
                             ),
                           ),
                         ],
                       ),
                     ),
+
                     Container(
-                      padding:
-                          const EdgeInsets
-                              .symmetric(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 10,
                         vertical: 7,
                       ),
-                      decoration:
-                          BoxDecoration(
-                        color: AppColors
-                            .green
-                            .withOpacity(.10),
+                      decoration: BoxDecoration(
+                        color:
+                            AppColors.green.withOpacity(.10),
                         borderRadius:
-                            BorderRadius
-                                .circular(12),
+                            BorderRadius.circular(12),
                       ),
-                      child:
-                          const Text(
+                      child: const Text(
                         'STEP 2',
-                        style:
-                            TextStyle(
-                          color:
-                              AppColors
-                                  .green,
+                        style: TextStyle(
+                          color: AppColors.green,
                           fontSize: 10,
-                          fontWeight:
-                              FontWeight
-                                  .w900,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ),
@@ -1459,14 +1410,11 @@ class _MandatoryProfileSetupScreen2State
               // ==================================================
 
               Expanded(
-                child:
-                    SingleChildScrollView(
+                child: SingleChildScrollView(
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior
                           .onDrag,
-                  padding:
-                      const EdgeInsets
-                          .fromLTRB(
+                  padding: const EdgeInsets.fromLTRB(
                     18,
                     18,
                     18,
@@ -1474,41 +1422,28 @@ class _MandatoryProfileSetupScreen2State
                   ),
                   child: Column(
                     crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
+                        CrossAxisAlignment.start,
                     children: [
                       const Text(
                         'Complete Verification',
-                        style:
-                            TextStyle(
+                        style: TextStyle(
                           fontSize: 23,
-                          fontWeight:
-                              FontWeight
-                                  .w900,
-                          color:
-                              AppColors
-                                  .textDark,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.textDark,
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 5,
-                      ),
+                      const SizedBox(height: 5),
 
                       const Text(
                         'Submit your identity, address and emergency details for DOJO verification.',
-                        style:
-                            TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
-                          color:
-                              AppColors
-                                  .muted,
+                          color: AppColors.muted,
                         ),
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
                       // PROFILE SUMMARY
@@ -1518,13 +1453,10 @@ class _MandatoryProfileSetupScreen2State
                         name: widget.name,
                         dateOfBirth:
                             widget.dateOfBirth,
-                        gender:
-                            widget.gender,
+                        gender: widget.gender,
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
                       // AADHAAR
@@ -1534,25 +1466,17 @@ class _MandatoryProfileSetupScreen2State
                         aadhaarController:
                             aadhaarController,
                         aadhaarFrontUrl:
-                            aadhaarFrontUrlController
-                                .text
-                                .trim(),
+                            aadhaarFrontUrlController.text.trim(),
                         aadhaarBackUrl:
-                            aadhaarBackUrlController
-                                .text
-                                .trim(),
+                            aadhaarBackUrlController.text.trim(),
                         onAadhaarFrontTap:
                             selectAadhaarFront,
                         onAadhaarBackTap:
                             selectAadhaarBack,
-                        enabled:
-                            !_saving &&
-                                !imageUploading,
+                        enabled: !busy,
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
                       // PAN NUMBER
@@ -1565,24 +1489,16 @@ class _MandatoryProfileSetupScreen2State
                       // ==================================================
 
                       PanCard2(
-                        url: panCardUrlController
-                                .text
+                        url: panCardUrlController.text
                                 .trim()
                                 .isEmpty
                             ? null
-                            : panCardUrlController
-                                .text
-                                .trim(),
-                        onTap:
-                            selectPanCard,
-                        enabled:
-                            !_saving &&
-                                !imageUploading,
+                            : panCardUrlController.text.trim(),
+                        onTap: selectPanCard,
+                        enabled: !busy,
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
                       // ADDRESS
@@ -1601,14 +1517,10 @@ class _MandatoryProfileSetupScreen2State
                             pinController,
                         fullAddress:
                             fullAddress,
-                        enabled:
-                            !_saving &&
-                                !imageUploading,
+                        enabled: !busy,
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
                       // EMERGENCY
@@ -1619,14 +1531,10 @@ class _MandatoryProfileSetupScreen2State
                             emergencyNameController,
                         mobileController:
                             emergencyMobileController,
-                        enabled:
-                            !_saving &&
-                                !imageUploading,
+                        enabled: !busy,
                       ),
 
-                      const SizedBox(
-                        height: 18,
-                      ),
+                      const SizedBox(height: 18),
 
                       // ==================================================
                       // INFORMATION
@@ -1634,35 +1542,26 @@ class _MandatoryProfileSetupScreen2State
 
                       const ProfileInfoCard2(),
 
-                      const SizedBox(
-                        height: 22,
-                      ),
+                      const SizedBox(height: 22),
 
                       // ==================================================
                       // SUBMIT
                       // ==================================================
 
                       ProfileSubmitButton2(
-                        onPressed:
-                            submitProfile,
+                        onPressed: submitProfile,
                         saving: _saving,
                       ),
 
-                      const SizedBox(
-                        height: 12,
-                      ),
+                      const SizedBox(height: 12),
 
                       const Center(
                         child: Text(
                           'You can continue after DOJO Platform approval.',
-                          textAlign:
-                              TextAlign.center,
-                          style:
-                              TextStyle(
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
                             fontSize: 10.5,
-                            color:
-                                AppColors
-                                    .muted,
+                            color: AppColors.muted,
                           ),
                         ),
                       ),
