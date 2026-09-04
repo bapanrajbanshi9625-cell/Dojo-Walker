@@ -64,8 +64,7 @@ class _LiveWalkReviewBottomSheetState
       top: false,
       child: Container(
         constraints: BoxConstraints(
-          maxHeight:
-              MediaQuery.sizeOf(context).height * 0.90,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.90,
         ),
         decoration: const BoxDecoration(
           color: AppColors.cardBackground,
@@ -82,105 +81,31 @@ class _LiveWalkReviewBottomSheetState
             22 + bottomInset,
           ),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              // ==================================================
-              // HANDLE
-              // ==================================================
-
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius:
-                        BorderRadius.circular(20),
-                  ),
-                ),
-              ),
+              _buildHandle(),
 
               const SizedBox(height: 18),
-
-              // ==================================================
-              // SUCCESS HEADER
-              // ==================================================
 
               _buildSuccessHeader(),
 
               const SizedBox(height: 20),
 
-              // ==================================================
-              // WALK SUMMARY
-              // ==================================================
-
               _buildSummaryCard(),
 
               const SizedBox(height: 22),
 
-              // ==================================================
-              // RATING
-              // ==================================================
-
-              const Text(
-                'How was the walk?',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.secondary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-
-              const SizedBox(height: 5),
-
-              Text(
-                'Your feedback helps us improve the experience.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              _buildRating(),
+              _buildRatingSection(),
 
               const SizedBox(height: 22),
 
-              // ==================================================
-              // NOTE
-              // ==================================================
-
-              const Text(
-                'Walker Note',
-                style: TextStyle(
-                  color: AppColors.secondary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              _buildNoteField(),
+              _buildNoteSection(),
 
               const SizedBox(height: 16),
-
-              // ==================================================
-              // SUBMIT
-              // ==================================================
 
               _buildSubmitButton(),
 
               const SizedBox(height: 8),
-
-              // ==================================================
-              // SKIP
-              // ==================================================
 
               _buildSkipButton(),
 
@@ -203,10 +128,29 @@ class _LiveWalkReviewBottomSheetState
   }
 
   // ============================================================
+  // HANDLE
+  // ============================================================
+
+  Widget _buildHandle() {
+    return Center(
+      child: Container(
+        width: 44,
+        height: 5,
+        decoration: BoxDecoration(
+          color: AppColors.border,
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
   // SUCCESS HEADER
   // ============================================================
 
   Widget _buildSuccessHeader() {
+    final String dogName = widget.dogName.trim();
+
     return Column(
       children: <Widget>[
         Container(
@@ -247,9 +191,9 @@ class _LiveWalkReviewBottomSheetState
         const SizedBox(height: 5),
 
         Text(
-          widget.dogName.trim().isEmpty
+          dogName.isEmpty
               ? 'Great job! Your walk has been completed.'
-              : 'Great job walking ${widget.dogName.trim()}!',
+              : 'Great job walking $dogName!',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: Colors.grey.shade600,
@@ -292,13 +236,13 @@ class _LiveWalkReviewBottomSheetState
           Expanded(
             child: _summaryItem(
               icon: Icons.route_rounded,
-              value: widget.distanceKm < 1
-                  ? '${(widget.distanceKm * 1000).round()} m'
-                  : '${widget.distanceKm.toStringAsFixed(2)} km',
+              value: _formatDistance(),
               label: 'Distance',
             ),
           ),
+
           _verticalDivider(),
+
           Expanded(
             child: _summaryItem(
               icon: Icons.timer_outlined,
@@ -306,7 +250,9 @@ class _LiveWalkReviewBottomSheetState
               label: 'Duration',
             ),
           ),
+
           _verticalDivider(),
+
           Expanded(
             child: _summaryItem(
               icon: Icons.directions_walk_rounded,
@@ -317,6 +263,14 @@ class _LiveWalkReviewBottomSheetState
         ],
       ),
     );
+  }
+
+  String _formatDistance() {
+    if (widget.distanceKm < 1) {
+      return '${(widget.distanceKm * 1000).round()} m';
+    }
+
+    return '${widget.distanceKm.toStringAsFixed(2)} km';
   }
 
   Widget _summaryItem({
@@ -379,6 +333,42 @@ class _LiveWalkReviewBottomSheetState
   }
 
   // ============================================================
+  // RATING SECTION
+  // ============================================================
+
+  Widget _buildRatingSection() {
+    return Column(
+      children: <Widget>[
+        const Text(
+          'How was the walk?',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.secondary,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+
+        const SizedBox(height: 5),
+
+        Text(
+          'Your feedback helps us improve the experience.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        _buildRating(),
+      ],
+    );
+  }
+
+  // ============================================================
   // RATING
   // ============================================================
 
@@ -401,8 +391,9 @@ class _LiveWalkReviewBottomSheetState
                     });
                   },
             child: AnimatedContainer(
-              duration:
-                  const Duration(milliseconds: 160),
+              duration: const Duration(
+                milliseconds: 160,
+              ),
               curve: Curves.easeOut,
               margin: const EdgeInsets.symmetric(
                 horizontal: 4,
@@ -441,6 +432,30 @@ class _LiveWalkReviewBottomSheetState
   }
 
   // ============================================================
+  // NOTE SECTION
+  // ============================================================
+
+  Widget _buildNoteSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const Text(
+          'Walker Note',
+          style: TextStyle(
+            color: AppColors.secondary,
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        _buildNoteField(),
+      ],
+    );
+  }
+
+  // ============================================================
   // NOTE FIELD
   // ============================================================
 
@@ -467,13 +482,13 @@ class _LiveWalkReviewBottomSheetState
         contentPadding: const EdgeInsets.all(15),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
+          borderSide: const BorderSide(
             color: AppColors.border,
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
+          borderSide: const BorderSide(
             color: AppColors.border,
           ),
         ),
@@ -505,8 +520,9 @@ class _LiveWalkReviewBottomSheetState
       height: 56,
       width: double.infinity,
       child: ElevatedButton(
-        onPressed:
-            _saving ? null : _submitReview,
+        onPressed: _saving
+            ? null
+            : _submitReview,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
@@ -521,8 +537,9 @@ class _LiveWalkReviewBottomSheetState
           ),
         ),
         child: AnimatedSwitcher(
-          duration:
-              const Duration(milliseconds: 160),
+          duration: const Duration(
+            milliseconds: 160,
+          ),
           child: _saving
               ? const SizedBox(
                   key: ValueKey<String>('saving'),
@@ -570,8 +587,9 @@ class _LiveWalkReviewBottomSheetState
       height: 48,
       width: double.infinity,
       child: TextButton(
-        onPressed:
-            _saving ? null : _skipReview,
+        onPressed: _saving
+            ? null
+            : _skipReview,
         style: TextButton.styleFrom(
           foregroundColor: AppColors.secondary,
           shape: RoundedRectangleBorder(
@@ -600,7 +618,7 @@ class _LiveWalkReviewBottomSheetState
   }
 
   // ============================================================
-  // SUBMIT
+  // SUBMIT REVIEW
   // ============================================================
 
   Future<void> _submitReview() async {
@@ -648,7 +666,7 @@ class _LiveWalkReviewBottomSheetState
   }
 
   // ============================================================
-  // SKIP
+  // SKIP REVIEW
   // ============================================================
 
   Future<void> _skipReview() async {
@@ -660,11 +678,10 @@ class _LiveWalkReviewBottomSheetState
   }
 
   // ============================================================
-  // CLOSE SHEET THEN RETURN HOME
+  // CLOSE SHEET + RETURN HOME
   //
-  // IMPORTANT:
-  // Do NOT pop the LiveWalkScreen here.
-  // The parent screen owns the navigation.
+  // The bottom sheet closes itself.
+  // Parent owns the actual Home/MainNavigation navigation.
   // ============================================================
 
   Future<void> _returnHome() async {
@@ -674,17 +691,23 @@ class _LiveWalkReviewBottomSheetState
 
     _navigatingHome = true;
 
+    // Callback ko State dispose hone se pehle capture karo.
+    final VoidCallback onBackToHome =
+        widget.onBackToHome;
+
     if (!mounted) {
       return;
     }
 
+    // Sirf bottom sheet close karo.
     Navigator.of(context).pop();
 
-    await Future<void>.delayed(
-      const Duration(milliseconds: 120),
+    // Sheet close hone ke baad parent callback.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) {
+        onBackToHome();
+      },
     );
-
-    widget.onBackToHome();
   }
 
   // ============================================================
@@ -741,15 +764,13 @@ class _LiveWalkReviewBottomSheetState
     };
 
     final DocumentReference<
-            Map<String, dynamic>>
-        walkerReviewRef =
+        Map<String, dynamic>> walkerReviewRef =
         _firestore
             .collection('walkerReviews')
             .doc(walkId);
 
     final DocumentReference<
-            Map<String, dynamic>>
-        historyRef =
+        Map<String, dynamic>> historyRef =
         _firestore
             .collection('walk_history')
             .doc(walkId);
@@ -757,12 +778,14 @@ class _LiveWalkReviewBottomSheetState
     final WriteBatch batch =
         _firestore.batch();
 
+    // Walker review.
     batch.set(
       walkerReviewRef,
       reviewData,
       SetOptions(merge: true),
     );
 
+    // Walk history mein review attach.
     batch.set(
       historyRef,
       <String, dynamic>{
@@ -773,6 +796,7 @@ class _LiveWalkReviewBottomSheetState
       SetOptions(merge: true),
     );
 
+    // Dono writes atomically commit honge.
     await batch.commit();
   }
 
@@ -785,8 +809,7 @@ class _LiveWalkReviewBottomSheetState
       final String message =
           error.message?.trim() ?? '';
 
-      if (error.code ==
-          'permission-denied') {
+      if (error.code == 'permission-denied') {
         return message.isEmpty
             ? 'Firestore permission denied while saving the review.'
             : message;
