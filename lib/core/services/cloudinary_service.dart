@@ -71,7 +71,8 @@ class CloudinaryService {
     // OPTIONAL FOLDER
     // ----------------------------------------------------------
 
-    if (folder != null && folder.trim().isNotEmpty) {
+    if (folder != null &&
+        folder.trim().isNotEmpty) {
       request.fields['folder'] = folder.trim();
     }
 
@@ -87,7 +88,7 @@ class CloudinaryService {
     );
 
     // ----------------------------------------------------------
-    // SEND REQUEST
+    // SEND
     // ----------------------------------------------------------
 
     final http.StreamedResponse streamedResponse =
@@ -99,7 +100,7 @@ class CloudinaryService {
     );
 
     // ----------------------------------------------------------
-    // ERROR HANDLING
+    // ERROR
     // ----------------------------------------------------------
 
     if (response.statusCode < 200 ||
@@ -125,7 +126,7 @@ class CloudinaryService {
           }
         }
       } catch (_) {
-        // Keep default error message.
+        // Keep default message.
       }
 
       throw Exception(
@@ -134,7 +135,7 @@ class CloudinaryService {
     }
 
     // ----------------------------------------------------------
-    // RESPONSE JSON
+    // RESPONSE
     // ----------------------------------------------------------
 
     final dynamic decoded =
