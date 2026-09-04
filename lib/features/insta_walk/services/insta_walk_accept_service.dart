@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../services/walker_location_service.dart';
 import '../../walks/services/walk_request_sound_service.dart';
@@ -16,28 +17,14 @@ import '../../walks/services/walk_request_sound_service.dart';
 ///
 ///   walk_request/{walkId}
 ///
-/// Accept flow:
+/// Accept:
 ///
 ///   searching → accepted
 ///
 /// After successful accept:
 ///
-///   1. Walker GPS tracking starts.
-///   2. Current GPS position is written to walk_request.
-///   3. Continuous GPS updates are written to walk_request.
-///
-/// Location fields:
-///
-///   walkerLocation
-///   walkerHeading
-///   walkerSpeed
-///   locationUpdatedAt
-///   updatedAt
-///
-/// Rejection:
-///
-///   walk_request/{walkId}/rejections/{walkerId}
-///
+///   GPS tracking starts
+///   walkerLocation is continuously written to Firestore
 /// ============================================================
 
 class InstaWalkAcceptService {
@@ -138,17 +125,11 @@ class InstaWalkAcceptService {
 
   // ============================================================
   // ACCEPT WALK
-  //
-  // searching → accepted
   // ============================================================
 
   Future<void> acceptWalk(
     String walkId,
   ) async {
-    // ==========================================================
-    // AUTH
-    // ==========================================================
-
     final User? user = _currentUser;
 
     if (user == null) {
@@ -166,16 +147,8 @@ class InstaWalkAcceptService {
       );
     }
 
-    // ==========================================================
-    // WALKER BUSINESS ID
-    // ==========================================================
-
     final String walkerId =
         await getCurrentWalkerId();
-
-    // ==========================================================
-    // WALK ID
-    // ==========================================================
 
     final String id =
         walkId.trim();
@@ -186,18 +159,10 @@ class InstaWalkAcceptService {
       );
     }
 
-    // ==========================================================
-    // MAIN WALK DOCUMENT
-    // ==========================================================
-
     final DocumentReference<
             Map<String, dynamic>>
         walkRef =
         _walkRequests.doc(id);
-
-    // ==========================================================
-    // REJECTION DOCUMENT
-    // ==========================================================
 
     final DocumentReference<
             Map<String, dynamic>>
@@ -214,10 +179,6 @@ class InstaWalkAcceptService {
       (
         Transaction transaction,
       ) async {
-        // ------------------------------------------------------
-        // READ REQUEST
-        // ------------------------------------------------------
-
         final DocumentSnapshot<
                 Map<String, dynamic>>
             walkSnapshot =
@@ -240,10 +201,6 @@ class InstaWalkAcceptService {
           );
         }
 
-        // ------------------------------------------------------
-        // STATUS
-        // ------------------------------------------------------
-
         final String status =
             data['status']
                     ?.toString()
@@ -256,10 +213,6 @@ class InstaWalkAcceptService {
             'This walk is no longer available.',
           );
         }
-
-        // ------------------------------------------------------
-        // CHECK PREVIOUS REJECTION
-        // ------------------------------------------------------
 
         final DocumentSnapshot<
                 Map<String, dynamic>>
@@ -274,26 +227,16 @@ class InstaWalkAcceptService {
           );
         }
 
-        // ------------------------------------------------------
-        // ACCEPT
-        // ------------------------------------------------------
-
         transaction.update(
           walkRef,
           <String, dynamic>{
             'status': 'accepted',
-
             'walkerId': walkerId,
-
             'walkerUid': walkerUid,
-
             'acceptedBy': walkerId,
-
             'acceptedByUid': walkerUid,
-
             'acceptedAt':
                 FieldValue.serverTimestamp(),
-
             'updatedAt':
                 FieldValue.serverTimestamp(),
           },
@@ -302,12 +245,7 @@ class InstaWalkAcceptService {
     );
 
     // ==========================================================
-    // ACCEPT SUCCESS
-    // ==========================================================
-    //
-    // Firestore accept transaction is complete.
-    //
-    // Now start GPS.
+    // START WALKER GPS
     // ==========================================================
 
     try {
@@ -316,9 +254,7 @@ class InstaWalkAcceptService {
       );
     } catch (e) {
       // Accept already succeeded.
-      //
-      // GPS failure must not turn a successful accept
-      // into a failed accept.
+      // GPS failure must not undo the accept.
 
       // ignore: avoid_print
       print(
@@ -335,8 +271,6 @@ class InstaWalkAcceptService {
           .instance
           .stopRequest(id);
     } catch (e) {
-      // Sound failure must not affect accepted walk.
-
       // ignore: avoid_print
       print(
         'Unable to stop walk request sound: $e',
@@ -359,7 +293,7 @@ class InstaWalkAcceptService {
     }
 
     // ----------------------------------------------------------
-    // STOP PREVIOUS FIRESTORE LOCATION LISTENER
+    // CANCEL PREVIOUS FIRESTORE LOCATION LISTENER
     // ----------------------------------------------------------
 
     await _locationSubscription?.cancel();
@@ -383,7 +317,7 @@ class InstaWalkAcceptService {
     }
 
     // ----------------------------------------------------------
-    // GET FIRST CURRENT LOCATION
+    // GET FIRST LOCATION
     // ----------------------------------------------------------
 
     final Position? currentPosition =
@@ -398,7 +332,7 @@ class InstaWalkAcceptService {
     }
 
     // ----------------------------------------------------------
-    // LISTEN TO CONTINUOUS GPS UPDATES
+    // CONTINUOUS LOCATION
     // ----------------------------------------------------------
 
     _locationSubscription =
@@ -422,7 +356,7 @@ class InstaWalkAcceptService {
   }
 
   // ============================================================
-  // WRITE WALKER LOCATION TO FIRESTORE
+  // WRITE WALKER LOCATION
   // ============================================================
 
   Future<void> _updateWalkerLocation({
@@ -436,43 +370,32 @@ class InstaWalkAcceptService {
       return;
     }
 
-    // ----------------------------------------------------------
-    // PREVENT OLD WALK UPDATES
-    // ----------------------------------------------------------
-
     if (_trackingWalkId != id) {
       return;
     }
 
     try {
-      final DocumentReference<
-              Map<String, dynamic>>
-          walkRef =
-          _walkRequests.doc(id);
-
-      await walkRef.update(
+      await _walkRequests
+          .doc(id)
+          .update(
         <String, dynamic>{
           'walkerLocation': GeoPoint(
             position.latitude,
             position.longitude,
           ),
-
           'walkerHeading':
               position.heading,
-
           'walkerSpeed':
               position.speed,
-
           'locationUpdatedAt':
               FieldValue.serverTimestamp(),
-
           'updatedAt':
               FieldValue.serverTimestamp(),
         },
       );
     } catch (e) {
-      // Do not crash GPS stream because one Firestore update
-      // failed.
+      // GPS stream should continue even if one
+      // Firestore update fails.
 
       // ignore: avoid_print
       print(
@@ -482,12 +405,7 @@ class InstaWalkAcceptService {
   }
 
   // ============================================================
-  // STOP FIRESTORE LOCATION LISTENER
-  //
-  // This does NOT change the walk status.
-  //
-  // It is only used when the GPS ownership is transferred
-  // to LiveWalk.
+  // STOP LOCATION TRACKING
   // ============================================================
 
   Future<void> stopLocationTracking() async {
