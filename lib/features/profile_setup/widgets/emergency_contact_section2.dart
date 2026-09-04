@@ -109,20 +109,15 @@ class EmergencyContactSection2 extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          const Text(
-            'यह जानकारी optional है। खाली छोड़कर भी आगे बढ़ सकते हैं।',
-            style: TextStyle(
-              fontSize: 11.5,
-              color: AppColors.muted,
-            ),
-          ),
+
           const SizedBox(height: 16),
+
           _field(
             controller: nameController,
             label: 'Emergency Contact Name (Optional)',
             icon: Icons.person_outline_rounded,
           ),
+
           _field(
             controller: mobileController,
             label: 'Emergency Contact Mobile (Optional)',
