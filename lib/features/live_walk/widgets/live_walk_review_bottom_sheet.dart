@@ -469,7 +469,7 @@ class _LiveWalkReviewBottomSheetState
       decoration: InputDecoration(
         hintText: 'Add a note about the walk...',
         hintStyle: const TextStyle(
-          color: Colors.black35,
+          Colors.black.withValues(alpha: 0.35)
           fontSize: 13,
           fontWeight: FontWeight.w500,
         ),
