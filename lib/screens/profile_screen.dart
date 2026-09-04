@@ -1,17 +1,18 @@
 import 'dart:io';
 
-import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
-import '../core/constants/app_colors.dart';
-import '../features/profile/services/profile_firebase_service.dart';
-import '../features/profile/widgets/mobile_number_card.dart';
-import '../features/profile/widgets/profile_bottom_sheets.dart';
-import '../features/profile/widgets/profile_document_card.dart';
-import '../features/profile/widgets/profile_info_card.dart';
+import '../../../core/constants/app_colors.dart';
+import '../services/profile_firebase_service.dart';
+import '../widgets/mobile_number_card.dart';
+import '../widgets/profile_bottom_sheets.dart';
+import '../widgets/profile_document_card.dart';
+import '../widgets/profile_info_card.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -19,37 +20,41 @@ class ProfileScreen extends StatelessWidget {
   static const Color walkerOrange = Color(0xFFFF4B16);
 
   // ==========================================================
-  // DOCUMENT UPLOAD SHEET
+  // DOCUMENT VIEWER
   // ==========================================================
 
-  void _openDocumentUpload(
+  void _openDocumentViewer(
     BuildContext context, {
-    required String documentName,
-    required bool isFront,
+    required String title,
+    required String imageUrl,
   }) {
-    showModalBottomSheet(
+    final String cleanUrl = imageUrl.trim();
+
+    if (cleanUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Document is not available.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (sheetContext) {
-        return ProfileDocumentUploadSheet(
-          documentName: documentName,
-          onGallery: () async {
-            Navigator.pop(sheetContext);
-
-            await _pickDocument(
-              context,
-              source: ImageSource.gallery,
-              isFront: isFront,
-            );
-          },
-          onCamera: () async {
-            Navigator.pop(sheetContext);
-
-            await _pickDocument(
-              context,
-              source: ImageSource.camera,
-              isFront: isFront,
+        return _DocumentViewerSheet(
+          title: title,
+          imageUrl: cleanUrl,
+          onDownload: () async {
+            await _downloadDocument(
+              sheetContext,
+              title: title,
+              imageUrl: cleanUrl,
             );
           },
         );
@@ -58,30 +63,40 @@ class ProfileScreen extends StatelessWidget {
   }
 
   // ==========================================================
-  // PICK AADHAAR
+  // DOWNLOAD DOCUMENT
   // ==========================================================
 
-  Future<void> _pickDocument(
+  Future<void> _downloadDocument(
     BuildContext context, {
-    required ImageSource source,
-    required bool isFront,
+    required String title,
+    required String imageUrl,
   }) async {
-    bool loadingShown = false;
+    final String cleanUrl = imageUrl.trim();
 
-    try {
-      final ImagePicker picker = ImagePicker();
-
-      final XFile? picked = await picker.pickImage(
-        source: source,
-        imageQuality: 85,
-        maxWidth: 1800,
-      );
-
-      if (picked == null || !context.mounted) {
+    if (cleanUrl.isEmpty) {
+      if (!context.mounted) {
         return;
       }
 
-      showDialog(
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Document URL is not available.',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    bool loadingShown = false;
+
+    try {
+      // --------------------------------------------------------
+      // SHOW LOADING
+      // --------------------------------------------------------
+
+      showDialog<void>(
         context: context,
         barrierDismissible: false,
         builder: (_) {
@@ -95,43 +110,115 @@ class ProfileScreen extends StatelessWidget {
 
       loadingShown = true;
 
-      await ProfileFirebaseService.uploadAadhaar(
-        file: File(picked.path),
-        isFront: isFront,
+      // --------------------------------------------------------
+      // DOWNLOAD
+      // --------------------------------------------------------
+
+      final http.Response response =
+          await http.get(
+        Uri.parse(cleanUrl),
       );
+
+      if (response.statusCode < 200 ||
+          response.statusCode >= 300) {
+        throw Exception(
+          'Unable to download document. '
+          'HTTP ${response.statusCode}',
+        );
+      }
+
+      if (response.bodyBytes.isEmpty) {
+        throw Exception(
+          'Downloaded document is empty.',
+        );
+      }
+
+      // --------------------------------------------------------
+      // APP DOCUMENT DIRECTORY
+      // --------------------------------------------------------
+
+      final Directory directory =
+          await getApplicationDocumentsDirectory();
+
+      // --------------------------------------------------------
+      // SAFE FILE NAME
+      // --------------------------------------------------------
+
+      final String safeTitle =
+          title
+              .toLowerCase()
+              .replaceAll(
+                RegExp(r'[^a-z0-9]+'),
+                '_',
+              )
+              .replaceAll(
+                RegExp(r'_+'),
+                '_',
+              )
+              .replaceAll(
+                RegExp(r'^_|_$'),
+                '',
+              );
+
+      final String fileName =
+          '${safeTitle.isEmpty ? 'document' : safeTitle}.jpg';
+
+      final File file = File(
+        '${directory.path}/$fileName',
+      );
+
+      // --------------------------------------------------------
+      // SAVE
+      // --------------------------------------------------------
+
+      await file.writeAsBytes(
+        response.bodyBytes,
+        flush: true,
+      );
+
+      // --------------------------------------------------------
+      // CLOSE LOADING
+      // --------------------------------------------------------
+
+      if (context.mounted && loadingShown) {
+        Navigator.of(context).pop();
+        loadingShown = false;
+      }
+
+      // --------------------------------------------------------
+      // SUCCESS
+      // --------------------------------------------------------
 
       if (!context.mounted) {
         return;
-      }
-
-      if (loadingShown) {
-        Navigator.pop(context);
-        loadingShown = false;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: walkerOrange,
           content: Text(
-            isFront
-                ? 'Aadhaar Front uploaded successfully.'
-                : 'Aadhaar Back uploaded successfully.',
+            '$title downloaded successfully.',
           ),
         ),
       );
     } catch (e) {
-      if (!context.mounted) {
-        return;
+      // --------------------------------------------------------
+      // CLOSE LOADING
+      // --------------------------------------------------------
+
+      if (context.mounted && loadingShown) {
+        Navigator.of(context).pop();
+        loadingShown = false;
       }
 
-      if (loadingShown) {
-        Navigator.pop(context);
+      if (!context.mounted) {
+        return;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Upload failed: $e',
+            'Download failed: $e',
           ),
         ),
       );
@@ -146,7 +233,7 @@ class ProfileScreen extends StatelessWidget {
     BuildContext context,
     String currentPhone,
   ) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
@@ -208,6 +295,7 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
         );
+
         return;
       }
 
@@ -238,7 +326,7 @@ class ProfileScreen extends StatelessWidget {
     BuildContext context,
     String verificationId,
   ) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
@@ -250,7 +338,8 @@ class ProfileScreen extends StatelessWidget {
           buttonText: 'Verify OTP',
           onVerify: (String otp) async {
             try {
-              await ProfileFirebaseService.verifyCurrentPhoneOtp(
+              await ProfileFirebaseService
+                  .verifyCurrentPhoneOtp(
                 verificationId: verificationId,
                 smsCode: otp,
               );
@@ -275,7 +364,8 @@ class ProfileScreen extends StatelessWidget {
                 return;
               }
 
-              ScaffoldMessenger.of(sheetContext).showSnackBar(
+              ScaffoldMessenger.of(sheetContext)
+                  .showSnackBar(
                 SnackBar(
                   content: Text(
                     'OTP verification failed: $e',
@@ -296,7 +386,7 @@ class ProfileScreen extends StatelessWidget {
   void _openNewPhoneSheet(
     BuildContext context,
   ) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
@@ -358,6 +448,7 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
         );
+
         return;
       }
 
@@ -390,7 +481,7 @@ class ProfileScreen extends StatelessWidget {
     String verificationId,
     String newPhone,
   ) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
@@ -402,7 +493,8 @@ class ProfileScreen extends StatelessWidget {
           buttonText: 'Save and Continue',
           onVerify: (String otp) async {
             try {
-              await ProfileFirebaseService.verifyAndUpdateNewPhone(
+              await ProfileFirebaseService
+                  .verifyAndUpdateNewPhone(
                 verificationId: verificationId,
                 smsCode: otp,
                 newPhoneNumber: newPhone,
@@ -431,7 +523,8 @@ class ProfileScreen extends StatelessWidget {
                 return;
               }
 
-              ScaffoldMessenger.of(sheetContext).showSnackBar(
+              ScaffoldMessenger.of(sheetContext)
+                  .showSnackBar(
                 SnackBar(
                   content: Text(
                     'Unable to update mobile number: $e',
@@ -460,7 +553,8 @@ class ProfileScreen extends StatelessWidget {
 
     if (user == null) {
       return const Scaffold(
-        backgroundColor: AppColors.scaffoldBackground,
+        backgroundColor:
+            AppColors.scaffoldBackground,
         body: Center(
           child: Text(
             'Login session not found.',
@@ -473,18 +567,19 @@ class ProfileScreen extends StatelessWidget {
     }
 
     // ========================================================
-    // IMPORTANT:
-    // Firestore document ID = Firebase Auth UID
+    // AUTH UID
     // ========================================================
 
-    final String walkerUid = user.uid.trim();
+    final String walkerUid =
+        user.uid.trim();
 
     // ========================================================
-    // PROFILE SCREEN
+    // PROFILE
     // ========================================================
 
     return Scaffold(
-      backgroundColor: AppColors.scaffoldBackground,
+      backgroundColor:
+          AppColors.scaffoldBackground,
 
       // ======================================================
       // APP BAR
@@ -504,16 +599,16 @@ class ProfileScreen extends StatelessWidget {
       ),
 
       // ======================================================
-      // FIRESTORE
-      // walkers/{Firebase Auth UID}
+      // WALKER DOCUMENT
+      // walkers/{AUTH UID}
       // ======================================================
 
-      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      body: StreamBuilder<
+          DocumentSnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance
             .collection('walkers')
             .doc(walkerUid)
             .snapshots(),
-
         builder: (
           context,
           snapshot,
@@ -532,38 +627,47 @@ class ProfileScreen extends StatelessWidget {
           }
 
           // ==================================================
-          // FIRESTORE ERROR
+          // ERROR
           // ==================================================
 
           if (snapshot.hasError) {
             return Center(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding:
+                    const EdgeInsets.all(20),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize:
+                      MainAxisSize.min,
                   children: [
                     const Icon(
                       Icons.cloud_off_outlined,
                       size: 50,
-                      color: AppColors.textGrey,
+                      color:
+                          AppColors.textGrey,
                     ),
                     const SizedBox(height: 12),
                     const Text(
                       'Unable to load profile.',
-                      textAlign: TextAlign.center,
+                      textAlign:
+                          TextAlign.center,
                       style: TextStyle(
                         fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
+                        fontWeight:
+                            FontWeight.bold,
+                        color:
+                            AppColors.textDark,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       '${snapshot.error}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      textAlign:
+                          TextAlign.center,
+                      style:
+                          const TextStyle(
                         fontSize: 12,
-                        color: AppColors.textGrey,
+                        color:
+                            AppColors.textGrey,
                       ),
                     ),
                   ],
@@ -573,41 +677,53 @@ class ProfileScreen extends StatelessWidget {
           }
 
           // ==================================================
-          // DOCUMENT NOT FOUND
+          // DOCUMENT
           // ==================================================
 
-          final DocumentSnapshot<Map<String, dynamic>>?
-              document = snapshot.data;
+          final DocumentSnapshot<
+                  Map<String, dynamic>>?
+              document =
+              snapshot.data;
 
-          if (document == null || !document.exists) {
+          if (document == null ||
+              !document.exists) {
             return Center(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding:
+                    const EdgeInsets.all(20),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisSize:
+                      MainAxisSize.min,
                   children: [
                     const Icon(
                       Icons.person_search_outlined,
                       size: 50,
-                      color: AppColors.textGrey,
+                      color:
+                          AppColors.textGrey,
                     ),
                     const SizedBox(height: 12),
                     const Text(
                       'Profile information not found.',
-                      textAlign: TextAlign.center,
+                      textAlign:
+                          TextAlign.center,
                       style: TextStyle(
                         fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textDark,
+                        fontWeight:
+                            FontWeight.bold,
+                        color:
+                            AppColors.textDark,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Walker UID:\n$walkerUid',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      textAlign:
+                          TextAlign.center,
+                      style:
+                          const TextStyle(
                         fontSize: 12,
-                        color: AppColors.textGrey,
+                        color:
+                            AppColors.textGrey,
                       ),
                     ),
                   ],
@@ -617,76 +733,206 @@ class ProfileScreen extends StatelessWidget {
           }
 
           // ==================================================
-          // FIRESTORE DATA
+          // DATA
           // ==================================================
 
           final Map<String, dynamic> data =
-              document.data() ?? <String, dynamic>{};
+              document.data() ??
+                  <String, dynamic>{};
 
           // ==================================================
-          // PROFILE FIELDS
+          // BASIC PROFILE
           // ==================================================
 
           final String name =
-              _stringValue(data['Full Name']);
+              _firstString(
+            data,
+            <String>[
+              'Full Name',
+              'fullName',
+              'name',
+            ],
+          );
 
           final String firestorePhone =
-              _stringValue(data['Mobile number']);
+              _firstString(
+            data,
+            <String>[
+              'Mobile number',
+              'mobileNumber',
+              'phoneNumber',
+              'phone',
+            ],
+          );
 
           final String phone =
               firestorePhone.isNotEmpty
                   ? firestorePhone
-                  : _stringValue(user.phoneNumber);
+                  : _stringValue(
+                      user.phoneNumber,
+                    );
 
           final String dob =
-              _stringValue(data['Date Of Birth']);
+              _firstString(
+            data,
+            <String>[
+              'Date Of Birth',
+              'dateOfBirth',
+              'dateofbirth',
+            ],
+          );
 
           final String address =
-              _stringValue(data['Adress']);
+              _firstString(
+            data,
+            <String>[
+              'Adress',
+              'Address',
+              'address',
+            ],
+          );
 
           final String pincode =
-              _stringValue(data['Pincode']);
+              _firstString(
+            data,
+            <String>[
+              'Pincode',
+              'pincode',
+              'pinCode',
+            ],
+          );
+
+          // ==================================================
+          // AADHAAR NUMBER
+          // ==================================================
 
           final String aadhaar =
-              _stringValue(data['Aadhar Number']);
+              _firstString(
+            data,
+            <String>[
+              'Aadhar Number',
+              'Aadhaar Number',
+              'aadhaarNumber',
+            ],
+          );
+
+          // ==================================================
+          // SELFIE
+          // ==================================================
 
           final String selfie =
-              _stringValue(data['Profile Selfie']);
+              _firstString(
+            data,
+            <String>[
+              'selfieUrl',
+              'selfie',
+              'Profile Selfie',
+              'profileSelfie',
+              'profileImageUrl',
+              'profileImage',
+            ],
+          );
 
           // ==================================================
-          // ALWAYS USE AUTH UID AS ACCOUNT UID
+          // AADHAAR FRONT
           // ==================================================
 
-          final String uid = walkerUid;
+          final String aadhaarFront =
+              _firstString(
+            data,
+            <String>[
+              'aadhaarFrontUrl',
+              'aadhaarFront',
+              'aadhaarfront',
+              'aadhaar_front',
+              'Aadhaar Front',
+            ],
+          );
+
+          // ==================================================
+          // AADHAAR BACK
+          // ==================================================
+
+          final String aadhaarBack =
+              _firstString(
+            data,
+            <String>[
+              'aadhaarBackUrl',
+              'aadhaarBack',
+              'aadhaarback',
+              'aadhaar_back',
+              'Aadhaar Back',
+            ],
+          );
+
+          // ==================================================
+          // PAN
+          // ==================================================
+
+          final String panCard =
+              _firstString(
+            data,
+            <String>[
+              'panCardUrl',
+              'panCard',
+              'pan_card',
+              'pan_card_url',
+              'PAN Card',
+              'PAN Card URL',
+            ],
+          );
+
+          // ==================================================
+          // UPLOAD FLAGS
+          // ==================================================
 
           final bool frontUploaded =
-              data['aadhaar_front_uploaded'] == true;
+              aadhaarFront.isNotEmpty ||
+                  data['aadhaar_front_uploaded'] ==
+                      true ||
+                  data['aadhaarFrontUploaded'] ==
+                      true;
 
           final bool backUploaded =
-              data['aadhaar_back_uploaded'] == true;
+              aadhaarBack.isNotEmpty ||
+                  data['aadhaar_back_uploaded'] ==
+                      true ||
+                  data['aadhaarBackUploaded'] ==
+                      true;
+
+          final bool panUploaded =
+              panCard.isNotEmpty ||
+                  data['pan_card_uploaded'] ==
+                      true ||
+                  data['panCardUploaded'] ==
+                      true;
 
           // ==================================================
           // MAIN UI
           // ==================================================
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding:
+                const EdgeInsets.all(20),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 // =================================================
-                // PROFILE SELFIE
+                // PROFILE PHOTO
                 // =================================================
 
                 Center(
                   child: Container(
                     width: 104,
                     height: 104,
-                    decoration: const BoxDecoration(
+                    decoration:
+                        const BoxDecoration(
                       color: walkerOrange,
                       shape: BoxShape.circle,
                     ),
-                    clipBehavior: Clip.antiAlias,
+                    clipBehavior:
+                        Clip.antiAlias,
                     child: selfie.isNotEmpty
                         ? Image.network(
                             selfie,
@@ -707,14 +953,17 @@ class ProfileScreen extends StatelessWidget {
                               child,
                               progress,
                             ) {
-                              if (progress == null) {
+                              if (progress ==
+                                  null) {
                                 return child;
                               }
 
                               return const Center(
-                                child: CircularProgressIndicator(
+                                child:
+                                    CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: Colors.white,
+                                  color:
+                                      Colors.white,
                                 ),
                               );
                             },
@@ -736,11 +985,15 @@ class ProfileScreen extends StatelessWidget {
                 Center(
                   child: Text(
                     _display(name),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    textAlign:
+                        TextAlign.center,
+                    style:
+                        const TextStyle(
                       fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
+                      fontWeight:
+                          FontWeight.bold,
+                      color:
+                          AppColors.textDark,
                     ),
                   ),
                 ),
@@ -755,22 +1008,28 @@ class ProfileScreen extends StatelessWidget {
                   'Profile Information',
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+                    fontWeight:
+                        FontWeight.bold,
+                    color:
+                        AppColors.textDark,
                   ),
                 ),
 
                 const SizedBox(height: 14),
 
                 ProfileInfoCard(
-                  icon: Icons.person_outline,
-                  iconColor: walkerOrange,
+                  icon:
+                      Icons.person_outline,
+                  iconColor:
+                      walkerOrange,
                   label: 'Full Name',
-                  value: _display(name),
+                  value:
+                      _display(name),
                 ),
 
                 MobileNumberCard(
-                  phone: _display(phone),
+                  phone:
+                      _display(phone),
                   onEdit: () {
                     _openMobileNumberChange(
                       context,
@@ -780,24 +1039,33 @@ class ProfileScreen extends StatelessWidget {
                 ),
 
                 ProfileInfoCard(
-                  icon: Icons.cake_outlined,
-                  iconColor: const Color(0xFFE11D48),
+                  icon:
+                      Icons.cake_outlined,
+                  iconColor:
+                      const Color(0xFFE11D48),
                   label: 'Date of Birth',
-                  value: _display(dob),
+                  value:
+                      _display(dob),
                 ),
 
                 ProfileInfoCard(
-                  icon: Icons.location_on_outlined,
-                  iconColor: const Color(0xFF2563EB),
+                  icon:
+                      Icons.location_on_outlined,
+                  iconColor:
+                      const Color(0xFF2563EB),
                   label: 'Address',
-                  value: _display(address),
+                  value:
+                      _display(address),
                 ),
 
                 ProfileInfoCard(
-                  icon: Icons.pin_drop_outlined,
-                  iconColor: const Color(0xFF0891B2),
+                  icon:
+                      Icons.pin_drop_outlined,
+                  iconColor:
+                      const Color(0xFF0891B2),
                   label: 'PIN Code',
-                  value: _display(pincode),
+                  value:
+                      _display(pincode),
                 ),
 
                 const SizedBox(height: 10),
@@ -810,42 +1078,129 @@ class ProfileScreen extends StatelessWidget {
                   'Document Information',
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+                    fontWeight:
+                        FontWeight.bold,
+                    color:
+                        AppColors.textDark,
                   ),
                 ),
 
                 const SizedBox(height: 14),
 
                 ProfileInfoCard(
-                  icon: Icons.badge_outlined,
-                  iconColor: const Color(0xFF7C3AED),
-                  label: 'Aadhaar Number',
-                  value: _display(aadhaar),
+                  icon:
+                      Icons.badge_outlined,
+                  iconColor:
+                      const Color(0xFF7C3AED),
+                  label:
+                      'Aadhaar Number',
+                  value:
+                      _display(aadhaar),
                 ),
 
-                ProfileDocumentCard(
-                  label: 'Aadhaar Front',
-                  uploaded: frontUploaded,
-                  onUpload: () {
-                    _openDocumentUpload(
-                      context,
-                      documentName: 'Aadhaar Front',
-                      isFront: true,
-                    );
-                  },
-                ),
+                // =================================================
+                // AADHAAR FRONT
+                // =================================================
 
                 ProfileDocumentCard(
-                  label: 'Aadhaar Back',
-                  uploaded: backUploaded,
-                  onUpload: () {
-                    _openDocumentUpload(
-                      context,
-                      documentName: 'Aadhaar Back',
-                      isFront: false,
-                    );
-                  },
+                  label:
+                      'Aadhaar Front',
+                  uploaded:
+                      frontUploaded,
+                  onView:
+                      aadhaarFront.isEmpty
+                          ? null
+                          : () {
+                              _openDocumentViewer(
+                                context,
+                                title:
+                                    'Aadhaar Front',
+                                imageUrl:
+                                    aadhaarFront,
+                              );
+                            },
+                  onDownload:
+                      aadhaarFront.isEmpty
+                          ? null
+                          : () {
+                              _downloadDocument(
+                                context,
+                                title:
+                                    'Aadhaar Front',
+                                imageUrl:
+                                    aadhaarFront,
+                              );
+                            },
+                ),
+
+                // =================================================
+                // AADHAAR BACK
+                // =================================================
+
+                ProfileDocumentCard(
+                  label:
+                      'Aadhaar Back',
+                  uploaded:
+                      backUploaded,
+                  onView:
+                      aadhaarBack.isEmpty
+                          ? null
+                          : () {
+                              _openDocumentViewer(
+                                context,
+                                title:
+                                    'Aadhaar Back',
+                                imageUrl:
+                                    aadhaarBack,
+                              );
+                            },
+                  onDownload:
+                      aadhaarBack.isEmpty
+                          ? null
+                          : () {
+                              _downloadDocument(
+                                context,
+                                title:
+                                    'Aadhaar Back',
+                                imageUrl:
+                                    aadhaarBack,
+                              );
+                            },
+                ),
+
+                // =================================================
+                // PAN
+                // =================================================
+
+                ProfileDocumentCard(
+                  label:
+                      'PAN Card',
+                  uploaded:
+                      panUploaded,
+                  onView:
+                      panCard.isEmpty
+                          ? null
+                          : () {
+                              _openDocumentViewer(
+                                context,
+                                title:
+                                    'PAN Card',
+                                imageUrl:
+                                    panCard,
+                              );
+                            },
+                  onDownload:
+                      panCard.isEmpty
+                          ? null
+                          : () {
+                              _downloadDocument(
+                                context,
+                                title:
+                                    'PAN Card',
+                                imageUrl:
+                                    panCard,
+                              );
+                            },
                 ),
 
                 const SizedBox(height: 10),
@@ -858,18 +1213,24 @@ class ProfileScreen extends StatelessWidget {
                   'Account Information',
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+                    fontWeight:
+                        FontWeight.bold,
+                    color:
+                        AppColors.textDark,
                   ),
                 ),
 
                 const SizedBox(height: 14),
 
                 ProfileInfoCard(
-                  icon: Icons.verified_user_outlined,
-                  iconColor: const Color(0xFF16A34A),
-                  label: 'Walker UID',
-                  value: uid,
+                  icon:
+                      Icons.verified_user_outlined,
+                  iconColor:
+                      const Color(0xFF16A34A),
+                  label:
+                      'Walker UID',
+                  value:
+                      walkerUid,
                 ),
 
                 const SizedBox(height: 20),
@@ -877,10 +1238,12 @@ class ProfileScreen extends StatelessWidget {
                 const Center(
                   child: Text(
                     'Your profile is securely linked to your Walker UID.',
-                    textAlign: TextAlign.center,
+                    textAlign:
+                        TextAlign.center,
                     style: TextStyle(
                       fontSize: 11,
-                      color: AppColors.textGrey,
+                      color:
+                          AppColors.textGrey,
                     ),
                   ),
                 ),
@@ -895,10 +1258,32 @@ class ProfileScreen extends StatelessWidget {
   }
 
   // ==========================================================
+  // READ FIRST AVAILABLE STRING
+  // ==========================================================
+
+  static String _firstString(
+    Map<String, dynamic> data,
+    List<String> keys,
+  ) {
+    for (final String key in keys) {
+      final String value =
+          _stringValue(data[key]);
+
+      if (value.isNotEmpty) {
+        return value;
+      }
+    }
+
+    return '';
+  }
+
+  // ==========================================================
   // SAFE STRING
   // ==========================================================
 
-  static String _stringValue(dynamic value) {
+  static String _stringValue(
+    dynamic value,
+  ) {
     if (value == null) {
       return '';
     }
@@ -910,7 +1295,248 @@ class ProfileScreen extends StatelessWidget {
   // DISPLAY VALUE
   // ==========================================================
 
-  static String _display(String value) {
-    return value.isEmpty ? 'Not available' : value;
+  static String _display(
+    String value,
+  ) {
+    return value.isEmpty
+        ? 'Not available'
+        : value;
+  }
+}
+
+// ============================================================
+// DOCUMENT VIEWER SHEET
+// ============================================================
+
+class _DocumentViewerSheet extends StatelessWidget {
+  const _DocumentViewerSheet({
+    required this.title,
+    required this.imageUrl,
+    required this.onDownload,
+  });
+
+  final String title;
+  final String imageUrl;
+  final Future<void> Function() onDownload;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height:
+          MediaQuery.of(context).size.height * 0.88,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
+      ),
+      child: Column(
+        children: [
+          // ======================================================
+          // HANDLE
+          // ======================================================
+
+          const SizedBox(height: 10),
+
+          Container(
+            width: 42,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.black12,
+              borderRadius:
+                  BorderRadius.circular(10),
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // ======================================================
+          // HEADER
+          // ======================================================
+
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(
+              horizontal: 18,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style:
+                        const TextStyle(
+                      fontSize: 19,
+                      fontWeight:
+                          FontWeight.bold,
+                      color:
+                          AppColors.textDark,
+                    ),
+                  ),
+                ),
+
+                IconButton(
+                  onPressed: () {
+                    Navigator.of(
+                      context,
+                    ).pop();
+                  },
+                  icon: const Icon(
+                    Icons.close,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1),
+
+          // ======================================================
+          // IMAGE
+          // ======================================================
+
+          Expanded(
+            child: Container(
+              width: double.infinity,
+              margin:
+                  const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(
+                  0xFFF5F5F5,
+                ),
+                borderRadius:
+                    BorderRadius.circular(16),
+                border: Border.all(
+                  color:
+                      AppColors.border,
+                ),
+              ),
+              clipBehavior:
+                  Clip.antiAlias,
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4.0,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (
+                    context,
+                    child,
+                    progress,
+                  ) {
+                    if (progress == null) {
+                      return child;
+                    }
+
+                    return const Center(
+                      child:
+                          CircularProgressIndicator(
+                        color:
+                            ProfileScreen
+                                .walkerOrange,
+                      ),
+                    );
+                  },
+                  errorBuilder: (
+                    context,
+                    error,
+                    stackTrace,
+                  ) {
+                    return const Center(
+                      child: Padding(
+                        padding:
+                            EdgeInsets.all(20),
+                        child: Column(
+                          mainAxisSize:
+                              MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons
+                                  .broken_image_outlined,
+                              size: 56,
+                              color:
+                                  AppColors
+                                      .textGrey,
+                            ),
+                            SizedBox(
+                              height: 12,
+                            ),
+                            Text(
+                              'Unable to display this document.',
+                              textAlign:
+                                  TextAlign
+                                      .center,
+                              style:
+                                  TextStyle(
+                                color:
+                                    AppColors
+                                        .textGrey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+
+          // ======================================================
+          // DOWNLOAD
+          // ======================================================
+
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding:
+                  const EdgeInsets.fromLTRB(
+                16,
+                0,
+                16,
+                16,
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await onDownload();
+                  },
+                  icon: const Icon(
+                    Icons.download_outlined,
+                  ),
+                  label: const Text(
+                    'Download Document',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight:
+                          FontWeight.w700,
+                    ),
+                  ),
+                  style:
+                      ElevatedButton.styleFrom(
+                    backgroundColor:
+                        ProfileScreen
+                            .walkerOrange,
+                    foregroundColor:
+                        Colors.white,
+                    elevation: 0,
+                    shape:
+                        RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(
+                        12,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
