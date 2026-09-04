@@ -1388,7 +1388,7 @@ class _MandatoryProfileSetupScreen2State
                       ),
                       decoration: BoxDecoration(
                         color:
-                            AppColors.green.withOpacity(.10),
+                            AppColors.green.withValues(alpha: 0.10),
                         borderRadius:
                             BorderRadius.circular(12),
                       ),
