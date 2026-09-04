@@ -1,6 +1,3 @@
-// File:
-// lib/features/live_walk/widgets/live_walk_review_bottom_sheet.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -38,10 +35,6 @@ class LiveWalkReviewBottomSheet extends StatefulWidget {
 
 class _LiveWalkReviewBottomSheetState
     extends State<LiveWalkReviewBottomSheet> {
-  // ============================================================
-  // REVIEW STATE
-  // ============================================================
-
   int _rating = 0;
 
   final TextEditingController _noteController =
@@ -50,19 +43,11 @@ class _LiveWalkReviewBottomSheetState
   bool _saving = false;
   bool _navigatingHome = false;
 
-  // ============================================================
-  // FIREBASE
-  // ============================================================
-
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
   final FirebaseAuth _auth =
       FirebaseAuth.instance;
-
-  // ============================================================
-  // DISPOSE
-  // ============================================================
 
   @override
   void dispose() {
@@ -70,314 +55,209 @@ class _LiveWalkReviewBottomSheetState
     super.dispose();
   }
 
-  // ============================================================
-  // BUILD
-  // ============================================================
-
   @override
   Widget build(BuildContext context) {
+    final double bottomInset =
+        MediaQuery.viewInsetsOf(context).bottom;
+
     return SafeArea(
       top: false,
       child: Container(
         constraints: BoxConstraints(
           maxHeight:
-              MediaQuery.of(context).size.height * .88,
+              MediaQuery.sizeOf(context).height * 0.90,
         ),
         decoration: const BoxDecoration(
           color: AppColors.cardBackground,
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(28),
+            top: Radius.circular(30),
           ),
         ),
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              20,
-              12,
-              20,
-              24,
-            ),
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.stretch,
-              children: [
-                // ==================================================
-                // HANDLE
-                // ==================================================
+          padding: EdgeInsets.fromLTRB(
+            20,
+            10,
+            20,
+            22 + bottomInset,
+          ),
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.stretch,
+            children: <Widget>[
+              // ==================================================
+              // HANDLE
+              // ==================================================
 
-                Center(
-                  child: Container(
-                    width: 45,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius:
-                          BorderRadius.circular(20),
-                    ),
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius:
+                        BorderRadius.circular(20),
                   ),
                 ),
+              ),
 
-                const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
-                // ==================================================
-                // SUCCESS ICON
-                // ==================================================
+              // ==================================================
+              // SUCCESS HEADER
+              // ==================================================
 
-                Center(
-                  child: Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color:
-                          AppColors.primary.withValues(
-                        alpha: .10,
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.check_circle_rounded,
-                      color: AppColors.primary,
-                      size: 40,
-                    ),
-                  ),
+              _buildSuccessHeader(),
+
+              const SizedBox(height: 20),
+
+              // ==================================================
+              // WALK SUMMARY
+              // ==================================================
+
+              _buildSummaryCard(),
+
+              const SizedBox(height: 22),
+
+              // ==================================================
+              // RATING
+              // ==================================================
+
+              const Text(
+                'How was the walk?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.secondary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
                 ),
+              ),
 
-                const SizedBox(height: 12),
+              const SizedBox(height: 5),
 
-                const Text(
-                  'Walk Completed!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.secondary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                  ),
+              Text(
+                'Your feedback helps us improve the experience.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
                 ),
+              ),
 
-                const SizedBox(height: 5),
+              const SizedBox(height: 12),
 
-                Text(
-                  widget.dogName.trim().isEmpty
-                      ? 'How was your walk?'
-                      : 'How was your walk with '
-                          '${widget.dogName.trim()}?',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.black54,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+              _buildRating(),
+
+              const SizedBox(height: 22),
+
+              // ==================================================
+              // NOTE
+              // ==================================================
+
+              const Text(
+                'Walker Note',
+                style: TextStyle(
+                  color: AppColors.secondary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
                 ),
+              ),
 
-                const SizedBox(height: 20),
+              const SizedBox(height: 8),
 
-                // ==================================================
-                // WALK SUMMARY
-                // ==================================================
+              _buildNoteField(),
 
-                _buildSummaryCard(),
+              const SizedBox(height: 16),
 
-                const SizedBox(height: 20),
+              // ==================================================
+              // SUBMIT
+              // ==================================================
 
-                // ==================================================
-                // RATING
-                // ==================================================
+              _buildSubmitButton(),
 
-                const Text(
-                  'Rate this walk',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.secondary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
+              const SizedBox(height: 8),
+
+              // ==================================================
+              // SKIP
+              // ==================================================
+
+              _buildSkipButton(),
+
+              const SizedBox(height: 3),
+
+              const Text(
+                'You can skip the review and return to Home.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.black38,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
                 ),
-
-                const SizedBox(height: 4),
-
-                const Text(
-                  'Your feedback helps improve the service.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.black45,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                _buildRating(),
-
-                const SizedBox(height: 20),
-
-                // ==================================================
-                // NOTE
-                // ==================================================
-
-                const Text(
-                  'Walker Note',
-                  style: TextStyle(
-                    color: AppColors.secondary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-
-                TextField(
-                  controller: _noteController,
-                  maxLines: 4,
-                  maxLength: 500,
-                  textInputAction:
-                      TextInputAction.newline,
-                  decoration: InputDecoration(
-                    hintText:
-                        'Add a note about the walk...',
-                    hintStyle: const TextStyle(
-                      color: Colors.black38,
-                      fontSize: 13,
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    counterStyle:
-                        const TextStyle(
-                      color: Colors.black38,
-                      fontSize: 10,
-                    ),
-                    contentPadding:
-                        const EdgeInsets.all(14),
-                    border: OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(15),
-                      borderSide:
-                          BorderSide.none,
-                    ),
-                    enabledBorder:
-                        OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(15),
-                      borderSide:
-                          const BorderSide(
-                        color: AppColors.border,
-                      ),
-                    ),
-                    focusedBorder:
-                        OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(15),
-                      borderSide:
-                          const BorderSide(
-                        color: AppColors.primary,
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // ==================================================
-                // SUBMIT
-                // ==================================================
-
-                SizedBox(
-                  height: 54,
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed:
-                        _saving ? null : _submitReview,
-                    style:
-                        ElevatedButton.styleFrom(
-                      backgroundColor:
-                          AppColors.primary,
-                      foregroundColor:
-                          Colors.white,
-                      disabledBackgroundColor:
-                          Colors.black12,
-                      elevation: 0,
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(15),
-                      ),
-                    ),
-                    child: _saving
-                        ? const SizedBox(
-                            width: 23,
-                            height: 23,
-                            child:
-                                CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor:
-                                  AlwaysStoppedAnimation<
-                                      Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                        : const Text(
-                            'SUBMIT REVIEW',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight:
-                                  FontWeight.w900,
-                              letterSpacing: .4,
-                            ),
-                          ),
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                // ==================================================
-                // SKIP
-                // ==================================================
-
-                SizedBox(
-                  height: 48,
-                  width: double.infinity,
-                  child: TextButton(
-                    onPressed:
-                        _saving ? null : _skipReview,
-                    style: TextButton.styleFrom(
-                      foregroundColor:
-                          AppColors.secondary,
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: const Text(
-                      'Skip Review',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight:
-                            FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 4),
-
-                const Text(
-                  'You can skip the review and return to Home.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.black38,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  // ============================================================
+  // SUCCESS HEADER
+  // ============================================================
+
+  Widget _buildSuccessHeader() {
+    return Column(
+      children: <Widget>[
+        Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.primary.withValues(
+              alpha: 0.10,
+            ),
+            border: Border.all(
+              color: AppColors.primary.withValues(
+                alpha: 0.16,
+              ),
+              width: 1,
+            ),
+          ),
+          child: const Icon(
+            Icons.check_rounded,
+            color: AppColors.primary,
+            size: 42,
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        const Text(
+          'Walk Completed!',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.secondary,
+            fontSize: 23,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.3,
+          ),
+        ),
+
+        const SizedBox(height: 5),
+
+        Text(
+          widget.dogName.trim().isEmpty
+              ? 'Great job! Your walk has been completed.'
+              : 'Great job walking ${widget.dogName.trim()}!',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 
@@ -387,44 +267,51 @@ class _LiveWalkReviewBottomSheetState
 
   Widget _buildSummaryCard() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 16,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(18),
-        boxShadow: const [
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.primary.withValues(
+            alpha: 0.08,
+          ),
+        ),
+        boxShadow: const <BoxShadow>[
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, 3),
+            color: Color(0x10000000),
+            blurRadius: 14,
+            offset: Offset(0, 5),
           ),
         ],
       ),
       child: Row(
-        children: [
+        children: <Widget>[
           Expanded(
             child: _summaryItem(
-              Icons.route_rounded,
-              widget.distanceKm < 1
+              icon: Icons.route_rounded,
+              value: widget.distanceKm < 1
                   ? '${(widget.distanceKm * 1000).round()} m'
                   : '${widget.distanceKm.toStringAsFixed(2)} km',
-              'Distance',
+              label: 'Distance',
             ),
           ),
           _verticalDivider(),
           Expanded(
             child: _summaryItem(
-              Icons.timer_rounded,
-              widget.duration,
-              'Duration',
+              icon: Icons.timer_outlined,
+              value: widget.duration,
+              label: 'Duration',
             ),
           ),
           _verticalDivider(),
           Expanded(
             child: _summaryItem(
-              Icons.directions_walk_rounded,
-              widget.steps.toString(),
-              'Steps',
+              icon: Icons.directions_walk_rounded,
+              value: widget.steps.toString(),
+              label: 'Steps',
             ),
           ),
         ],
@@ -432,34 +319,49 @@ class _LiveWalkReviewBottomSheetState
     );
   }
 
-  Widget _summaryItem(
-    IconData icon,
-    String value,
-    String label,
-  ) {
+  Widget _summaryItem({
+    required IconData icon,
+    required String value,
+    required String label,
+  }) {
     return Column(
-      children: [
-        Icon(
-          icon,
-          color: AppColors.primary,
-          size: 22,
+      children: <Widget>[
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(
+              alpha: 0.09,
+            ),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: AppColors.primary,
+            size: 20,
+          ),
         ),
-        const SizedBox(height: 6),
+
+        const SizedBox(height: 7),
+
         Text(
           value,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
           style: const TextStyle(
             color: AppColors.secondary,
             fontSize: 13,
             fontWeight: FontWeight.w900,
           ),
         ),
+
         const SizedBox(height: 2),
+
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.black45,
+          style: TextStyle(
+            color: Colors.grey.shade600,
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
@@ -471,7 +373,7 @@ class _LiveWalkReviewBottomSheetState
   Widget _verticalDivider() {
     return Container(
       width: 1,
-      height: 42,
+      height: 52,
       color: AppColors.border,
     );
   }
@@ -482,8 +384,7 @@ class _LiveWalkReviewBottomSheetState
 
   Widget _buildRating() {
     return Row(
-      mainAxisAlignment:
-          MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: List<Widget>.generate(
         5,
         (int index) {
@@ -491,8 +392,7 @@ class _LiveWalkReviewBottomSheetState
           final bool selected = star <= _rating;
 
           return GestureDetector(
-            behavior:
-                HitTestBehavior.opaque,
+            behavior: HitTestBehavior.opaque,
             onTap: _saving
                 ? null
                 : () {
@@ -500,16 +400,35 @@ class _LiveWalkReviewBottomSheetState
                       _rating = star;
                     });
                   },
-            child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(
-                horizontal: 5,
+            child: AnimatedContainer(
+              duration:
+                  const Duration(milliseconds: 160),
+              curve: Curves.easeOut,
+              margin: const EdgeInsets.symmetric(
+                horizontal: 4,
+              ),
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: selected
+                    ? AppColors.primary.withValues(
+                        alpha: 0.10,
+                      )
+                    : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected
+                      ? AppColors.primary.withValues(
+                          alpha: 0.20,
+                        )
+                      : AppColors.border,
+                ),
               ),
               child: Icon(
                 selected
                     ? Icons.star_rounded
                     : Icons.star_border_rounded,
-                size: 42,
+                size: 30,
                 color: selected
                     ? AppColors.primary
                     : Colors.black26,
@@ -522,15 +441,170 @@ class _LiveWalkReviewBottomSheetState
   }
 
   // ============================================================
-  // SUBMIT REVIEW
+  // NOTE FIELD
+  // ============================================================
+
+  Widget _buildNoteField() {
+    return TextField(
+      controller: _noteController,
+      maxLines: 4,
+      maxLength: 500,
+      textInputAction: TextInputAction.newline,
+      enabled: !_saving,
+      decoration: InputDecoration(
+        hintText: 'Add a note about the walk...',
+        hintStyle: const TextStyle(
+          color: Colors.black35,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+        filled: true,
+        fillColor: Colors.white,
+        counterStyle: const TextStyle(
+          color: Colors.black38,
+          fontSize: 10,
+        ),
+        contentPadding: const EdgeInsets.all(15),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: AppColors.border,
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: AppColors.border,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(
+            color: AppColors.primary,
+            width: 1.4,
+          ),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: AppColors.border.withValues(
+              alpha: 0.6,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // SUBMIT BUTTON
+  // ============================================================
+
+  Widget _buildSubmitButton() {
+    return SizedBox(
+      height: 56,
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed:
+            _saving ? null : _submitReview,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor:
+              AppColors.primary.withValues(
+            alpha: 0.55,
+          ),
+          disabledForegroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(17),
+          ),
+        ),
+        child: AnimatedSwitcher(
+          duration:
+              const Duration(milliseconds: 160),
+          child: _saving
+              ? const SizedBox(
+                  key: ValueKey<String>('saving'),
+                  width: 23,
+                  height: 23,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(
+                      Colors.white,
+                    ),
+                  ),
+                )
+              : const Row(
+                  key: ValueKey<String>('submit'),
+                  mainAxisAlignment:
+                      MainAxisAlignment.center,
+                  children: <Widget>[
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 20,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'SUBMIT REVIEW',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // SKIP BUTTON
+  // ============================================================
+
+  Widget _buildSkipButton() {
+    return SizedBox(
+      height: 48,
+      width: double.infinity,
+      child: TextButton(
+        onPressed:
+            _saving ? null : _skipReview,
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.secondary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Text(
+              'Skip Review',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            SizedBox(width: 5),
+            Icon(
+              Icons.arrow_forward_rounded,
+              size: 17,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // SUBMIT
   // ============================================================
 
   Future<void> _submitReview() async {
     if (_saving || _navigatingHome) {
-      return;
-    }
-
-    if (!mounted) {
       return;
     }
 
@@ -545,7 +619,7 @@ class _LiveWalkReviewBottomSheetState
         return;
       }
 
-      await _closeAndReturnHome();
+      await _returnHome();
     } catch (error) {
       if (!mounted) {
         return;
@@ -560,20 +634,21 @@ class _LiveWalkReviewBottomSheetState
         ..showSnackBar(
           SnackBar(
             content: Text(
-              'Review save failed: '
-              '${_cleanError(error)}',
+              'Review save failed: ${_cleanError(error)}',
             ),
-            backgroundColor:
-                AppColors.error,
-            behavior:
-                SnackBarBehavior.floating,
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
     }
   }
 
   // ============================================================
-  // SKIP REVIEW
+  // SKIP
   // ============================================================
 
   Future<void> _skipReview() async {
@@ -581,14 +656,18 @@ class _LiveWalkReviewBottomSheetState
       return;
     }
 
-    await _closeAndReturnHome();
+    await _returnHome();
   }
 
   // ============================================================
-  // CLOSE SHEET + HOME
+  // CLOSE SHEET THEN RETURN HOME
+  //
+  // IMPORTANT:
+  // Do NOT pop the LiveWalkScreen here.
+  // The parent screen owns the navigation.
   // ============================================================
 
-  Future<void> _closeAndReturnHome() async {
+  Future<void> _returnHome() async {
     if (_navigatingHome) {
       return;
     }
@@ -602,22 +681,14 @@ class _LiveWalkReviewBottomSheetState
     Navigator.of(context).pop();
 
     await Future<void>.delayed(
-      const Duration(milliseconds: 80),
+      const Duration(milliseconds: 120),
     );
-
-    if (!mounted) {
-      return;
-    }
 
     widget.onBackToHome();
   }
 
   // ============================================================
-  // SAVE WALKER REVIEW
-  //
-  // 1. walkerReviews/{walkId}
-  // 2. walk_history/{walkId}.walkerReview
-  //
+  // SAVE REVIEW
   // ============================================================
 
   Future<void> _saveReview() async {
@@ -657,11 +728,17 @@ class _LiveWalkReviewBottomSheetState
     final Timestamp now =
         Timestamp.now();
 
-    // ==========================================================
-    // WALKER REVIEW DOCUMENT
-    //
-    // walkerReviews/{walkId}
-    // ==========================================================
+    final Map<String, dynamic> reviewData =
+        <String, dynamic>{
+      'walkId': walkId,
+      'walkerUid': walkerUid,
+      if (ownerUid.isNotEmpty)
+        'ownerUid': ownerUid,
+      'rating': _rating,
+      'note': note,
+      'reviewSubmitted': true,
+      'reviewedAt': now,
+    };
 
     final DocumentReference<
             Map<String, dynamic>>
@@ -670,38 +747,6 @@ class _LiveWalkReviewBottomSheetState
             .collection('walkerReviews')
             .doc(walkId);
 
-    final Map<String, dynamic> walkerReviewData =
-        <String, dynamic>{
-      'walkId': walkId,
-      'walkerUid': walkerUid,
-      if (ownerUid.isNotEmpty)
-        'ownerUid': ownerUid,
-      'rating': _rating,
-      'note': note,
-      'reviewSubmitted': true,
-      'reviewedAt': now,
-    };
-
-    // ==========================================================
-    // HISTORY REVIEW MAP
-    //
-    // walk_history/{walkId}
-    //
-    // walkerReview → Map
-    // ==========================================================
-
-    final Map<String, dynamic> walkerReviewMap =
-        <String, dynamic>{
-      'walkId': walkId,
-      'walkerUid': walkerUid,
-      if (ownerUid.isNotEmpty)
-        'ownerUid': ownerUid,
-      'rating': _rating,
-      'note': note,
-      'reviewSubmitted': true,
-      'reviewedAt': now,
-    };
-
     final DocumentReference<
             Map<String, dynamic>>
         historyRef =
@@ -709,46 +754,33 @@ class _LiveWalkReviewBottomSheetState
             .collection('walk_history')
             .doc(walkId);
 
-    // ==========================================================
-    // SAVE BOTH
-    //
-    // Firestore batch keeps both writes together.
-    // ==========================================================
-
     final WriteBatch batch =
         _firestore.batch();
 
     batch.set(
       walkerReviewRef,
-      walkerReviewData,
-      SetOptions(
-        merge: true,
-      ),
+      reviewData,
+      SetOptions(merge: true),
     );
 
     batch.set(
       historyRef,
       <String, dynamic>{
-        'walkerReview':
-            walkerReviewMap,
+        'walkerReview': reviewData,
         'updatedAt':
             FieldValue.serverTimestamp(),
       },
-      SetOptions(
-        merge: true,
-      ),
+      SetOptions(merge: true),
     );
 
     await batch.commit();
   }
 
   // ============================================================
-  // ERROR CLEAN
+  // ERROR
   // ============================================================
 
-  String _cleanError(
-    Object error,
-  ) {
+  String _cleanError(Object error) {
     if (error is FirebaseException) {
       final String message =
           error.message?.trim() ?? '';
