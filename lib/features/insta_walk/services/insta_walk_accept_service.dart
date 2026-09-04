@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../walks/services/walk_request_sound_service.dart';
+import '../../walker_accept/services/walker_location_service.dart';
 
 /// ============================================================
 /// INSTA WALK ACCEPT SERVICE
@@ -16,6 +17,13 @@ import '../../walks/services/walk_request_sound_service.dart';
 /// Accept flow:
 ///
 ///   searching → accepted
+///
+/// After successful accept:
+///
+///   WalkerLocationService.startTracking()
+///
+/// This means the walker GPS starts immediately after the
+/// walker successfully accepts the walk.
 ///
 /// Rejection:
 ///
@@ -39,6 +47,13 @@ class InstaWalkAcceptService {
 
   final FirebaseAuth _auth =
       FirebaseAuth.instance;
+
+  // ============================================================
+  // WALKER LOCATION SERVICE
+  // ============================================================
+
+  final WalkerLocationService _locationService =
+      WalkerLocationService();
 
   // ============================================================
   // COLLECTION
@@ -129,6 +144,10 @@ class InstaWalkAcceptService {
   // ACCEPT WALK
   //
   // searching → accepted
+  //
+  // IMPORTANT:
+  // GPS tracking starts ONLY after the Firestore transaction
+  // succeeds.
   // ============================================================
 
   Future<void> acceptWalk(
@@ -157,10 +176,6 @@ class InstaWalkAcceptService {
 
     // ==========================================================
     // WALKER BUSINESS ID
-    //
-    // IMPORTANT:
-    // This is now String, NOT String?.
-    // Therefore doc(walkerId) is type-safe.
     // ==========================================================
 
     final String walkerId =
@@ -287,7 +302,7 @@ class InstaWalkAcceptService {
             // Firebase Auth UID
             'walkerUid': walkerUid,
 
-            // Useful for compatibility
+            // Compatibility fields
             'acceptedBy': walkerId,
             'acceptedByUid': walkerUid,
 
@@ -302,9 +317,41 @@ class InstaWalkAcceptService {
     );
 
     // ==========================================================
-    // ACCEPT SUCCESS
+    // FIRESTORE ACCEPT SUCCESS
+    // ==========================================================
     //
-    // Only stop incoming ringtone after transaction succeeds.
+    // At this point:
+    //
+    // status     = accepted
+    // walkerId   = current walker business ID
+    // walkerUid  = Firebase Auth UID
+    //
+    // Only NOW start GPS tracking.
+    // ==========================================================
+
+    try {
+      await _locationService.startTracking(
+        requestId: id,
+      );
+    } catch (e) {
+      // --------------------------------------------------------
+      // IMPORTANT:
+      //
+      // Accept already succeeded in Firestore.
+      // Therefore GPS failure must NOT turn the accepted
+      // request into a failed accept.
+      // --------------------------------------------------------
+
+      // ignore: avoid_print
+      print(
+        'Unable to start walker location tracking: $e',
+      );
+    }
+
+    // ==========================================================
+    // STOP INCOMING REQUEST SOUND
+    //
+    // Sound failure must never undo a successful accept.
     // ==========================================================
 
     try {
@@ -312,16 +359,40 @@ class InstaWalkAcceptService {
           .instance
           .stopRequest(id);
     } catch (e) {
-      // Sound failure must NOT make a successful accept
-      // appear as a failed accept.
-      //
-      // The Firestore transaction has already succeeded.
-      //
-      // Log only.
       // ignore: avoid_print
       print(
         'Unable to stop walk request sound: $e',
       );
     }
+  }
+
+  // ============================================================
+  // STOP WALKER LOCATION TRACKING
+  //
+  // Call this when the accepted/on-the-way GPS lifecycle
+  // is finished, for example after the walk reaches its
+  // appropriate end state.
+  // ============================================================
+
+  Future<void> stopLocationTracking() async {
+    try {
+      await _locationService.stopTracking();
+    } catch (e) {
+      // ignore: avoid_print
+      print(
+        'Unable to stop walker location tracking: $e',
+      );
+    }
+  }
+
+  // ============================================================
+  // DISPOSE
+  //
+  // Can be called when the overall Insta Walk feature is
+  // permanently being disposed.
+  // ============================================================
+
+  Future<void> dispose() async {
+    await stopLocationTracking();
   }
 }
