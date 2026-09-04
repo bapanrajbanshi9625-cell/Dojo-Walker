@@ -7,7 +7,7 @@ class ProfileInfoCard2 extends StatelessWidget {
     super.key,
     this.title = 'Verification Information',
     this.message =
-        'आपकी जानकारी DOJO Platform verification के लिए भेजी जाएगी। Profile पूरा होने के बाद Admin approval तक Walker account pending रहेगा।',
+        'Your information will be submitted for DOJO Platform verification. After completing your profile, your Walker account will remain pending until Admin approval.',
   });
 
   final String title;
