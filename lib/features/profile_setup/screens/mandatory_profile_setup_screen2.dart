@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../services/cloudinary_service.dart';
+import '../../../core/services/cloudinary_service.dart';
 import '../services/profile_setup_service.dart';
 
 import '../widgets/address_section2.dart';
