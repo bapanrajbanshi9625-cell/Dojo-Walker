@@ -35,26 +35,24 @@ class ActiveWalkStripService {
   // ============================================================
   // PUBLIC WATCH
   //
-  // FLOW:
-  //
+  // PHASE 1:
   // walk_request
+  //   ACCEPTED
   //      ↓
-  // status = ACCEPTED
-  //      ↓
-  // SHOW STRIP
+  //   REACHED
   //
-  // liveWalkSessions
-  //      ↓
+  // PHASE 2:
+  // After REACHED, walk_request is no longer used.
+  //
+  // liveWalkSessions becomes the ONLY source.
+  //
   // ACTIVE / STARTED / LIVE / IN_PROGRESS
   //      ↓
-  // LIVE WALK
+  // LIVE STRIP
   //
-  // liveWalkSessions
+  // COMPLETED / ENDED / walkEnded / completedAt
   //      ↓
-  // COMPLETED / ENDED / CANCELLED
-  //      ↓
-  // HIDE STRIP
-  //
+  // HIDE
   // ============================================================
 
   Stream<ActiveWalkStripState> watch() {
@@ -92,7 +90,7 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // COMBINE REQUEST + SESSION STREAMS
+  // COMBINE STREAMS
   // ============================================================
 
   Stream<ActiveWalkStripState> _combineStreams(
@@ -105,11 +103,11 @@ class ActiveWalkStripService {
         controller =
         StreamController<ActiveWalkStripState>();
 
-    StreamSubscription<
+    late StreamSubscription<
             QuerySnapshot<Map<String, dynamic>>>
         requestSubscription;
 
-    StreamSubscription<
+    late StreamSubscription<
             QuerySnapshot<Map<String, dynamic>>>
         sessionSubscription;
 
@@ -119,6 +117,17 @@ class ActiveWalkStripService {
     QuerySnapshot<Map<String, dynamic>>?
         latestSessions;
 
+    // ==========================================================
+    // IMPORTANT STATE
+    //
+    // Once REACHED is detected from walk_request,
+    // request collection is NEVER used again for this watch.
+    // ==========================================================
+
+    bool reachedPhase = false;
+
+    String reachedWalkId = '';
+
     bool cancelled = false;
 
     void emit() {
@@ -126,13 +135,20 @@ class ActiveWalkStripService {
         return;
       }
 
-      controller.add(
-        _resolve(
-          requestSnapshot: latestRequests,
-          sessionSnapshot: latestSessions,
-        ),
+      final ActiveWalkStripState state =
+          _resolve(
+        requestSnapshot: latestRequests,
+        sessionSnapshot: latestSessions,
+        reachedPhase: reachedPhase,
+        reachedWalkId: reachedWalkId,
       );
+
+      controller.add(state);
     }
+
+    // ==========================================================
+    // REQUEST STREAM
+    // ==========================================================
 
     requestSubscription = requestStream.listen(
       (
@@ -140,6 +156,45 @@ class ActiveWalkStripService {
             snapshot,
       ) {
         latestRequests = snapshot;
+
+        // ======================================================
+        // BEFORE REACHED:
+        // Find ACCEPTED / REACHED request.
+        // ======================================================
+
+        if (!reachedPhase) {
+          final QueryDocumentSnapshot<
+                  Map<String, dynamic>>?
+              request =
+              _findCurrentRequest(
+            snapshot.docs,
+          );
+
+          if (request != null) {
+            final Map<String, dynamic> data =
+                request.data();
+
+            final String status =
+                _status(data['status']);
+
+            final String walkId =
+                _walkIdFromData(
+              data,
+              request.id,
+            );
+
+            // ==================================================
+            // REACHED = SWITCH TO SESSION-ONLY MODE
+            // ==================================================
+
+            if (_isReachedStatus(status) &&
+                walkId.isNotEmpty) {
+              reachedPhase = true;
+              reachedWalkId = walkId;
+            }
+          }
+        }
+
         emit();
       },
       onError: (
@@ -155,12 +210,56 @@ class ActiveWalkStripService {
       },
     );
 
+    // ==========================================================
+    // LIVE SESSION STREAM
+    // ==========================================================
+
     sessionSubscription = sessionStream.listen(
       (
         QuerySnapshot<Map<String, dynamic>>
             snapshot,
       ) {
         latestSessions = snapshot;
+
+        // ======================================================
+        // IMPORTANT:
+        //
+        // Even if request stream is stale,
+        // completed session MUST hide strip.
+        //
+        // If a session contains REACHED state, switch to
+        // session-only mode as well.
+        // ======================================================
+
+        if (!reachedPhase) {
+          final QueryDocumentSnapshot<
+                  Map<String, dynamic>>?
+              session =
+              _findLatestRelevantSession(
+            snapshot.docs,
+          );
+
+          if (session != null) {
+            final Map<String, dynamic> data =
+                session.data();
+
+            final String status =
+                _status(data['status']);
+
+            final String walkId =
+                _walkIdFromData(
+              data,
+              session.id,
+            );
+
+            if (_isReachedStatus(status) &&
+                walkId.isNotEmpty) {
+              reachedPhase = true;
+              reachedWalkId = walkId;
+            }
+          }
+        }
+
         emit();
       },
       onError: (
@@ -187,17 +286,7 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // RESOLVE CURRENT STRIP STATE
-  //
-  // PRIORITY:
-  //
-  // 1. Find accepted request
-  // 2. Check matching live session
-  // 3. Active session => LIVE WALK
-  // 4. Completed session => HIDE
-  // 5. Accepted request without live session => ACCEPTED STRIP
-  // 6. Nothing => HIDE
-  //
+  // RESOLVE
   // ============================================================
 
   ActiveWalkStripState _resolve({
@@ -205,6 +294,8 @@ class ActiveWalkStripService {
         requestSnapshot,
     QuerySnapshot<Map<String, dynamic>>?
         sessionSnapshot,
+    required bool reachedPhase,
+    required String reachedWalkId,
   }) {
     final List<QueryDocumentSnapshot<
             Map<String, dynamic>>>
@@ -223,41 +314,108 @@ class ActiveWalkStripService {
                     Map<String, dynamic>>>[];
 
     // ==========================================================
-    // STEP 1
-    // ACCEPTED REQUEST FROM walk_request
+    // PHASE 2
+    //
+    // REACHED HAS ALREADY HAPPENED.
+    //
+    // DO NOT READ walk_request ANYMORE.
+    // ONLY liveWalkSessions.
+    // ==========================================================
+
+    if (reachedPhase) {
+      if (reachedWalkId.trim().isEmpty) {
+        return const ActiveWalkStripState.hidden();
+      }
+
+      final QueryDocumentSnapshot<
+              Map<String, dynamic>>?
+          session =
+          _findLatestSessionForWalk(
+        sessionDocs,
+        reachedWalkId,
+      );
+
+      if (session == null) {
+        // Reached happened, but session has not appeared yet.
+        // Do NOT fall back to walk_request.
+        return const ActiveWalkStripState.hidden();
+      }
+
+      final Map<String, dynamic> data =
+          session.data();
+
+      // ========================================================
+      // COMPLETED = ALWAYS HIDE
+      // ========================================================
+
+      if (_isSessionCompleted(data)) {
+        return const ActiveWalkStripState.hidden();
+      }
+
+      final String status =
+          _status(data['status']);
+
+      // ========================================================
+      // ACTIVE LIVE WALK
+      // ========================================================
+
+      if (_isLiveStatus(status)) {
+        return ActiveWalkStripState(
+          show: true,
+          isLive: true,
+          walkId: reachedWalkId,
+        );
+      }
+
+      // Reached/session exists but not active yet.
+      return const ActiveWalkStripState.hidden();
+    }
+
+    // ==========================================================
+    // PHASE 1
+    //
+    // BEFORE REACHED ONLY.
+    // walk_request controls the strip.
     // ==========================================================
 
     final QueryDocumentSnapshot<
             Map<String, dynamic>>?
-        acceptedRequest =
-        _findAcceptedRequest(
-      requestDocs,
-    );
+        request =
+        _findCurrentRequest(requestDocs);
 
-    if (acceptedRequest == null) {
+    if (request == null) {
       return const ActiveWalkStripState.hidden();
     }
 
     final Map<String, dynamic> requestData =
-        acceptedRequest.data();
+        request.data();
+
+    final String requestStatus =
+        _status(requestData['status']);
 
     final String walkId =
         _walkIdFromData(
       requestData,
-      acceptedRequest.id,
+      request.id,
     );
 
     if (walkId.isEmpty) {
       return const ActiveWalkStripState.hidden();
     }
 
-    final String requestStatus =
-        _status(
-      requestData['status'],
-    );
+    // ==========================================================
+    // REACHED
+    //
+    // Do not show Accepted strip for REACHED.
+    // Reached will switch to session-only mode on next emit.
+    // ==========================================================
+
+    if (_isReachedStatus(requestStatus)) {
+      return const ActiveWalkStripState.hidden();
+    }
 
     // ==========================================================
-    // SAFETY CHECK
+    // REQUEST ENDED
     // ==========================================================
 
     if (_isRequestEnded(requestStatus)) {
@@ -265,54 +423,7 @@ class ActiveWalkStripService {
     }
 
     // ==========================================================
-    // STEP 2
-    // FIND LIVE SESSION FOR THIS WALK
-    // ==========================================================
-
-    final QueryDocumentSnapshot<
-            Map<String, dynamic>>?
-        matchingSession =
-        _findLatestSessionForWalk(
-      sessionDocs,
-      walkId,
-    );
-
-    if (matchingSession != null) {
-      final Map<String, dynamic> sessionData =
-          matchingSession.data();
-
-      final String sessionStatus =
-          _status(
-        sessionData['status'],
-      );
-
-      // ========================================================
-      // LIVE SESSION COMPLETED
-      // ========================================================
-
-      if (_isSessionEnded(sessionStatus)) {
-        return const ActiveWalkStripState.hidden();
-      }
-
-      // ========================================================
-      // LIVE SESSION ACTIVE
-      // ========================================================
-
-      if (_isLiveStatus(sessionStatus)) {
-        return ActiveWalkStripState(
-          show: true,
-          isLive: true,
-          walkId: walkId,
-        );
-      }
-    }
-
-    // ==========================================================
-    // STEP 3
-    // ACCEPTED REQUEST
-    //
-    // No active live session yet.
-    // Strip remains visible.
+    // ACCEPTED
     // ==========================================================
 
     if (_isAcceptedStatus(requestStatus)) {
@@ -327,15 +438,12 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // FIND ACCEPTED REQUEST
-  //
-  // SOURCE:
-  // walk_request
+  // FIND CURRENT REQUEST
   // ============================================================
 
   QueryDocumentSnapshot<
           Map<String, dynamic>>?
-      _findAcceptedRequest(
+      _findCurrentRequest(
     List<QueryDocumentSnapshot<
             Map<String, dynamic>>>
         documents,
@@ -354,7 +462,8 @@ class ActiveWalkStripService {
           document.data()['status'],
         );
 
-        return _isAcceptedStatus(status);
+        return _isAcceptedStatus(status) ||
+            _isReachedStatus(status);
       },
     ).toList();
 
@@ -381,10 +490,48 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // FIND LATEST SESSION FOR WALK
-  //
-  // SOURCE:
-  // liveWalkSessions
+  // FIND LATEST SESSION
+  // ============================================================
+
+  QueryDocumentSnapshot<
+          Map<String, dynamic>>?
+      _findLatestRelevantSession(
+    List<QueryDocumentSnapshot<
+            Map<String, dynamic>>>
+        documents,
+  ) {
+    if (documents.isEmpty) {
+      return null;
+    }
+
+    final List<QueryDocumentSnapshot<
+            Map<String, dynamic>>>
+        candidates =
+        List<QueryDocumentSnapshot<
+                Map<String, dynamic>>>.from(
+      documents,
+    );
+
+    candidates.sort(
+      (
+        QueryDocumentSnapshot<
+                Map<String, dynamic>>
+            a,
+        QueryDocumentSnapshot<
+                Map<String, dynamic>>
+            b,
+      ) {
+        return _documentTime(b).compareTo(
+          _documentTime(a),
+        );
+      },
+    );
+
+    return candidates.first;
+  }
+
+  // ============================================================
+  // FIND SESSION FOR SPECIFIC WALK
   // ============================================================
 
   QueryDocumentSnapshot<
@@ -444,7 +591,7 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // ACCEPTED STATUS
+  // ACCEPTED
   // ============================================================
 
   bool _isAcceptedStatus(
@@ -461,7 +608,25 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // LIVE STATUS
+  // REACHED
+  // ============================================================
+
+  bool _isReachedStatus(
+    String status,
+  ) {
+    switch (status) {
+      case 'REACHED':
+      case 'ARRIVED':
+      case 'READY':
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  // ============================================================
+  // LIVE
   // ============================================================
 
   bool _isLiveStatus(
@@ -472,8 +637,6 @@ class ActiveWalkStripService {
       case 'STARTED':
       case 'LIVE':
       case 'IN_PROGRESS':
-      case 'REACHED':
-      case 'ARRIVED':
         return true;
 
       default:
@@ -482,9 +645,7 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // REQUEST END STATUS
-  //
-  // Used only for walk_request.
+  // REQUEST END
   // ============================================================
 
   bool _isRequestEnded(
@@ -506,24 +667,31 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // SESSION END STATUS
-  //
-  // Completion comes from liveWalkSessions.
+  // SESSION COMPLETION
   // ============================================================
 
-  bool _isSessionEnded(
-    String status,
+  bool _isSessionCompleted(
+    Map<String, dynamic> data,
   ) {
-    switch (status) {
-      case 'COMPLETED':
-      case 'ENDED':
-      case 'CANCELLED':
-      case 'CANCELED':
-        return true;
+    final String status =
+        _status(data['status']);
 
-      default:
-        return false;
+    if (status == 'COMPLETED' ||
+        status == 'ENDED' ||
+        status == 'CANCELLED' ||
+        status == 'CANCELED') {
+      return true;
     }
+
+    if (data['walkEnded'] == true) {
+      return true;
+    }
+
+    if (data['completedAt'] != null) {
+      return true;
+    }
+
+    return false;
   }
 
   // ============================================================
@@ -553,7 +721,7 @@ class ActiveWalkStripService {
   }
 
   // ============================================================
-  // STATUS NORMALIZATION
+  // STATUS
   // ============================================================
 
   String _status(
