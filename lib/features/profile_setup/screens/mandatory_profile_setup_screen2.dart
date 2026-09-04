@@ -1,12 +1,17 @@
 // File:
 // lib/features/profile_setup/screens/mandatory_profile_setup_screen2.dart
 
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../services/cloudinary_service.dart';
 import '../services/profile_setup_service.dart';
+
 import '../widgets/address_section2.dart';
 import '../widgets/aadhaar_section2.dart';
 import '../widgets/emergency_contact_section2.dart';
@@ -49,7 +54,17 @@ class _MandatoryProfileSetupScreen2State
       FirebaseAuth.instance;
 
   // ============================================================
+  // IMAGE PICKER
+  // ============================================================
+
+  final ImagePicker _picker = ImagePicker();
+
+  // ============================================================
   // CONTROLLERS
+  //
+  // IMPORTANT:
+  // These controllers now store Cloudinary URLs internally.
+  // There is NO URL input field in the UI.
   // ============================================================
 
   final TextEditingController aadhaarController =
@@ -94,6 +109,10 @@ class _MandatoryProfileSetupScreen2State
 
   bool _saving = false;
 
+  bool _uploadingAadhaarFront = false;
+  bool _uploadingAadhaarBack = false;
+  bool _uploadingPanCard = false;
+
   // ============================================================
   // CURRENT USER
   // ============================================================
@@ -131,11 +150,27 @@ class _MandatoryProfileSetupScreen2State
       districtController.text.trim(),
       stateController.text.trim(),
       pinController.text.trim(),
-    ].where(
-      (String value) => value.isNotEmpty,
-    ).toList();
+    ]
+        .where(
+          (String value) => value.isNotEmpty,
+        )
+        .toList();
 
     return parts.join(', ');
+  }
+
+  // ============================================================
+  // BUSY
+  // ============================================================
+
+  bool get imageUploading {
+    return _uploadingAadhaarFront ||
+        _uploadingAadhaarBack ||
+        _uploadingPanCard;
+  }
+
+  bool get busy {
+    return _saving || imageUploading;
   }
 
   // ============================================================
@@ -191,137 +226,189 @@ class _MandatoryProfileSetupScreen2State
   }
 
   // ============================================================
-  // URL VALIDATOR
+  // CAMERA / GALLERY CHOOSER
   // ============================================================
 
-  bool isValidUrl(String value) {
-    final String cleanValue = value.trim();
-
-    if (cleanValue.isEmpty) {
-      return false;
-    }
-
-    final Uri? uri = Uri.tryParse(cleanValue);
-
-    if (uri == null || uri.host.isEmpty) {
-      return false;
-    }
-
-    return uri.scheme == 'http' ||
-        uri.scheme == 'https';
-  }
-
-  // ============================================================
-  // IMAGE URL DIALOG
-  // ============================================================
-
-  Future<String?> askForImageUrl({
+  Future<ImageSource?> chooseImageSource({
     required String title,
-    required String currentValue,
   }) async {
-    final TextEditingController controller =
-        TextEditingController(
-      text: currentValue,
-    );
+    if (busy) {
+      return null;
+    }
 
-    final String? result =
-        await showDialog<String>(
+    return showModalBottomSheet<ImageSource>(
       context: context,
-      builder: (
-        BuildContext dialogContext,
-      ) {
-        return AlertDialog(
-          backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-          title: Text(
-            title,
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              color: AppColors.textDark,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(28),
+        ),
+      ),
+      builder: (BuildContext sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              18,
+              20,
+              25,
             ),
-          ),
-          content: TextField(
-            controller: controller,
-            keyboardType: TextInputType.url,
-            textInputAction: TextInputAction.done,
-            autofocus: true,
-            decoration: InputDecoration(
-              labelText: 'Image URL',
-              hintText: 'https://...',
-              prefixIcon: const Icon(
-                Icons.link_rounded,
-                color: AppColors.blue,
-              ),
-              filled: true,
-              fillColor: AppColors.background,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: const BorderSide(
-                  color: AppColors.border,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius:
+                        BorderRadius.circular(10),
+                  ),
                 ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: const BorderSide(
-                  color: AppColors.green,
-                  width: 1.5,
+                const SizedBox(height: 20),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textDark,
+                  ),
                 ),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-              child: const Text('CANCEL'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.green,
-                foregroundColor: AppColors.onPrimary,
-                elevation: 0,
-              ),
-              onPressed: () {
-                final String value =
-                    controller.text.trim();
-
-                if (!isValidUrl(value)) {
-                  ScaffoldMessenger.of(
-                    dialogContext,
-                  )
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Please enter a valid http/https image URL.',
-                        ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Take a photo or choose from gallery',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.muted,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _sourceButton(
+                        context: sheetContext,
+                        icon:
+                            Icons.camera_alt_rounded,
+                        title: 'Camera',
+                        source:
+                            ImageSource.camera,
                       ),
-                    );
-
-                  return;
-                }
-
-                Navigator.of(dialogContext).pop(value);
-              },
-              child: const Text(
-                'SAVE',
-              ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _sourceButton(
+                        context: sheetContext,
+                        icon:
+                            Icons.photo_library_rounded,
+                        title: 'Gallery',
+                        source:
+                            ImageSource.gallery,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
+  }
 
-    controller.dispose();
+  // ============================================================
+  // SOURCE BUTTON
+  // ============================================================
 
-    return result;
+  Widget _sourceButton({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required ImageSource source,
+  }) {
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).pop(source);
+      },
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(
+          vertical: 18,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius:
+              BorderRadius.circular(18),
+          border: Border.all(
+            color: AppColors.border,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 30,
+              color: AppColors.orange,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: AppColors.textDark,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // GENERIC IMAGE PICK + CLOUDINARY UPLOAD
+  // ============================================================
+
+  Future<String?> pickAndUploadImage({
+    required String pickerTitle,
+    required String cloudinaryFolder,
+  }) async {
+    final ImageSource? source =
+        await chooseImageSource(
+      title: pickerTitle,
+    );
+
+    if (source == null || !mounted) {
+      return null;
+    }
+
+    final XFile? picked =
+        await _picker.pickImage(
+      source: source,
+      imageQuality: 88,
+      maxWidth: 2000,
+    );
+
+    if (picked == null) {
+      return null;
+    }
+
+    final File file = File(picked.path);
+
+    if (!await file.exists()) {
+      throw Exception(
+        'Selected image was not found.',
+      );
+    }
+
+    final String url =
+        await CloudinaryService.uploadImage(
+      file: file,
+      folder: cloudinaryFolder,
+    );
+
+    return url.trim();
   }
 
   // ============================================================
@@ -329,23 +416,65 @@ class _MandatoryProfileSetupScreen2State
   // ============================================================
 
   Future<void> selectAadhaarFront() async {
-    if (_saving) {
+    if (busy) {
       return;
     }
 
-    final String? url = await askForImageUrl(
-      title: 'Aadhaar Front Image',
-      currentValue:
-          aadhaarFrontUrlController.text.trim(),
-    );
+    try {
+      setState(() {
+        _uploadingAadhaarFront = true;
+      });
 
-    if (url == null || !mounted) {
-      return;
+      showMessage(
+        'Select Aadhaar Front image...',
+        true,
+      );
+
+      final String? url =
+          await pickAndUploadImage(
+        pickerTitle: 'Aadhaar Front',
+        cloudinaryFolder:
+            'dojo_walker/aadhaar',
+      );
+
+      if (url == null || !mounted) {
+        setState(() {
+          _uploadingAadhaarFront = false;
+        });
+        return;
+      }
+
+      setState(() {
+        aadhaarFrontUrlController.text = url;
+        _uploadingAadhaarFront = false;
+      });
+
+      showMessage(
+        'Aadhaar Front uploaded successfully.',
+        true,
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _uploadingAadhaarFront = false;
+      });
+
+      final String message =
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              );
+
+      showMessage(
+        message.isEmpty
+            ? 'Unable to upload Aadhaar Front.'
+            : message,
+        false,
+      );
     }
-
-    setState(() {
-      aadhaarFrontUrlController.text = url;
-    });
   }
 
   // ============================================================
@@ -353,23 +482,65 @@ class _MandatoryProfileSetupScreen2State
   // ============================================================
 
   Future<void> selectAadhaarBack() async {
-    if (_saving) {
+    if (busy) {
       return;
     }
 
-    final String? url = await askForImageUrl(
-      title: 'Aadhaar Back Image',
-      currentValue:
-          aadhaarBackUrlController.text.trim(),
-    );
+    try {
+      setState(() {
+        _uploadingAadhaarBack = true;
+      });
 
-    if (url == null || !mounted) {
-      return;
+      showMessage(
+        'Select Aadhaar Back image...',
+        true,
+      );
+
+      final String? url =
+          await pickAndUploadImage(
+        pickerTitle: 'Aadhaar Back',
+        cloudinaryFolder:
+            'dojo_walker/aadhaar',
+      );
+
+      if (url == null || !mounted) {
+        setState(() {
+          _uploadingAadhaarBack = false;
+        });
+        return;
+      }
+
+      setState(() {
+        aadhaarBackUrlController.text = url;
+        _uploadingAadhaarBack = false;
+      });
+
+      showMessage(
+        'Aadhaar Back uploaded successfully.',
+        true,
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _uploadingAadhaarBack = false;
+      });
+
+      final String message =
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              );
+
+      showMessage(
+        message.isEmpty
+            ? 'Unable to upload Aadhaar Back.'
+            : message,
+        false,
+      );
     }
-
-    setState(() {
-      aadhaarBackUrlController.text = url;
-    });
   }
 
   // ============================================================
@@ -377,23 +548,65 @@ class _MandatoryProfileSetupScreen2State
   // ============================================================
 
   Future<void> selectPanCard() async {
-    if (_saving) {
+    if (busy) {
       return;
     }
 
-    final String? url = await askForImageUrl(
-      title: 'PAN Card Image',
-      currentValue:
-          panCardUrlController.text.trim(),
-    );
+    try {
+      setState(() {
+        _uploadingPanCard = true;
+      });
 
-    if (url == null || !mounted) {
-      return;
+      showMessage(
+        'Select PAN Card image...',
+        true,
+      );
+
+      final String? url =
+          await pickAndUploadImage(
+        pickerTitle: 'PAN Card',
+        cloudinaryFolder:
+            'dojo_walker/pan',
+      );
+
+      if (url == null || !mounted) {
+        setState(() {
+          _uploadingPanCard = false;
+        });
+        return;
+      }
+
+      setState(() {
+        panCardUrlController.text = url;
+        _uploadingPanCard = false;
+      });
+
+      showMessage(
+        'PAN Card uploaded successfully.',
+        true,
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _uploadingPanCard = false;
+      });
+
+      final String message =
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              );
+
+      showMessage(
+        message.isEmpty
+            ? 'Unable to upload PAN Card.'
+            : message,
+        false,
+      );
     }
-
-    setState(() {
-      panCardUrlController.text = url;
-    });
   }
 
   // ============================================================
@@ -438,14 +651,6 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    if (!isValidUrl(selfie)) {
-      showMessage(
-        'Profile selfie URL is invalid.',
-        false,
-      );
-      return false;
-    }
-
     // ==========================================================
     // AADHAAR NUMBER
     // ==========================================================
@@ -453,7 +658,8 @@ class _MandatoryProfileSetupScreen2State
     final String aadhaar =
         aadhaarController.text.trim();
 
-    if (!RegExp(r'^\d{12}$').hasMatch(aadhaar)) {
+    if (!RegExp(r'^\d{12}$')
+        .hasMatch(aadhaar)) {
       showMessage(
         'Enter a valid 12-digit Aadhaar number.',
         false,
@@ -476,14 +682,6 @@ class _MandatoryProfileSetupScreen2State
       return false;
     }
 
-    if (!isValidUrl(aadhaarFront)) {
-      showMessage(
-        'Aadhaar Front image URL is invalid.',
-        false,
-      );
-      return false;
-    }
-
     // ==========================================================
     // AADHAAR BACK
     // ==========================================================
@@ -494,14 +692,6 @@ class _MandatoryProfileSetupScreen2State
     if (aadhaarBack.isEmpty) {
       showMessage(
         'Please add Aadhaar Back document.',
-        false,
-      );
-      return false;
-    }
-
-    if (!isValidUrl(aadhaarBack)) {
-      showMessage(
-        'Aadhaar Back image URL is invalid.',
         false,
       );
       return false;
@@ -536,14 +726,6 @@ class _MandatoryProfileSetupScreen2State
     if (panImage.isEmpty) {
       showMessage(
         'Please add PAN Card document.',
-        false,
-      );
-      return false;
-    }
-
-    if (!isValidUrl(panImage)) {
-      showMessage(
-        'PAN Card image URL is invalid.',
         false,
       );
       return false;
@@ -588,7 +770,8 @@ class _MandatoryProfileSetupScreen2State
     final String pin =
         pinController.text.trim();
 
-    if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
+    if (!RegExp(r'^\d{6}$')
+        .hasMatch(pin)) {
       showMessage(
         'Enter a valid 6-digit PIN code.',
         false,
@@ -624,9 +807,8 @@ class _MandatoryProfileSetupScreen2State
         return false;
       }
 
-      if (!RegExp(
-        r'^\d{10}$',
-      ).hasMatch(emergencyMobile)) {
+      if (!RegExp(r'^\d{10}$')
+          .hasMatch(emergencyMobile)) {
         showMessage(
           'Enter a valid 10-digit emergency mobile number.',
           false,
@@ -645,7 +827,7 @@ class _MandatoryProfileSetupScreen2State
   Future<void> submitProfile() async {
     FocusScope.of(context).unfocus();
 
-    if (_saving) {
+    if (_saving || imageUploading) {
       return;
     }
 
@@ -730,48 +912,26 @@ class _MandatoryProfileSetupScreen2State
 
       // ========================================================
       // MAIN PROFILE SAVE
-      //
-      // ProfileSetupService handles:
-      // - walkers/{uid}
-      // - selfie
-      // - Aadhaar
-      // - PAN
-      // - profileCompleted
-      // - verificationStatus=pending
-      // - approvalStatus=pending
       // ========================================================
 
       await ProfileSetupService.saveWalkerProfile(
         authUid: uid,
         phone: phone,
-
         name: fullName,
         dateOfBirth: widget.dateOfBirth,
-
         address: address,
         pinCode: pinCode,
-
         profileImageUrl: selfie,
-
         aadhaarNumber: aadhaar,
-
         aadhaarFrontUrl: aadhaarFront,
         aadhaarBackUrl: aadhaarBack,
-
         panNumber: panNumber,
         panCardUrl: panCard,
-
         selfieUrl: selfie,
       );
 
       // ========================================================
-      // ADDITIONAL WALKER DATA
-      //
-      // ProfileSetupService currently does not accept:
-      // - gender
-      // - emergency contact
-      //
-      // So these are synced here without replacing the profile.
+      // WALKER DATA
       // ========================================================
 
       final String walkerId =
@@ -785,7 +945,7 @@ class _MandatoryProfileSetupScreen2State
           .set(
         <String, dynamic>{
           // ----------------------------------------------------
-          // IDENTITY COMPATIBILITY
+          // IDENTITY
           // ----------------------------------------------------
 
           'authUid': uid,
@@ -820,7 +980,7 @@ class _MandatoryProfileSetupScreen2State
           'Gender': gender,
 
           // ----------------------------------------------------
-          // SELFIE COMPATIBILITY
+          // SELFIE
           // ----------------------------------------------------
 
           'selfie': selfie,
@@ -831,7 +991,7 @@ class _MandatoryProfileSetupScreen2State
           'selfieUrl': selfie,
 
           // ----------------------------------------------------
-          // AADHAAR COMPATIBILITY
+          // AADHAAR
           // ----------------------------------------------------
 
           'aadhaarNumber': aadhaar,
@@ -855,7 +1015,7 @@ class _MandatoryProfileSetupScreen2State
           'aadhaarBackUploaded': true,
 
           // ----------------------------------------------------
-          // PAN COMPATIBILITY
+          // PAN
           // ----------------------------------------------------
 
           'panNumber': panNumber,
@@ -870,7 +1030,7 @@ class _MandatoryProfileSetupScreen2State
           'panCardUploaded': true,
 
           // ----------------------------------------------------
-          // ADDRESS COMPATIBILITY
+          // ADDRESS
           // ----------------------------------------------------
 
           'village':
@@ -912,10 +1072,7 @@ class _MandatoryProfileSetupScreen2State
               emergencyMobile,
 
           // ----------------------------------------------------
-          // VERIFICATION STATE
-          //
-          // IMPORTANT:
-          // Profile completion != admin approval.
+          // VERIFICATION
           // ----------------------------------------------------
 
           'profileCompleted': true,
@@ -1001,9 +1158,8 @@ class _MandatoryProfileSetupScreen2State
           SetOptions(merge: true),
         );
       } catch (_) {
-        // Users sync is secondary.
-        //
-        // The main walker profile has already been saved.
+        // Secondary sync.
+        // Main walker profile is already saved.
       }
 
       // ========================================================
@@ -1173,7 +1329,7 @@ class _MandatoryProfileSetupScreen2State
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !_saving,
+      canPop: !_saving && !imageUploading,
       child: Scaffold(
         backgroundColor:
             AppColors.background,
@@ -1390,7 +1546,8 @@ class _MandatoryProfileSetupScreen2State
                         onAadhaarBackTap:
                             selectAadhaarBack,
                         enabled:
-                            !_saving,
+                            !_saving &&
+                                !imageUploading,
                       ),
 
                       const SizedBox(
@@ -1419,7 +1576,8 @@ class _MandatoryProfileSetupScreen2State
                         onTap:
                             selectPanCard,
                         enabled:
-                            !_saving,
+                            !_saving &&
+                                !imageUploading,
                       ),
 
                       const SizedBox(
@@ -1444,7 +1602,8 @@ class _MandatoryProfileSetupScreen2State
                         fullAddress:
                             fullAddress,
                         enabled:
-                            !_saving,
+                            !_saving &&
+                                !imageUploading,
                       ),
 
                       const SizedBox(
@@ -1461,7 +1620,8 @@ class _MandatoryProfileSetupScreen2State
                         mobileController:
                             emergencyMobileController,
                         enabled:
-                            !_saving,
+                            !_saving &&
+                                !imageUploading,
                       ),
 
                       const SizedBox(
