@@ -10,11 +10,9 @@ class CloudinaryService {
   // CLOUDINARY CONFIG
   // ============================================================
 
-  static const String cloudName =
-      'kdkwevh4';
+  static const String cloudName = 'kdkwevh4';
 
-  static const String uploadPreset =
-      'dojo_walker';
+  static const String uploadPreset = 'dojo_walker';
 
   // ============================================================
   // UPLOAD IMAGE
@@ -38,8 +36,7 @@ class CloudinaryService {
     // CLOUD NAME CHECK
     // ----------------------------------------------------------
 
-    if (cloudName.trim().isEmpty ||
-        cloudName == 'kdkwevh4') {
+    if (cloudName.trim().isEmpty) {
       throw Exception(
         'Cloudinary Cloud Name is not configured.',
       );
@@ -68,17 +65,14 @@ class CloudinaryService {
     // UNSIGNED UPLOAD PRESET
     // ----------------------------------------------------------
 
-    request.fields['upload_preset'] =
-        uploadPreset;
+    request.fields['upload_preset'] = uploadPreset;
 
     // ----------------------------------------------------------
     // OPTIONAL FOLDER
     // ----------------------------------------------------------
 
-    if (folder != null &&
-        folder.trim().isNotEmpty) {
-      request.fields['folder'] =
-          folder.trim();
+    if (folder != null && folder.trim().isNotEmpty) {
+      request.fields['folder'] = folder.trim();
     }
 
     // ----------------------------------------------------------
@@ -93,11 +87,10 @@ class CloudinaryService {
     );
 
     // ----------------------------------------------------------
-    // SEND
+    // SEND REQUEST
     // ----------------------------------------------------------
 
-    final http.StreamedResponse
-        streamedResponse =
+    final http.StreamedResponse streamedResponse =
         await request.send();
 
     final http.Response response =
@@ -106,7 +99,7 @@ class CloudinaryService {
     );
 
     // ----------------------------------------------------------
-    // ERROR
+    // ERROR HANDLING
     // ----------------------------------------------------------
 
     if (response.statusCode < 200 ||
@@ -118,44 +111,36 @@ class CloudinaryService {
         final dynamic decoded =
             jsonDecode(response.body);
 
-        if (decoded
-            is Map<String, dynamic>) {
-          final dynamic error =
-              decoded['error'];
+        if (decoded is Map<String, dynamic>) {
+          final dynamic error = decoded['error'];
 
-          if (error
-              is Map<String, dynamic>) {
+          if (error is Map<String, dynamic>) {
             final String? cloudinaryMessage =
                 error['message']?.toString();
 
             if (cloudinaryMessage != null &&
-                cloudinaryMessage
-                    .trim()
-                    .isNotEmpty) {
-              message =
-                  cloudinaryMessage;
+                cloudinaryMessage.trim().isNotEmpty) {
+              message = cloudinaryMessage;
             }
           }
         }
       } catch (_) {
-        // Keep default message.
+        // Keep default error message.
       }
 
       throw Exception(
-        '$message '
-        '(HTTP ${response.statusCode})',
+        '$message (HTTP ${response.statusCode})',
       );
     }
 
     // ----------------------------------------------------------
-    // RESPONSE
+    // RESPONSE JSON
     // ----------------------------------------------------------
 
     final dynamic decoded =
         jsonDecode(response.body);
 
-    if (decoded
-        is! Map<String, dynamic>) {
+    if (decoded is! Map<String, dynamic>) {
       throw Exception(
         'Invalid response received from Cloudinary.',
       );
