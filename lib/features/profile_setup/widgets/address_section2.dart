@@ -1096,87 +1096,87 @@ class _AddressSection2State
   // ==========================================================
 
   Widget _dropdown({
-    required String label,
-    required IconData icon,
-    required String? value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-    required String hint,
-  }) {
-    final bool hasValidValue =
-        value != null &&
-        value.trim().isNotEmpty &&
-        items.contains(value);
+  required String label,
+  required IconData icon,
+  required String? value,
+  required List<String> items,
+  required ValueChanged<String?> onChanged,
+  required String hint,
+}) {
+  final bool hasValidValue =
+      value != null &&
+      value.trim().isNotEmpty &&
+      items.contains(value);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: DropdownButtonFormField<String>(
-        value: hasValidValue ? value : null,
-        isExpanded: true,
-        onChanged: widget.enabled
-            ? onChanged
-            : null,
-        icon: const Icon(
-          Icons.keyboard_arrow_down_rounded,
-        ),
-        style: const TextStyle(
-          color: AppColors.textDark,
-          fontWeight: FontWeight.w600,
-          fontSize: 15,
-        ),
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          labelStyle: const TextStyle(
-            color: AppColors.muted,
-          ),
-          hintStyle: const TextStyle(
-            color: AppColors.muted,
-            fontSize: 13,
-          ),
-          prefixIcon: Icon(
-            icon,
-            color: AppColors.blue,
-          ),
-          filled: true,
-          fillColor: AppColors.surface,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(
-              color: AppColors.border,
-            ),
-          ),
-          disabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(
-              color: AppColors.border,
-            ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(
-              color: AppColors.green,
-              width: 1.5,
-            ),
-          ),
-        ),
-        items: items.map(
-          (String item) {
-            return DropdownMenuItem<String>(
-              value: item,
-              child: Text(
-                item,
-                overflow: TextOverflow.ellipsis,
-              ),
-            );
-          },
-        ).toList(),
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 14),
+    child: DropdownButtonFormField<String>(
+      initialValue: hasValidValue ? value : null,
+      isExpanded: true,
+      onChanged: widget.enabled
+          ? onChanged
+          : null,
+      icon: const Icon(
+        Icons.keyboard_arrow_down_rounded,
       ),
-    );
+      style: const TextStyle(
+        color: AppColors.textDark,
+        fontWeight: FontWeight.w600,
+        fontSize: 15,
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        labelStyle: const TextStyle(
+          color: AppColors.muted,
+        ),
+        hintStyle: const TextStyle(
+          color: AppColors.muted,
+          fontSize: 13,
+        ),
+        prefixIcon: Icon(
+          icon,
+          color: AppColors.blue,
+        ),
+        filled: true,
+        fillColor: AppColors.surface,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(
+            color: AppColors.border,
+          ),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(
+            color: AppColors.border,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(
+            color: AppColors.green,
+            width: 1.5,
+          ),
+        ),
+      ),
+      items: items.map(
+        (String item) {
+          return DropdownMenuItem<String>(
+            value: item,
+            child: Text(
+              item,
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        },
+      ).toList(),
+    ),
+  );
   }
 
   // ==========================================================
