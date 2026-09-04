@@ -89,21 +89,20 @@ class ProfileSummaryCard2 extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
+
           _summaryRow(
             'Full Name',
             name,
           ),
+
           _summaryRow(
             'Date Of Birth',
             formattedDateOfBirth,
           ),
+
           _summaryRow(
             'Gender',
             gender,
-          ),
-          _summaryRow(
-            'Walker Role',
-            'Walker',
           ),
         ],
       ),
