@@ -62,7 +62,6 @@ class _MandatoryProfileSetupScreen2State
   // ============================================================
   // CONTROLLERS
   //
-  // IMPORTANT:
   // These controllers store Cloudinary secure URLs internally.
   // There is NO manual URL input field.
   // ============================================================
@@ -236,7 +235,17 @@ class _MandatoryProfileSetupScreen2State
   Future<ImageSource?> chooseImageSource({
     required String title,
   }) async {
-    if (busy) {
+    // IMPORTANT:
+    // Do not check imageUploading here.
+    //
+    // The Aadhaar/PAN upload method sets its uploading flag
+    // before opening this chooser. Checking busy here would
+    // immediately block the Camera/Gallery sheet.
+    //
+    // Saving the complete profile is the only state that must
+    // block opening the image source chooser.
+
+    if (_saving) {
       return null;
     }
 
