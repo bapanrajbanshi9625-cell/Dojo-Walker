@@ -150,7 +150,7 @@ class _LiveWalkCompleteSliderState
         _completed
             ? AppColors.success
             : widget.enabled
-                ? AppColors.error
+                ? AppColors.primary
                 : Colors.grey.shade400;
 
     return AnimatedContainer(
@@ -161,11 +161,21 @@ class _LiveWalkCompleteSliderState
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(22),
-        boxShadow: const <BoxShadow>[
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.18),
+          width: 1,
+        ),
+        boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Color(0x24000000),
-            blurRadius: 14,
-            offset: Offset(0, 6),
+            color: backgroundColor.withValues(alpha: 0.30),
+            blurRadius: 18,
+            spreadRadius: 0,
+            offset: const Offset(0, 7),
+          ),
+          const BoxShadow(
+            color: Color(0x18000000),
+            blurRadius: 8,
+            offset: Offset(0, 3),
           ),
         ],
       ),
@@ -174,7 +184,7 @@ class _LiveWalkCompleteSliderState
         alignment: Alignment.center,
         children: <Widget>[
           // ======================================================
-          // PROGRESS FILL
+          // PREMIUM PROGRESS FILL
           // ======================================================
 
           Positioned.fill(
@@ -183,12 +193,30 @@ class _LiveWalkCompleteSliderState
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 80),
                 curve: Curves.easeOut,
-                width: MediaQuery.sizeOf(context).width *
-                    _value,
+                width:
+                    MediaQuery.sizeOf(context).width * _value,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(
-                    alpha: 0.12,
+                    alpha: 0.14,
                   ),
+                ),
+              ),
+            ),
+          ),
+
+          // ======================================================
+          // SUBTLE INNER HIGHLIGHT
+          // ======================================================
+
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: IgnorePointer(
+              child: Container(
+                height: 1,
+                color: Colors.white.withValues(
+                  alpha: 0.20,
                 ),
               ),
             ),
@@ -202,7 +230,7 @@ class _LiveWalkCompleteSliderState
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 72,
+                  horizontal: 76,
                 ),
                 child: AnimatedSwitcher(
                   duration: const Duration(
@@ -218,7 +246,7 @@ class _LiveWalkCompleteSliderState
                       color: Colors.white,
                       fontSize: 14,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: 0.1,
+                      letterSpacing: 0.15,
                     ),
                   ),
                 ),
@@ -248,7 +276,7 @@ class _LiveWalkCompleteSliderState
                 thumbShape: const _CompleteThumbShape(),
                 overlayShape:
                     const RoundSliderOverlayShape(
-                  overlayRadius: 27,
+                  overlayRadius: 28,
                 ),
               ),
               child: Slider(
@@ -264,7 +292,7 @@ class _LiveWalkCompleteSliderState
           ),
 
           // ======================================================
-          // LEFT / THUMB HINT
+          // LEFT THUMB HINT
           // ======================================================
 
           Positioned(
@@ -280,13 +308,11 @@ class _LiveWalkCompleteSliderState
                         width: 52,
                         height: 52,
                         child: Center(
-                          child:
-                              CircularProgressIndicator(
+                          child: CircularProgressIndicator(
                             strokeWidth: 2.5,
                             valueColor:
-                                AlwaysStoppedAnimation<
-                                    Color>(
-                              AppColors.error,
+                                AlwaysStoppedAnimation<Color>(
+                              Colors.white,
                             ),
                           ),
                         ),
@@ -312,7 +338,7 @@ class _LiveWalkCompleteSliderState
 }
 
 // ==================================================================
-// THUMB
+// PREMIUM THUMB
 // ==================================================================
 
 class _CompleteThumbShape
@@ -345,14 +371,14 @@ class _CompleteThumbShape
     final Canvas canvas = context.canvas;
 
     // ------------------------------------------------------------
-    // SHADOW
+    // PREMIUM SHADOW
     // ------------------------------------------------------------
 
     final Paint shadowPaint = Paint()
-      ..color = const Color(0x22000000)
+      ..color = const Color(0x30000000)
       ..maskFilter = const MaskFilter.blur(
         BlurStyle.normal,
-        4,
+        5,
       );
 
     canvas.drawCircle(
@@ -376,12 +402,29 @@ class _CompleteThumbShape
     );
 
     // ------------------------------------------------------------
-    // ARROW
+    // SUBTLE INNER RING
+    // ------------------------------------------------------------
+
+    final Paint ringPaint = Paint()
+      ..color = AppColors.primary.withValues(
+        alpha: 0.10,
+      )
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    canvas.drawCircle(
+      center,
+      21.5,
+      ringPaint,
+    );
+
+    // ------------------------------------------------------------
+    // ORANGE ARROW
     // ------------------------------------------------------------
 
     final Paint arrowPaint = Paint()
-      ..color = AppColors.error
-      ..strokeWidth = 3
+      ..color = AppColors.primary
+      ..strokeWidth = 3.2
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
@@ -416,7 +459,7 @@ class _CompleteThumbShape
 }
 
 // ==================================================================
-// ARROW ICON
+// PREMIUM ARROW ICON
 // ==================================================================
 
 class _ArrowIcon extends StatelessWidget {
@@ -429,14 +472,21 @@ class _ArrowIcon extends StatelessWidget {
     return Container(
       width: 52,
       height: 52,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x28000000),
+            blurRadius: 7,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: const Icon(
         Icons.arrow_forward_rounded,
-        color: AppColors.error,
-        size: 26,
+        color: AppColors.primary,
+        size: 27,
       ),
     );
   }
@@ -459,6 +509,13 @@ class _CompleteIcon extends StatelessWidget {
       decoration: const BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 7,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
       child: const Icon(
         Icons.check_rounded,
