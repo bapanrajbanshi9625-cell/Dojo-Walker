@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants/app_colors.dart';
 import '../features/walker_home/containers/walker_home_header.dart';
 import 'mobile_login_screen.dart';
-import 'profile_screen.dart';
+import '../features/profile/screens/profile_screen.dart';
 
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
