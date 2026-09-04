@@ -29,9 +29,8 @@ class DocumentCard2 extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final bool added = hasDocument;
-    final bool enabled = onTap != null;
+Widget build(BuildContext context) {
+  final bool added = hasDocument;
 
     return Material(
       color: Colors.transparent,
@@ -46,8 +45,8 @@ class DocumentCard2 extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: added
-                  ? AppColors.green.withOpacity(.45)
-                  : AppColors.border,
+                ? AppColors.green.withValues(alpha: 0.45)
+               : AppColors.border,
               width: added ? 1.2 : 1,
             ),
           ),
