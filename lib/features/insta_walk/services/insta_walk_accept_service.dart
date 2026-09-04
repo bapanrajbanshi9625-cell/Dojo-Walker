@@ -5,8 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../walks/services/walk_request_sound_service.dart';
-import '../../walker_accept/services/walker_location_service.dart';
-
+import '../../../services/walker_location_service.dart';
 /// ============================================================
 /// INSTA WALK ACCEPT SERVICE
 ///
