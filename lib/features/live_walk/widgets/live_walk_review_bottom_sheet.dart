@@ -460,56 +460,56 @@ class _LiveWalkReviewBottomSheetState
   // ============================================================
 
   Widget _buildNoteField() {
-    return TextField(
-      controller: _noteController,
-      maxLines: 4,
-      maxLength: 500,
-      textInputAction: TextInputAction.newline,
-      enabled: !_saving,
-      decoration: InputDecoration(
-        hintText: 'Add a note about the walk...',
-        hintStyle: const TextStyle(
-          Colors.black.withValues(alpha: 0.35)
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
+  return TextField(
+    controller: _noteController,
+    maxLines: 4,
+    maxLength: 500,
+    textInputAction: TextInputAction.newline,
+    enabled: !_saving,
+    decoration: InputDecoration(
+      hintText: 'Add a note about the walk...',
+      hintStyle: TextStyle(
+        color: Colors.black.withValues(alpha: 0.35),
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+      ),
+      filled: true,
+      fillColor: Colors.white,
+      counterStyle: const TextStyle(
+        color: Colors.black38,
+        fontSize: 10,
+      ),
+      contentPadding: const EdgeInsets.all(15),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: AppColors.border,
         ),
-        filled: true,
-        fillColor: Colors.white,
-        counterStyle: const TextStyle(
-          color: Colors.black38,
-          fontSize: 10,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: AppColors.border,
         ),
-        contentPadding: const EdgeInsets.all(15),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: AppColors.border,
-          ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: AppColors.primary,
+          width: 1.4,
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: AppColors.border,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: AppColors.primary,
-            width: 1.4,
-          ),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: AppColors.border.withValues(
-              alpha: 0.6,
-            ),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(
+          color: AppColors.border.withValues(
+            alpha: 0.6,
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ============================================================
   // SUBMIT BUTTON
