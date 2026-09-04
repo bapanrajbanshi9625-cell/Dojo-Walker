@@ -112,7 +112,7 @@ class AadhaarSection2 extends StatelessWidget {
 
           DocumentCard2(
             title: 'Aadhaar Front',
-            subtitle: 'Image URL for testing',
+            subtitle: 'Upload Aadhaar front image',
             url: aadhaarFrontUrl,
             onTap: enabled ? onAadhaarFrontTap : null,
             accentColor: AppColors.blue,
@@ -123,7 +123,7 @@ class AadhaarSection2 extends StatelessWidget {
 
           DocumentCard2(
             title: 'Aadhaar Back',
-            subtitle: 'Image URL for testing',
+            subtitle: 'Upload Aadhaar back image',
             url: aadhaarBackUrl,
             onTap: enabled ? onAadhaarBackTap : null,
             accentColor: AppColors.blue,
