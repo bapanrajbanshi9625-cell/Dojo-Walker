@@ -1,19 +1,8 @@
 // File:
 // lib/features/profile_setup/services/profile_setup_service_helpers.dart
 
-import 'dart:io';
-
-import 'package:firebase_storage/firebase_storage.dart';
-
 class ProfileSetupServiceHelpers {
   ProfileSetupServiceHelpers._();
-
-  // ============================================================
-  // FIREBASE STORAGE
-  // ============================================================
-
-  static final FirebaseStorage _storage =
-      FirebaseStorage.instance;
 
   // ============================================================
   // URL VALIDATION
@@ -37,20 +26,37 @@ class ProfileSetupServiceHelpers {
   }
 
   // ============================================================
-  // UPLOAD FILE
+  // RESOLVE IMAGE
   //
-  // Firebase Storage path:
+  // IMPORTANT:
   //
-  // walkers/{uid}/{folder}/{fileName}
+  // Images are uploaded to Cloudinary from the UI.
+  //
+  // This service only receives the Cloudinary URL
+  // and saves/returns that URL for Firestore.
+  //
+  // No Firebase Storage upload is performed here.
+  //
+  // Priority:
+  //
+  // 1. Cloudinary URL
+  // 2. Otherwise error
   //
   // ============================================================
 
-  static Future<String> uploadFile({
+  static Future<String> resolveImage({
     required String authUid,
     required String folder,
     required String fileName,
-    required File file,
+    Object? file,
+    String? url,
   }) async {
+    final String cleanUrl = url?.trim() ?? '';
+
+    // ----------------------------------------------------------
+    // UID CHECK
+    // ----------------------------------------------------------
+
     final String uid = authUid.trim();
 
     if (uid.isEmpty) {
@@ -59,77 +65,8 @@ class ProfileSetupServiceHelpers {
       );
     }
 
-    if (!await file.exists()) {
-      throw Exception(
-        'Selected image does not exist.',
-      );
-    }
-
-    final Reference storageRef = _storage
-        .ref()
-        .child('walkers')
-        .child(uid)
-        .child(folder)
-        .child(fileName);
-
-    try {
-      await storageRef.putFile(
-        file,
-        SettableMetadata(
-          contentType: 'image/jpeg',
-        ),
-      );
-
-      return await storageRef.getDownloadURL();
-    } on FirebaseException catch (e) {
-      if (e.code == 'unauthorized' ||
-          e.code == 'permission-denied') {
-        throw Exception(
-          'Firebase Storage permission denied.',
-        );
-      }
-
-      if (e.code == 'canceled') {
-        throw Exception(
-          'Image upload was cancelled.',
-        );
-      }
-
-      if (e.code == 'retry-limit-exceeded') {
-        throw Exception(
-          'Image upload timed out. Please try again.',
-        );
-      }
-
-      throw Exception(
-        e.message ??
-            'Unable to upload image.',
-      );
-    }
-  }
-
-  // ============================================================
-  // RESOLVE IMAGE
-  //
-  // Priority:
-  //
-  // 1. URL
-  // 2. Firebase Storage file
-  //
-  // ============================================================
-
-  static Future<String> resolveImage({
-    required String authUid,
-    required String folder,
-    required String fileName,
-    File? file,
-    String? url,
-  }) async {
-    final String cleanUrl =
-        url?.trim() ?? '';
-
     // ----------------------------------------------------------
-    // URL FALLBACK
+    // CLOUDINARY URL
     // ----------------------------------------------------------
 
     if (cleanUrl.isNotEmpty) {
@@ -143,17 +80,8 @@ class ProfileSetupServiceHelpers {
     }
 
     // ----------------------------------------------------------
-    // FIREBASE STORAGE FILE
+    // NO URL
     // ----------------------------------------------------------
-
-    if (file != null) {
-      return uploadFile(
-        authUid: authUid,
-        folder: folder,
-        fileName: fileName,
-        file: file,
-      );
-    }
 
     throw Exception(
       'Required image is missing.',
@@ -166,7 +94,7 @@ class ProfileSetupServiceHelpers {
 
   static Future<String> resolveSelfie({
     required String authUid,
-    File? file,
+    Object? file,
     String? url,
   }) async {
     return resolveImage(
@@ -184,7 +112,7 @@ class ProfileSetupServiceHelpers {
 
   static Future<String> resolveAadhaarFront({
     required String authUid,
-    File? file,
+    Object? file,
     String? url,
   }) async {
     return resolveImage(
@@ -202,7 +130,7 @@ class ProfileSetupServiceHelpers {
 
   static Future<String> resolveAadhaarBack({
     required String authUid,
-    File? file,
+    Object? file,
     String? url,
   }) async {
     return resolveImage(
@@ -220,7 +148,7 @@ class ProfileSetupServiceHelpers {
 
   static Future<String> resolvePanCard({
     required String authUid,
-    File? file,
+    Object? file,
     String? url,
   }) async {
     return resolveImage(
