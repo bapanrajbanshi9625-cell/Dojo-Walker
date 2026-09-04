@@ -1,9 +1,13 @@
 // File location:
 // lib/features/profile_setup/screens/mandatory_profile_setup_screen1.dart
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../services/cloudinary_service.dart';
 import 'mandatory_profile_setup_screen2.dart';
 
 class MandatoryProfileSetupScreen1 extends StatefulWidget {
@@ -36,6 +40,8 @@ class _MandatoryProfileSetupScreen1State
   late final TextEditingController nameController;
   late final bool _ownsNameController;
 
+  final ImagePicker _picker = ImagePicker();
+
   // ============================================================
   // STATE
   // ============================================================
@@ -43,6 +49,8 @@ class _MandatoryProfileSetupScreen1State
   DateTime? dateOfBirth;
   String? gender;
   String? selfieUrl;
+
+  bool _uploadingSelfie = false;
 
   // ============================================================
   // INIT
@@ -76,11 +84,19 @@ class _MandatoryProfileSetupScreen1State
   }
 
   // ============================================================
+  // BUSY
+  // ============================================================
+
+  bool get busy {
+    return widget.isBusy || _uploadingSelfie;
+  }
+
+  // ============================================================
   // DATE OF BIRTH
   // ============================================================
 
   Future<void> selectDate() async {
-    if (widget.isBusy) {
+    if (busy) {
       return;
     }
 
@@ -115,141 +131,231 @@ class _MandatoryProfileSetupScreen1State
   }
 
   // ============================================================
-  // PROFILE PHOTO URL
+  // CAMERA / GALLERY CHOOSER
   // ============================================================
 
-  Future<void> enterSelfieUrl() async {
-    if (widget.isBusy) {
-      return;
+  Future<ImageSource?> chooseImageSource() async {
+    if (busy) {
+      return null;
     }
 
-    final TextEditingController controller =
-        TextEditingController(
-      text: selfieUrl ?? '',
-    );
-
-    final String? result = await showDialog<String>(
+    return showModalBottomSheet<ImageSource>(
       context: context,
-      builder: (BuildContext dialogContext) {
-        final ThemeData theme = Theme.of(dialogContext);
-        final ColorScheme colors = theme.colorScheme;
-
-        return AlertDialog(
-          backgroundColor: colors.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-          title: Text(
-            'Profile Photo URL',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w900,
-              color: colors.onSurface,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(28),
+        ),
+      ),
+      builder: (BuildContext sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              20,
+              18,
+              20,
+              25,
             ),
-          ),
-          content: TextField(
-            controller: controller,
-            keyboardType: TextInputType.url,
-            textInputAction: TextInputAction.done,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: colors.onSurface,
-            ),
-            decoration: InputDecoration(
-              hintText: 'https://...',
-              prefixIcon: Icon(
-                Icons.link_rounded,
-                color: AppColors.blue,
-              ),
-              filled: true,
-              fillColor: AppColors.background,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide(
-                  color: AppColors.border,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide(
-                  color: AppColors.green,
-                  width: 1.5,
+                const SizedBox(height: 20),
+                const Text(
+                  'Add Profile Photo',
+                  style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textDark,
+                  ),
                 ),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: Text(
-                'CANCEL',
-                style: TextStyle(
-                  color: AppColors.muted,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(height: 6),
+                const Text(
+                  'Choose Camera or Gallery',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.muted,
+                  ),
                 ),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.green,
-                foregroundColor: AppColors.onPrimary,
-                elevation: 0,
-              ),
-              onPressed: () {
-                final String value = controller.text.trim();
-
-                final Uri? uri = Uri.tryParse(value);
-
-                if (uri == null ||
-                    uri.host.isEmpty ||
-                    !(uri.scheme == 'http' ||
-                        uri.scheme == 'https')) {
-                  ScaffoldMessenger.of(dialogContext)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(
-                      SnackBar(
-                        content: const Text(
-                          'Enter a valid image URL.',
-                        ),
-                        backgroundColor: AppColors.red,
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _sourceButton(
+                        context: sheetContext,
+                        icon: Icons.camera_alt_rounded,
+                        title: 'Camera',
+                        source: ImageSource.camera,
                       ),
-                    );
-
-                  return;
-                }
-
-                Navigator.pop(
-                  dialogContext,
-                  value,
-                );
-              },
-              child: const Text(
-                'USE URL',
-              ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _sourceButton(
+                        context: sheetContext,
+                        icon: Icons.photo_library_rounded,
+                        title: 'Gallery',
+                        source: ImageSource.gallery,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
+  }
 
-    controller.dispose();
+  // ============================================================
+  // SOURCE BUTTON
+  // ============================================================
 
-    if (result == null || !mounted) {
+  Widget _sourceButton({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required ImageSource source,
+  }) {
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).pop(source);
+      },
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          vertical: 18,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppColors.border,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 30,
+              color: AppColors.orange,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w800,
+                color: AppColors.textDark,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // CAPTURE / PICK + CLOUDINARY UPLOAD
+  // ============================================================
+
+  Future<void> captureAndUploadSelfie() async {
+    if (busy) {
       return;
     }
 
-    setState(() {
-      selfieUrl = result;
-    });
+    final ImageSource? source =
+        await chooseImageSource();
 
-    showMessage(
-      'Profile photo URL added.',
-      true,
-    );
+    if (source == null || !mounted) {
+      return;
+    }
+
+    try {
+      setState(() {
+        _uploadingSelfie = true;
+      });
+
+      final XFile? picked =
+          await _picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+
+      if (picked == null) {
+        if (mounted) {
+          setState(() {
+            _uploadingSelfie = false;
+          });
+        }
+        return;
+      }
+
+      final File file = File(picked.path);
+
+      if (!await file.exists()) {
+        throw Exception(
+          'Selected image was not found.',
+        );
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      showMessage(
+        'Uploading profile photo...',
+        true,
+      );
+
+      final String uploadedUrl =
+          await CloudinaryService.uploadImage(
+        file: file,
+        folder: 'dojo_walker/profile',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        selfieUrl = uploadedUrl;
+        _uploadingSelfie = false;
+      });
+
+      showMessage(
+        'Profile photo uploaded successfully.',
+        true,
+      );
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _uploadingSelfie = false;
+      });
+
+      final String message =
+          e.toString().replaceFirst(
+                'Exception: ',
+                '',
+              );
+
+      showMessage(
+        message.isEmpty
+            ? 'Unable to upload profile photo.'
+            : message,
+        false,
+      );
+    }
   }
 
   // ============================================================
@@ -257,7 +363,7 @@ class _MandatoryProfileSetupScreen1State
   // ============================================================
 
   Future<void> selectGender() async {
-    if (widget.isBusy) {
+    if (busy) {
       return;
     }
 
@@ -271,7 +377,8 @@ class _MandatoryProfileSetupScreen1State
         ),
       ),
       builder: (BuildContext sheetContext) {
-        final ThemeData theme = Theme.of(sheetContext);
+        final ThemeData theme =
+            Theme.of(sheetContext);
 
         return SafeArea(
           child: Padding(
@@ -286,7 +393,8 @@ class _MandatoryProfileSetupScreen1State
               children: [
                 Text(
                   'Select Gender',
-                  style: theme.textTheme.titleLarge?.copyWith(
+                  style:
+                      theme.textTheme.titleLarge?.copyWith(
                     fontSize: 19,
                     fontWeight: FontWeight.w900,
                     color: AppColors.textDark,
@@ -368,14 +476,14 @@ class _MandatoryProfileSetupScreen1State
             const SizedBox(width: 12),
             Text(
               value,
-              style: TextStyle(
+              style: const TextStyle(
                 fontWeight: FontWeight.w800,
                 color: AppColors.textDark,
               ),
             ),
             const Spacer(),
             if (selected)
-              Icon(
+              const Icon(
                 Icons.check_circle_rounded,
                 color: AppColors.green,
               ),
@@ -398,21 +506,7 @@ class _MandatoryProfileSetupScreen1State
 
     if (cleanSelfie.isEmpty) {
       showMessage(
-        'Please add your profile photo URL.',
-        false,
-      );
-      return false;
-    }
-
-    final Uri? selfieUri =
-        Uri.tryParse(cleanSelfie);
-
-    if (selfieUri == null ||
-        selfieUri.host.isEmpty ||
-        !(selfieUri.scheme == 'http' ||
-            selfieUri.scheme == 'https')) {
-      showMessage(
-        'Please enter a valid profile photo URL.',
+        'Please add your profile photo.',
         false,
       );
       return false;
@@ -453,7 +547,7 @@ class _MandatoryProfileSetupScreen1State
   void next() {
     FocusScope.of(context).unfocus();
 
-    if (widget.isBusy) {
+    if (busy) {
       return;
     }
 
@@ -517,17 +611,18 @@ class _MandatoryProfileSetupScreen1State
       ),
       child: TextField(
         controller: controller,
+        enabled: !busy,
         textInputAction: TextInputAction.next,
-        style: TextStyle(
+        style: const TextStyle(
           color: AppColors.textDark,
         ),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: TextStyle(
+          labelStyle: const TextStyle(
             color: AppColors.muted,
           ),
-          prefixIcon: Icon(
-            icon,
+          prefixIcon: const Icon(
+            Icons.person_rounded,
             color: AppColors.blue,
           ),
           filled: true,
@@ -538,13 +633,13 @@ class _MandatoryProfileSetupScreen1State
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(
+            borderSide: const BorderSide(
               color: AppColors.border,
             ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(
+            borderSide: const BorderSide(
               color: AppColors.green,
               width: 1.5,
             ),
@@ -560,8 +655,6 @@ class _MandatoryProfileSetupScreen1State
 
   @override
   Widget build(BuildContext context) {
-    final bool busy = widget.isBusy;
-
     final bool hasSelfie =
         selfieUrl != null &&
         selfieUrl!.trim().isNotEmpty;
@@ -583,7 +676,7 @@ class _MandatoryProfileSetupScreen1State
                 20,
                 18,
               ),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppColors.surface,
                 border: Border(
                   bottom: BorderSide(
@@ -601,13 +694,13 @@ class _MandatoryProfileSetupScreen1State
                       borderRadius:
                           BorderRadius.circular(14),
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.pets_rounded,
                       color: AppColors.onPrimary,
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment:
                           CrossAxisAlignment.start,
@@ -620,7 +713,7 @@ class _MandatoryProfileSetupScreen1State
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        SizedBox(height: 2),
                         Text(
                           'Walker Information',
                           style: TextStyle(
@@ -633,7 +726,8 @@ class _MandatoryProfileSetupScreen1State
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(
+                    padding:
+                        const EdgeInsets.symmetric(
                       horizontal: 10,
                       vertical: 7,
                     ),
@@ -643,7 +737,7 @@ class _MandatoryProfileSetupScreen1State
                       borderRadius:
                           BorderRadius.circular(12),
                     ),
-                    child: Text(
+                    child: const Text(
                       'STEP 1',
                       style: TextStyle(
                         color: AppColors.green,
@@ -675,7 +769,7 @@ class _MandatoryProfileSetupScreen1State
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Tell us about yourself',
                       style: TextStyle(
                         fontSize: 23,
@@ -686,7 +780,7 @@ class _MandatoryProfileSetupScreen1State
 
                     const SizedBox(height: 5),
 
-                    Text(
+                    const Text(
                       'Enter your basic Walker information.',
                       style: TextStyle(
                         fontSize: 12.5,
@@ -703,7 +797,7 @@ class _MandatoryProfileSetupScreen1State
                     InkWell(
                       onTap: busy
                           ? null
-                          : enterSelfieUrl,
+                          : captureAndUploadSelfie,
                       borderRadius:
                           BorderRadius.circular(20),
                       child: Container(
@@ -731,37 +825,49 @@ class _MandatoryProfileSetupScreen1State
                                 borderRadius:
                                     BorderRadius.circular(17),
                               ),
-                              child: hasSelfie
-                                  ? ClipRRect(
-                                      borderRadius:
-                                          BorderRadius
-                                              .circular(17),
-                                      child: Image.network(
-                                        selfieUrl!,
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (
-                                          context,
-                                          error,
-                                          stackTrace,
-                                        ) {
-                                          return Icon(
-                                            Icons
-                                                .image_not_supported_rounded,
-                                            color:
-                                                AppColors.orange,
-                                            size: 28,
-                                          );
-                                        },
+                              child: _uploadingSelfie
+                                  ? const Padding(
+                                      padding:
+                                          EdgeInsets.all(18),
+                                      child:
+                                          CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color:
+                                            AppColors.orange,
                                       ),
                                     )
-                                  : Icon(
-                                      Icons
-                                          .add_a_photo_rounded,
-                                      color:
-                                          AppColors.orange,
-                                      size: 28,
-                                    ),
+                                  : hasSelfie
+                                      ? ClipRRect(
+                                          borderRadius:
+                                              BorderRadius
+                                                  .circular(17),
+                                          child:
+                                              Image.network(
+                                            selfieUrl!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (
+                                              context,
+                                              error,
+                                              stackTrace,
+                                            ) {
+                                              return const Icon(
+                                                Icons
+                                                    .image_not_supported_rounded,
+                                                color:
+                                                    AppColors.orange,
+                                                size: 28,
+                                              );
+                                            },
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons
+                                              .add_a_photo_rounded,
+                                          color:
+                                              AppColors.orange,
+                                          size: 28,
+                                        ),
                             ),
 
                             const SizedBox(width: 13),
@@ -771,7 +877,7 @@ class _MandatoryProfileSetupScreen1State
                                 crossAxisAlignment:
                                     CrossAxisAlignment.start,
                                 children: [
-                                  Text(
+                                  const Text(
                                     'Profile Photo',
                                     style: TextStyle(
                                       fontSize: 15,
@@ -783,14 +889,18 @@ class _MandatoryProfileSetupScreen1State
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    hasSelfie
-                                        ? 'Photo added • Tap to replace'
-                                        : 'Testing के लिए Image URL',
+                                    _uploadingSelfie
+                                        ? 'Uploading photo...'
+                                        : hasSelfie
+                                            ? 'Photo added • Tap to replace'
+                                            : 'Take a photo or choose from gallery',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: hasSelfie
-                                          ? AppColors.green
-                                          : AppColors.muted,
+                                      color: _uploadingSelfie
+                                          ? AppColors.orange
+                                          : hasSelfie
+                                              ? AppColors.green
+                                              : AppColors.muted,
                                     ),
                                   ),
                                 ],
@@ -798,14 +908,18 @@ class _MandatoryProfileSetupScreen1State
                             ),
 
                             Icon(
-                              hasSelfie
-                                  ? Icons
-                                      .check_circle_rounded
-                                  : Icons
-                                      .chevron_right_rounded,
-                              color: hasSelfie
-                                  ? AppColors.green
-                                  : AppColors.muted,
+                              _uploadingSelfie
+                                  ? Icons.cloud_upload_rounded
+                                  : hasSelfie
+                                      ? Icons
+                                          .check_circle_rounded
+                                      : Icons
+                                          .chevron_right_rounded,
+                              color: _uploadingSelfie
+                                  ? AppColors.orange
+                                  : hasSelfie
+                                      ? AppColors.green
+                                      : AppColors.muted,
                             ),
                           ],
                         ),
@@ -854,9 +968,8 @@ class _MandatoryProfileSetupScreen1State
                         ),
                         child: Row(
                           children: [
-                            Icon(
-                              Icons
-                                  .calendar_month_rounded,
+                            const Icon(
+                              Icons.calendar_month_rounded,
                               color: AppColors.blue,
                             ),
                             const SizedBox(width: 12),
@@ -878,7 +991,7 @@ class _MandatoryProfileSetupScreen1State
                                 ),
                               ),
                             ),
-                            Icon(
+                            const Icon(
                               Icons
                                   .keyboard_arrow_down_rounded,
                               color: AppColors.muted,
@@ -940,7 +1053,7 @@ class _MandatoryProfileSetupScreen1State
                                 ),
                               ),
                             ),
-                            Icon(
+                            const Icon(
                               Icons
                                   .keyboard_arrow_down_rounded,
                               color: AppColors.muted,
@@ -978,7 +1091,7 @@ class _MandatoryProfileSetupScreen1State
                           ),
                         ),
                         child: busy
-                            ? SizedBox(
+                            ? const SizedBox(
                                 width: 22,
                                 height: 22,
                                 child:
@@ -992,7 +1105,7 @@ class _MandatoryProfileSetupScreen1State
                                 mainAxisAlignment:
                                     MainAxisAlignment.center,
                                 children: [
-                                  Text(
+                                  const Text(
                                     'NEXT',
                                     style: TextStyle(
                                       fontWeight:
@@ -1003,7 +1116,7 @@ class _MandatoryProfileSetupScreen1State
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  Icon(
+                                  const Icon(
                                     Icons
                                         .arrow_forward_rounded,
                                     color: AppColors
