@@ -5,17 +5,15 @@ import '../../../core/constants/app_colors.dart';
 class ProfileDocumentCard extends StatelessWidget {
   final String label;
   final bool uploaded;
-  final VoidCallback onUpload;
   final VoidCallback? onView;
-  final VoidCallback? onCopyUrl;
+  final VoidCallback? onDownload;
 
   const ProfileDocumentCard({
     super.key,
     required this.label,
     required this.uploaded,
-    required this.onUpload,
     this.onView,
-    this.onCopyUrl,
+    this.onDownload,
   });
 
   @override
@@ -104,8 +102,7 @@ class ProfileDocumentCard extends StatelessWidget {
                       side: const BorderSide(
                         color: iconColor,
                       ),
-                      shape:
-                          RoundedRectangleBorder(
+                      shape: RoundedRectangleBorder(
                         borderRadius:
                             BorderRadius.circular(9),
                       ),
@@ -121,20 +118,19 @@ class ProfileDocumentCard extends StatelessWidget {
 
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: onCopyUrl,
+                    onPressed: onDownload,
                     icon: const Icon(
-                      Icons.copy_outlined,
+                      Icons.download_outlined,
                       size: 17,
                     ),
-                    label: const Text('Copy URL'),
+                    label: const Text('Download'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor:
                           const Color(0xFF2563EB),
                       side: const BorderSide(
                         color: Color(0xFF2563EB),
                       ),
-                      shape:
-                          RoundedRectangleBorder(
+                      shape: RoundedRectangleBorder(
                         borderRadius:
                             BorderRadius.circular(9),
                       ),
@@ -146,35 +142,6 @@ class ProfileDocumentCard extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ] else ...[
-            const SizedBox(height: 12),
-
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: onUpload,
-                icon: const Icon(
-                  Icons.upload_outlined,
-                  size: 17,
-                ),
-                label: const Text('Upload'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: iconColor,
-                  side: const BorderSide(
-                    color: iconColor,
-                  ),
-                  shape:
-                      RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(9),
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(
-                    vertical: 9,
-                  ),
-                ),
-              ),
             ),
           ],
         ],
