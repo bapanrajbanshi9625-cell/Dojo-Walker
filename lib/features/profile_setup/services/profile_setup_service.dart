@@ -11,16 +11,8 @@ import 'profile_setup_service_helpers.dart';
 class ProfileSetupService {
   ProfileSetupService._();
 
-  // ============================================================
-  // FIREBASE
-  // ============================================================
-
   static final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
-
-  // ============================================================
-  // COLLECTION
-  // ============================================================
 
   static const String walkersCollection = 'walkers';
 
@@ -31,7 +23,6 @@ class ProfileSetupService {
   static const String userIdField = 'userId';
   static const String authUidField = 'authUid';
   static const String uidField = 'uid';
-
   static const String walkerIdField = 'walkerId';
   static const String roleField = 'role';
 
@@ -41,10 +32,8 @@ class ProfileSetupService {
 
   static const String nameField = 'name';
   static const String fullNameField = 'fullName';
-
   static const String phoneField = 'phone';
   static const String phoneNumberField = 'phoneNumber';
-
   static const String dateOfBirthField = 'dateOfBirth';
   static const String genderField = 'gender';
 
@@ -54,7 +43,6 @@ class ProfileSetupService {
 
   static const String addressField = 'address';
   static const String pinCodeField = 'pinCode';
-
   static const String villageField = 'village';
   static const String cityField = 'city';
   static const String districtField = 'district';
@@ -65,7 +53,6 @@ class ProfileSetupService {
   // ============================================================
 
   static const String profileImageField = 'profileImage';
-
   static const String profileImageUrlField =
       'profileImageUrl';
 
@@ -74,9 +61,7 @@ class ProfileSetupService {
   // ============================================================
 
   static const String selfieField = 'selfie';
-
   static const String selfieUrlField = 'selfieUrl';
-
   static const String selfieVerifiedField =
       'selfieVerified';
 
@@ -103,11 +88,9 @@ class ProfileSetupService {
   // PAN
   // ============================================================
 
-  static const String panNumberField =
-      'panNumber';
+  static const String panNumberField = 'panNumber';
 
-  static const String panCardUrlField =
-      'panCardUrl';
+  static const String panCardUrlField = 'panCardUrl';
 
   static const String panVerifiedField =
       'panVerified';
@@ -119,8 +102,7 @@ class ProfileSetupService {
   static const String verificationStatusField =
       'verificationStatus';
 
-  static const String verifiedAtField =
-      'verifiedAt';
+  static const String verifiedAtField = 'verifiedAt';
 
   // ============================================================
   // ADMIN APPROVAL
@@ -135,20 +117,15 @@ class ProfileSetupService {
   static const String adminRejectedField =
       'adminRejected';
 
-  static const String approvedField =
-      'approved';
+  static const String approvedField = 'approved';
 
-  static const String isApprovedField =
-      'isApproved';
+  static const String isApprovedField = 'isApproved';
 
-  static const String approvedAtField =
-      'approvedAt';
+  static const String approvedAtField = 'approvedAt';
 
-  static const String rejectedField =
-      'rejected';
+  static const String rejectedField = 'rejected';
 
-  static const String rejectedAtField =
-      'rejectedAt';
+  static const String rejectedAtField = 'rejectedAt';
 
   // ============================================================
   // WALKER STATE
@@ -158,7 +135,6 @@ class ProfileSetupService {
   static const String isActiveField = 'isActive';
   static const String isAvailableField = 'isAvailable';
   static const String isOnlineField = 'isOnline';
-
   static const String statusField = 'status';
 
   static const String profileCompletedField =
@@ -187,8 +163,7 @@ class ProfileSetupService {
   // ============================================================
 
   static Future<
-      DocumentSnapshot<Map<String, dynamic>>>
-      getWalkerProfile({
+      DocumentSnapshot<Map<String, dynamic>>> getWalkerProfile({
     required String authUid,
   }) async {
     final String uid = authUid.trim();
@@ -219,8 +194,7 @@ class ProfileSetupService {
     }
 
     final DocumentSnapshot<
-            Map<String, dynamic>>
-        snapshot =
+        Map<String, dynamic>> snapshot =
         await _firestore
             .collection(walkersCollection)
             .doc(uid)
@@ -251,8 +225,7 @@ class ProfileSetupService {
     }
 
     final DocumentSnapshot<
-            Map<String, dynamic>>
-        snapshot =
+        Map<String, dynamic>> snapshot =
         await _firestore
             .collection(walkersCollection)
             .doc(uid)
@@ -289,8 +262,7 @@ class ProfileSetupService {
     }
 
     final DocumentSnapshot<
-            Map<String, dynamic>>
-        snapshot =
+        Map<String, dynamic>> snapshot =
         await _firestore
             .collection(walkersCollection)
             .doc(uid)
@@ -338,25 +310,7 @@ class ProfileSetupService {
   }
 
   // ============================================================
-  // UPLOAD FILE
-  // ============================================================
-
-  static Future<String> uploadFile({
-    required String authUid,
-    required String folder,
-    required String fileName,
-    required File file,
-  }) {
-    return ProfileSetupServiceHelpers.uploadFile(
-      authUid: authUid,
-      folder: folder,
-      fileName: fileName,
-      file: file,
-    );
-  }
-
-  // ============================================================
-  // RESOLVE IMAGE
+  // RESOLVE CLOUDINARY IMAGE URL
   // ============================================================
 
   static Future<String> resolveImage({
@@ -382,10 +336,6 @@ class ProfileSetupService {
   static Future<void> saveWalkerProfile({
     required String authUid,
     required String phone,
-
-    // ----------------------------------------------------------
-    // BASIC
-    // ----------------------------------------------------------
 
     required String name,
     required DateTime dateOfBirth,
@@ -561,12 +511,11 @@ class ProfileSetupService {
     }
 
     // ==========================================================
-    // WALKER REFERENCE
+    // WALKER DOCUMENT
     // ==========================================================
 
     final DocumentReference<
-            Map<String, dynamic>>
-        walkerRef =
+        Map<String, dynamic>> walkerRef =
         _firestore
             .collection(walkersCollection)
             .doc(uid);
@@ -576,8 +525,7 @@ class ProfileSetupService {
     // ==========================================================
 
     final DocumentSnapshot<
-            Map<String, dynamic>>
-        existingSnapshot =
+        Map<String, dynamic>> existingSnapshot =
         await walkerRef.get();
 
     final Map<String, dynamic> existingData =
@@ -600,6 +548,8 @@ class ProfileSetupService {
 
     // ==========================================================
     // SELFIE
+    //
+    // Cloudinary URL comes from Screen 1.
     // ==========================================================
 
     final String finalSelfieUrl =
@@ -638,7 +588,7 @@ class ProfileSetupService {
     );
 
     // ==========================================================
-    // PAN CARD
+    // PAN
     // ==========================================================
 
     final String finalPanCardUrl =
@@ -651,7 +601,7 @@ class ProfileSetupService {
     );
 
     // ==========================================================
-    // DATE
+    // DATE OF BIRTH
     // ==========================================================
 
     final String dob =
@@ -661,6 +611,8 @@ class ProfileSetupService {
 
     // ==========================================================
     // PROFILE IMAGE
+    //
+    // Profile image = selfie.
     // ==========================================================
 
     String finalProfileImage =
@@ -725,31 +677,43 @@ class ProfileSetupService {
       // PROFILE IMAGE
       // --------------------------------------------------------
 
-      profileImageField: finalProfileImage,
+      profileImageField:
+          finalProfileImage,
 
-      profileImageUrlField: finalProfileImage,
+      profileImageUrlField:
+          finalProfileImage,
 
       // --------------------------------------------------------
       // SELFIE
       // --------------------------------------------------------
 
-      selfieField: finalSelfieUrl,
+      selfieField:
+          finalSelfieUrl,
 
-      selfieUrlField: finalSelfieUrl,
+      selfieUrlField:
+          finalSelfieUrl,
 
-      'Profile Selfie': finalSelfieUrl,
-      'profileSelfie': finalSelfieUrl,
+      'Profile Selfie':
+          finalSelfieUrl,
 
-      selfieVerifiedField: false,
+      'profileSelfie':
+          finalSelfieUrl,
+
+      selfieVerifiedField:
+          false,
 
       // --------------------------------------------------------
       // AADHAAR
       // --------------------------------------------------------
 
-      aadhaarNumberField: cleanAadhaar,
+      aadhaarNumberField:
+          cleanAadhaar,
 
-      'Aadhar Number': cleanAadhaar,
-      'Aadhaar Number': cleanAadhaar,
+      'Aadhar Number':
+          cleanAadhaar,
+
+      'Aadhaar Number':
+          cleanAadhaar,
 
       aadhaarFrontUrlField:
           finalAadhaarFrontUrl,
@@ -803,7 +767,8 @@ class ProfileSetupService {
       // PAN
       // --------------------------------------------------------
 
-      panNumberField: cleanPan,
+      panNumberField:
+          cleanPan,
 
       panCardUrlField:
           finalPanCardUrl,
@@ -836,15 +801,23 @@ class ProfileSetupService {
       // ADDRESS
       // --------------------------------------------------------
 
-      addressField: cleanAddress,
+      addressField:
+          cleanAddress,
 
-pinCodeField: cleanPinCode,
+      pinCodeField:
+          cleanPinCode,
 
-'Adress': cleanAddress,
-'Address': cleanAddress,
+      'Adress':
+          cleanAddress,
 
-'Pincode': cleanPinCode,
-'pincode': cleanPinCode,
+      'Address':
+          cleanAddress,
+
+      'Pincode':
+          cleanPinCode,
+
+      'pincode':
+          cleanPinCode,
 
       // --------------------------------------------------------
       // EMERGENCY
@@ -860,10 +833,14 @@ pinCodeField: cleanPinCode,
       // PROFILE COMPLETED
       // --------------------------------------------------------
 
-      profileCompletedField: true,
+      profileCompletedField:
+          true,
 
-      'profile_completed': true,
-      'isProfileCompleted': true,
+      'profile_completed':
+          true,
+
+      'isProfileCompleted':
+          true,
 
       // --------------------------------------------------------
       // VERIFICATION
@@ -872,7 +849,8 @@ pinCodeField: cleanPinCode,
       verificationStatusField:
           'pending',
 
-      verifiedAtField: null,
+      verifiedAtField:
+          null,
 
       // --------------------------------------------------------
       // ADMIN APPROVAL
@@ -942,7 +920,7 @@ pinCodeField: cleanPinCode,
     }
 
     // ==========================================================
-    // FIRESTORE WRITE
+    // FIRESTORE
     // ==========================================================
 
     await walkerRef.set(
