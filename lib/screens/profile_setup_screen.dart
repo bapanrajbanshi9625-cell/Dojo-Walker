@@ -21,14 +21,6 @@ import '../features/profile_setup/screens/mandatory_profile_setup_screen1.dart';
 /// Pending Verification
 ///
 /// This screen is only an entry point.
-///
-/// Screen 1 and Screen 2 handle their own:
-/// - controllers
-/// - state
-/// - validation
-/// - navigation
-/// - Firebase operations
-/// - profile submission
 /// ===============================================================
 
 class MandatoryProfileSetupScreen extends StatelessWidget {
