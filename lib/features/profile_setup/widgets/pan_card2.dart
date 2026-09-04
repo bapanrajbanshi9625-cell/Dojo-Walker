@@ -22,7 +22,7 @@ class PanCard2 extends StatelessWidget {
   Widget build(BuildContext context) {
     return DocumentCard2(
       title: 'PAN Card',
-      subtitle: 'Camera या Gallery से PAN Card photo upload करें',
+      subtitle: 'Upload PAN Card photo',
       url: url,
       onTap: enabled ? onTap : null,
       accentColor: AppColors.orange,
