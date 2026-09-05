@@ -1,3 +1,6 @@
+// File:
+// lib/features/insta_walk/services/insta_walk_reach_service.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class InstaWalkReachService {
@@ -25,11 +28,15 @@ class InstaWalkReachService {
   ///        ↓
   /// LiveWalkScreen
   ///
-  /// IMPORTANT:
-  /// - Owner data comes from walk_request.
-  /// - Walker UID/ID comes from Firebase Auth / caller.
-  /// - A NEW liveWalkSessions document is created every time.
-  /// - walk_request remains the arrival/request source.
+  /// Walker details shared:
+  ///
+  ///   walkerId
+  ///   walkerUid
+  ///   walkerName
+  ///   walkerPhone
+  ///   walkerProfileImage
+  ///
+  /// Owner data comes from walk_request.
   /// ============================================================
 
   Future<String> createLiveWalkSession({
@@ -38,6 +45,7 @@ class InstaWalkReachService {
     required String walkerId,
     String? walkerName,
     String? walkerPhone,
+    String? walkerProfileImage,
   }) async {
     final String requestId =
         walkRequestId.trim();
@@ -154,16 +162,6 @@ class InstaWalkReachService {
     // ==========================================================
     // ACTUAL WALK ID
     // ==========================================================
-    //
-    // Preferred:
-    //     walk_request.walkId
-    //
-    // Fallback:
-    //     walk_request document ID
-    //
-    // Your current Firestore document does NOT show walkId,
-    // so document ID is used as a safe fallback.
-    // ==========================================================
 
     final String firestoreWalkId =
         requestData['walkId']
@@ -219,24 +217,11 @@ class InstaWalkReachService {
                 '';
 
     // ==========================================================
-    // WALKER DATA
-    // ==========================================================
-    //
-    // IMPORTANT:
-    // Walker name/phone should NOT be taken from Owner fields.
-    //
-    // If caller provides walker data, use it.
-    // Otherwise use request values if available.
+    // WALKER NAME
     // ==========================================================
 
     final String requestWalkerName =
         requestData['walkerName']
-                ?.toString()
-                .trim() ??
-            '';
-
-    final String requestWalkerPhone =
-        requestData['walkerPhone']
                 ?.toString()
                 .trim() ??
             '';
@@ -246,10 +231,35 @@ class InstaWalkReachService {
             ? walkerName!.trim()
             : requestWalkerName;
 
+    // ==========================================================
+    // WALKER PHONE
+    // ==========================================================
+
+    final String requestWalkerPhone =
+        requestData['walkerPhone']
+                ?.toString()
+                .trim() ??
+            '';
+
     final String finalWalkerPhone =
         walkerPhone?.trim().isNotEmpty == true
             ? walkerPhone!.trim()
             : requestWalkerPhone;
+
+    // ==========================================================
+    // WALKER PROFILE IMAGE
+    // ==========================================================
+
+    final String requestWalkerProfileImage =
+        requestData['walkerProfileImage']
+                ?.toString()
+                .trim() ??
+            '';
+
+    final String finalWalkerProfileImage =
+        walkerProfileImage?.trim().isNotEmpty == true
+            ? walkerProfileImage!.trim()
+            : requestWalkerProfileImage;
 
     // ==========================================================
     // DOG
@@ -347,6 +357,9 @@ class InstaWalkReachService {
 
       'walkerPhone': finalWalkerPhone,
 
+      'walkerProfileImage':
+          finalWalkerProfileImage,
+
       // ========================================================
       // DOG
       // ========================================================
@@ -402,10 +415,6 @@ class InstaWalkReachService {
       // ========================================================
       // LIVE WALK STATE
       // ========================================================
-      //
-      // Walker has reached the owner.
-      // Walk has NOT started yet.
-      //
 
       'status': 'ready',
 
