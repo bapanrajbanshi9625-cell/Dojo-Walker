@@ -7,6 +7,7 @@ import '../../../core/constants/app_colors.dart';
 import '../controllers/live_walk_session_controller.dart';
 import '../widgets/live_walk_complete_slider.dart';
 import '../widgets/live_walk_map_layer.dart';
+import '../widgets/live_walk_start_slider.dart';
 
 class LiveWalkScreen extends StatefulWidget {
   const LiveWalkScreen({
@@ -396,7 +397,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                     ),
                     SizedBox(height: 3),
                     Text(
-                      'Start the walk when you are ready.',
+                      'Slide to start the walk.',
                       style: TextStyle(
                         color: Colors.black54,
                         fontSize: 12,
@@ -408,54 +409,34 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               ),
             ],
           ),
+
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 58,
-            child: ElevatedButton(
-              onPressed:
-                  starting || _controller.ending ? null : _startWalk,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.black12,
-                disabledForegroundColor: Colors.black38,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+
+          // ========================================================
+          // START WALK SLIDER
+          // ========================================================
+
+          LiveWalkStartSlider(
+            key: ValueKey<bool>(starting),
+            enabled: !starting && !_controller.ending,
+            onStarted: _startWalk,
+          ),
+
+          if (starting) ...[
+            const SizedBox(height: 12),
+            const Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppColors.primary,
+                  ),
                 ),
               ),
-              child: starting
-                  ? const SizedBox(
-                      width: 25,
-                      height: 25,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Colors.white,
-                        ),
-                      ),
-                    )
-                  : const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.play_arrow_rounded,
-                          size: 25,
-                        ),
-                        SizedBox(width: 7),
-                        Text(
-                          'START WALK',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: .5,
-                          ),
-                        ),
-                      ],
-                    ),
             ),
-          ),
+          ],
         ],
       ),
     );
