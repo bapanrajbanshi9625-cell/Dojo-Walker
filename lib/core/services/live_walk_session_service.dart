@@ -14,13 +14,20 @@ class LiveWalkSessionService {
       FirebaseAuth.instance;
 
   // ============================================================
-  // COLLECTION
+  // COLLECTIONS
   // ============================================================
 
   CollectionReference<Map<String, dynamic>>
       get _sessions {
     return _firestore.collection(
       'liveWalkSessions',
+    );
+  }
+
+  CollectionReference<Map<String, dynamic>>
+      get _history {
+    return _firestore.collection(
+      'walk_history',
     );
   }
 
@@ -77,11 +84,6 @@ class LiveWalkSessionService {
 
   // ============================================================
   // START WALK
-  //
-  // ONLY liveWalkSessions/{sessionId}
-  //
-  // walk_requests is NEVER modified.
-  // active_walk is handled by background service.
   // ============================================================
 
   Future<void> startWalk({
@@ -320,11 +322,19 @@ class LiveWalkSessionService {
   }
 
   // ============================================================
-  // COMPLETE WALK
+  // COMPLETE WALK + SAVE HISTORY
   //
-  // ONLY liveWalkSessions/{sessionId}
+  // IMPORTANT:
   //
-  // walk_requests is NEVER modified.
+  // 1. Read final live session.
+  // 2. Verify walker.
+  // 3. Mark live session completed.
+  // 4. Save the same completed walk to walk_history.
+  //
+  // History document ID = sessionId.
+  //
+  // This makes the operation idempotent and prevents duplicate
+  // history documents for the same live session.
   // ============================================================
 
   Future<void> completeWalk({
@@ -425,8 +435,22 @@ class LiveWalkSessionService {
                 .toLowerCase() ??
             '';
 
+    // ==========================================================
+    // ALREADY COMPLETED
+    //
+    // Even if the live session is already completed, make sure
+    // History exists.
+    // ==========================================================
+
     if (status == 'completed' ||
         status == 'ended') {
+      await _ensureHistoryExists(
+        sessionId: cleanSessionId,
+        walkId: cleanWalkId,
+        sessionData: data,
+        authUid: authUid,
+      );
+
       return;
     }
 
@@ -439,10 +463,24 @@ class LiveWalkSessionService {
     }
 
     // ==========================================================
-    // COMPLETE
+    // COMPLETION TIMESTAMP
     // ==========================================================
 
-    await session.set(
+    final Timestamp completedTime =
+        Timestamp.now();
+
+    // ==========================================================
+    // FINAL SESSION DATA
+    //
+    // Keep ALL existing session information and add completed
+    // state.
+    // ==========================================================
+
+    final Map<String, dynamic>
+        completedSessionData =
+        Map<String, dynamic>.from(data);
+
+    completedSessionData.addAll(
       <String, dynamic>{
         'sessionId':
             cleanSessionId,
@@ -463,17 +501,388 @@ class LiveWalkSessionService {
             true,
 
         'completedAt':
-            FieldValue.serverTimestamp(),
+            completedTime,
 
         'endedAt':
-            FieldValue.serverTimestamp(),
+            completedTime,
 
         'updatedAt':
-            FieldValue.serverTimestamp(),
+            completedTime,
+      },
+    );
+
+    // ==========================================================
+    // ATOMIC SAVE
+    //
+    // Both documents are written together.
+    //
+    // liveWalkSessions/{sessionId}
+    // walk_history/{sessionId}
+    //
+    // If the batch fails, neither write is committed.
+    // ==========================================================
+
+    final WriteBatch batch =
+        _firestore.batch();
+
+    // ----------------------------------------------------------
+    // LIVE SESSION
+    // ----------------------------------------------------------
+
+    batch.set(
+      session,
+      <String, dynamic>{
+        'sessionId':
+            cleanSessionId,
+
+        'walkId':
+            cleanWalkId,
+
+        'status':
+            'completed',
+
+        'walkStarted':
+            false,
+
+        'walkEnded':
+            true,
+
+        'trackingEnded':
+            true,
+
+        'completedAt':
+            completedTime,
+
+        'endedAt':
+            completedTime,
+
+        'updatedAt':
+            completedTime,
       },
       SetOptions(
         merge: true,
       ),
     );
+
+    // ----------------------------------------------------------
+    // HISTORY
+    // ----------------------------------------------------------
+
+    final DocumentReference<Map<String, dynamic>>
+        historyRef =
+        _history.doc(cleanSessionId);
+
+    batch.set(
+      historyRef,
+      _buildHistoryData(
+        sessionData:
+            completedSessionData,
+        sessionId:
+            cleanSessionId,
+        walkId:
+            cleanWalkId,
+        authUid:
+            authUid,
+        completedAt:
+            completedTime,
+      ),
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    // ----------------------------------------------------------
+    // COMMIT
+    // ----------------------------------------------------------
+
+    await batch.commit();
+  }
+
+  // ============================================================
+  // ENSURE HISTORY EXISTS
+  //
+  // Used when completeWalk() is called again after the session
+  // has already been completed.
+  //
+  // Because the document ID is sessionId, this does not create
+  // another history entry.
+  // ============================================================
+
+  Future<void> _ensureHistoryExists({
+    required String sessionId,
+    required String walkId,
+    required Map<String, dynamic> sessionData,
+    required String authUid,
+  }) async {
+    final DocumentReference<Map<String, dynamic>>
+        historyRef =
+        _history.doc(sessionId);
+
+    final DocumentSnapshot<Map<String, dynamic>>
+        historySnapshot =
+        await historyRef.get();
+
+    if (historySnapshot.exists) {
+      return;
+    }
+
+    final dynamic existingCompletedAt =
+        sessionData['completedAt'];
+
+    final Timestamp completedAt =
+        existingCompletedAt is Timestamp
+            ? existingCompletedAt
+            : Timestamp.now();
+
+    await historyRef.set(
+      _buildHistoryData(
+        sessionData:
+            sessionData,
+        sessionId:
+            sessionId,
+        walkId:
+            walkId,
+        authUid:
+            authUid,
+        completedAt:
+            completedAt,
+      ),
+      SetOptions(
+        merge: true,
+      ),
+    );
+  }
+
+  // ============================================================
+  // BUILD HISTORY DATA
+  //
+  // Existing live session fields are preserved so Walk History
+  // can use the same data.
+  // ============================================================
+
+  Map<String, dynamic> _buildHistoryData({
+    required Map<String, dynamic> sessionData,
+    required String sessionId,
+    required String walkId,
+    required String authUid,
+    required Timestamp completedAt,
+  }) {
+    final Map<String, dynamic> history =
+        Map<String, dynamic>.from(
+      sessionData,
+    );
+
+    history.addAll(
+      <String, dynamic>{
+        // ------------------------------------------------------
+        // IDENTIFIERS
+        // ------------------------------------------------------
+
+        'sessionId':
+            sessionId,
+
+        'walkId':
+            walkId,
+
+        'walkerUid':
+            sessionData['walkerUid'] ??
+                authUid,
+
+        // ------------------------------------------------------
+        // STATUS
+        // ------------------------------------------------------
+
+        'status':
+            'completed',
+
+        'walkStarted':
+            false,
+
+        'walkEnded':
+            true,
+
+        'trackingEnded':
+            true,
+
+        'completed':
+            true,
+
+        // ------------------------------------------------------
+        // COMPLETION TIME
+        // ------------------------------------------------------
+
+        'completedAt':
+            completedAt,
+
+        'endedAt':
+            sessionData['endedAt'] ??
+                completedAt,
+
+        'updatedAt':
+            completedAt,
+
+        // ------------------------------------------------------
+        // HISTORY SOURCE
+        // ------------------------------------------------------
+
+        'source':
+            sessionData['source'] ??
+                'live_walk',
+
+        'historyCreatedAt':
+            sessionData['historyCreatedAt'] ??
+                completedAt,
+
+        'historyUpdatedAt':
+            completedAt,
+      },
+    );
+
+    // ==========================================================
+    // CANONICAL WALKER IMAGE FALLBACK
+    // ==========================================================
+
+    final String walkerImage =
+        _firstString(
+      <dynamic>[
+        sessionData['walkerProfileImage'],
+        sessionData['profileImageUrl'],
+        sessionData['profileImage'],
+        sessionData['photoUrl'],
+        sessionData['photoURL'],
+        sessionData['profilePhoto'],
+        sessionData['profilePhotoUrl'],
+        sessionData['selfie'],
+        sessionData['selfieUrl'],
+        sessionData['imageUrl'],
+        sessionData['image'],
+      ],
+    );
+
+    if (walkerImage.isNotEmpty) {
+      history['walkerProfileImage'] =
+          walkerImage;
+    }
+
+    // ==========================================================
+    // CANONICAL WALKER NAME
+    // ==========================================================
+
+    final String walkerName =
+        _firstString(
+      <dynamic>[
+        sessionData['walkerName'],
+        sessionData['fullName'],
+        sessionData['Walker Name'],
+      ],
+    );
+
+    if (walkerName.isNotEmpty) {
+      history['walkerName'] =
+          walkerName;
+    }
+
+    // ==========================================================
+    // CANONICAL WALKER PHONE
+    // ==========================================================
+
+    final String walkerPhone =
+        _firstString(
+      <dynamic>[
+        sessionData['walkerPhone'],
+        sessionData['phone'],
+        sessionData['phoneNumber'],
+        sessionData['mobileNumber'],
+        sessionData['Mobile number'],
+      ],
+    );
+
+    if (walkerPhone.isNotEmpty) {
+      history['walkerPhone'] =
+          walkerPhone;
+    }
+
+    // ==========================================================
+    // DISTANCE
+    // ==========================================================
+
+    if (!history.containsKey('distanceKm')) {
+      history['distanceKm'] =
+          0.0;
+    }
+
+    if (!history.containsKey('distanceMeters')) {
+      final dynamic distance =
+          history['distanceKm'];
+
+      if (distance is num) {
+        history['distanceMeters'] =
+            distance.toDouble() * 1000.0;
+      } else {
+        history['distanceMeters'] =
+            0.0;
+      }
+    }
+
+    // ==========================================================
+    // STEPS
+    // ==========================================================
+
+    if (!history.containsKey('steps')) {
+      history['steps'] = 0;
+    }
+
+    // ==========================================================
+    // ACTIVITIES
+    // ==========================================================
+
+    if (!history.containsKey('peeCount')) {
+      history['peeCount'] = 0;
+    }
+
+    if (!history.containsKey('poopCount')) {
+      history['poopCount'] = 0;
+    }
+
+    // ==========================================================
+    // ROUTE
+    // ==========================================================
+
+    if (!history.containsKey('routeCoordinates')) {
+      history['routeCoordinates'] =
+          <dynamic>[];
+    }
+
+    if (!history.containsKey('routePointCount')) {
+      final dynamic route =
+          history['routeCoordinates'];
+
+      history['routePointCount'] =
+          route is List
+              ? route.length
+              : 0;
+    }
+
+    return history;
+  }
+
+  // ============================================================
+  // STRING FALLBACK
+  // ============================================================
+
+  String _firstString(
+    List<dynamic> values,
+  ) {
+    for (final dynamic value in values) {
+      final String text =
+          value?.toString().trim() ?? '';
+
+      if (text.isNotEmpty &&
+          text.toLowerCase() != 'null') {
+        return text;
+      }
+    }
+
+    return '';
   }
 }
