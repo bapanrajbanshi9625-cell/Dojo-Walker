@@ -21,6 +21,20 @@ import '../../walks/services/walk_request_sound_service.dart';
 ///
 ///   searching → accepted
 ///
+/// Walker profile:
+///
+///   walkers/{walkerUid}
+///
+/// On accept, this service saves:
+///
+///   walkerId
+///   walkerUid
+///   walkerName
+///   walkerPhone
+///   acceptedBy
+///   acceptedByUid
+///   acceptedAt
+///
 /// After successful accept:
 ///
 ///   GPS tracking starts
@@ -55,6 +69,11 @@ class InstaWalkAcceptService {
     return _firestore.collection('walk_request');
   }
 
+  CollectionReference<Map<String, dynamic>>
+      get _walkers {
+    return _firestore.collection('walkers');
+  }
+
   // ============================================================
   // CURRENT USER
   // ============================================================
@@ -64,10 +83,10 @@ class InstaWalkAcceptService {
   }
 
   // ============================================================
-  // CURRENT WALKER ID
+  // CURRENT WALKER PROFILE
   // ============================================================
 
-  Future<String> getCurrentWalkerId() async {
+  Future<Map<String, String>> _getWalkerProfile() async {
     final User? user = _currentUser;
 
     if (user == null) {
@@ -88,8 +107,7 @@ class InstaWalkAcceptService {
     final DocumentSnapshot<
             Map<String, dynamic>>
         snapshot =
-        await _firestore
-            .collection('walkers')
+        await _walkers
             .doc(walkerUid)
             .get();
 
@@ -108,11 +126,23 @@ class InstaWalkAcceptService {
       );
     }
 
-    final String walkerId =
+    // ----------------------------------------------------------
+    // WALKER ID
+    // ----------------------------------------------------------
+
+    String walkerId =
         data['walkerId']
                 ?.toString()
                 .trim() ??
             '';
+
+    if (walkerId.isEmpty) {
+      walkerId =
+          data['Walker ID']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
 
     if (walkerId.isEmpty) {
       throw Exception(
@@ -120,7 +150,110 @@ class InstaWalkAcceptService {
       );
     }
 
-    return walkerId;
+    // ----------------------------------------------------------
+    // WALKER NAME
+    //
+    // Primary field:
+    //   name
+    //
+    // Fallback:
+    //   fullName
+    //   Full Name
+    // ----------------------------------------------------------
+
+    String walkerName =
+        data['name']
+                ?.toString()
+                .trim() ??
+            '';
+
+    if (walkerName.isEmpty) {
+      walkerName =
+          data['fullName']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    if (walkerName.isEmpty) {
+      walkerName =
+          data['Full Name']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    // ----------------------------------------------------------
+    // WALKER PHONE
+    //
+    // Primary field:
+    //   phone
+    //
+    // Fallback:
+    //   phoneNumber
+    //   mobileNumber
+    //   Mobile number
+    // ----------------------------------------------------------
+
+    String walkerPhone =
+        data['phone']
+                ?.toString()
+                .trim() ??
+            '';
+
+    if (walkerPhone.isEmpty) {
+      walkerPhone =
+          data['phoneNumber']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    if (walkerPhone.isEmpty) {
+      walkerPhone =
+          data['mobileNumber']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    if (walkerPhone.isEmpty) {
+      walkerPhone =
+          data['Mobile number']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    // ----------------------------------------------------------
+    // DEBUG
+    // ----------------------------------------------------------
+
+    // ignore: avoid_print
+    print(
+      'Walker profile loaded: '
+      'walkerId=$walkerId, '
+      'name=$walkerName, '
+      'phone=$walkerPhone',
+    );
+
+    return <String, String>{
+      'walkerId': walkerId,
+      'walkerUid': walkerUid,
+      'walkerName': walkerName,
+      'walkerPhone': walkerPhone,
+    };
+  }
+
+  // ============================================================
+  // CURRENT WALKER ID
+  // ============================================================
+
+  Future<String> getCurrentWalkerId() async {
+    final Map<String, String> profile =
+        await _getWalkerProfile();
+
+    return profile['walkerId'] ?? '';
   }
 
   // ============================================================
@@ -147,9 +280,6 @@ class InstaWalkAcceptService {
       );
     }
 
-    final String walkerId =
-        await getCurrentWalkerId();
-
     final String id =
         walkId.trim();
 
@@ -158,6 +288,44 @@ class InstaWalkAcceptService {
         'Walk ID is missing.',
       );
     }
+
+    // ==========================================================
+    // GET WALKER PROFILE
+    // ==========================================================
+
+    final Map<String, String> walkerProfile =
+        await _getWalkerProfile();
+
+    final String walkerId =
+        walkerProfile['walkerId'] ?? '';
+
+    final String walkerName =
+        walkerProfile['walkerName'] ?? '';
+
+    final String walkerPhone =
+        walkerProfile['walkerPhone'] ?? '';
+
+    if (walkerId.isEmpty) {
+      throw Exception(
+        'Walker ID is missing.',
+      );
+    }
+
+    if (walkerName.isEmpty) {
+      throw Exception(
+        'Walker name is missing from profile.',
+      );
+    }
+
+    if (walkerPhone.isEmpty) {
+      throw Exception(
+        'Walker phone number is missing from profile.',
+      );
+    }
+
+    // ==========================================================
+    // REFERENCES
+    // ==========================================================
 
     final DocumentReference<
             Map<String, dynamic>>
@@ -214,6 +382,10 @@ class InstaWalkAcceptService {
           );
         }
 
+        // --------------------------------------------------------
+        // CHECK REJECTION
+        // --------------------------------------------------------
+
         final DocumentSnapshot<
                 Map<String, dynamic>>
             rejectionSnapshot =
@@ -227,16 +399,29 @@ class InstaWalkAcceptService {
           );
         }
 
+        // --------------------------------------------------------
+        // ACCEPT + WALKER DETAILS
+        // --------------------------------------------------------
+
         transaction.update(
           walkRef,
           <String, dynamic>{
             'status': 'accepted',
+
+            // Walker identity
             'walkerId': walkerId,
             'walkerUid': walkerUid,
+
+            // Walker profile details
+            'walkerName': walkerName,
+            'walkerPhone': walkerPhone,
+
+            // Accepted information
             'acceptedBy': walkerId,
             'acceptedByUid': walkerUid,
             'acceptedAt':
                 FieldValue.serverTimestamp(),
+
             'updatedAt':
                 FieldValue.serverTimestamp(),
           },
