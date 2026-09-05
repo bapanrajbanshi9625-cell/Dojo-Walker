@@ -31,6 +31,7 @@ import '../../walks/services/walk_request_sound_service.dart';
 ///   walkerUid
 ///   walkerName
 ///   walkerPhone
+///   walkerProfileImage
 ///   acceptedBy
 ///   acceptedByUid
 ///   acceptedAt
@@ -104,8 +105,7 @@ class InstaWalkAcceptService {
       );
     }
 
-    final DocumentSnapshot<
-            Map<String, dynamic>>
+    final DocumentSnapshot<Map<String, dynamic>>
         snapshot =
         await _walkers
             .doc(walkerUid)
@@ -126,9 +126,9 @@ class InstaWalkAcceptService {
       );
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // WALKER ID
-    // ----------------------------------------------------------
+    // ==========================================================
 
     String walkerId =
         data['walkerId']
@@ -150,16 +150,9 @@ class InstaWalkAcceptService {
       );
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // WALKER NAME
-    //
-    // Primary field:
-    //   name
-    //
-    // Fallback:
-    //   fullName
-    //   Full Name
-    // ----------------------------------------------------------
+    // ==========================================================
 
     String walkerName =
         data['name']
@@ -183,17 +176,9 @@ class InstaWalkAcceptService {
               '';
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // WALKER PHONE
-    //
-    // Primary field:
-    //   phone
-    //
-    // Fallback:
-    //   phoneNumber
-    //   mobileNumber
-    //   Mobile number
-    // ----------------------------------------------------------
+    // ==========================================================
 
     String walkerPhone =
         data['phone']
@@ -225,16 +210,109 @@ class InstaWalkAcceptService {
               '';
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
+    // WALKER PROFILE IMAGE
+    //
+    // Primary / fallback fields
+    // ==========================================================
+
+    String walkerProfileImage =
+        data['walkerProfileImage']
+                ?.toString()
+                .trim() ??
+            '';
+
+    if (walkerProfileImage.isEmpty) {
+      walkerProfileImage =
+          data['profileImageUrl']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    if (walkerProfileImage.isEmpty) {
+      walkerProfileImage =
+          data['profileImage']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    if (walkerProfileImage.isEmpty) {
+      walkerProfileImage =
+          data['photoUrl']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    if (walkerProfileImage.isEmpty) {
+      walkerProfileImage =
+          data['photoURL']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    if (walkerProfileImage.isEmpty) {
+      walkerProfileImage =
+          data['profilePhoto']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    if (walkerProfileImage.isEmpty) {
+      walkerProfileImage =
+          data['profilePhotoUrl']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    if (walkerProfileImage.isEmpty) {
+      walkerProfileImage =
+          data['selfie']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    if (walkerProfileImage.isEmpty) {
+      walkerProfileImage =
+          data['selfieUrl']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    if (walkerProfileImage.isEmpty) {
+      walkerProfileImage =
+          data['imageUrl']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    if (walkerProfileImage.isEmpty) {
+      walkerProfileImage =
+          data['image']
+                  ?.toString()
+                  .trim() ??
+              '';
+    }
+
+    // ==========================================================
     // DEBUG
-    // ----------------------------------------------------------
+    // ==========================================================
 
     // ignore: avoid_print
     print(
       'Walker profile loaded: '
       'walkerId=$walkerId, '
       'name=$walkerName, '
-      'phone=$walkerPhone',
+      'phone=$walkerPhone, '
+      'profileImage=$walkerProfileImage',
     );
 
     return <String, String>{
@@ -242,6 +320,7 @@ class InstaWalkAcceptService {
       'walkerUid': walkerUid,
       'walkerName': walkerName,
       'walkerPhone': walkerPhone,
+      'walkerProfileImage': walkerProfileImage,
     };
   }
 
@@ -305,6 +384,9 @@ class InstaWalkAcceptService {
     final String walkerPhone =
         walkerProfile['walkerPhone'] ?? '';
 
+    final String walkerProfileImage =
+        walkerProfile['walkerProfileImage'] ?? '';
+
     if (walkerId.isEmpty) {
       throw Exception(
         'Walker ID is missing.',
@@ -327,13 +409,11 @@ class InstaWalkAcceptService {
     // REFERENCES
     // ==========================================================
 
-    final DocumentReference<
-            Map<String, dynamic>>
+    final DocumentReference<Map<String, dynamic>>
         walkRef =
         _walkRequests.doc(id);
 
-    final DocumentReference<
-            Map<String, dynamic>>
+    final DocumentReference<Map<String, dynamic>>
         rejectionRef =
         walkRef
             .collection('rejections')
@@ -406,19 +486,42 @@ class InstaWalkAcceptService {
         transaction.update(
           walkRef,
           <String, dynamic>{
+            // ====================================================
+            // STATUS
+            // ====================================================
+
             'status': 'accepted',
 
-            // Walker identity
+            // ====================================================
+            // WALKER IDENTITY
+            // ====================================================
+
             'walkerId': walkerId,
             'walkerUid': walkerUid,
 
-            // Walker profile details
+            // ====================================================
+            // WALKER PROFILE
+            // ====================================================
+
             'walkerName': walkerName,
             'walkerPhone': walkerPhone,
 
-            // Accepted information
+            // ====================================================
+            // WALKER PROFILE PHOTO
+            //
+            // This is now saved with the request.
+            // ====================================================
+
+            'walkerProfileImage':
+                walkerProfileImage,
+
+            // ====================================================
+            // ACCEPT INFORMATION
+            // ====================================================
+
             'acceptedBy': walkerId,
             'acceptedByUid': walkerUid,
+
             'acceptedAt':
                 FieldValue.serverTimestamp(),
 
