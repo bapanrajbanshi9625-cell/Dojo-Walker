@@ -7,7 +7,6 @@ import '../../../core/constants/app_colors.dart';
 import '../controllers/live_walk_session_controller.dart';
 import '../widgets/live_walk_complete_slider.dart';
 import '../widgets/live_walk_map_layer.dart';
-import '../widgets/live_walk_review_bottom_sheet.dart';
 
 class LiveWalkScreen extends StatefulWidget {
   const LiveWalkScreen({
@@ -41,7 +40,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   late final LiveWalkSessionController _controller;
 
   bool _showingEndDialog = false;
-  bool _showingReview = false;
   bool _leavingScreen = false;
 
   Map<String, dynamic> _lastSessionData = <String, dynamic>{};
@@ -513,9 +511,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   Widget _buildLiveStats(Map<String, dynamic> data) {
     final double distance =
-        _readDouble(data['distanceKm']) ?? _controller.totalDistanceKm;
+        _readDouble(data['distanceKm']) ??
+        _controller.totalDistanceKm;
 
-    final int steps = _readInt(data['steps']) ?? _controller.steps;
+    final int steps =
+        _readInt(data['steps']) ??
+        _controller.steps;
 
     final String duration = _readDuration(data);
 
@@ -608,12 +609,17 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   Widget _buildWalkInfo() {
     final String owner =
-        widget.ownerName.trim().isEmpty ? 'Owner' : widget.ownerName.trim();
+        widget.ownerName.trim().isEmpty
+            ? 'Owner'
+            : widget.ownerName.trim();
 
     final String dog =
-        widget.dogName.trim().isEmpty ? 'Dog' : widget.dogName.trim();
+        widget.dogName.trim().isEmpty
+            ? 'Dog'
+            : widget.dogName.trim();
 
-    final String phone = widget.ownerPhone?.trim() ?? '';
+    final String phone =
+        widget.ownerPhone?.trim() ?? '';
 
     return Container(
       padding: const EdgeInsets.all(15),
@@ -857,16 +863,42 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   // ============================================================
   // COMPLETE WALK
+  //
+  // IMPORTANT FLOW:
+  //
+  // Complete Slider
+  //       ↓
+  // confirm dialog
+  //       ↓
+  // controller.endWalk()
+  //       ↓
+  // LiveWalkSessionService.completeWalk()
+  //       ↓
+  // liveWalkSessions = completed
+  //       ↓
+  // walk_history = saved
+  //       ↓
+  // background GPS stopped
+  //       ↓
+  // LiveWalkScreen.pop(result)
+  //       ↓
+  // Parent/MainNavigationScreen
+  //       ↓
+  // Review Bottom Sheet
+  //
+  // Review is intentionally NOT opened here.
   // ============================================================
 
   Future<void> _completeWalk() async {
-    if (_controller.ending || !_controller.walkStarted) {
+    if (_controller.ending ||
+        !_controller.walkStarted ||
+        _leavingScreen) {
       return;
     }
 
     try {
       // --------------------------------------------------------
-      // 1. END WALK FIRST
+      // 1. COMPLETE WALK
       // --------------------------------------------------------
 
       await _controller.endWalk();
@@ -875,113 +907,65 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         return;
       }
 
-      _showMessage('Walk completed.');
+      // --------------------------------------------------------
+      // 2. CAPTURE FINAL DATA
+      // --------------------------------------------------------
 
-      await Future<void>.delayed(
-        const Duration(milliseconds: 300),
+      final Map<String, dynamic> resultSessionData =
+          Map<String, dynamic>.from(_lastSessionData);
+
+      final double distance =
+          _readDouble(resultSessionData['distanceKm']) ??
+          _controller.totalDistanceKm;
+
+      final int steps =
+          _readInt(resultSessionData['steps']) ??
+          _controller.steps;
+
+      final String duration =
+          _readDuration(resultSessionData);
+
+      final List<Offset> routePoints =
+          _extractRoutePoints(resultSessionData);
+
+      // --------------------------------------------------------
+      // 3. LEAVE LIVE WALK SCREEN
+      //
+      // The parent will receive this result.
+      // --------------------------------------------------------
+
+      _leavingScreen = true;
+
+      Navigator.of(context).pop(
+        <String, dynamic>{
+          'walkCompleted': true,
+          'showReview': true,
+
+          'walkId': widget.walkId,
+          'ownerUid': widget.ownerUid,
+          'ownerName': widget.ownerName,
+          'ownerPhone': widget.ownerPhone,
+
+          'dogName': widget.dogName,
+          'dogBreed': widget.dogBreed,
+
+          'sessionId': widget.sessionId,
+
+          'distanceKm': distance,
+          'steps': steps,
+          'duration': duration,
+
+          'routePoints': routePoints,
+
+          'sessionData': resultSessionData,
+        },
       );
-
-      if (!mounted) {
-        return;
-      }
-
-      // --------------------------------------------------------
-      // 2. OPEN REVIEW
-      // --------------------------------------------------------
-
-      await _openReviewBottomSheet();
     } catch (error) {
       if (!mounted) {
         return;
       }
 
       _showError(_cleanError(error));
-    }
-  }
-
-  // ============================================================
-  // REVIEW
-  //
-  // IMPORTANT:
-  // Bottom sheet ONLY returns a result.
-  // It does NOT navigate to Home itself.
-  //
-  // true  = review submitted
-  // false = review skipped
-  // null  = unexpected dismissal
-  // ============================================================
-
-  Future<void> _openReviewBottomSheet() async {
-    if (!mounted || _showingReview || _leavingScreen) {
-      return;
-    }
-
-    _showingReview = true;
-
-    final Map<String, dynamic> data =
-        Map<String, dynamic>.from(_lastSessionData);
-
-    final double distance =
-        _readDouble(data['distanceKm']) ??
-        _controller.totalDistanceKm;
-
-    final int steps =
-        _readInt(data['steps']) ??
-        _controller.steps;
-
-    final String duration = _readDuration(data);
-
-    final List<Offset> routePoints =
-        _extractRoutePoints(data);
-
-    bool? reviewResult;
-
-    try {
-      reviewResult = await showModalBottomSheet<bool>(
-        context: context,
-        backgroundColor: Colors.transparent,
-        isScrollControlled: true,
-        isDismissible: false,
-        enableDrag: false,
-        builder: (BuildContext sheetContext) {
-          return LiveWalkReviewBottomSheet(
-            routePoints: routePoints,
-            distanceKm: distance,
-            duration: duration,
-            steps: steps,
-            walkId: widget.walkId,
-            ownerUid: widget.ownerUid,
-            dogName: widget.dogName,
-
-            // IMPORTANT:
-            // Do not pop here.
-            // The Review Bottom Sheet itself will return
-            // true/false using Navigator.pop().
-            onBackToHome: () {},
-          );
-        },
-      );
-    } finally {
-      _showingReview = false;
-    }
-
-    if (!mounted || _leavingScreen) {
-      return;
-    }
-
-    // ----------------------------------------------------------
-    // BOTH SUBMIT AND SKIP COME HERE.
-    //
-    // Submit -> true
-    // Skip   -> false
-    //
-    // In both cases leave LiveWalkScreen exactly once.
-    // ----------------------------------------------------------
-
-    if (reviewResult == true || reviewResult == false) {
-      _leavingScreen = true;
-
-      Navigator.of(context).pop(true);
     }
   }
 
@@ -1148,7 +1132,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         final double? latitude = _readDouble(lat);
         final double? longitude = _readDouble(lng);
 
-        if (latitude != null && longitude != null) {
+        if (latitude != null &&
+            longitude != null) {
           points.add(
             Offset(
               latitude,
@@ -1188,7 +1173,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     }
 
     if (value != null) {
-      final String text = value.toString().trim();
+      final String text =
+          value.toString().trim();
 
       if (text.isNotEmpty) {
         return text;
@@ -1333,7 +1319,8 @@ class _SosSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String cleanOwnerName = ownerName.trim();
+    final String cleanOwnerName =
+        ownerName.trim();
 
     return Container(
       padding: const EdgeInsets.fromLTRB(
