@@ -51,8 +51,6 @@ class _MainNavigationScreenState
     _screens = const <Widget>[
       WalkerHomeScreen(),
       WalksScreen(),
-      // QR does not need a permanent screen.
-      // Index 2 is handled by _openQrScanner().
       SizedBox.shrink(),
       MenuScreen(),
     ];
@@ -116,28 +114,13 @@ class _MainNavigationScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-
       body: _screens[_currentIndex],
-
-      // ==========================================================
-      // BOTTOM AREA
-      // ==========================================================
-
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          // ------------------------------------------------------
-          // ACTIVE WALK
-          // ------------------------------------------------------
-
           ActiveWalkStrip(
             onTap: _openCurrentWalk,
           ),
-
-          // ------------------------------------------------------
-          // NAVIGATION BAR
-          // ------------------------------------------------------
-
           _buildBottomNavigation(),
         ],
       ),
@@ -147,11 +130,7 @@ class _MainNavigationScreenState
   // ============================================================
   // BOTTOM NAVIGATION
   //
-  // 4 EQUAL ITEMS:
-  //
   // HOME | WALKS | QR SCAN | MENU
-  //
-  // QR IS NOT FLOATING.
   // ============================================================
 
   Widget _buildBottomNavigation() {
@@ -177,68 +156,34 @@ class _MainNavigationScreenState
           height: 72,
           child: BottomNavigationBar(
             currentIndex: _currentIndex,
-
             selectedItemColor: _selectedColor,
-
-            unselectedItemColor:
-                AppColors.textGrey,
-
-            backgroundColor:
-                Colors.transparent,
-
+            unselectedItemColor: AppColors.textGrey,
+            backgroundColor: Colors.transparent,
             elevation: 0,
-
-            type:
-                BottomNavigationBarType.fixed,
-
+            type: BottomNavigationBarType.fixed,
             selectedFontSize: 11,
-
             unselectedFontSize: 10,
-
-            selectedLabelStyle:
-                const TextStyle(
-              fontWeight:
-                  FontWeight.w800,
+            selectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w800,
             ),
-
-            unselectedLabelStyle:
-                const TextStyle(
-              fontWeight:
-                  FontWeight.w600,
+            unselectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w600,
             ),
-
             onTap: (int index) async {
-              // ==================================================
-              // QR TAB
-              // ==================================================
-
               if (index == 2) {
                 await _openQrScanner();
                 return;
               }
 
-              // ==================================================
-              // SAME TAB
-              // ==================================================
-
               if (index == _currentIndex) {
                 return;
               }
-
-              // ==================================================
-              // NORMAL NAVIGATION
-              // ==================================================
 
               setState(() {
                 _currentIndex = index;
               });
             },
-
             items: <BottomNavigationBarItem>[
-              // ==================================================
-              // HOME
-              // ==================================================
-
               const BottomNavigationBarItem(
                 icon: Padding(
                   padding: EdgeInsets.only(
@@ -260,11 +205,6 @@ class _MainNavigationScreenState
                 ),
                 label: 'Home',
               ),
-
-              // ==================================================
-              // WALKS
-              // ==================================================
-
               const BottomNavigationBarItem(
                 icon: Padding(
                   padding: EdgeInsets.only(
@@ -286,14 +226,6 @@ class _MainNavigationScreenState
                 ),
                 label: 'Walks',
               ),
-
-              // ==================================================
-              // QR SCAN
-              //
-              // SAME SIZE AS OTHER ITEMS
-              // NOT FLOATING
-              // ==================================================
-
               BottomNavigationBarItem(
                 icon: Padding(
                   padding: const EdgeInsets.only(
@@ -302,8 +234,7 @@ class _MainNavigationScreenState
                   child: Icon(
                     Icons.qr_code_scanner_rounded,
                     size: 25,
-                    color:
-                        AppColors.textGrey,
+                    color: AppColors.textGrey,
                   ),
                 ),
                 activeIcon: Padding(
@@ -313,17 +244,11 @@ class _MainNavigationScreenState
                   child: Icon(
                     Icons.qr_code_scanner_rounded,
                     size: 27,
-                    color:
-                        AppColors.primary,
+                    color: AppColors.primary,
                   ),
                 ),
                 label: 'Scan',
               ),
-
-              // ==================================================
-              // MENU
-              // ==================================================
-
               const BottomNavigationBarItem(
                 icon: Padding(
                   padding: EdgeInsets.only(
@@ -369,19 +294,11 @@ class _MainNavigationScreenState
       return;
     }
 
-    // ----------------------------------------------------------
-    // QR SCANNER RETURNS JSON STRING
-    // ----------------------------------------------------------
-
     if (result is String &&
         result.trim().isNotEmpty) {
       _handleQrResult(result);
       return;
     }
-
-    // ----------------------------------------------------------
-    // ALSO SUPPORT MAP RESULT
-    // ----------------------------------------------------------
 
     if (result is Map) {
       _handleQrMapResult(
@@ -458,20 +375,19 @@ class _MainNavigationScreenState
       'Owner connected successfully.',
     );
 
-    // Refresh app state because QR service
-    // may have created a live session.
     AppStateService.instance.refresh();
   }
 
   // ============================================================
   // OPEN CURRENT WALK
   //
-  // ONLY:
+  // CANONICAL ID:
   //
-  // walk_request
-  // liveWalkSessions
+  // walk_request/DW000001
+  // liveWalkSessions/DW000001
+  // walk_history/DW000001
   //
-  // NO active_walk / active_walks.
+  // NO separate walkId/sessionId.
   // ============================================================
 
   Future<void> _openCurrentWalk(
@@ -481,16 +397,16 @@ class _MainNavigationScreenState
       return;
     }
 
-    final String walkId =
+    final String requestId =
         stripState.walkId.trim();
 
-    if (walkId.isEmpty) {
+    if (!_isValidRequestId(requestId)) {
       return;
     }
 
     debugPrint(
-      'MainNavigation: opening walk '
-      'walkId=$walkId '
+      'MainNavigation: opening requestId='
+      '$requestId '
       'isLive=${stripState.isLive}',
     );
 
@@ -508,11 +424,11 @@ class _MainNavigationScreenState
         walkData.isEmpty ||
         _requestId(
               walkData,
-              walkId,
+              requestId,
             ) !=
-            walkId) {
+            requestId) {
       walkData =
-          await _getWalkRequest(walkId);
+          await _getWalkRequest(requestId);
     }
 
     if (walkData == null ||
@@ -544,49 +460,49 @@ class _MainNavigationScreenState
 
     final InstaWalkRequest request =
         _buildRequest(
-      walkId,
+      requestId,
       walkData,
     );
 
-    if (request.id.isEmpty) {
+    if (!request.hasValidRequestId) {
       return;
     }
 
     // ==========================================================
-    // SESSION
+    // LIVE SESSION
+    //
+    // Same requestId.
     // ==========================================================
 
     Map<String, dynamic>? sessionData =
         appState.activeSessionData;
 
-    String sessionId =
-        _firstNonEmpty(
-      <dynamic>[
-        request.liveWalkSessionId,
-        appState.activeSessionId,
-        sessionData?['sessionId'],
-      ],
-    );
-
-    // ==========================================================
-    // FIND LIVE SESSION
-    // ==========================================================
-
-    if (sessionId.isEmpty) {
+    if (sessionData == null ||
+        sessionData.isEmpty ||
+        _sessionRequestId(
+              sessionData,
+              requestId,
+            ) !=
+            requestId) {
       sessionData =
           await _findLiveSession(
-        walkId,
+        requestId,
       );
+    }
 
-      if (sessionData != null) {
-        sessionId =
-            _firstNonEmpty(
-          <dynamic>[
-            sessionData['sessionId'],
-            sessionData['liveWalkSessionId'],
-          ],
+    // ==========================================================
+    // SESSION REQUIRED FOR LIVE WALK
+    // ==========================================================
+
+    if (sessionData == null ||
+        sessionData.isEmpty) {
+      if (mounted) {
+        _showMessage(
+          'Live Walk session is not ready yet. Please try again.',
         );
       }
+
+      return;
     }
 
     // ==========================================================
@@ -653,20 +569,6 @@ class _MainNavigationScreenState
     );
 
     // ==========================================================
-    // SESSION REQUIRED
-    // ==========================================================
-
-    if (sessionId.isEmpty) {
-      if (mounted) {
-        _showMessage(
-          'Live Walk session is not ready yet. Please try again.',
-        );
-      }
-
-      return;
-    }
-
-    // ==========================================================
     // OPEN LIVE WALK
     // ==========================================================
 
@@ -680,14 +582,13 @@ class _MainNavigationScreenState
           return LiveWalkScreen(
             ownerUid: ownerUid,
             ownerName: ownerName,
-            walkId: request.id,
+            requestId: requestId,
             dogName: dogName,
             dogBreed: dogBreed,
             ownerPhone:
                 ownerPhone.trim().isEmpty
                     ? null
                     : ownerPhone.trim(),
-            sessionId: sessionId,
           );
         },
       ),
@@ -708,12 +609,12 @@ class _MainNavigationScreenState
   // ============================================================
 
   Future<Map<String, dynamic>?> _getWalkRequest(
-    String walkId,
+    String requestId,
   ) async {
     final String id =
-        walkId.trim();
+        requestId.trim();
 
-    if (id.isEmpty) {
+    if (!_isValidRequestId(id)) {
       return null;
     }
 
@@ -745,12 +646,7 @@ class _MainNavigationScreenState
 
       return <String, dynamic>{
         ...data,
-        'walkId': _firstNonEmpty(
-          <dynamic>[
-            data['walkId'],
-            id,
-          ],
-        ),
+        'requestId': id,
       };
     } on FirebaseException catch (error) {
       debugPrint(
@@ -770,60 +666,66 @@ class _MainNavigationScreenState
 
   // ============================================================
   // FIND LIVE SESSION
+  //
+  // EXACT DOCUMENT:
+  //
+  // liveWalkSessions/{requestId}
+  //
+  // NO where('walkId')
   // ============================================================
 
   Future<Map<String, dynamic>?> _findLiveSession(
-    String walkId,
+    String requestId,
   ) async {
     final String id =
-        walkId.trim();
+        requestId.trim();
 
-    if (id.isEmpty) {
+    if (!_isValidRequestId(id)) {
       return null;
     }
 
     try {
-      final QuerySnapshot<
-          Map<String, dynamic>> snapshot =
+      final DocumentSnapshot<
+          Map<String, dynamic>> document =
           await FirebaseFirestore.instance
               .collection('liveWalkSessions')
-              .where(
-                'walkId',
-                isEqualTo: id,
-              )
-              .limit(10)
+              .doc(id)
               .get();
 
-      if (snapshot.docs.isEmpty) {
+      if (!document.exists) {
         return null;
       }
 
-      for (final QueryDocumentSnapshot<
-          Map<String, dynamic>> document
-          in snapshot.docs) {
-        final Map<String, dynamic> data =
-            document.data();
+      final Map<String, dynamic>? data =
+          document.data();
 
-        final String status =
-            _status(data['status']);
-
-        if (_isEndedSession(status)) {
-          continue;
-        }
-
-        return <String, dynamic>{
-          ...data,
-          'sessionId': _firstNonEmpty(
-            <dynamic>[
-              data['sessionId'],
-              data['liveWalkSessionId'],
-              document.id,
-            ],
-          ),
-        };
+      if (data == null) {
+        return null;
       }
 
-      return null;
+      final String storedRequestId =
+          _firstNonEmpty(
+        <dynamic>[
+          data['requestId'],
+          document.id,
+        ],
+      );
+
+      if (storedRequestId != id) {
+        return null;
+      }
+
+      final String status =
+          _status(data['status']);
+
+      if (_isEndedSession(status)) {
+        return null;
+      }
+
+      return <String, dynamic>{
+        ...data,
+        'requestId': id,
+      };
     } on FirebaseException catch (error) {
       debugPrint(
         'MainNavigation live session error: '
@@ -845,14 +747,14 @@ class _MainNavigationScreenState
   // ============================================================
 
   InstaWalkRequest _buildRequest(
-    String id,
+    String requestId,
     Map<String, dynamic> data,
   ) {
-    final String walkId =
-        id.trim();
+    final String id =
+        requestId.trim();
 
     return InstaWalkRequest(
-      id: walkId,
+      requestId: id,
 
       ownerId: _firstNonEmpty(
         <dynamic>[
@@ -984,25 +886,6 @@ class _MainNavigationScreenState
         data['date'],
       ),
 
-      activeWalkId:
-          _firstNonEmpty(
-        <dynamic>[
-          data['activeWalkId'],
-          data['walkId'],
-        ],
-      ),
-
-      liveWalkSessionId:
-          _firstNonEmpty(
-        <dynamic>[
-          data['liveWalkSessionId'],
-          data['sessionId'],
-          AppStateService
-              .instance
-              .activeSessionId,
-        ],
-      ),
-
       createdAt:
           _readTimestamp(
         data['createdAt'],
@@ -1050,11 +933,38 @@ class _MainNavigationScreenState
   ) {
     return _firstNonEmpty(
       <dynamic>[
-        data['walkId'],
         data['requestId'],
         fallback,
       ],
     );
+  }
+
+  // ============================================================
+  // SESSION REQUEST ID
+  // ============================================================
+
+  String _sessionRequestId(
+    Map<String, dynamic> data,
+    String fallback,
+  ) {
+    return _firstNonEmpty(
+      <dynamic>[
+        data['requestId'],
+        fallback,
+      ],
+    );
+  }
+
+  // ============================================================
+  // VALID REQUEST ID
+  // ============================================================
+
+  bool _isValidRequestId(
+    String value,
+  ) {
+    return RegExp(
+      r'^DW\d{6}$',
+    ).hasMatch(value.trim());
   }
 
   // ============================================================
