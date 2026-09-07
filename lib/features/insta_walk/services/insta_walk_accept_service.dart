@@ -15,7 +15,7 @@ import '../../walks/services/walk_request_sound_service.dart';
 ///
 /// Firestore:
 ///
-///   walk_request/{walkId}
+///   walk_request/{requestId}
 ///
 /// Accept:
 ///
@@ -40,6 +40,16 @@ import '../../walks/services/walk_request_sound_service.dart';
 ///
 ///   GPS tracking starts
 ///   walkerLocation is continuously written to Firestore
+///
+/// IMPORTANT:
+///
+///   requestId is the single canonical Walk ID.
+///
+///   Example:
+///
+///   DW000001
+///
+///   walk_request/DW000001
 /// ============================================================
 
 class InstaWalkAcceptService {
@@ -59,7 +69,7 @@ class InstaWalkAcceptService {
 
   StreamSubscription<Position>? _locationSubscription;
 
-  String? _trackingWalkId;
+  String? _trackingRequestId;
 
   // ============================================================
   // COLLECTION
@@ -212,8 +222,6 @@ class InstaWalkAcceptService {
 
     // ==========================================================
     // WALKER PROFILE IMAGE
-    //
-    // Primary / fallback fields
     // ==========================================================
 
     String walkerProfileImage =
@@ -340,7 +348,7 @@ class InstaWalkAcceptService {
   // ============================================================
 
   Future<void> acceptWalk(
-    String walkId,
+    String requestId,
   ) async {
     final User? user = _currentUser;
 
@@ -360,11 +368,21 @@ class InstaWalkAcceptService {
     }
 
     final String id =
-        walkId.trim();
+        requestId.trim();
 
     if (id.isEmpty) {
       throw Exception(
-        'Walk ID is missing.',
+        'Request ID is missing.',
+      );
+    }
+
+    // ==========================================================
+    // VALIDATE CANONICAL REQUEST ID
+    // ==========================================================
+
+    if (!RegExp(r'^DW\d{6}$').hasMatch(id)) {
+      throw Exception(
+        'Invalid Request ID. Expected format: DW000001.',
       );
     }
 
@@ -487,6 +505,12 @@ class InstaWalkAcceptService {
           walkRef,
           <String, dynamic>{
             // ====================================================
+            // CANONICAL REQUEST ID
+            // ====================================================
+
+            'requestId': id,
+
+            // ====================================================
             // STATUS
             // ====================================================
 
@@ -508,8 +532,6 @@ class InstaWalkAcceptService {
 
             // ====================================================
             // WALKER PROFILE PHOTO
-            //
-            // This is now saved with the request.
             // ====================================================
 
             'walkerProfileImage':
@@ -538,7 +560,7 @@ class InstaWalkAcceptService {
 
     try {
       await _startLocationTracking(
-        walkId: id,
+        requestId: id,
       );
     } catch (e) {
       // Accept already succeeded.
@@ -571,10 +593,10 @@ class InstaWalkAcceptService {
   // ============================================================
 
   Future<void> _startLocationTracking({
-    required String walkId,
+    required String requestId,
   }) async {
     final String id =
-        walkId.trim();
+        requestId.trim();
 
     if (id.isEmpty) {
       return;
@@ -588,7 +610,7 @@ class InstaWalkAcceptService {
 
     _locationSubscription = null;
 
-    _trackingWalkId = id;
+    _trackingRequestId = id;
 
     // ----------------------------------------------------------
     // START GPS SERVICE
@@ -614,7 +636,7 @@ class InstaWalkAcceptService {
 
     if (currentPosition != null) {
       await _updateWalkerLocation(
-        walkId: id,
+        requestId: id,
         position: currentPosition,
       );
     }
@@ -628,7 +650,7 @@ class InstaWalkAcceptService {
       (Position position) {
         unawaited(
           _updateWalkerLocation(
-            walkId: id,
+            requestId: id,
             position: position,
           ),
         );
@@ -648,17 +670,17 @@ class InstaWalkAcceptService {
   // ============================================================
 
   Future<void> _updateWalkerLocation({
-    required String walkId,
+    required String requestId,
     required Position position,
   }) async {
     final String id =
-        walkId.trim();
+        requestId.trim();
 
     if (id.isEmpty) {
       return;
     }
 
-    if (_trackingWalkId != id) {
+    if (_trackingRequestId != id) {
       return;
     }
 
@@ -701,7 +723,7 @@ class InstaWalkAcceptService {
 
     _locationSubscription = null;
 
-    _trackingWalkId = null;
+    _trackingRequestId = null;
 
     await _locationService.stopTracking();
   }
