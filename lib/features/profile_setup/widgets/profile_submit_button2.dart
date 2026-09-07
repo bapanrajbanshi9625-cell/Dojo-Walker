@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker_colors.dart';
 
 class ProfileSubmitButton2 extends StatelessWidget {
   const ProfileSubmitButton2({
@@ -20,10 +20,12 @@ class ProfileSubmitButton2 extends StatelessWidget {
       child: ElevatedButton(
         onPressed: saving ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.green,
+          backgroundColor: DojoWalkerColors.success,
           disabledBackgroundColor:
-              AppColors.green.withOpacity(.55),
-          foregroundColor: AppColors.onPrimary,
+              DojoWalkerColors.success.withValues(
+            alpha: .55,
+          ),
+          foregroundColor: DojoWalkerColors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(17),
@@ -38,7 +40,7 @@ class ProfileSubmitButton2 extends StatelessWidget {
                     height: 21,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
-                      color: AppColors.onPrimary,
+                      color: DojoWalkerColors.white,
                     ),
                   ),
                   SizedBox(width: 12),
@@ -62,8 +64,8 @@ class ProfileSubmitButton2 extends StatelessWidget {
                       letterSpacing: .3,
                     ),
                   ),
-                ],
-              ),
+                  ],
+                ),
       ),
     );
   }
