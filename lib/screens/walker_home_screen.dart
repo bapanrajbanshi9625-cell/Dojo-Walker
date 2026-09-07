@@ -3,6 +3,8 @@
 
 import 'package:flutter/material.dart';
 
+import '../core/theme/dojo_walker_colors.dart';
+
 import '../features/walker_home/containers/walker_home_header.dart';
 import '../features/walker_home/containers/welcome_container.dart';
 import '../features/walker_home/containers/today_summary_container.dart';
@@ -91,7 +93,7 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: DojoWalkerColors.background,
       body: Column(
         children: [
           // ======================================================
