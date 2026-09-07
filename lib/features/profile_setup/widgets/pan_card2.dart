@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker.dart';
 import 'document_card2.dart';
 
 class PanCard2 extends StatelessWidget {
@@ -25,7 +25,7 @@ class PanCard2 extends StatelessWidget {
       subtitle: 'Upload PAN Card photo',
       url: url,
       onTap: enabled ? onTap : null,
-      accentColor: AppColors.orange,
+      accentColor: DojoWalkerColors.primary,
       icon: Icons.credit_card_rounded,
     );
   }
