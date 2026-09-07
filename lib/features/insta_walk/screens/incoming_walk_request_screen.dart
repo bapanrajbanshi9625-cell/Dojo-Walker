@@ -106,13 +106,6 @@ class _IncomingWalkRequestScreenState
 
   // ============================================================
   // CURRENT WALKER
-  //
-  // IMPORTANT:
-  // Walker identity comes from Firebase Auth.
-  //
-  // Do NOT use:
-  // widget.request.walkerName
-  // widget.request.walkerPhone
   // ============================================================
 
   String get _currentWalkerUid {
@@ -161,19 +154,18 @@ class _IncomingWalkRequestScreenState
   }
 
   // ============================================================
-  // WALK REQUEST ID
+  // CANONICAL WALK REQUEST ID
   //
-  // This MUST be the Firestore document ID:
+  // Firestore:
   //
-  // walk_request/{walkId}
+  // walk_request/{requestId}
   //
-  // InstaWalkRequest.fromFirestore() must use:
-  //
-  // id: snapshot.id
+  // Example:
+  // walk_request/DW000001
   // ============================================================
 
-  String get _walkId {
-    return widget.request.id.trim();
+  String get _requestId {
+    return widget.request.requestId.trim();
   }
 
   // ============================================================
@@ -200,21 +192,21 @@ class _IncomingWalkRequestScreenState
   // ============================================================
 
   void _startRequestMonitoring() {
-    final String walkId = _walkId;
+    final String requestId = _requestId;
 
-    if (walkId.isEmpty) {
+    if (requestId.isEmpty) {
       debugPrint(
-        'IncomingWalkRequestScreen: walk ID is empty.',
+        'IncomingWalkRequestScreen: request ID is empty.',
       );
       return;
     }
 
-    final DocumentReference<Map<String, dynamic>> walkRef =
+    final DocumentReference<Map<String, dynamic>> requestRef =
         _firestore
             .collection('walk_request')
-            .doc(walkId);
+            .doc(requestId);
 
-    _requestSubscription = walkRef.snapshots().listen(
+    _requestSubscription = requestRef.snapshots().listen(
       (
         DocumentSnapshot<Map<String, dynamic>> snapshot,
       ) {
@@ -382,14 +374,6 @@ class _IncomingWalkRequestScreenState
 
         return;
       }
-
-      // --------------------------------------------------------
-      // IMPORTANT
-      //
-      // Do NOT use locationSettings here.
-      // Your installed Geolocator version expects
-      // desiredAccuracy.
-      // --------------------------------------------------------
 
       final Position position =
           await Geolocator.getCurrentPosition(
@@ -594,10 +578,10 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    final String walkId =
-        _walkId;
+    final String requestId =
+        _requestId;
 
-    if (walkId.isEmpty) {
+    if (requestId.isEmpty) {
       _showMessage(
         'Walk request ID is missing.',
       );
@@ -620,7 +604,7 @@ class _IncomingWalkRequestScreenState
 
     try {
       await _acceptService.acceptWalk(
-        walkId,
+        requestId,
       );
 
       if (!mounted) {
@@ -722,10 +706,10 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    final String walkId =
-        _walkId;
+    final String requestId =
+        _requestId;
 
-    if (walkId.isEmpty) {
+    if (requestId.isEmpty) {
       _showMessage(
         'Walk request ID is missing.',
       );
@@ -738,7 +722,7 @@ class _IncomingWalkRequestScreenState
 
     try {
       await _rejectService.rejectWalk(
-        walkId,
+        requestId,
       );
 
       if (!mounted) {
@@ -780,7 +764,7 @@ class _IncomingWalkRequestScreenState
   //    ↓
   // REACHED OWNER
   //    ↓
-  // create NEW liveWalkSessions document
+  // liveWalkSessions/{requestId}
   //    ↓
   // LiveWalkScreen
   // ============================================================
@@ -830,15 +814,15 @@ class _IncomingWalkRequestScreenState
     }
 
     // ----------------------------------------------------------
-    // WALK REQUEST ID
+    // CANONICAL REQUEST ID
     // ----------------------------------------------------------
 
-    final String walkRequestId =
-        _walkId;
+    final String requestId =
+        _requestId;
 
-    if (walkRequestId.isEmpty) {
+    if (requestId.isEmpty) {
       debugPrint(
-        'REACH ERROR: widget.request.id is empty.',
+        'REACH ERROR: requestId is empty.',
       );
 
       _showMessage(
@@ -849,8 +833,6 @@ class _IncomingWalkRequestScreenState
 
     // ----------------------------------------------------------
     // FIREBASE AUTH USER
-    //
-    // This is the CURRENT WALKER.
     // ----------------------------------------------------------
 
     final User? currentUser =
@@ -893,24 +875,24 @@ class _IncomingWalkRequestScreenState
 
     try {
       // --------------------------------------------------------
-      // CREATE NEW LIVE WALK SESSION
+      // CREATE LIVE WALK SESSION
       //
-      // DO NOT use:
-      // widget.request.liveWalkSessionId
+      // The service creates:
       //
-      // A new session is created at REACHED OWNER.
+      // liveWalkSessions/{requestId}
+      //
+      // No separate sessionId is used.
       // --------------------------------------------------------
 
-      final String sessionId =
-          await _reachService.createLiveWalkSession(
-        walkRequestId: walkRequestId,
+      await _reachService.createLiveWalkSession(
+        walkRequestId: requestId,
         walkerUid: walkerUid,
         walkerId: walkerId,
       );
 
       // --------------------------------------------------------
       // IMPORTANT:
-      // Check mounted AFTER the async Firebase operation.
+      // Check mounted AFTER async Firebase operation.
       // --------------------------------------------------------
 
       if (!mounted) {
@@ -936,9 +918,7 @@ class _IncomingWalkRequestScreenState
       _locationSubscription = null;
 
       // --------------------------------------------------------
-      // IMPORTANT:
-      // We crossed async gaps above.
-      // Check mounted AGAIN before using context.
+      // CHECK MOUNTED AGAIN
       // --------------------------------------------------------
 
       if (!mounted) {
@@ -959,14 +939,13 @@ class _IncomingWalkRequestScreenState
             return LiveWalkScreen(
               ownerUid: _ownerUid,
               ownerName: _ownerName,
-              walkId: walkRequestId,
+              requestId: requestId,
               dogName: _dogName,
               dogBreed: _dogBreed,
               ownerPhone:
                   _ownerPhone.isEmpty
                       ? null
                       : _ownerPhone,
-              sessionId: sessionId,
             );
           },
         ),
