@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker.dart';
 
 // =============================================================
 // COMMON BOTTOM SHEET BASE
@@ -19,7 +19,7 @@ class ProfileBottomSheetBase extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Material(
-        color: Colors.white,
+        color: DojoWalkerColors.white,
         borderRadius: const BorderRadius.vertical(
           top: Radius.circular(24),
         ),
@@ -51,7 +51,7 @@ class ProfileSheetHandle extends StatelessWidget {
         width: 42,
         height: 4,
         decoration: BoxDecoration(
-          color: AppColors.border,
+          color: DojoWalkerColors.border,
           borderRadius: BorderRadius.circular(10),
         ),
       ),
@@ -90,7 +90,7 @@ class ProfilePrimaryButton extends StatelessWidget {
                 height: 18,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Colors.white,
+                  color: DojoWalkerColors.white,
                 ),
               )
             : Icon(
@@ -104,8 +104,8 @@ class ProfilePrimaryButton extends StatelessWidget {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
+          backgroundColor: DojoWalkerColors.primary,
+          foregroundColor: DojoWalkerColors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(11),
@@ -146,7 +146,7 @@ class ProfileDocumentUploadSheet extends StatelessWidget {
             style: const TextStyle(
               fontSize: 19,
               fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
+              color: DojoWalkerColors.textPrimary,
             ),
           ),
 
@@ -156,7 +156,7 @@ class ProfileDocumentUploadSheet extends StatelessWidget {
             'Choose an option',
             style: TextStyle(
               fontSize: 12,
-              color: AppColors.textGrey,
+              color: DojoWalkerColors.textSecondary,
             ),
           ),
 
@@ -174,7 +174,7 @@ class ProfileDocumentUploadSheet extends StatelessWidget {
 
           ProfileUploadOption(
             icon: Icons.camera_alt_outlined,
-            color: AppColors.secondary,
+            color: DojoWalkerColors.dark,
             title: 'Take Photo with Camera',
             subtitle: 'Capture a new document photo',
             onTap: onCamera,
@@ -210,7 +210,7 @@ class ProfileUploadOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.scaffoldBackground,
+      color: DojoWalkerColors.background,
       borderRadius: BorderRadius.circular(13),
       child: InkWell(
         onTap: onTap,
@@ -221,7 +221,7 @@ class ProfileUploadOption extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(13),
             border: Border.all(
-              color: AppColors.border,
+              color: DojoWalkerColors.border,
             ),
           ),
           child: Row(
@@ -230,7 +230,7 @@ class ProfileUploadOption extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.09),
+                  color: color.withValues(alpha: 0.09),
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Icon(
@@ -251,7 +251,7 @@ class ProfileUploadOption extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.textDark,
+                        color: DojoWalkerColors.textPrimary,
                       ),
                     ),
 
@@ -261,7 +261,7 @@ class ProfileUploadOption extends StatelessWidget {
                       subtitle,
                       style: const TextStyle(
                         fontSize: 11,
-                        color: AppColors.textGrey,
+                        color: DojoWalkerColors.textSecondary,
                       ),
                     ),
                   ],
@@ -270,7 +270,7 @@ class ProfileUploadOption extends StatelessWidget {
 
               const Icon(
                 Icons.chevron_right_rounded,
-                color: AppColors.textGrey,
+                color: DojoWalkerColors.textSecondary,
               ),
             ],
           ),
@@ -309,7 +309,7 @@ class CurrentPhoneBottomSheet extends StatelessWidget {
             style: TextStyle(
               fontSize: 19,
               fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
+              color: DojoWalkerColors.textPrimary,
             ),
           ),
 
@@ -319,7 +319,7 @@ class CurrentPhoneBottomSheet extends StatelessWidget {
             'An OTP will be sent to your current mobile number.',
             style: TextStyle(
               fontSize: 13,
-              color: AppColors.textGrey,
+              color: DojoWalkerColors.textSecondary,
             ),
           ),
 
@@ -362,17 +362,17 @@ class ProfilePhoneDisplay extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: AppColors.scaffoldBackground,
+        color: DojoWalkerColors.background,
         borderRadius: BorderRadius.circular(11),
         border: Border.all(
-          color: AppColors.border,
+          color: DojoWalkerColors.border,
         ),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.phone_outlined,
-            color: AppColors.secondary,
+            color: DojoWalkerColors.dark,
           ),
 
           const SizedBox(width: 10),
@@ -383,7 +383,7 @@ class ProfilePhoneDisplay extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textDark,
+                color: DojoWalkerColors.textPrimary,
               ),
             ),
           ),
@@ -471,7 +471,7 @@ class _OtpBottomSheetState extends State<OtpBottomSheet> {
             style: const TextStyle(
               fontSize: 19,
               fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
+              color: DojoWalkerColors.textPrimary,
             ),
           ),
 
@@ -482,7 +482,7 @@ class _OtpBottomSheetState extends State<OtpBottomSheet> {
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 13,
-              color: AppColors.textGrey,
+              color: DojoWalkerColors.textSecondary,
             ),
           ),
 
@@ -498,23 +498,23 @@ class _OtpBottomSheetState extends State<OtpBottomSheet> {
               counterText: '',
               hintText: '000000',
               filled: true,
-              fillColor: AppColors.scaffoldBackground,
+              fillColor: DojoWalkerColors.background,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(11),
                 borderSide: const BorderSide(
-                  color: AppColors.border,
+                  color: DojoWalkerColors.border,
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(11),
                 borderSide: const BorderSide(
-                  color: AppColors.border,
+                  color: DojoWalkerColors.border,
                 ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(11),
                 borderSide: const BorderSide(
-                  color: AppColors.primary,
+                  color: DojoWalkerColors.primary,
                   width: 1.5,
                 ),
               ),
@@ -630,7 +630,7 @@ class _NewPhoneBottomSheetState
             style: TextStyle(
               fontSize: 19,
               fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
+              color: DojoWalkerColors.textPrimary,
             ),
           ),
 
@@ -641,7 +641,7 @@ class _NewPhoneBottomSheetState
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
-              color: AppColors.textGrey,
+              color: DojoWalkerColors.textSecondary,
             ),
           ),
 
@@ -705,23 +705,23 @@ class ProfilePhoneField extends StatelessWidget {
           Icons.phone_outlined,
         ),
         filled: true,
-        fillColor: AppColors.scaffoldBackground,
+        fillColor: DojoWalkerColors.background,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(11),
           borderSide: const BorderSide(
-            color: AppColors.border,
+            color: DojoWalkerColors.border,
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(11),
           borderSide: const BorderSide(
-            color: AppColors.border,
+            color: DojoWalkerColors.border,
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(11),
           borderSide: const BorderSide(
-            color: AppColors.primary,
+            color: DojoWalkerColors.primary,
             width: 1.5,
           ),
         ),
