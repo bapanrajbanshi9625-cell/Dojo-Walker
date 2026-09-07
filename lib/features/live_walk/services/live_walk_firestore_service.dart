@@ -17,12 +17,25 @@ class LiveWalkFirestoreService {
       get _sessions =>
           _firestore.collection('liveWalkSessions');
 
+  /// One Walk = One Live Session
+  ///
+  /// IMPORTANT:
+  /// liveWalkSessions document ID is always the Walk ID.
+  ///
+  /// Example:
+  /// liveWalkSessions/DW-000001
   Future<Map<String, dynamic>?> getSession(
-    String sessionId,
+    String walkId,
   ) async {
+    final String cleanWalkId = walkId.trim();
+
+    if (cleanWalkId.isEmpty) {
+      return null;
+    }
+
     final DocumentSnapshot<Map<String, dynamic>>
         snapshot =
-        await _sessions.doc(sessionId).get();
+        await _sessions.doc(cleanWalkId).get();
 
     if (!snapshot.exists) {
       return null;
@@ -48,6 +61,12 @@ class LiveWalkFirestoreService {
       return;
     }
 
+    final String cleanWalkId = walkId.trim();
+
+    if (cleanWalkId.isEmpty) {
+      return;
+    }
+
     final Map<String, double> startLocation =
         route.isNotEmpty
             ? route.first
@@ -59,8 +78,13 @@ class LiveWalkFirestoreService {
     final Map<String, dynamic> data =
         <String, dynamic>{
       'walkerUid': user.uid,
-      'walkId': walkId,
-      'sessionId': sessionId,
+
+      // Professional Walk ID.
+      'walkId': cleanWalkId,
+
+      // One Walk = One Live Session.
+      // Therefore sessionId must also equal walkId.
+      'sessionId': cleanWalkId,
 
       'currentLocation': <String, dynamic>{
         'lat': position.latitude,
@@ -102,8 +126,14 @@ class LiveWalkFirestoreService {
       'trackingEnded': false,
     };
 
+    // IMPORTANT:
+    // Never use .doc() without an ID here.
+    // The Firestore document ID must be the Walk ID.
+    //
+    // Example:
+    // liveWalkSessions/DW-000001
     await _sessions
-        .doc(sessionId)
+        .doc(cleanWalkId)
         .set(
           data,
           SetOptions(merge: true),
