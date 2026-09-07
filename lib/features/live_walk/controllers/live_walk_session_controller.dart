@@ -8,12 +8,11 @@ import '../../../core/services/live_walk_session_service.dart';
 
 class LiveWalkSessionController extends ChangeNotifier {
   LiveWalkSessionController({
-    required this.walkId,
+    required this.requestId,
     required this.ownerUid,
     required this.ownerName,
     required this.dogName,
     required this.dogBreed,
-    required this.sessionId,
     this.ownerPhone,
   });
 
@@ -21,17 +20,34 @@ class LiveWalkSessionController extends ChangeNotifier {
   // DATA
   // ============================================================
 
-  final String walkId;
+  /// CANONICAL WALK / REQUEST ID
+  ///
+  /// Same ID is used for:
+  ///
+  /// walk_request/{requestId}
+  /// liveWalkSessions/{requestId}
+  /// walk_history/{requestId}
+  ///
+  /// Example:
+  /// DW000001
+  final String requestId;
+
   final String ownerUid;
   final String ownerName;
   final String dogName;
   final String dogBreed;
   final String? ownerPhone;
 
-  /// REAL FIRESTORE DOCUMENT ID
-  ///
-  /// liveWalkSessions/{sessionId}
-  final String sessionId;
+  // ============================================================
+  // COMPATIBILITY GETTERS
+  //
+  // Existing UI/code can still read these names temporarily,
+  // but there is only ONE canonical ID.
+  // ============================================================
+
+  String get walkId => requestId;
+
+  String get sessionId => requestId;
 
   // ============================================================
   // SERVICES
@@ -193,7 +209,7 @@ class LiveWalkSessionController extends ChangeNotifier {
   DocumentReference<Map<String, dynamic>>
       get sessionRef {
     return _sessionService.sessionRef(
-      sessionId,
+      requestId,
     );
   }
 
@@ -218,8 +234,7 @@ class LiveWalkSessionController extends ChangeNotifier {
     try {
       debugPrint(
         'LiveWalkSessionController.initialize '
-        'walkId=$walkId '
-        'sessionId=$sessionId',
+        'requestId=$requestId',
       );
 
       await _sessionSubscription?.cancel();
@@ -234,7 +249,8 @@ class LiveWalkSessionController extends ChangeNotifier {
 
       final DocumentSnapshot<
               Map<String, dynamic>>
-          snapshot = await sessionRef.get();
+          snapshot =
+          await sessionRef.get();
 
       if (_disposed) {
         return;
@@ -243,7 +259,7 @@ class LiveWalkSessionController extends ChangeNotifier {
       if (!snapshot.exists) {
         debugPrint(
           'Live session not found: '
-          'liveWalkSessions/$sessionId',
+          'liveWalkSessions/$requestId',
         );
       } else {
         final Map<String, dynamic> data =
@@ -344,7 +360,9 @@ class LiveWalkSessionController extends ChangeNotifier {
     // ----------------------------------------------------------
 
     final int? firestoreSteps =
-        _readInt(data['steps']);
+        _readInt(
+      data['steps'],
+    );
 
     if (firestoreSteps != null &&
         firestoreSteps >= 0) {
@@ -356,7 +374,9 @@ class LiveWalkSessionController extends ChangeNotifier {
     // ----------------------------------------------------------
 
     final int? firestorePee =
-        _readInt(data['peeCount']);
+        _readInt(
+      data['peeCount'],
+    );
 
     if (firestorePee != null &&
         firestorePee >= 0) {
@@ -368,7 +388,9 @@ class LiveWalkSessionController extends ChangeNotifier {
     // ----------------------------------------------------------
 
     final int? firestorePoop =
-        _readInt(data['poopCount']);
+        _readInt(
+      data['poopCount'],
+    );
 
     if (firestorePoop != null &&
         firestorePoop >= 0) {
@@ -433,8 +455,7 @@ class LiveWalkSessionController extends ChangeNotifier {
 
     debugPrint(
       'LiveWalk timeline: '
-      'walkId=$walkId '
-      'sessionId=$sessionId '
+      'requestId=$requestId '
       'status=$status '
       'walkStarted=$_walkStarted '
       'completed=$_walkCompleted '
@@ -505,7 +526,9 @@ class LiveWalkSessionController extends ChangeNotifier {
   // STEPS UPDATE
   // ============================================================
 
-  void updateSteps(int value) {
+  void updateSteps(
+    int value,
+  ) {
     if (_disposed ||
         !_walkStarted ||
         value < 0) {
@@ -557,8 +580,7 @@ class LiveWalkSessionController extends ChangeNotifier {
     try {
       debugPrint(
         'Starting live walk '
-        'walkId=$walkId '
-        'sessionId=$sessionId',
+        'requestId=$requestId',
       );
 
       // --------------------------------------------------------
@@ -566,12 +588,16 @@ class LiveWalkSessionController extends ChangeNotifier {
       // --------------------------------------------------------
 
       await _sessionService.startWalk(
-        sessionId: sessionId,
-        walkId: walkId,
-        ownerUid: ownerUid,
-        ownerName: ownerName,
-        dogName: dogName,
-        dogBreed: dogBreed,
+        requestId:
+            requestId,
+        ownerUid:
+            ownerUid,
+        ownerName:
+            ownerName,
+        dogName:
+            dogName,
+        dogBreed:
+            dogBreed,
       );
 
       if (_disposed) {
@@ -583,12 +609,16 @@ class LiveWalkSessionController extends ChangeNotifier {
       // --------------------------------------------------------
 
       _backgroundService.start(
-        walkId: walkId,
-        sessionId: sessionId,
-        initialDistanceKm: _distanceKm,
-        initialSteps: _steps,
-        initialPeeCount: _peeCount,
-        initialPoopCount: _poopCount,
+        requestId:
+            requestId,
+        initialDistanceKm:
+            _distanceKm,
+        initialSteps:
+            _steps,
+        initialPeeCount:
+            _peeCount,
+        initialPoopCount:
+            _poopCount,
       );
 
       // --------------------------------------------------------
@@ -600,20 +630,31 @@ class LiveWalkSessionController extends ChangeNotifier {
 
       _sessionData = <String, dynamic>{
         ..._sessionData,
-        'sessionId': sessionId,
-        'walkId': walkId,
-        'ownerUid': ownerUid,
-        'ownerName': ownerName,
-        'dogName': dogName,
-        'dogBreed': dogBreed,
-        'status': 'active',
-        'walkStarted': true,
-        'trackingStarted': true,
-        'trackingEnded': false,
-        'walkEnded': false,
+        'requestId':
+            requestId,
+        'sessionId':
+            requestId,
+        'ownerUid':
+            ownerUid,
+        'ownerName':
+            ownerName,
+        'dogName':
+            dogName,
+        'dogBreed':
+            dogBreed,
+        'status':
+            'active',
+        'walkStarted':
+            true,
+        'trackingStarted':
+            true,
+        'trackingEnded':
+            false,
+        'walkEnded':
+            false,
         'startedAt':
             _sessionData['startedAt'] ??
-            Timestamp.now(),
+                Timestamp.now(),
       };
 
       notifyListeners();
@@ -654,7 +695,7 @@ class LiveWalkSessionController extends ChangeNotifier {
     if (_walkCompleted) {
       debugPrint(
         'Live walk already completed: '
-        'sessionId=$sessionId',
+        'requestId=$requestId',
       );
       return;
     }
@@ -672,8 +713,7 @@ class LiveWalkSessionController extends ChangeNotifier {
     try {
       debugPrint(
         'Completing live walk '
-        'walkId=$walkId '
-        'sessionId=$sessionId',
+        'requestId=$requestId',
       );
 
       // ========================================================
@@ -682,8 +722,8 @@ class LiveWalkSessionController extends ChangeNotifier {
       // ========================================================
 
       await _sessionService.completeWalk(
-        sessionId: sessionId,
-        walkId: walkId,
+        requestId:
+            requestId,
       );
 
       if (_disposed) {
@@ -710,19 +750,26 @@ class LiveWalkSessionController extends ChangeNotifier {
 
       _sessionData = <String, dynamic>{
         ..._sessionData,
-        'sessionId': sessionId,
-        'walkId': walkId,
-        'status': 'completed',
-        'walkStarted': false,
-        'trackingStarted': true,
-        'trackingEnded': true,
-        'walkEnded': true,
+        'requestId':
+            requestId,
+        'sessionId':
+            requestId,
+        'status':
+            'completed',
+        'walkStarted':
+            false,
+        'trackingStarted':
+            true,
+        'trackingEnded':
+            true,
+        'walkEnded':
+            true,
         'completedAt':
             _sessionData['completedAt'] ??
-            completionTime,
+                completionTime,
         'endedAt':
             _sessionData['endedAt'] ??
-            completionTime,
+                completionTime,
       };
 
       debugPrint(
@@ -734,11 +781,7 @@ class LiveWalkSessionController extends ChangeNotifier {
       );
 
       debugPrint(
-        'walkId=$walkId',
-      );
-
-      debugPrint(
-        'sessionId=$sessionId',
+        'requestId=$requestId',
       );
 
       debugPrint(
