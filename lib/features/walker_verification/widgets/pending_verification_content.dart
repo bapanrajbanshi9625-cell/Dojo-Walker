@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker_colors.dart';
 
 class PendingVerificationContent
     extends StatelessWidget {
@@ -51,7 +51,7 @@ class PendingVerificationContent
             fontSize: 27,
             height: 1.15,
             fontWeight: FontWeight.w900,
-            color: AppColors.textDark,
+            color: DojoWalkerColors.textPrimary,
           ),
         ),
 
@@ -63,7 +63,7 @@ class PendingVerificationContent
           style: const TextStyle(
             fontSize: 13,
             height: 1.5,
-            color: AppColors.muted,
+            color: DojoWalkerColors.textMuted,
           ),
         ),
 
@@ -73,9 +73,6 @@ class PendingVerificationContent
 
         const SizedBox(height: 14),
 
-        // IMPORTANT:
-        // This complete status card remains inside the
-        // SingleChildScrollView from PendingVerificationScreen.
         _statusCard(),
 
         const SizedBox(height: 14),
@@ -96,7 +93,7 @@ class PendingVerificationContent
         const Text(
           'DOJO Platform',
           style: TextStyle(
-            color: AppColors.orange,
+            color: DojoWalkerColors.primary,
             fontSize: 15,
             fontWeight: FontWeight.w900,
           ),
@@ -107,8 +104,9 @@ class PendingVerificationContent
         Text(
           'Trusted walks. Happy dogs. 🐾',
           style: TextStyle(
-            color:
-                AppColors.muted.withOpacity(.75),
+            color: DojoWalkerColors.textMuted.withValues(
+              alpha: .75,
+            ),
             fontSize: 11,
           ),
         ),
@@ -157,16 +155,16 @@ class PendingVerificationContent
 
   Widget _verificationIcon() {
     final Color iconColor = isApproved
-        ? AppColors.green
+        ? DojoWalkerColors.success
         : isRejected
-            ? AppColors.red
-            : AppColors.blue;
+            ? DojoWalkerColors.error
+            : DojoWalkerColors.info;
 
     final Color outerColor = isApproved
-        ? AppColors.green.withOpacity(.10)
+        ? DojoWalkerColors.success.withValues(alpha: .10)
         : isRejected
-            ? AppColors.red.withOpacity(.10)
-            : AppColors.blue.withOpacity(.10);
+            ? DojoWalkerColors.error.withValues(alpha: .10)
+            : DojoWalkerColors.info.withValues(alpha: .10);
 
     if (!isPending) {
       return _staticIcon(
@@ -205,9 +203,8 @@ class PendingVerificationContent
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color:
-                        iconColor.withOpacity(
-                      opacity,
+                    color: iconColor.withValues(
+                      alpha: opacity,
                     ),
                     width: 3,
                   ),
@@ -221,8 +218,9 @@ class PendingVerificationContent
                   shape: BoxShape.circle,
                   color: outerColor,
                   border: Border.all(
-                    color:
-                        iconColor.withOpacity(.12),
+                    color: iconColor.withValues(
+                      alpha: .12,
+                    ),
                     width: 6,
                   ),
                 ),
@@ -238,8 +236,9 @@ class PendingVerificationContent
                     color: iconColor,
                     boxShadow: [
                       BoxShadow(
-                        color:
-                            iconColor.withOpacity(.20),
+                        color: iconColor.withValues(
+                          alpha: .20,
+                        ),
                         blurRadius: 20,
                         spreadRadius: 1,
                       ),
@@ -247,7 +246,7 @@ class PendingVerificationContent
                   ),
                   child: const Icon(
                     Icons.verified_user_rounded,
-                    color: Colors.white,
+                    color: DojoWalkerColors.white,
                     size: 45,
                   ),
                 ),
@@ -275,7 +274,7 @@ class PendingVerificationContent
         shape: BoxShape.circle,
         color: outerColor,
         border: Border.all(
-          color: iconColor.withOpacity(.15),
+          color: iconColor.withValues(alpha: .15),
           width: 7,
         ),
       ),
@@ -286,15 +285,14 @@ class PendingVerificationContent
           color: iconColor,
           boxShadow: [
             BoxShadow(
-              color:
-                  iconColor.withOpacity(.18),
+              color: iconColor.withValues(alpha: .18),
               blurRadius: 20,
             ),
           ],
         ),
         child: Icon(
           icon,
-          color: Colors.white,
+          color: DojoWalkerColors.white,
           size: 50,
         ),
       ),
@@ -307,28 +305,29 @@ class PendingVerificationContent
 
   Widget _mainStatusCard() {
     final Color color = isApproved
-        ? AppColors.green
+        ? DojoWalkerColors.success
         : isRejected
-            ? AppColors.red
-            : AppColors.blue;
+            ? DojoWalkerColors.error
+            : DojoWalkerColors.info;
 
     final Color light =
-        color.withOpacity(.08);
+        color.withValues(alpha: .08);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: DojoWalkerColors.white,
         borderRadius:
             BorderRadius.circular(20),
         border: Border.all(
-          color: color.withOpacity(.12),
+          color: color.withValues(alpha: .12),
         ),
         boxShadow: [
           BoxShadow(
-            color:
-                Colors.black.withOpacity(.035),
+            color: DojoWalkerColors.black.withValues(
+              alpha: .035,
+            ),
             blurRadius: 16,
             offset: const Offset(0, 5),
           ),
@@ -378,7 +377,7 @@ class PendingVerificationContent
                         fontWeight:
                             FontWeight.w900,
                         color:
-                            AppColors.textDark,
+                            DojoWalkerColors.textPrimary,
                       ),
                     ),
 
@@ -392,7 +391,8 @@ class PendingVerificationContent
                               : 'Verification is currently in progress.',
                       style: const TextStyle(
                         fontSize: 11.5,
-                        color: AppColors.muted,
+                        color:
+                            DojoWalkerColors.textMuted,
                       ),
                     ),
                   ],
@@ -438,7 +438,7 @@ class PendingVerificationContent
                       fontSize: 11.5,
                       height: 1.5,
                       color:
-                          color.withOpacity(.82),
+                          color.withValues(alpha: .82),
                       fontWeight:
                           FontWeight.w600,
                     ),
@@ -461,16 +461,17 @@ class PendingVerificationContent
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: DojoWalkerColors.white,
         borderRadius:
             BorderRadius.circular(20),
         border: Border.all(
-          color: AppColors.border,
+          color: DojoWalkerColors.border,
         ),
         boxShadow: [
           BoxShadow(
-            color:
-                Colors.black.withOpacity(.025),
+            color: DojoWalkerColors.black.withValues(
+              alpha: .025,
+            ),
             blurRadius: 12,
             offset: const Offset(0, 3),
           ),
@@ -485,7 +486,7 @@ class PendingVerificationContent
             style: TextStyle(
               fontSize: 15.5,
               fontWeight: FontWeight.w900,
-              color: AppColors.textDark,
+              color: DojoWalkerColors.textPrimary,
             ),
           ),
 
@@ -493,7 +494,7 @@ class PendingVerificationContent
 
           _step(
             icon: Icons.check_circle_rounded,
-            color: AppColors.green,
+            color: DojoWalkerColors.success,
             title: 'Profile Submitted',
             subtitle:
                 'Completed successfully',
@@ -508,10 +509,10 @@ class PendingVerificationContent
                     ? Icons.error_rounded
                     : Icons.verified_user_rounded,
             color: isApproved
-                ? AppColors.green
+                ? DojoWalkerColors.success
                 : isRejected
-                    ? AppColors.red
-                    : AppColors.blue,
+                    ? DojoWalkerColors.error
+                    : DojoWalkerColors.info,
             title:
                 'DOJO Platform Verification',
             subtitle: isApproved
@@ -529,8 +530,8 @@ class PendingVerificationContent
                 ? Icons.check_circle_rounded
                 : Icons.lock_rounded,
             color: isApproved
-                ? AppColors.green
-                : AppColors.muted,
+                ? DojoWalkerColors.success
+                : DojoWalkerColors.textMuted,
             title: 'Walker ID Activation',
             subtitle: isApproved
                 ? 'Walker ID is active'
@@ -556,7 +557,7 @@ class PendingVerificationContent
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: color.withOpacity(.10),
+        color: color.withValues(alpha: .10),
         shape: BoxShape.circle,
       ),
       child: Icon(
@@ -601,7 +602,8 @@ class PendingVerificationContent
                 style: const TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w900,
-                  color: AppColors.textDark,
+                  color:
+                      DojoWalkerColors.textPrimary,
                 ),
               ),
 
@@ -636,7 +638,7 @@ class PendingVerificationContent
       ),
       width: 2,
       height: 24,
-      color: AppColors.border,
+      color: DojoWalkerColors.border,
     );
   }
 
@@ -649,13 +651,15 @@ class PendingVerificationContent
       width: double.infinity,
       padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
-        color:
-            AppColors.orange.withOpacity(.05),
+        color: DojoWalkerColors.primary.withValues(
+          alpha: .05,
+        ),
         borderRadius:
             BorderRadius.circular(19),
         border: Border.all(
-          color:
-              AppColors.orange.withOpacity(.10),
+          color: DojoWalkerColors.primary.withValues(
+            alpha: .10,
+          ),
         ),
       ),
       child: Column(
@@ -666,7 +670,7 @@ class PendingVerificationContent
             children: [
               Icon(
                 Icons.lightbulb_outline_rounded,
-                color: AppColors.orange,
+                color: DojoWalkerColors.primary,
                 size: 22,
               ),
 
@@ -678,7 +682,8 @@ class PendingVerificationContent
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w900,
-                    color: AppColors.textDark,
+                    color:
+                        DojoWalkerColors.textPrimary,
                   ),
                 ),
               ),
@@ -732,8 +737,8 @@ class PendingVerificationContent
             style: TextStyle(
               fontSize: 12,
               color: completed
-                  ? AppColors.green
-                  : AppColors.muted,
+                  ? DojoWalkerColors.success
+                  : DojoWalkerColors.textMuted,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -744,7 +749,7 @@ class PendingVerificationContent
               style: const TextStyle(
                 fontSize: 12,
                 height: 1.6,
-                color: AppColors.muted,
+                color: DojoWalkerColors.textMuted,
               ),
             ),
           ),
@@ -759,18 +764,18 @@ class PendingVerificationContent
 
   Widget _lockedCard() {
     final Color color = isRejected
-        ? AppColors.red
-        : AppColors.orange;
+        ? DojoWalkerColors.error
+        : DojoWalkerColors.primary;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withOpacity(.07),
+        color: color.withValues(alpha: .07),
         borderRadius:
             BorderRadius.circular(16),
         border: Border.all(
-          color: color.withOpacity(.10),
+          color: color.withValues(alpha: .10),
         ),
       ),
       child: Row(
@@ -796,7 +801,7 @@ class PendingVerificationContent
                 fontSize: 11.5,
                 height: 1.45,
                 color:
-                    color.withOpacity(.85),
+                    color.withValues(alpha: .85),
                 fontWeight:
                     FontWeight.w700,
               ),
@@ -821,10 +826,12 @@ class PendingVerificationContent
           50,
         ),
         foregroundColor:
-            AppColors.blue,
+            DojoWalkerColors.info,
         side: BorderSide(
           color:
-              AppColors.blue.withOpacity(.25),
+              DojoWalkerColors.info.withValues(
+            alpha: .25,
+          ),
         ),
         shape:
             RoundedRectangleBorder(
