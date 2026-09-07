@@ -2,10 +2,9 @@
 
 import 'package:flutter/material.dart';
 
-import 'core/constants/app_colors.dart';
 import 'core/network/network_monitor.dart';
 import 'core/services/app_state_service.dart';
-import 'core/theme/dojo_walker_theme.dart';
+import 'core/theme/dojo_walker.dart';
 import 'screens/no_network_screen.dart';
 import 'screens/splash_screen.dart';
 
@@ -18,8 +17,7 @@ class DojoWalkerApp extends StatefulWidget {
   });
 
   @override
-  State<DojoWalkerApp> createState() =>
-      _DojoWalkerAppState();
+  State<DojoWalkerApp> createState() => _DojoWalkerAppState();
 }
 
 class _DojoWalkerAppState extends State<DojoWalkerApp>
@@ -68,7 +66,7 @@ class _DojoWalkerAppState extends State<DojoWalkerApp>
     }
 
     return MaterialApp(
-      title: 'Dojo Walker - Buddy',
+      title: 'Dojo Walker',
       debugShowCheckedModeBanner: false,
       theme: DojoWalkerTheme.light,
       home: NetworkMonitor(
@@ -111,7 +109,7 @@ class StartupErrorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: DojoWalkerColors.background,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -122,7 +120,7 @@ class StartupErrorScreen extends StatelessWidget {
                 const Icon(
                   Icons.error_outline_rounded,
                   size: 64,
-                  color: AppColors.error,
+                  color: DojoWalkerColors.error,
                 ),
 
                 const SizedBox(height: 20),
@@ -132,7 +130,7 @@ class StartupErrorScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: DojoWalkerColors.textPrimary,
                   ),
                 ),
 
@@ -143,7 +141,7 @@ class StartupErrorScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
+                    color: DojoWalkerColors.textPrimary,
                   ),
                 ),
 
@@ -152,8 +150,8 @@ class StartupErrorScreen extends StatelessWidget {
                 Text(
                   error,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: DojoWalkerColors.textSecondary,
                   ),
                 ),
               ],
