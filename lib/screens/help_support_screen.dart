@@ -12,10 +12,10 @@ class WalkerHelpSupportScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DojoColors.background,
+      backgroundColor: DojoWalkerColors.background,
       appBar: AppBar(
-        backgroundColor: DojoColors.orange,
-        foregroundColor: Colors.white,
+        backgroundColor: DojoWalkerColors.primary,
+        foregroundColor: DojoWalkerColors.white,
         elevation: 0,
         title: const Text(
           'Help & Support',
@@ -40,10 +40,10 @@ class WalkerHelpSupportScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: DojoColors.surface,
+                color: DojoWalkerColors.card,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: DojoColors.border,
+                  color: DojoWalkerColors.border,
                 ),
               ),
               child: Row(
@@ -52,12 +52,12 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                     width: 52,
                     height: 52,
                     decoration: BoxDecoration(
-                      color: DojoColors.orangeLight,
+                      color: DojoWalkerColors.light,
                       borderRadius: BorderRadius.circular(15),
                     ),
                     child: const Icon(
                       Icons.support_agent_rounded,
-                      color: DojoColors.orange,
+                      color: DojoWalkerColors.primary,
                       size: 28,
                     ),
                   ),
@@ -70,7 +70,8 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                         Text(
                           'How can we help?',
                           style: TextStyle(
-                            color: DojoColors.textPrimary,
+                            color:
+                                DojoWalkerColors.textPrimary,
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
                           ),
@@ -80,7 +81,8 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                           'Get help with your walks, account, '
                           'verification and other issues.',
                           style: TextStyle(
-                            color: DojoColors.textSecondary,
+                            color:
+                                DojoWalkerColors.textSecondary,
                             fontSize: 12,
                             height: 1.4,
                           ),
@@ -109,7 +111,8 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const RaiseSupportTicketScreen(),
+                    builder: (_) =>
+                        const RaiseSupportTicketScreen(),
                   ),
                 );
               },
@@ -136,7 +139,8 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const RaiseSupportTicketScreen(
+                    builder: (_) =>
+                        const RaiseSupportTicketScreen(
                       initialCategory: 'Walk Issue',
                     ),
                   ),
@@ -155,7 +159,8 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const RaiseSupportTicketScreen(
+                    builder: (_) =>
+                        const RaiseSupportTicketScreen(
                       initialCategory: 'QR Walk',
                     ),
                   ),
@@ -174,7 +179,8 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const RaiseSupportTicketScreen(
+                    builder: (_) =>
+                        const RaiseSupportTicketScreen(
                       initialCategory: 'Reach / Arrival',
                     ),
                   ),
@@ -203,7 +209,8 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const RaiseSupportTicketScreen(
+                    builder: (_) =>
+                        const RaiseSupportTicketScreen(
                       initialCategory: 'Verification',
                     ),
                   ),
@@ -222,7 +229,8 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const RaiseSupportTicketScreen(
+                    builder: (_) =>
+                        const RaiseSupportTicketScreen(
                       initialCategory: 'Profile',
                     ),
                   ),
@@ -263,7 +271,8 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const RaiseSupportTicketScreen(),
+                    builder: (_) =>
+                        const RaiseSupportTicketScreen(),
                   ),
                 );
               },
@@ -275,7 +284,8 @@ class WalkerHelpSupportScreen extends StatelessWidget {
               child: Text(
                 'Dojo Walker',
                 style: TextStyle(
-                  color: DojoColors.textSecondary,
+                  color:
+                      DojoWalkerColors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -290,7 +300,7 @@ class WalkerHelpSupportScreen extends StatelessWidget {
   void _showFaq(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: DojoColors.surface,
+      backgroundColor: DojoWalkerColors.card,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
@@ -313,7 +323,8 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                 Text(
                   'Frequently Asked Questions',
                   style: TextStyle(
-                    color: DojoColors.textPrimary,
+                    color:
+                        DojoWalkerColors.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                   ),
@@ -333,7 +344,8 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                       'available at the bottom of the active walk screen.',
                 ),
                 _FaqItem(
-                  question: 'What should I do if something goes wrong?',
+                  question:
+                      'What should I do if something goes wrong?',
                   answer:
                       'Create a support ticket from Help & Support '
                       'and describe the problem clearly.',
@@ -421,10 +433,10 @@ class _RaiseSupportTicketScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DojoColors.background,
+      backgroundColor: DojoWalkerColors.background,
       appBar: AppBar(
-        backgroundColor: DojoColors.orange,
-        foregroundColor: Colors.white,
+        backgroundColor: DojoWalkerColors.primary,
+        foregroundColor: DojoWalkerColors.white,
         elevation: 0,
         title: const Text(
           'Raise Support Ticket',
@@ -447,10 +459,11 @@ class _RaiseSupportTicketScreenState
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: DojoColors.orangeLight,
-                  borderRadius: BorderRadius.circular(16),
+                  color: DojoWalkerColors.light,
+                  borderRadius:
+                      BorderRadius.circular(16),
                   border: Border.all(
-                    color: DojoColors.orange
+                    color: DojoWalkerColors.primary
                         .withValues(alpha: .25),
                   ),
                 ),
@@ -460,7 +473,8 @@ class _RaiseSupportTicketScreenState
                   children: [
                     Icon(
                       Icons.info_outline_rounded,
-                      color: DojoColors.orange,
+                      color:
+                          DojoWalkerColors.primary,
                     ),
                     SizedBox(width: 10),
                     Expanded(
@@ -469,7 +483,8 @@ class _RaiseSupportTicketScreenState
                         'Our support team can review and reply '
                         'to your ticket.',
                         style: TextStyle(
-                          color: DojoColors.textPrimary,
+                          color:
+                              DojoWalkerColors.textPrimary,
                           fontSize: 13,
                           height: 1.4,
                         ),
@@ -647,7 +662,8 @@ class _RaiseSupportTicketScreenState
                           child:
                               CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.white,
+                            color:
+                                DojoWalkerColors.white,
                           ),
                         )
                       : const Icon(
@@ -660,10 +676,11 @@ class _RaiseSupportTicketScreenState
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor:
-                        DojoColors.orange,
-                    foregroundColor: Colors.white,
+                        DojoWalkerColors.primary,
+                    foregroundColor:
+                        DojoWalkerColors.white,
                     disabledBackgroundColor:
-                        DojoColors.orange
+                        DojoWalkerColors.primary
                             .withValues(alpha: .55),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -680,7 +697,8 @@ class _RaiseSupportTicketScreenState
                 'Your ticket will be assigned a unique Ticket ID.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: DojoColors.textMuted,
+                  color:
+                      DojoWalkerColors.textMuted,
                   fontSize: 11,
                 ),
               ),
@@ -699,10 +717,11 @@ class _RaiseSupportTicketScreenState
       hintText: hint,
       prefixIcon: Icon(
         icon,
-        color: DojoColors.iconSecondary,
+        color:
+            DojoWalkerColors.textSecondary,
       ),
       filled: true,
-      fillColor: DojoColors.surface,
+      fillColor: DojoWalkerColors.card,
       contentPadding:
           const EdgeInsets.symmetric(
         horizontal: 14,
@@ -712,21 +731,24 @@ class _RaiseSupportTicketScreenState
         borderRadius:
             BorderRadius.circular(14),
         borderSide: const BorderSide(
-          color: DojoColors.border,
+          color:
+              DojoWalkerColors.border,
         ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius:
             BorderRadius.circular(14),
         borderSide: const BorderSide(
-          color: DojoColors.border,
+          color:
+              DojoWalkerColors.border,
         ),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius:
             BorderRadius.circular(14),
         borderSide: const BorderSide(
-          color: DojoColors.orange,
+          color:
+              DojoWalkerColors.primary,
           width: 1.5,
         ),
       ),
@@ -734,14 +756,16 @@ class _RaiseSupportTicketScreenState
         borderRadius:
             BorderRadius.circular(14),
         borderSide: const BorderSide(
-          color: DojoColors.error,
+          color:
+              DojoWalkerColors.error,
         ),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius:
             BorderRadius.circular(14),
         borderSide: const BorderSide(
-          color: DojoColors.error,
+          color:
+              DojoWalkerColors.error,
           width: 1.5,
         ),
       ),
@@ -820,7 +844,8 @@ class _RaiseSupportTicketScreenState
               children: [
                 Icon(
                   Icons.check_circle_rounded,
-                  color: DojoColors.success,
+                  color:
+                      DojoWalkerColors.success,
                   size: 28,
                 ),
                 SizedBox(width: 10),
@@ -843,7 +868,7 @@ class _RaiseSupportTicketScreenState
                   'Your support ticket has been created successfully.',
                   style: TextStyle(
                     color:
-                        DojoColors.textSecondary,
+                        DojoWalkerColors.textSecondary,
                     height: 1.4,
                   ),
                 ),
@@ -854,7 +879,7 @@ class _RaiseSupportTicketScreenState
                       const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color:
-                        DojoColors.background,
+                        DojoWalkerColors.background,
                     borderRadius:
                         BorderRadius.circular(12),
                   ),
@@ -862,7 +887,7 @@ class _RaiseSupportTicketScreenState
                     'Ticket ID\n$ticketId',
                     style: const TextStyle(
                       color:
-                          DojoColors.textPrimary,
+                          DojoWalkerColors.textPrimary,
                       fontSize: 13,
                       fontWeight:
                           FontWeight.w700,
@@ -879,8 +904,10 @@ class _RaiseSupportTicketScreenState
                 child: const Text(
                   'Done',
                   style: TextStyle(
-                    color: DojoColors.orange,
-                    fontWeight: FontWeight.w700,
+                    color:
+                        DojoWalkerColors.primary,
+                    fontWeight:
+                        FontWeight.w700,
                   ),
                 ),
               ),
@@ -924,7 +951,7 @@ class _RaiseSupportTicketScreenState
           behavior:
               SnackBarBehavior.floating,
           backgroundColor:
-              DojoColors.error,
+              DojoWalkerColors.error,
         ),
       );
   }
@@ -944,7 +971,7 @@ class _RaiseTicketTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: DojoColors.orange,
+      color: DojoWalkerColors.primary,
       borderRadius: BorderRadius.circular(17),
       child: InkWell(
         onTap: onTap,
@@ -959,7 +986,8 @@ class _RaiseTicketTile extends StatelessWidget {
             children: [
               Icon(
                 Icons.add_comment_rounded,
-                color: Colors.white,
+                color:
+                    DojoWalkerColors.white,
                 size: 27,
               ),
               SizedBox(width: 13),
@@ -971,7 +999,8 @@ class _RaiseTicketTile extends StatelessWidget {
                     Text(
                       'Raise a Support Ticket',
                       style: TextStyle(
-                        color: Colors.white,
+                        color:
+                            DojoWalkerColors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                       ),
@@ -980,7 +1009,8 @@ class _RaiseTicketTile extends StatelessWidget {
                     Text(
                       'Tell us about your problem and get help from Dojo Support.',
                       style: TextStyle(
-                        color: Colors.white,
+                        color:
+                            DojoWalkerColors.white,
                         fontSize: 11,
                         height: 1.35,
                       ),
@@ -990,7 +1020,8 @@ class _RaiseTicketTile extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right_rounded,
-                color: Colors.white,
+                color:
+                    DojoWalkerColors.white,
                 size: 26,
               ),
             ],
@@ -1017,7 +1048,8 @@ class _FormLabel extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(
-        color: DojoColors.textPrimary,
+        color:
+            DojoWalkerColors.textPrimary,
         fontSize: 13,
         fontWeight: FontWeight.w800,
       ),
@@ -1041,7 +1073,8 @@ class _SectionTitle extends StatelessWidget {
     return Text(
       title,
       style: const TextStyle(
-        color: DojoColors.textPrimary,
+        color:
+            DojoWalkerColors.textPrimary,
         fontSize: 14,
         fontWeight: FontWeight.w800,
       ),
@@ -1069,7 +1102,7 @@ class _SupportTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: DojoColors.surface,
+      color: DojoWalkerColors.card,
       borderRadius:
           BorderRadius.circular(16),
       child: InkWell(
@@ -1082,7 +1115,8 @@ class _SupportTile extends StatelessWidget {
             borderRadius:
                 BorderRadius.circular(16),
             border: Border.all(
-              color: DojoColors.border,
+              color:
+                  DojoWalkerColors.border,
             ),
           ),
           child: Row(
@@ -1092,13 +1126,14 @@ class _SupportTile extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   color:
-                      DojoColors.orangeLight,
+                      DojoWalkerColors.light,
                   borderRadius:
                       BorderRadius.circular(13),
                 ),
                 child: Icon(
                   icon,
-                  color: DojoColors.orange,
+                  color:
+                      DojoWalkerColors.primary,
                   size: 22,
                 ),
               ),
@@ -1112,7 +1147,7 @@ class _SupportTile extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         color:
-                            DojoColors.textPrimary,
+                            DojoWalkerColors.textPrimary,
                         fontSize: 14,
                         fontWeight:
                             FontWeight.w700,
@@ -1126,7 +1161,7 @@ class _SupportTile extends StatelessWidget {
                           TextOverflow.ellipsis,
                       style: const TextStyle(
                         color:
-                            DojoColors.textSecondary,
+                            DojoWalkerColors.textSecondary,
                         fontSize: 12,
                         height: 1.3,
                       ),
@@ -1138,7 +1173,7 @@ class _SupportTile extends StatelessWidget {
               const Icon(
                 Icons.chevron_right_rounded,
                 color:
-                    DojoColors.iconSecondary,
+                    DojoWalkerColors.textSecondary,
               ),
             ],
           ),
@@ -1167,11 +1202,13 @@ class _FaqItem extends StatelessWidget {
       margin:
           const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: DojoColors.background,
+        color:
+            DojoWalkerColors.background,
         borderRadius:
             BorderRadius.circular(14),
         border: Border.all(
-          color: DojoColors.border,
+          color:
+              DojoWalkerColors.border,
         ),
       ),
       child: ExpansionTile(
@@ -1186,14 +1223,15 @@ class _FaqItem extends StatelessWidget {
           14,
           14,
         ),
-        iconColor: DojoColors.orange,
+        iconColor:
+            DojoWalkerColors.primary,
         collapsedIconColor:
-            DojoColors.iconSecondary,
+            DojoWalkerColors.textSecondary,
         title: Text(
           question,
           style: const TextStyle(
             color:
-                DojoColors.textPrimary,
+                DojoWalkerColors.textPrimary,
             fontSize: 13,
             fontWeight:
                 FontWeight.w700,
@@ -1207,7 +1245,7 @@ class _FaqItem extends StatelessWidget {
               answer,
               style: const TextStyle(
                 color:
-                    DojoColors.textSecondary,
+                    DojoWalkerColors.textSecondary,
                 fontSize: 12,
                 height: 1.4,
               ),
