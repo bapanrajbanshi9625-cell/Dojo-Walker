@@ -9,6 +9,20 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// Firestore collection:
 ///     walk_request
 ///
+/// Canonical Walk ID:
+///     requestId
+///
+/// Example:
+///     DW000001
+///
+/// Firestore document:
+///     walk_request/DW000001
+///
+/// Same ID is used for:
+///     walk_request/DW000001
+///     liveWalkSessions/DW000001
+///     walk_history/DW000001
+///
 /// Status flow:
 ///     searching
 ///        ↓
@@ -22,12 +36,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 ///     cancelled
 ///
 /// Rejection:
-///     walk_request/{walkId}/rejections/{walkerId}
+///     walk_request/{requestId}/rejections/{walkerId}
 /// ============================================================
 
 class InstaWalkRequest {
   const InstaWalkRequest({
-    required this.id,
+    required this.requestId,
 
     // OWNER
     this.ownerId = '',
@@ -65,10 +79,6 @@ class InstaWalkRequest {
     this.timeFormatted = '',
     this.date = '',
 
-    // LIVE WALK
-    this.activeWalkId = '',
-    this.liveWalkSessionId = '',
-
     // TIMESTAMPS
     this.createdAt,
     this.acceptedAt,
@@ -80,10 +90,35 @@ class InstaWalkRequest {
   });
 
   // ============================================================
-  // ID
+  // CANONICAL ID
   // ============================================================
 
-  final String id;
+  final String requestId;
+
+  /// Compatibility getter for existing code.
+  ///
+  /// IMPORTANT:
+  /// This is NOT a separate ID.
+  /// It always returns requestId.
+  String get id => requestId;
+
+  /// Compatibility getter for old walkId references.
+  ///
+  /// IMPORTANT:
+  /// There is no separate walkId.
+  String get walkId => requestId;
+
+  /// Compatibility getter for old activeWalkId references.
+  ///
+  /// IMPORTANT:
+  /// There is no separate activeWalkId.
+  String get activeWalkId => requestId;
+
+  /// Compatibility getter for old liveWalkSessionId references.
+  ///
+  /// IMPORTANT:
+  /// There is no separate liveWalkSessionId.
+  String get liveWalkSessionId => requestId;
 
   // ============================================================
   // OWNER
@@ -144,15 +179,6 @@ class InstaWalkRequest {
   //
   // This is the Walker's CURRENT location while travelling
   // toward the Owner.
-  //
-  // IMPORTANT:
-  // This is separate from latitude / longitude above.
-  //
-  // latitude / longitude
-  //     = Owner/Home location
-  //
-  // walkerLocation
-  //     = Walker current live location
   // ============================================================
 
   final GeoPoint? walkerLocation;
@@ -165,13 +191,6 @@ class InstaWalkRequest {
   final int durationMinutes;
   final String timeFormatted;
   final String date;
-
-  // ============================================================
-  // LIVE WALK
-  // ============================================================
-
-  final String activeWalkId;
-  final String liveWalkSessionId;
 
   // ============================================================
   // TIMESTAMPS
@@ -194,6 +213,15 @@ class InstaWalkRequest {
   ) {
     final Map<String, dynamic> data =
         snapshot.data() ?? <String, dynamic>{};
+
+    // ----------------------------------------------------------
+    // CANONICAL REQUEST ID
+    //
+    // Firestore document ID is authoritative.
+    // ----------------------------------------------------------
+
+    final String requestId =
+        snapshot.id.trim();
 
     // ----------------------------------------------------------
     // OWNER LOCATION
@@ -234,11 +262,6 @@ class InstaWalkRequest {
 
     // ----------------------------------------------------------
     // WALKER LIVE LOCATION
-    //
-    // Firestore:
-    //     walkerLocation: GeoPoint
-    //
-    // This must NOT replace ownerLocation.
     // ----------------------------------------------------------
 
     final GeoPoint? walkerLocation =
@@ -247,7 +270,7 @@ class InstaWalkRequest {
     );
 
     return InstaWalkRequest(
-      id: snapshot.id,
+      requestId: requestId,
 
       // --------------------------------------------------------
       // OWNER
@@ -360,7 +383,6 @@ class InstaWalkRequest {
       // --------------------------------------------------------
 
       latitude: latitude,
-
       longitude: longitude,
 
       // --------------------------------------------------------
@@ -389,18 +411,6 @@ class InstaWalkRequest {
 
       date: _string(
         data['date'],
-      ),
-
-      // --------------------------------------------------------
-      // LIVE WALK
-      // --------------------------------------------------------
-
-      activeWalkId: _string(
-        data['activeWalkId'],
-      ),
-
-      liveWalkSessionId: _string(
-        data['liveWalkSessionId'],
       ),
 
       // --------------------------------------------------------
@@ -443,6 +453,9 @@ class InstaWalkRequest {
 
   Map<String, dynamic> toFirestore() {
     return <String, dynamic>{
+      // CANONICAL ID
+      'requestId': requestId,
+
       // OWNER
       'ownerId': ownerId,
       'ownerAuthUid': ownerAuthUid,
@@ -479,10 +492,6 @@ class InstaWalkRequest {
       'timeFormatted': timeFormatted,
       'date': date,
 
-      // LIVE WALK
-      'activeWalkId': activeWalkId,
-      'liveWalkSessionId': liveWalkSessionId,
-
       // TIMESTAMPS
       'createdAt': createdAt,
       'acceptedAt': acceptedAt,
@@ -499,7 +508,7 @@ class InstaWalkRequest {
   // ============================================================
 
   InstaWalkRequest copyWith({
-    String? id,
+    String? requestId,
 
     // OWNER
     String? ownerId,
@@ -537,10 +546,6 @@ class InstaWalkRequest {
     String? timeFormatted,
     String? date,
 
-    // LIVE WALK
-    String? activeWalkId,
-    String? liveWalkSessionId,
-
     // TIMESTAMPS
     Timestamp? createdAt,
     Timestamp? acceptedAt,
@@ -551,10 +556,12 @@ class InstaWalkRequest {
     Timestamp? updatedAt,
   }) {
     return InstaWalkRequest(
-      id: id ?? this.id,
+      requestId:
+          requestId ?? this.requestId,
 
       // OWNER
-      ownerId: ownerId ?? this.ownerId,
+      ownerId:
+          ownerId ?? this.ownerId,
       ownerAuthUid:
           ownerAuthUid ?? this.ownerAuthUid,
       ownerUid:
@@ -607,13 +614,6 @@ class InstaWalkRequest {
           timeFormatted ?? this.timeFormatted,
       date:
           date ?? this.date,
-
-      // LIVE WALK
-      activeWalkId:
-          activeWalkId ?? this.activeWalkId,
-      liveWalkSessionId:
-          liveWalkSessionId ??
-              this.liveWalkSessionId,
 
       // TIMESTAMPS
       createdAt:
@@ -769,6 +769,14 @@ class InstaWalkRequest {
 
   bool get isRejected =>
       status.toLowerCase() == 'rejected';
+
+  // ============================================================
+  // REQUEST ID VALIDATION
+  // ============================================================
+
+  bool get hasValidRequestId =>
+      RegExp(r'^DW\d{6}$')
+          .hasMatch(requestId);
 
   // ============================================================
   // WALKER LOCATION HELPER
