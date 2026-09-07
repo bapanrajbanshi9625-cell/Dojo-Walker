@@ -1,6 +1,9 @@
+// File:
+// lib/features/walker_home/screens/distance_details_screen.dart
+
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_walker_colors.dart';
+import '../../../core/theme/dojo_walker.dart';
 import '../../my_walks/models/past_walk_model.dart';
 import '../services/walker_home_service.dart';
 
@@ -117,11 +120,11 @@ class _DistanceDetailsScreenState
             colorScheme:
                 theme.colorScheme.copyWith(
               primary:
-                  DojoColors.orange,
+                  DojoWalkerColors.primary,
               surface:
-                  DojoColors.surface,
+                  DojoWalkerColors.card,
               onSurface:
-                  DojoColors.textPrimary,
+                  DojoWalkerColors.textPrimary,
             ),
           ),
           child: child!,
@@ -148,7 +151,7 @@ class _DistanceDetailsScreenState
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor:
-          DojoColors.surface,
+          DojoWalkerColors.card,
       shape:
           const RoundedRectangleBorder(
         borderRadius:
@@ -178,7 +181,7 @@ class _DistanceDetailsScreenState
                   decoration:
                       BoxDecoration(
                     color:
-                        DojoColors.border,
+                        DojoWalkerColors.border,
                     borderRadius:
                         BorderRadius.circular(
                       20,
@@ -190,7 +193,7 @@ class _DistanceDetailsScreenState
                   'Distance Details',
                   style: TextStyle(
                     color:
-                        DojoColors.textPrimary,
+                        DojoWalkerColors.textPrimary,
                     fontSize: 19,
                     fontWeight:
                         FontWeight.w800,
@@ -410,12 +413,12 @@ class _DistanceDetailsScreenState
   ) {
     return Scaffold(
       backgroundColor:
-          DojoColors.background,
+          DojoWalkerColors.background,
       appBar: AppBar(
         backgroundColor:
-            DojoColors.orange,
+            DojoWalkerColors.primary,
         foregroundColor:
-            Colors.white,
+            DojoWalkerColors.white,
         elevation: 0,
         title: const Text(
           'Distance Details',
@@ -429,7 +432,7 @@ class _DistanceDetailsScreenState
         children: [
           Material(
             color:
-                DojoColors.surface,
+                DojoWalkerColors.card,
             child: Container(
               height: 48,
               padding:
@@ -441,7 +444,7 @@ class _DistanceDetailsScreenState
                 border: Border(
                   bottom: BorderSide(
                     color:
-                        DojoColors.divider,
+                        DojoWalkerColors.border,
                   ),
                 ),
               ),
@@ -457,7 +460,7 @@ class _DistanceDetailsScreenState
                             .date_range_rounded,
                     size: 18,
                     color:
-                        DojoColors.iconPrimary,
+                        DojoWalkerColors.textPrimary,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -469,7 +472,7 @@ class _DistanceDetailsScreenState
                       style:
                           const TextStyle(
                         color:
-                            DojoColors
+                            DojoWalkerColors
                                 .textPrimary,
                         fontSize: 13,
                         fontWeight:
@@ -491,7 +494,7 @@ class _DistanceDetailsScreenState
                             .calendar_month_rounded,
                         size: 20,
                         color:
-                            DojoColors.orange,
+                            DojoWalkerColors.primary,
                       ),
                     ),
                   ),
@@ -516,7 +519,7 @@ class _DistanceDetailsScreenState
                             style:
                                 TextStyle(
                               color:
-                                  DojoColors
+                                  DojoWalkerColors
                                       .textSecondary,
                               fontSize: 12,
                               fontWeight:
@@ -529,8 +532,8 @@ class _DistanceDetailsScreenState
                                 .keyboard_arrow_down_rounded,
                             size: 19,
                             color:
-                                DojoColors
-                                    .iconSecondary,
+                                DojoWalkerColors
+                                    .textMuted,
                           ),
                         ],
                       ),
@@ -557,7 +560,7 @@ class _DistanceDetailsScreenState
                     child:
                         CircularProgressIndicator(
                       color:
-                          DojoColors.orange,
+                          DojoWalkerColors.primary,
                     ),
                   );
                 }
@@ -599,7 +602,7 @@ class _DistanceDetailsScreenState
                       style:
                           const TextStyle(
                         color:
-                            DojoColors
+                            DojoWalkerColors
                                 .textPrimary,
                         fontSize: 18,
                         fontWeight:
@@ -616,7 +619,7 @@ class _DistanceDetailsScreenState
                       decoration:
                           BoxDecoration(
                         color:
-                            DojoColors.surface,
+                            DojoWalkerColors.card,
                         borderRadius:
                             BorderRadius.circular(
                           16,
@@ -624,7 +627,7 @@ class _DistanceDetailsScreenState
                         border:
                             Border.all(
                           color:
-                              DojoColors.border,
+                              DojoWalkerColors.border,
                         ),
                       ),
                       child: Row(
@@ -635,8 +638,8 @@ class _DistanceDetailsScreenState
                             decoration:
                                 BoxDecoration(
                               color:
-                                  DojoColors
-                                      .orangeLight,
+                                  DojoWalkerColors
+                                      .light,
                               borderRadius:
                                   BorderRadius
                                       .circular(
@@ -648,8 +651,8 @@ class _DistanceDetailsScreenState
                               Icons
                                   .map_rounded,
                               color:
-                                  DojoColors
-                                      .orange,
+                                  DojoWalkerColors
+                                      .primary,
                               size: 25,
                             ),
                           ),
@@ -667,7 +670,7 @@ class _DistanceDetailsScreenState
                                   style:
                                       TextStyle(
                                     color:
-                                        DojoColors
+                                        DojoWalkerColors
                                             .textSecondary,
                                     fontSize:
                                         13,
@@ -684,7 +687,7 @@ class _DistanceDetailsScreenState
                                   style:
                                       const TextStyle(
                                     color:
-                                        DojoColors
+                                        DojoWalkerColors
                                             .textPrimary,
                                     fontSize:
                                         24,
@@ -745,7 +748,7 @@ class _DistanceWalkList
             decoration:
                 BoxDecoration(
               color:
-                  DojoColors.surface,
+                  DojoWalkerColors.card,
               borderRadius:
                   BorderRadius.circular(
                 14,
@@ -753,7 +756,7 @@ class _DistanceWalkList
               border:
                   Border.all(
                 color:
-                    DojoColors.border,
+                    DojoWalkerColors.border,
               ),
             ),
             child: Row(
@@ -761,7 +764,7 @@ class _DistanceWalkList
                 const Icon(
                   Icons.route_rounded,
                   color:
-                      DojoColors.orange,
+                      DojoWalkerColors.primary,
                   size: 23,
                 ),
                 const SizedBox(
@@ -778,7 +781,7 @@ class _DistanceWalkList
                         style:
                             const TextStyle(
                           color:
-                              DojoColors
+                              DojoWalkerColors
                                   .textPrimary,
                           fontSize: 14,
                           fontWeight:
@@ -793,7 +796,7 @@ class _DistanceWalkList
                         style:
                             const TextStyle(
                           color:
-                              DojoColors
+                              DojoWalkerColors
                                   .textSecondary,
                           fontSize: 12,
                         ),
@@ -806,7 +809,7 @@ class _DistanceWalkList
                   style:
                       const TextStyle(
                     color:
-                        DojoColors.orange,
+                        DojoWalkerColors.primary,
                     fontSize: 14,
                     fontWeight:
                         FontWeight.w800,
@@ -846,7 +849,7 @@ class _WeekActionTile
           enabled ? 1.0 : 0.45,
       child: Material(
         color:
-            DojoColors.background,
+            DojoWalkerColors.background,
         borderRadius:
             BorderRadius.circular(16),
         child: InkWell(
@@ -865,8 +868,8 @@ class _WeekActionTile
                   decoration:
                       BoxDecoration(
                     color:
-                        DojoColors
-                            .orangeLight,
+                        DojoWalkerColors
+                            .light,
                     borderRadius:
                         BorderRadius.circular(
                       12,
@@ -875,7 +878,7 @@ class _WeekActionTile
                   child: Icon(
                     icon,
                     color:
-                        DojoColors.orange,
+                        DojoWalkerColors.primary,
                     size: 22,
                   ),
                 ),
@@ -893,7 +896,7 @@ class _WeekActionTile
                         style:
                             const TextStyle(
                           color:
-                              DojoColors
+                              DojoWalkerColors
                                   .textPrimary,
                           fontSize: 14,
                           fontWeight:
@@ -908,7 +911,7 @@ class _WeekActionTile
                         style:
                             const TextStyle(
                           color:
-                              DojoColors
+                              DojoWalkerColors
                                   .textSecondary,
                           fontSize: 12,
                         ),
@@ -920,8 +923,8 @@ class _WeekActionTile
                   Icons
                       .chevron_right_rounded,
                   color:
-                      DojoColors
-                          .iconSecondary,
+                      DojoWalkerColors
+                          .textMuted,
                 ),
               ],
             ),
@@ -947,13 +950,13 @@ class _EmptyState
       decoration:
           BoxDecoration(
         color:
-            DojoColors.surface,
+            DojoWalkerColors.card,
         borderRadius:
             BorderRadius.circular(16),
         border:
             Border.all(
           color:
-              DojoColors.border,
+              DojoWalkerColors.border,
         ),
       ),
       child: const Column(
@@ -962,7 +965,7 @@ class _EmptyState
             Icons.route_rounded,
             size: 42,
             color:
-                DojoColors.iconSecondary,
+                DojoWalkerColors.textMuted,
           ),
           SizedBox(height: 10),
           Text(
@@ -970,7 +973,7 @@ class _EmptyState
             style:
                 TextStyle(
               color:
-                  DojoColors.textPrimary,
+                  DojoWalkerColors.textPrimary,
               fontSize: 15,
               fontWeight:
                   FontWeight.w700,
@@ -984,7 +987,7 @@ class _EmptyState
             style:
                 TextStyle(
               color:
-                  DojoColors.textSecondary,
+                  DojoWalkerColors.textSecondary,
               fontSize: 13,
             ),
           ),
@@ -1013,7 +1016,7 @@ class _ErrorState
             Icon(
               Icons.cloud_off_rounded,
               color:
-                  DojoColors.textSecondary,
+                  DojoWalkerColors.textMuted,
               size: 44,
             ),
             SizedBox(height: 12),
@@ -1024,7 +1027,7 @@ class _ErrorState
               style:
                   TextStyle(
                 color:
-                    DojoColors.textPrimary,
+                    DojoWalkerColors.textPrimary,
                 fontSize: 14,
                 fontWeight:
                     FontWeight.w600,
