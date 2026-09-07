@@ -6,7 +6,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker_colors.dart';
 import '../../../core/services/cloudinary_service.dart';
 import 'mandatory_profile_setup_screen2.dart';
 
@@ -141,7 +141,7 @@ class _MandatoryProfileSetupScreen1State
 
     return showModalBottomSheet<ImageSource>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: DojoWalkerColors.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(28),
@@ -163,7 +163,7 @@ class _MandatoryProfileSetupScreen1State
                   width: 42,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: AppColors.border,
+                    color: DojoWalkerColors.border,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -173,7 +173,7 @@ class _MandatoryProfileSetupScreen1State
                   style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w900,
-                    color: AppColors.textDark,
+                    color: DojoWalkerColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -181,7 +181,7 @@ class _MandatoryProfileSetupScreen1State
                   'Choose Camera or Gallery',
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.muted,
+                    color: DojoWalkerColors.textMuted,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -234,10 +234,10 @@ class _MandatoryProfileSetupScreen1State
           vertical: 18,
         ),
         decoration: BoxDecoration(
-          color: AppColors.background,
+          color: DojoWalkerColors.background,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: AppColors.border,
+            color: DojoWalkerColors.border,
           ),
         ),
         child: Column(
@@ -245,14 +245,14 @@ class _MandatoryProfileSetupScreen1State
             Icon(
               icon,
               size: 30,
-              color: AppColors.orange,
+              color: DojoWalkerColors.primary,
             ),
             const SizedBox(height: 8),
             Text(
               title,
               style: const TextStyle(
                 fontWeight: FontWeight.w800,
-                color: AppColors.textDark,
+                color: DojoWalkerColors.textPrimary,
               ),
             ),
           ],
@@ -370,7 +370,7 @@ class _MandatoryProfileSetupScreen1State
     final String? result =
         await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: DojoWalkerColors.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(28),
@@ -397,7 +397,7 @@ class _MandatoryProfileSetupScreen1State
                       theme.textTheme.titleLarge?.copyWith(
                     fontSize: 19,
                     fontWeight: FontWeight.w900,
-                    color: AppColors.textDark,
+                    color: DojoWalkerColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -440,14 +440,14 @@ class _MandatoryProfileSetupScreen1State
     final bool selected = gender == value;
 
     final Color backgroundColor = selected
-        ? AppColors.green.withOpacity(.08)
-        : AppColors.surface;
+        ? DojoWalkerColors.success.withValues(alpha: .08)
+        : DojoWalkerColors.background;
 
     final Color borderColor =
-        selected ? AppColors.green : AppColors.border;
+        selected ? DojoWalkerColors.success : DojoWalkerColors.border;
 
     final Color iconColor =
-        selected ? AppColors.green : AppColors.blue;
+        selected ? DojoWalkerColors.success : DojoWalkerColors.info;
 
     return InkWell(
       onTap: () {
@@ -478,14 +478,14 @@ class _MandatoryProfileSetupScreen1State
               value,
               style: const TextStyle(
                 fontWeight: FontWeight.w800,
-                color: AppColors.textDark,
+                color: DojoWalkerColors.textPrimary,
               ),
             ),
             const Spacer(),
             if (selected)
               const Icon(
                 Icons.check_circle_rounded,
-                color: AppColors.green,
+                color: DojoWalkerColors.success,
               ),
           ],
         ),
@@ -586,7 +586,9 @@ class _MandatoryProfileSetupScreen1State
         SnackBar(
           content: Text(message),
           backgroundColor:
-              success ? AppColors.green : AppColors.red,
+              success
+                  ? DojoWalkerColors.success
+                  : DojoWalkerColors.error,
           behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(16),
           shape: RoundedRectangleBorder(
@@ -614,19 +616,19 @@ class _MandatoryProfileSetupScreen1State
         enabled: !busy,
         textInputAction: TextInputAction.next,
         style: const TextStyle(
-          color: AppColors.textDark,
+          color: DojoWalkerColors.textPrimary,
         ),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(
-            color: AppColors.muted,
+            color: DojoWalkerColors.textMuted,
           ),
           prefixIcon: const Icon(
             Icons.person_rounded,
-            color: AppColors.blue,
+            color: DojoWalkerColors.info,
           ),
           filled: true,
-          fillColor: AppColors.surface,
+          fillColor: DojoWalkerColors.background,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
@@ -634,13 +636,13 @@ class _MandatoryProfileSetupScreen1State
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(
-              color: AppColors.border,
+              color: DojoWalkerColors.border,
             ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(
-              color: AppColors.green,
+              color: DojoWalkerColors.success,
               width: 1.5,
             ),
           ),
@@ -660,7 +662,7 @@ class _MandatoryProfileSetupScreen1State
         selfieUrl!.trim().isNotEmpty;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: DojoWalkerColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -677,10 +679,10 @@ class _MandatoryProfileSetupScreen1State
                 18,
               ),
               decoration: const BoxDecoration(
-                color: AppColors.surface,
+                color: DojoWalkerColors.background,
                 border: Border(
                   bottom: BorderSide(
-                    color: AppColors.borderLight,
+                    color: DojoWalkerColors.border,
                   ),
                 ),
               ),
@@ -690,13 +692,13 @@ class _MandatoryProfileSetupScreen1State
                     width: 46,
                     height: 46,
                     decoration: BoxDecoration(
-                      color: AppColors.orange,
+                      color: DojoWalkerColors.primary,
                       borderRadius:
                           BorderRadius.circular(14),
                     ),
                     child: const Icon(
                       Icons.pets_rounded,
-                      color: AppColors.onPrimary,
+                      color: DojoWalkerColors.white,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -709,7 +711,7 @@ class _MandatoryProfileSetupScreen1State
                           'Walker',
                           style: TextStyle(
                             fontSize: 11,
-                            color: AppColors.orange,
+                            color: DojoWalkerColors.primary,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -718,7 +720,7 @@ class _MandatoryProfileSetupScreen1State
                           'Walker Information',
                           style: TextStyle(
                             fontSize: 19,
-                            color: AppColors.textDark,
+                            color: DojoWalkerColors.textPrimary,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
@@ -733,14 +735,16 @@ class _MandatoryProfileSetupScreen1State
                     ),
                     decoration: BoxDecoration(
                       color:
-                          AppColors.green.withOpacity(.10),
+                          DojoWalkerColors.success.withValues(
+                        alpha: .10,
+                      ),
                       borderRadius:
                           BorderRadius.circular(12),
                     ),
                     child: const Text(
                       'STEP 1',
                       style: TextStyle(
-                        color: AppColors.green,
+                        color: DojoWalkerColors.success,
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
                       ),
@@ -774,7 +778,7 @@ class _MandatoryProfileSetupScreen1State
                       style: TextStyle(
                         fontSize: 23,
                         fontWeight: FontWeight.w900,
-                        color: AppColors.textDark,
+                        color: DojoWalkerColors.textPrimary,
                       ),
                     ),
 
@@ -784,7 +788,7 @@ class _MandatoryProfileSetupScreen1State
                       'Enter your basic Walker information.',
                       style: TextStyle(
                         fontSize: 12.5,
-                        color: AppColors.muted,
+                        color: DojoWalkerColors.textMuted,
                       ),
                     ),
 
@@ -804,14 +808,14 @@ class _MandatoryProfileSetupScreen1State
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: AppColors.surface,
+                          color: DojoWalkerColors.background,
                           borderRadius:
                               BorderRadius.circular(20),
                           border: Border.all(
                             color: hasSelfie
-                                ? AppColors.green
-                                    .withOpacity(.45)
-                                : AppColors.border,
+                                ? DojoWalkerColors.success
+                                    .withValues(alpha: .45)
+                                : DojoWalkerColors.border,
                           ),
                         ),
                         child: Row(
@@ -820,8 +824,8 @@ class _MandatoryProfileSetupScreen1State
                               width: 64,
                               height: 64,
                               decoration: BoxDecoration(
-                                color: AppColors.orange
-                                    .withOpacity(.10),
+                                color: DojoWalkerColors.primary
+                                    .withValues(alpha: .10),
                                 borderRadius:
                                     BorderRadius.circular(17),
                               ),
@@ -833,7 +837,7 @@ class _MandatoryProfileSetupScreen1State
                                           CircularProgressIndicator(
                                         strokeWidth: 2.5,
                                         color:
-                                            AppColors.orange,
+                                            DojoWalkerColors.primary,
                                       ),
                                     )
                                   : hasSelfie
@@ -855,7 +859,7 @@ class _MandatoryProfileSetupScreen1State
                                                 Icons
                                                     .image_not_supported_rounded,
                                                 color:
-                                                    AppColors.orange,
+                                                    DojoWalkerColors.primary,
                                                 size: 28,
                                               );
                                             },
@@ -865,7 +869,7 @@ class _MandatoryProfileSetupScreen1State
                                           Icons
                                               .add_a_photo_rounded,
                                           color:
-                                              AppColors.orange,
+                                              DojoWalkerColors.primary,
                                           size: 28,
                                         ),
                             ),
@@ -884,7 +888,7 @@ class _MandatoryProfileSetupScreen1State
                                       fontWeight:
                                           FontWeight.w800,
                                       color:
-                                          AppColors.textDark,
+                                          DojoWalkerColors.textPrimary,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -897,10 +901,10 @@ class _MandatoryProfileSetupScreen1State
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: _uploadingSelfie
-                                          ? AppColors.orange
+                                          ? DojoWalkerColors.primary
                                           : hasSelfie
-                                              ? AppColors.green
-                                              : AppColors.muted,
+                                              ? DojoWalkerColors.success
+                                              : DojoWalkerColors.textMuted,
                                     ),
                                   ),
                                 ],
@@ -916,10 +920,10 @@ class _MandatoryProfileSetupScreen1State
                                       : Icons
                                           .chevron_right_rounded,
                               color: _uploadingSelfie
-                                  ? AppColors.orange
+                                  ? DojoWalkerColors.primary
                                   : hasSelfie
-                                      ? AppColors.green
-                                      : AppColors.muted,
+                                      ? DojoWalkerColors.success
+                                      : DojoWalkerColors.textMuted,
                             ),
                           ],
                         ),
@@ -959,18 +963,18 @@ class _MandatoryProfileSetupScreen1State
                           bottom: 14,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.surface,
+                          color: DojoWalkerColors.background,
                           borderRadius:
                               BorderRadius.circular(16),
                           border: Border.all(
-                            color: AppColors.border,
+                            color: DojoWalkerColors.border,
                           ),
                         ),
                         child: Row(
                           children: [
                             const Icon(
                               Icons.calendar_month_rounded,
-                              color: AppColors.blue,
+                              color: DojoWalkerColors.info,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -982,8 +986,8 @@ class _MandatoryProfileSetupScreen1State
                                       '${dateOfBirth!.year}',
                                 style: TextStyle(
                                   color: dateOfBirth == null
-                                      ? AppColors.muted
-                                      : AppColors.textDark,
+                                      ? DojoWalkerColors.textMuted
+                                      : DojoWalkerColors.textPrimary,
                                   fontWeight: dateOfBirth ==
                                           null
                                       ? FontWeight.w400
@@ -994,7 +998,7 @@ class _MandatoryProfileSetupScreen1State
                             const Icon(
                               Icons
                                   .keyboard_arrow_down_rounded,
-                              color: AppColors.muted,
+                              color: DojoWalkerColors.textMuted,
                             ),
                           ],
                         ),
@@ -1022,11 +1026,11 @@ class _MandatoryProfileSetupScreen1State
                           bottom: 14,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.surface,
+                          color: DojoWalkerColors.background,
                           borderRadius:
                               BorderRadius.circular(16),
                           border: Border.all(
-                            color: AppColors.border,
+                            color: DojoWalkerColors.border,
                           ),
                         ),
                         child: Row(
@@ -1035,7 +1039,7 @@ class _MandatoryProfileSetupScreen1State
                               gender == 'Female'
                                   ? Icons.female_rounded
                                   : Icons.male_rounded,
-                              color: AppColors.blue,
+                              color: DojoWalkerColors.info,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -1045,8 +1049,8 @@ class _MandatoryProfileSetupScreen1State
                                     : gender!,
                                 style: TextStyle(
                                   color: gender == null
-                                      ? AppColors.muted
-                                      : AppColors.textDark,
+                                      ? DojoWalkerColors.textMuted
+                                      : DojoWalkerColors.textPrimary,
                                   fontWeight: gender == null
                                       ? FontWeight.w400
                                       : FontWeight.w700,
@@ -1056,7 +1060,7 @@ class _MandatoryProfileSetupScreen1State
                             const Icon(
                               Icons
                                   .keyboard_arrow_down_rounded,
-                              color: AppColors.muted,
+                              color: DojoWalkerColors.textMuted,
                             ),
                           ],
                         ),
@@ -1077,12 +1081,12 @@ class _MandatoryProfileSetupScreen1State
                             busy ? null : next,
                         style: ElevatedButton.styleFrom(
                           backgroundColor:
-                              AppColors.green,
+                              DojoWalkerColors.success,
                           disabledBackgroundColor:
-                              AppColors.green
-                                  .withOpacity(.45),
+                              DojoWalkerColors.success
+                                  .withValues(alpha: .45),
                           foregroundColor:
-                              AppColors.onPrimary,
+                              DojoWalkerColors.white,
                           elevation: 0,
                           shape:
                               RoundedRectangleBorder(
@@ -1098,7 +1102,7 @@ class _MandatoryProfileSetupScreen1State
                                     CircularProgressIndicator(
                                   strokeWidth: 2.5,
                                   color:
-                                      AppColors.onPrimary,
+                                      DojoWalkerColors.white,
                                 ),
                               )
                             : Row(
@@ -1111,16 +1115,16 @@ class _MandatoryProfileSetupScreen1State
                                       fontWeight:
                                           FontWeight.w900,
                                       letterSpacing: .5,
-                                      color: AppColors
-                                          .onPrimary,
+                                      color:
+                                          DojoWalkerColors.white,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
                                   const Icon(
                                     Icons
                                         .arrow_forward_rounded,
-                                    color: AppColors
-                                        .onPrimary,
+                                    color:
+                                        DojoWalkerColors.white,
                                   ),
                                 ],
                               ),
