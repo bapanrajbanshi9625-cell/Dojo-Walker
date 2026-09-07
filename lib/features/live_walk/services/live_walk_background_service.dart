@@ -48,9 +48,21 @@ class LiveWalkBackgroundService {
 
   bool get isRunning => _state.running;
 
-  String? get walkId => _state.walkId;
+  /// Canonical Dojo Walk ID.
+  ///
+  /// Example:
+  /// DW000001
+  ///
+  /// Compatibility getter only.
+  String? get requestId => _state.walkId;
 
-  String? get sessionId => _state.sessionId;
+  /// Compatibility getter.
+  ///
+  /// Session ID is always the same as requestId.
+  String? get sessionId => _state.walkId;
+
+  /// Compatibility getter for older callers.
+  String? get walkId => _state.walkId;
 
   Position? get lastPosition => _state.lastPosition;
 
@@ -78,8 +90,7 @@ class LiveWalkBackgroundService {
   // ============================================================
 
   Future<bool> start({
-    required String walkId,
-    required String sessionId,
+    required String requestId,
     double initialDistanceKm = 0.0,
     int initialSteps = 0,
     int initialPeeCount = 0,
@@ -87,10 +98,13 @@ class LiveWalkBackgroundService {
     DateTime? initialStartedAt,
     List<Map<String, dynamic>>? initialRoute,
   }) async {
-    final String cleanWalkId = walkId.trim();
-    final String cleanSessionId = sessionId.trim();
+    final String cleanRequestId = requestId.trim();
 
-    if (cleanWalkId.isEmpty || cleanSessionId.isEmpty) {
+    // ----------------------------------------------------------
+    // VALID REQUEST ID
+    // ----------------------------------------------------------
+
+    if (!RegExp(r'^DW\d{6}$').hasMatch(cleanRequestId)) {
       return false;
     }
 
@@ -99,8 +113,7 @@ class LiveWalkBackgroundService {
     // ----------------------------------------------------------
 
     if (_state.running) {
-      if (_state.walkId == cleanWalkId &&
-          _state.sessionId == cleanSessionId) {
+      if (_state.walkId == cleanRequestId) {
         return true;
       }
 
@@ -130,25 +143,28 @@ class LiveWalkBackgroundService {
     // ----------------------------------------------------------
     // LOAD REAL LIVE WALK SESSION
     //
-    // liveWalkSessions/{sessionId}
+    // liveWalkSessions/{requestId}
     // ----------------------------------------------------------
 
     final Map<String, dynamic>? sessionData =
-        await _firestoreService.getSession(cleanSessionId);
+        await _firestoreService.getSession(
+      cleanRequestId,
+    );
 
     if (sessionData == null) {
       return false;
     }
 
     // ----------------------------------------------------------
-    // VERIFY WALK ID
+    // VERIFY REQUEST ID
     // ----------------------------------------------------------
 
-    final String sessionWalkId =
-        sessionData['walkId']?.toString().trim() ?? '';
+    final String storedRequestId =
+        sessionData['requestId']?.toString().trim() ??
+            cleanRequestId;
 
-    if (sessionWalkId.isNotEmpty &&
-        sessionWalkId != cleanWalkId) {
+    if (storedRequestId.isNotEmpty &&
+        storedRequestId != cleanRequestId) {
       return false;
     }
 
@@ -168,8 +184,10 @@ class LiveWalkBackgroundService {
     // INITIAL STATE
     // ----------------------------------------------------------
 
-    _state.walkId = cleanWalkId;
-    _state.sessionId = cleanSessionId;
+    // LiveWalkState is kept compatible internally.
+    // Canonical external ID remains requestId.
+    _state.walkId = cleanRequestId;
+    _state.sessionId = cleanRequestId;
 
     _state.totalDistanceKm =
         initialDistanceKm < 0 ? 0.0 : initialDistanceKm;
@@ -424,13 +442,11 @@ class LiveWalkBackgroundService {
       return;
     }
 
-    final String? currentWalkId = _state.walkId;
-    final String? currentSessionId = _state.sessionId;
+    final String? currentRequestId = _state.walkId;
 
-    if (currentWalkId == null ||
-        currentSessionId == null ||
-        currentWalkId.isEmpty ||
-        currentSessionId.isEmpty) {
+    if (currentRequestId == null ||
+        currentRequestId.isEmpty ||
+        !RegExp(r'^DW\d{6}$').hasMatch(currentRequestId)) {
       return;
     }
 
@@ -446,8 +462,8 @@ class LiveWalkBackgroundService {
 
     try {
       await _firestoreService.writeLocation(
-        walkId: currentWalkId,
-        sessionId: currentSessionId,
+        requestId: currentRequestId,
+        sessionId: currentRequestId,
         position: position,
         route: route,
         distanceKm: _state.totalDistanceKm,
@@ -521,7 +537,7 @@ class LiveWalkBackgroundService {
   // ============================================================
 
   Future<bool> recover({
-    required String sessionId,
+    required String requestId,
   }) async {
     final User? user = _auth.currentUser;
 
@@ -529,9 +545,9 @@ class LiveWalkBackgroundService {
       return false;
     }
 
-    final String cleanSessionId = sessionId.trim();
+    final String cleanRequestId = requestId.trim();
 
-    if (cleanSessionId.isEmpty) {
+    if (!RegExp(r'^DW\d{6}$').hasMatch(cleanRequestId)) {
       return false;
     }
 
@@ -542,7 +558,7 @@ class LiveWalkBackgroundService {
 
       final Map<String, dynamic>? data =
           await _firestoreService.getSession(
-        cleanSessionId,
+        cleanRequestId,
       );
 
       if (data == null) {
@@ -562,13 +578,15 @@ class LiveWalkBackgroundService {
       }
 
       // --------------------------------------------------------
-      // WALK ID
+      // VERIFY REQUEST ID
       // --------------------------------------------------------
 
-      final String recoveredWalkId =
-          data['walkId']?.toString().trim() ?? '';
+      final String storedRequestId =
+          data['requestId']?.toString().trim() ??
+              cleanRequestId;
 
-      if (recoveredWalkId.isEmpty) {
+      if (storedRequestId.isNotEmpty &&
+          storedRequestId != cleanRequestId) {
         return false;
       }
 
@@ -589,8 +607,7 @@ class LiveWalkBackgroundService {
       // --------------------------------------------------------
 
       return start(
-        walkId: recoveredWalkId,
-        sessionId: cleanSessionId,
+        requestId: cleanRequestId,
         initialDistanceKm:
             _toDouble(data['distanceKm']) ?? 0.0,
         initialSteps:
@@ -617,8 +634,11 @@ class LiveWalkBackgroundService {
     final Position? position = _state.lastPosition;
 
     return <String, dynamic>{
+      'requestId': _state.walkId,
+
+      // Compatibility only.
       'walkId': _state.walkId,
-      'sessionId': _state.sessionId,
+      'sessionId': _state.walkId,
 
       'currentLocation': position == null
           ? null
