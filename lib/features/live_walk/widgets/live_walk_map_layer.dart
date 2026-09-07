@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker.dart';
 import 'live_walk_map.dart';
 
 class LiveWalkMapLayer extends StatelessWidget {
@@ -42,7 +42,7 @@ class LiveWalkMapLayer extends StatelessWidget {
               _StatusBadge(
                 icon: Icons.circle,
                 label: 'LIVE',
-                iconColor: AppColors.success,
+                iconColor: DojoWalkerColors.success,
                 compactIcon: true,
               ),
 
@@ -52,8 +52,8 @@ class LiveWalkMapLayer extends StatelessWidget {
                 icon: Icons.my_location_rounded,
                 label: gpsReady ? 'GPS READY' : 'GPS CONNECTING',
                 iconColor: gpsReady
-                    ? AppColors.success
-                    : AppColors.primary,
+                    ? DojoWalkerColors.success
+                    : DojoWalkerColors.primary,
               ),
             ],
           ),
@@ -84,12 +84,12 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.cardBackground.withValues(
+        color: DojoWalkerColors.card.withValues(
           alpha: 0.96,
         ),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Colors.white.withValues(
+          color: DojoWalkerColors.white.withValues(
             alpha: 0.75,
           ),
           width: 1,
@@ -140,7 +140,7 @@ class _StatusBadge extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: AppColors.secondary,
+                color: DojoWalkerColors.textSecondary,
                 fontSize: 10,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.35,
