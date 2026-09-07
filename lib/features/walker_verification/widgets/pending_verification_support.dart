@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker_colors.dart';
 
 void showPendingVerificationSupport(
   BuildContext context,
 ) {
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: Colors.white,
+    backgroundColor: DojoWalkerColors.white,
     isScrollControlled: true,
     shape:
         const RoundedRectangleBorder(
@@ -35,7 +35,7 @@ void showPendingVerificationSupport(
                 height: 5,
                 decoration:
                     BoxDecoration(
-                  color: AppColors.border,
+                  color: DojoWalkerColors.border,
                   borderRadius:
                       BorderRadius.circular(10),
                 ),
@@ -45,7 +45,7 @@ void showPendingVerificationSupport(
 
               const Icon(
                 Icons.support_agent_rounded,
-                color: AppColors.blue,
+                color: DojoWalkerColors.info,
                 size: 44,
               ),
 
@@ -56,7 +56,7 @@ void showPendingVerificationSupport(
                 style: TextStyle(
                   fontSize: 21,
                   fontWeight: FontWeight.w900,
-                  color: AppColors.textDark,
+                  color: DojoWalkerColors.textPrimary,
                 ),
               ),
 
@@ -69,7 +69,7 @@ void showPendingVerificationSupport(
                 style: TextStyle(
                   fontSize: 13,
                   height: 1.5,
-                  color: AppColors.muted,
+                  color: DojoWalkerColors.textMuted,
                 ),
               ),
 
@@ -82,9 +82,9 @@ void showPendingVerificationSupport(
                   style:
                       FilledButton.styleFrom(
                     backgroundColor:
-                        AppColors.blue,
+                        DojoWalkerColors.info,
                     foregroundColor:
-                        Colors.white,
+                        DojoWalkerColors.white,
                     shape:
                         RoundedRectangleBorder(
                       borderRadius:
