@@ -54,21 +54,31 @@ class LiveWalkSessionService {
 
   // ============================================================
   // SESSION REFERENCE
+  //
+  // IMPORTANT:
+  // One Walk = One Live Session.
+  //
+  // Therefore:
+  //
+  // liveWalkSessions/{walkId}
+  //
+  // Example:
+  // liveWalkSessions/DW-000001
   // ============================================================
 
   DocumentReference<Map<String, dynamic>> sessionRef(
-    String sessionId,
+    String walkId,
   ) {
-    final String cleanId =
-        sessionId.trim();
+    final String cleanWalkId =
+        walkId.trim();
 
-    if (cleanId.isEmpty) {
+    if (cleanWalkId.isEmpty) {
       throw Exception(
-        'Live walk session ID is missing.',
+        'Walk ID is missing.',
       );
     }
 
-    return _sessions.doc(cleanId);
+    return _sessions.doc(cleanWalkId);
   }
 
   // ============================================================
@@ -77,13 +87,25 @@ class LiveWalkSessionService {
 
   Future<DocumentSnapshot<Map<String, dynamic>>>
       getSession(
-    String sessionId,
+    String walkId,
   ) async {
-    return sessionRef(sessionId).get();
+    return sessionRef(walkId).get();
   }
 
   // ============================================================
   // START WALK
+  //
+  // IMPORTANT:
+  //
+  // sessionId is accepted for compatibility with existing callers,
+  // but the canonical ID is always walkId.
+  //
+  // Firestore:
+  //
+  // liveWalkSessions/DW-000001
+  //
+  // sessionId = DW-000001
+  // walkId    = DW-000001
   // ============================================================
 
   Future<void> startWalk({
@@ -104,16 +126,31 @@ class LiveWalkSessionService {
     final String cleanWalkId =
         walkId.trim();
 
-    if (cleanSessionId.isEmpty) {
-      throw Exception(
-        'Live walk session ID is missing.',
-      );
-    }
-
     if (cleanWalkId.isEmpty) {
       throw Exception(
         'Walk ID is missing.',
       );
+    }
+
+    // ==========================================================
+    // ONE WALK = ONE SESSION
+    //
+    // Ignore any old/random session ID.
+    // The Walk ID is the canonical session ID.
+    // ==========================================================
+
+    final String canonicalSessionId =
+        cleanWalkId;
+
+    // Keep this validation only for compatibility.
+    // If an old caller passes a different sessionId, we do not
+    // create a wrong Firestore document.
+    if (cleanSessionId.isNotEmpty &&
+        cleanSessionId != cleanWalkId) {
+      // Intentionally use walkId as the canonical ID.
+      //
+      // No exception here because older callers may still pass
+      // an old session ID.
     }
 
     final String authUid =
@@ -132,11 +169,15 @@ class LiveWalkSessionService {
 
     final DocumentReference<Map<String, dynamic>>
         session =
-        sessionRef(cleanSessionId);
+        sessionRef(cleanWalkId);
 
     final DocumentSnapshot<Map<String, dynamic>>
         snapshot =
         await session.get();
+
+    // ==========================================================
+    // SESSION MUST EXIST
+    // ==========================================================
 
     if (!snapshot.exists) {
       throw Exception(
@@ -214,27 +255,40 @@ class LiveWalkSessionService {
     final Map<String, dynamic>
         sessionData =
         <String, dynamic>{
+      // --------------------------------------------------------
+      // IDENTIFIERS
+      // --------------------------------------------------------
+
       'sessionId':
-          cleanSessionId,
+          canonicalSessionId,
 
       'walkId':
           cleanWalkId,
 
+      // --------------------------------------------------------
       // OWNER
+      // --------------------------------------------------------
+
       'ownerUid':
           ownerUid.trim(),
 
       'ownerName':
           ownerName.trim(),
 
+      // --------------------------------------------------------
       // DOG
+      // --------------------------------------------------------
+
       'dogName':
           dogName.trim(),
 
       'dogBreed':
           dogBreed.trim(),
 
+      // --------------------------------------------------------
       // WALKER
+      // --------------------------------------------------------
+
       'walkerUid':
           cleanWalkerUid,
 
@@ -247,7 +301,10 @@ class LiveWalkSessionService {
       'walkerPhone':
           walkerPhone.trim(),
 
+      // --------------------------------------------------------
       // STATUS
+      // --------------------------------------------------------
+
       'status':
           'active',
 
@@ -263,14 +320,20 @@ class LiveWalkSessionService {
       'trackingEnded':
           false,
 
+      // --------------------------------------------------------
       // TIME
+      // --------------------------------------------------------
+
       'startedAt':
           FieldValue.serverTimestamp(),
 
       'updatedAt':
           FieldValue.serverTimestamp(),
 
+      // --------------------------------------------------------
       // STATS
+      // --------------------------------------------------------
+
       'distanceKm':
           existing['distanceKm'] ?? 0.0,
 
@@ -289,12 +352,18 @@ class LiveWalkSessionService {
       'poopCount':
           existing['poopCount'] ?? 0,
 
+      // --------------------------------------------------------
       // ROUTE
+      // --------------------------------------------------------
+
       'routeCoordinates':
           existing['routeCoordinates'] ??
               <dynamic>[],
 
+      // --------------------------------------------------------
       // LOCATION
+      // --------------------------------------------------------
+
       if (existing['currentLocation'] != null)
         'currentLocation':
             existing['currentLocation'],
@@ -307,11 +376,20 @@ class LiveWalkSessionService {
         'currentLng':
             existing['currentLng'],
 
+      // --------------------------------------------------------
       // EVENTS
+      // --------------------------------------------------------
+
       'events':
           existing['events'] ??
               <dynamic>[],
     };
+
+    // ==========================================================
+    // WRITE TO CANONICAL DOCUMENT
+    //
+    // liveWalkSessions/{walkId}
+    // ==========================================================
 
     await session.set(
       sessionData,
@@ -329,12 +407,12 @@ class LiveWalkSessionService {
   // 1. Read final live session.
   // 2. Verify walker.
   // 3. Mark live session completed.
-  // 4. Save the same completed walk to walk_history.
+  // 4. Save same completed walk to walk_history.
   //
-  // History document ID = sessionId.
+  // History document ID = walkId.
   //
-  // This makes the operation idempotent and prevents duplicate
-  // history documents for the same live session.
+  // liveWalkSessions/DW-000001
+  // walk_history/DW-000001
   // ============================================================
 
   Future<void> completeWalk({
@@ -347,16 +425,27 @@ class LiveWalkSessionService {
     final String cleanWalkId =
         walkId.trim();
 
-    if (cleanSessionId.isEmpty) {
-      throw Exception(
-        'Live walk session ID is missing.',
-      );
-    }
-
     if (cleanWalkId.isEmpty) {
       throw Exception(
         'Walk ID is missing.',
       );
+    }
+
+    // ==========================================================
+    // CANONICAL SESSION ID
+    //
+    // Ignore random/old session ID.
+    // ==========================================================
+
+    final String canonicalSessionId =
+        cleanWalkId;
+
+    // Keep compatibility with existing callers.
+    if (cleanSessionId.isNotEmpty &&
+        cleanSessionId != cleanWalkId) {
+      // Intentionally ignored.
+      //
+      // walkId remains the canonical ID.
     }
 
     final String authUid =
@@ -364,7 +453,7 @@ class LiveWalkSessionService {
 
     final DocumentReference<Map<String, dynamic>>
         session =
-        sessionRef(cleanSessionId);
+        sessionRef(cleanWalkId);
 
     final DocumentSnapshot<Map<String, dynamic>>
         snapshot =
@@ -437,18 +526,19 @@ class LiveWalkSessionService {
 
     // ==========================================================
     // ALREADY COMPLETED
-    //
-    // Even if the live session is already completed, make sure
-    // History exists.
     // ==========================================================
 
     if (status == 'completed' ||
         status == 'ended') {
       await _ensureHistoryExists(
-        sessionId: cleanSessionId,
-        walkId: cleanWalkId,
-        sessionData: data,
-        authUid: authUid,
+        sessionId:
+            canonicalSessionId,
+        walkId:
+            cleanWalkId,
+        sessionData:
+            data,
+        authUid:
+            authUid,
       );
 
       return;
@@ -471,9 +561,6 @@ class LiveWalkSessionService {
 
     // ==========================================================
     // FINAL SESSION DATA
-    //
-    // Keep ALL existing session information and add completed
-    // state.
     // ==========================================================
 
     final Map<String, dynamic>
@@ -483,7 +570,7 @@ class LiveWalkSessionService {
     completedSessionData.addAll(
       <String, dynamic>{
         'sessionId':
-            cleanSessionId,
+            canonicalSessionId,
 
         'walkId':
             cleanWalkId,
@@ -514,12 +601,8 @@ class LiveWalkSessionService {
     // ==========================================================
     // ATOMIC SAVE
     //
-    // Both documents are written together.
-    //
-    // liveWalkSessions/{sessionId}
-    // walk_history/{sessionId}
-    //
-    // If the batch fails, neither write is committed.
+    // liveWalkSessions/{walkId}
+    // walk_history/{walkId}
     // ==========================================================
 
     final WriteBatch batch =
@@ -533,7 +616,7 @@ class LiveWalkSessionService {
       session,
       <String, dynamic>{
         'sessionId':
-            cleanSessionId,
+            canonicalSessionId,
 
         'walkId':
             cleanWalkId,
@@ -566,11 +649,14 @@ class LiveWalkSessionService {
 
     // ----------------------------------------------------------
     // HISTORY
+    //
+    // IMPORTANT:
+    // Document ID = Walk ID.
     // ----------------------------------------------------------
 
     final DocumentReference<Map<String, dynamic>>
         historyRef =
-        _history.doc(cleanSessionId);
+        _history.doc(cleanWalkId);
 
     batch.set(
       historyRef,
@@ -578,7 +664,7 @@ class LiveWalkSessionService {
         sessionData:
             completedSessionData,
         sessionId:
-            cleanSessionId,
+            canonicalSessionId,
         walkId:
             cleanWalkId,
         authUid:
@@ -604,8 +690,8 @@ class LiveWalkSessionService {
   // Used when completeWalk() is called again after the session
   // has already been completed.
   //
-  // Because the document ID is sessionId, this does not create
-  // another history entry.
+  // Because document ID = walkId, duplicate history documents
+  // cannot be created for the same walk.
   // ============================================================
 
   Future<void> _ensureHistoryExists({
@@ -616,7 +702,7 @@ class LiveWalkSessionService {
   }) async {
     final DocumentReference<Map<String, dynamic>>
         historyRef =
-        _history.doc(sessionId);
+        _history.doc(walkId);
 
     final DocumentSnapshot<Map<String, dynamic>>
         historySnapshot =
@@ -639,7 +725,7 @@ class LiveWalkSessionService {
         sessionData:
             sessionData,
         sessionId:
-            sessionId,
+            walkId,
         walkId:
             walkId,
         authUid:
@@ -656,8 +742,7 @@ class LiveWalkSessionService {
   // ============================================================
   // BUILD HISTORY DATA
   //
-  // Existing live session fields are preserved so Walk History
-  // can use the same data.
+  // Existing live session fields are preserved.
   // ============================================================
 
   Map<String, dynamic> _buildHistoryData({
@@ -679,7 +764,7 @@ class LiveWalkSessionService {
         // ------------------------------------------------------
 
         'sessionId':
-            sessionId,
+            walkId,
 
         'walkId':
             walkId,
@@ -829,7 +914,8 @@ class LiveWalkSessionService {
     // ==========================================================
 
     if (!history.containsKey('steps')) {
-      history['steps'] = 0;
+      history['steps'] =
+          0;
     }
 
     // ==========================================================
@@ -837,11 +923,13 @@ class LiveWalkSessionService {
     // ==========================================================
 
     if (!history.containsKey('peeCount')) {
-      history['peeCount'] = 0;
+      history['peeCount'] =
+          0;
     }
 
     if (!history.containsKey('poopCount')) {
-      history['poopCount'] = 0;
+      history['poopCount'] =
+          0;
     }
 
     // ==========================================================
