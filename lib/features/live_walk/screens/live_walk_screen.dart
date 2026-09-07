@@ -14,24 +14,25 @@ class LiveWalkScreen extends StatefulWidget {
     super.key,
     required this.ownerUid,
     required this.ownerName,
-    required this.walkId,
+    required this.requestId,
     required this.dogName,
-    required this.sessionId,
     this.dogBreed = '',
     this.ownerPhone,
   });
 
   final String ownerUid;
   final String ownerName;
-  final String walkId;
+
+  /// CANONICAL WALK / REQUEST / SESSION ID
+  ///
+  /// walk_request/{requestId}
+  /// liveWalkSessions/{requestId}
+  /// walk_history/{requestId}
+  final String requestId;
+
   final String dogName;
   final String dogBreed;
   final String? ownerPhone;
-
-  /// REAL FIRESTORE DOCUMENT ID
-  ///
-  /// liveWalkSessions/{sessionId}
-  final String sessionId;
 
   @override
   State<LiveWalkScreen> createState() => _LiveWalkScreenState();
@@ -49,14 +50,21 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   void initState() {
     super.initState();
 
+    final String cleanRequestId = widget.requestId.trim();
+
+    if (!RegExp(r'^DW\d{6}$').hasMatch(cleanRequestId)) {
+      throw ArgumentError(
+        'Invalid requestId. Expected DW######.',
+      );
+    }
+
     _controller = LiveWalkSessionController(
+      requestId: cleanRequestId,
       ownerUid: widget.ownerUid,
       ownerName: widget.ownerName,
-      walkId: widget.walkId,
       dogName: widget.dogName,
       dogBreed: widget.dogBreed,
       ownerPhone: widget.ownerPhone,
-      sessionId: widget.sessionId,
     );
 
     _controller.addListener(_onControllerChanged);
@@ -409,19 +417,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: 16),
-
-          // ========================================================
-          // START WALK SLIDER
-          // ========================================================
-
           LiveWalkStartSlider(
             key: ValueKey<bool>(starting),
             enabled: !starting && !_controller.ending,
             onStarted: _startWalk,
           ),
-
           if (starting) ...[
             const SizedBox(height: 12),
             const Center(
@@ -855,9 +856,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   //       ↓
   // LiveWalkSessionService.completeWalk()
   //       ↓
-  // liveWalkSessions = completed
+  // liveWalkSessions/{requestId} = completed
   //       ↓
-  // walk_history = saved
+  // walk_history/{requestId} = saved
   //       ↓
   // background GPS stopped
   //       ↓
@@ -911,8 +912,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
       // --------------------------------------------------------
       // 3. LEAVE LIVE WALK SCREEN
-      //
-      // The parent will receive this result.
       // --------------------------------------------------------
 
       _leavingScreen = true;
@@ -922,15 +921,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           'walkCompleted': true,
           'showReview': true,
 
-          'walkId': widget.walkId,
+          'requestId': widget.requestId,
+
           'ownerUid': widget.ownerUid,
           'ownerName': widget.ownerName,
           'ownerPhone': widget.ownerPhone,
 
           'dogName': widget.dogName,
           'dogBreed': widget.dogBreed,
-
-          'sessionId': widget.sessionId,
 
           'distanceKm': distance,
           'steps': steps,
