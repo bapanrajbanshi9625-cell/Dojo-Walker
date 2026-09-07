@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker.dart';
 
 class InstaWalkHeader extends StatelessWidget {
   final bool searching;
@@ -18,20 +18,20 @@ class InstaWalkHeader extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.textDark,
-            AppColors.primaryDark,
-            AppColors.textDark,
+            DojoWalkerColors.textPrimary,
+            DojoWalkerColors.dark,
+            DojoWalkerColors.textPrimary,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppColors.border.withOpacity(.13),
+          color: DojoWalkerColors.border.withValues(alpha: 0.13),
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.overlay.withOpacity(.16),
+            color: DojoWalkerColors.black.withValues(alpha: 0.16),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -47,12 +47,12 @@ class InstaWalkHeader extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: AppColors.primary,
+              color: DojoWalkerColors.primary,
               borderRadius: BorderRadius.circular(15),
             ),
             child: Icon(
               Icons.flash_on_rounded,
-              color: AppColors.iconOnPrimary,
+              color: DojoWalkerColors.white,
               size: 30,
             ),
           ),
@@ -70,7 +70,7 @@ class InstaWalkHeader extends StatelessWidget {
                 Text(
                   'Insta Walk',
                   style: TextStyle(
-                    color: AppColors.buttonText,
+                    color: DojoWalkerColors.white,
                     fontSize: 21,
                     fontWeight: FontWeight.w800,
                   ),
@@ -79,7 +79,7 @@ class InstaWalkHeader extends StatelessWidget {
                 Text(
                   'Find a walk request nearby',
                   style: TextStyle(
-                    color: AppColors.textMuted,
+                    color: DojoWalkerColors.textMuted,
                     fontSize: 13,
                   ),
                 ),
@@ -98,10 +98,10 @@ class InstaWalkHeader extends StatelessWidget {
                 vertical: 6,
               ),
               decoration: BoxDecoration(
-                color: AppColors.success.withOpacity(.18),
+                color: DojoWalkerColors.success.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: AppColors.success.withOpacity(.35),
+                  color: DojoWalkerColors.success.withValues(alpha: 0.35),
                 ),
               ),
               child: Row(
@@ -109,14 +109,14 @@ class InstaWalkHeader extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.circle,
-                    color: AppColors.success,
+                    color: DojoWalkerColors.success,
                     size: 8,
                   ),
                   const SizedBox(width: 5),
                   Text(
                     'LIVE',
                     style: TextStyle(
-                      color: AppColors.buttonText,
+                      color: DojoWalkerColors.white,
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
                     ),
