@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker_colors.dart';
 
 class EmergencyContactSection2 extends StatelessWidget {
   const EmergencyContactSection2({
@@ -30,20 +30,20 @@ class EmergencyContactSection2 extends StatelessWidget {
         maxLength: maxLength,
         textInputAction: TextInputAction.next,
         style: const TextStyle(
-          color: AppColors.textDark,
+          color: DojoWalkerColors.textPrimary,
           fontWeight: FontWeight.w600,
         ),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(
-            color: AppColors.muted,
+            color: DojoWalkerColors.textMuted,
           ),
           prefixIcon: Icon(
             icon,
-            color: AppColors.orange,
+            color: DojoWalkerColors.primary,
           ),
           filled: true,
-          fillColor: AppColors.surface,
+          fillColor: DojoWalkerColors.background,
           counterText: '',
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
@@ -52,13 +52,13 @@ class EmergencyContactSection2 extends StatelessWidget {
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(
-              color: AppColors.border,
+              color: DojoWalkerColors.border,
             ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(
-              color: AppColors.green,
+              color: DojoWalkerColors.success,
               width: 1.5,
             ),
           ),
@@ -73,10 +73,10 @@ class EmergencyContactSection2 extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: DojoWalkerColors.background,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppColors.border,
+          color: DojoWalkerColors.border,
         ),
       ),
       child: Column(
@@ -86,7 +86,7 @@ class EmergencyContactSection2 extends StatelessWidget {
             children: [
               Icon(
                 Icons.contact_emergency_rounded,
-                color: AppColors.orange,
+                color: DojoWalkerColors.primary,
               ),
               SizedBox(width: 9),
               Expanded(
@@ -95,14 +95,14 @@ class EmergencyContactSection2 extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
-                    color: AppColors.textDark,
+                    color: DojoWalkerColors.textPrimary,
                   ),
                 ),
               ),
               Text(
                 'OPTIONAL',
                 style: TextStyle(
-                  color: AppColors.muted,
+                  color: DojoWalkerColors.textMuted,
                   fontSize: 10,
                   fontWeight: FontWeight.w900,
                 ),
