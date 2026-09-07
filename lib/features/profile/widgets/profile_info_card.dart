@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker.dart';
 
-class ProfileInfoCard
-    extends StatelessWidget {
+class ProfileInfoCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final String label;
@@ -23,35 +22,24 @@ class ProfileInfoCard
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      margin:
-          const EdgeInsets.only(bottom: 12),
-      padding:
-          const EdgeInsets.all(15),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color:
-            AppColors.cardBackground,
-        borderRadius:
-            BorderRadius.circular(12),
+        color: DojoWalkerColors.card,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.border,
+          color: DojoWalkerColors.border,
         ),
       ),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color:
-                  iconColor.withOpacity(
-                0.09,
-              ),
-              borderRadius:
-                  BorderRadius.circular(
-                10,
-              ),
+              color: iconColor.withValues(alpha: 0.09),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               icon,
@@ -59,37 +47,26 @@ class ProfileInfoCard
               size: 22,
             ),
           ),
-
           const SizedBox(width: 14),
-
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   label,
-                  style:
-                      const TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
-                    color:
-                        AppColors.textGrey,
-                    fontWeight:
-                        FontWeight.w600,
+                    color: DojoWalkerColors.textSecondary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-
                 const SizedBox(height: 4),
-
                 Text(
                   value,
                   style: TextStyle(
                     fontSize: 15,
-                    color:
-                        valueColor ??
-                            AppColors.textDark,
-                    fontWeight:
-                        FontWeight.w600,
+                    color: valueColor ?? DojoWalkerColors.textPrimary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
