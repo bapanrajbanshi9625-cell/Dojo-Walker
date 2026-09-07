@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker.dart';
 
 class SummaryStatCard extends StatelessWidget {
   final IconData icon;
@@ -39,10 +39,10 @@ class SummaryStatCard extends StatelessWidget {
             8,
           ),
           decoration: BoxDecoration(
-            color: AppColors.cardBackground,
+            color: DojoWalkerColors.card,
             borderRadius: BorderRadius.circular(13),
             border: Border.all(
-              color: AppColors.border,
+              color: DojoWalkerColors.border,
             ),
           ),
           child: Column(
@@ -77,7 +77,7 @@ class SummaryStatCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.textSecondary,
+                  color: DojoWalkerColors.textSecondary,
                   fontSize: 10.5,
                   height: 1.1,
                   fontWeight: FontWeight.w600,
@@ -95,7 +95,7 @@ class SummaryStatCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.textPrimary,
+                  color: DojoWalkerColors.textPrimary,
                   fontSize: 15,
                   height: 1.05,
                   fontWeight: FontWeight.w800,
