@@ -8,44 +8,121 @@ class LiveWalkFirestoreService {
     FirebaseAuth? auth,
   })  : _firestore =
             firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+        _auth =
+            auth ?? FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
 
   CollectionReference<Map<String, dynamic>>
       get _sessions =>
-          _firestore.collection('liveWalkSessions');
+          _firestore.collection(
+            'liveWalkSessions',
+          );
 
-  /// One Walk = One Live Session
-  ///
-  /// IMPORTANT:
-  /// liveWalkSessions document ID is always the Walk ID.
-  ///
-  /// Example:
-  /// liveWalkSessions/DW-000001
+  // ============================================================
+  // REQUEST ID VALIDATION
+  //
+  // Canonical ID:
+  //
+  // DW000001
+  // DW000002
+  // DW000003
+  //
+  // Same ID is used for:
+  //
+  // walk_request/{requestId}
+  // liveWalkSessions/{requestId}
+  // walk_history/{requestId}
+  // ============================================================
+
+  bool _isValidRequestId(
+    String requestId,
+  ) {
+    return RegExp(
+      r'^DW\d{6}$',
+    ).hasMatch(
+      requestId.trim(),
+    );
+  }
+
+  // ============================================================
+  // GET SESSION
+  //
+  // One Walk = One Live Session.
+  //
+  // Firestore:
+  //
+  // liveWalkSessions/{requestId}
+  //
+  // Example:
+  // liveWalkSessions/DW000001
+  // ============================================================
+
   Future<Map<String, dynamic>?> getSession(
-    String walkId,
+    String requestId,
   ) async {
-    final String cleanWalkId = walkId.trim();
+    final String cleanRequestId =
+        requestId.trim();
 
-    if (cleanWalkId.isEmpty) {
+    if (cleanRequestId.isEmpty) {
+      return null;
+    }
+
+    if (!_isValidRequestId(
+      cleanRequestId,
+    )) {
       return null;
     }
 
     final DocumentSnapshot<Map<String, dynamic>>
         snapshot =
-        await _sessions.doc(cleanWalkId).get();
+        await _sessions
+            .doc(cleanRequestId)
+            .get();
 
     if (!snapshot.exists) {
       return null;
     }
 
-    return snapshot.data();
+    final Map<String, dynamic> data =
+        snapshot.data() ??
+            <String, dynamic>{};
+
+    // ==========================================================
+    // VERIFY REQUEST ID
+    //
+    // Document ID is authoritative.
+    // ==========================================================
+
+    final String storedRequestId =
+        data['requestId']
+                ?.toString()
+                .trim() ??
+            '';
+
+    if (storedRequestId.isNotEmpty &&
+        storedRequestId != cleanRequestId) {
+      return null;
+    }
+
+    return data;
   }
 
+  // ============================================================
+  // WRITE LOCATION
+  //
+  // Canonical ID:
+  //
+  // requestId
+  //
+  // sessionId = requestId
+  //
+  // No separate walkId.
+  // ============================================================
+
   Future<void> writeLocation({
-    required String walkId,
+    required String requestId,
     required String sessionId,
     required Position position,
     required List<Map<String, double>> route,
@@ -55,88 +132,183 @@ class LiveWalkFirestoreService {
     required int poopCount,
     required DateTime? startedAt,
   }) async {
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     if (user == null) {
       return;
     }
 
-    final String cleanWalkId = walkId.trim();
+    final String cleanRequestId =
+        requestId.trim();
 
-    if (cleanWalkId.isEmpty) {
+    if (cleanRequestId.isEmpty) {
       return;
     }
 
-    final Map<String, double> startLocation =
+    if (!_isValidRequestId(
+      cleanRequestId,
+    )) {
+      return;
+    }
+
+    final Map<String, double>
+        startLocation =
         route.isNotEmpty
             ? route.first
             : <String, double>{
-                'lat': position.latitude,
-                'lng': position.longitude,
+                'lat':
+                    position.latitude,
+                'lng':
+                    position.longitude,
               };
 
     final Map<String, dynamic> data =
         <String, dynamic>{
-      'walkerUid': user.uid,
+      // --------------------------------------------------------
+      // WALKER
+      // --------------------------------------------------------
 
-      // Professional Walk ID.
-      'walkId': cleanWalkId,
+      'walkerUid':
+          user.uid,
 
-      // One Walk = One Live Session.
-      // Therefore sessionId must also equal walkId.
-      'sessionId': cleanWalkId,
+      // --------------------------------------------------------
+      // IDENTIFIERS
+      //
+      // One Walk = One Session.
+      // requestId is the canonical ID.
+      // --------------------------------------------------------
 
-      'currentLocation': <String, dynamic>{
-        'lat': position.latitude,
-        'lng': position.longitude,
+      'requestId':
+          cleanRequestId,
+
+      'sessionId':
+          cleanRequestId,
+
+      // --------------------------------------------------------
+      // CURRENT LOCATION
+      // --------------------------------------------------------
+
+      'currentLocation':
+          <String, dynamic>{
+        'lat':
+            position.latitude,
+        'lng':
+            position.longitude,
       },
 
-      'currentLat': position.latitude,
-      'currentLng': position.longitude,
+      'currentLat':
+          position.latitude,
 
-      'startLocation': startLocation,
-      'routeCoordinates': route,
-      'routePointCount': route.length,
+      'currentLng':
+          position.longitude,
 
-      'distanceKm': distanceKm,
-      'distanceMeters': distanceKm * 1000.0,
+      // --------------------------------------------------------
+      // START LOCATION / ROUTE
+      // --------------------------------------------------------
 
-      'steps': steps,
-      'peeCount': peeCount,
-      'poopCount': poopCount,
+      'startLocation':
+          startLocation,
 
-      'startedAt': startedAt == null
-          ? FieldValue.serverTimestamp()
-          : Timestamp.fromDate(startedAt),
+      'routeCoordinates':
+          route,
 
-      'gpsAccuracy': position.accuracy,
-      'gpsHeading': position.heading,
-      'gpsSpeed': position.speed,
+      'routePointCount':
+          route.length,
+
+      // --------------------------------------------------------
+      // DISTANCE
+      // --------------------------------------------------------
+
+      'distanceKm':
+          distanceKm,
+
+      'distanceMeters':
+          distanceKm * 1000.0,
+
+      // --------------------------------------------------------
+      // STATS
+      // --------------------------------------------------------
+
+      'steps':
+          steps,
+
+      'peeCount':
+          peeCount,
+
+      'poopCount':
+          poopCount,
+
+      // --------------------------------------------------------
+      // TIME
+      // --------------------------------------------------------
+
+      'startedAt':
+          startedAt == null
+              ? FieldValue
+                  .serverTimestamp()
+              : Timestamp.fromDate(
+                  startedAt,
+                ),
+
+      // --------------------------------------------------------
+      // GPS
+      // --------------------------------------------------------
+
+      'gpsAccuracy':
+          position.accuracy,
+
+      'gpsHeading':
+          position.heading,
+
+      'gpsSpeed':
+          position.speed,
 
       'gpsUpdatedAt':
-          FieldValue.serverTimestamp(),
+          FieldValue
+              .serverTimestamp(),
 
       'updatedAt':
-          FieldValue.serverTimestamp(),
+          FieldValue
+              .serverTimestamp(),
 
-      'status': 'active',
-      'walkStarted': true,
-      'walkEnded': false,
-      'trackingStarted': true,
-      'trackingEnded': false,
+      // --------------------------------------------------------
+      // STATUS
+      // --------------------------------------------------------
+
+      'status':
+          'active',
+
+      'walkStarted':
+          true,
+
+      'walkEnded':
+          false,
+
+      'trackingStarted':
+          true,
+
+      'trackingEnded':
+          false,
     };
 
+    // ==========================================================
+    // WRITE TO CANONICAL DOCUMENT
+    //
     // IMPORTANT:
-    // Never use .doc() without an ID here.
-    // The Firestore document ID must be the Walk ID.
+    // Firestore document ID = requestId.
     //
     // Example:
-    // liveWalkSessions/DW-000001
+    // liveWalkSessions/DW000001
+    // ==========================================================
+
     await _sessions
-        .doc(cleanWalkId)
+        .doc(cleanRequestId)
         .set(
           data,
-          SetOptions(merge: true),
+          SetOptions(
+            merge: true,
+          ),
         );
   }
 }
