@@ -24,9 +24,17 @@ class InstaWalkReachService {
   ///        ↓
   /// walk_request.reached = true
   ///        ↓
-  /// NEW liveWalkSessions/{sessionId}
+  /// liveWalkSessions/{walkId}
   ///        ↓
   /// LiveWalkScreen
+  ///
+  /// FINAL WALK ID FORMAT:
+  ///
+  ///   DW-000001
+  ///   DW-000002
+  ///   DW-000003
+  ///
+  /// One Walk = One Walk ID = One Live Session ID
   ///
   /// Walker details shared:
   ///
@@ -160,23 +168,41 @@ class InstaWalkReachService {
     }
 
     // ==========================================================
-    // ACTUAL WALK ID
+    // FINAL WALK ID
+    //
+    // FORMAT:
+    //
+    // DW-000001
+    // DW-000002
+    // DW-000003
+    //
+    // IMPORTANT:
+    // Firebase walk_request document ID is NOT the Walk ID.
     // ==========================================================
 
-    final String firestoreWalkId =
+    final String walkId =
         requestData['walkId']
                 ?.toString()
                 .trim() ??
             '';
 
-    final String walkId =
-        firestoreWalkId.isNotEmpty
-            ? firestoreWalkId
-            : requestSnapshot.id;
-
     if (walkId.isEmpty) {
       throw Exception(
-        'Walk ID is missing.',
+        'Walk ID is missing from this walk request.',
+      );
+    }
+
+    // ==========================================================
+    // VALIDATE WALK ID
+    // ==========================================================
+
+    final bool isValidWalkId =
+        RegExp(r'^DW-\d{6}$')
+            .hasMatch(walkId);
+
+    if (!isValidWalkId) {
+      throw Exception(
+        'Invalid Walk ID. Expected format: DW-000001.',
       );
     }
 
@@ -310,14 +336,20 @@ class InstaWalkReachService {
         Timestamp.now();
 
     // ==========================================================
-    // NEW LIVE WALK SESSION
+    // LIVE WALK SESSION
+    //
+    // IMPORTANT:
+    //
+    // Document ID = WALK ID
+    //
+    // liveWalkSessions/DW-000001
     // ==========================================================
 
     final DocumentReference<Map<String, dynamic>>
         sessionRef =
         _firestore
             .collection('liveWalkSessions')
-            .doc();
+            .doc(walkId);
 
     final Map<String, dynamic> sessionData =
         <String, dynamic>{
@@ -325,7 +357,7 @@ class InstaWalkReachService {
       // SESSION
       // ========================================================
 
-      'sessionId': sessionRef.id,
+      'sessionId': walkId,
 
       'walkId': walkId,
 
@@ -493,7 +525,7 @@ class InstaWalkReachService {
         _firestore.batch();
 
     // ----------------------------------------------------------
-    // 1. CREATE NEW LIVE SESSION
+    // 1. CREATE LIVE WALK SESSION
     // ----------------------------------------------------------
 
     batch.set(
@@ -508,6 +540,8 @@ class InstaWalkReachService {
     // IMPORTANT:
     // Do NOT put live GPS here.
     //
+    // Walk ID remains unchanged.
+    // ----------------------------------------------------------
 
     batch.update(
       requestRef,
@@ -549,10 +583,14 @@ class InstaWalkReachService {
     }
 
     // ==========================================================
-    // RETURN NEW SESSION ID
+    // RETURN WALK ID / SESSION ID
+    //
+    // Both are the same:
+    //
+    // DW-000001
     // ==========================================================
 
-    return sessionRef.id;
+    return walkId;
   }
 
   // ============================================================
