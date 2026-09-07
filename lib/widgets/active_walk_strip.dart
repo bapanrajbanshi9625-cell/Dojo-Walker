@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../core/constants/app_colors.dart';
 import '../core/services/active_walk_strip_service.dart';
+import '../core/theme/dojo_walker.dart';
 
 class ActiveWalkStrip extends StatefulWidget {
   const ActiveWalkStrip({
@@ -104,7 +104,7 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip>
         8,
       ),
       child: Material(
-        color: Colors.transparent,
+        color: DojoWalkerColors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: _handleTap,
@@ -129,19 +129,19 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip>
                   vertical: 11,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: DojoWalkerColors.card,
                   borderRadius:
                       BorderRadius.circular(20),
                   border: Border.all(
                     color:
-                        AppColors.primary.withValues(
+                        DojoWalkerColors.primary.withValues(
                       alpha: 0.16 + pulse,
                     ),
                   ),
                   boxShadow: <BoxShadow>[
                     BoxShadow(
                       color:
-                          AppColors.primary.withValues(
+                          DojoWalkerColors.primary.withValues(
                         alpha: 0.08 + pulse,
                       ),
                       blurRadius: 18,
@@ -150,7 +150,7 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip>
                     ),
                     BoxShadow(
                       color:
-                          Colors.black.withValues(
+                          DojoWalkerColors.black.withValues(
                         alpha: 0.045,
                       ),
                       blurRadius: 5,
@@ -168,18 +168,7 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip>
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: <Color>[
-                            AppColors.primary.withValues(
-                              alpha: 0.16,
-                            ),
-                            AppColors.primary.withValues(
-                              alpha: 0.07,
-                            ),
-                          ],
-                        ),
+                        gradient: DojoWalkerGradients.soft,
                         borderRadius:
                             BorderRadius.circular(15),
                       ),
@@ -194,8 +183,9 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip>
                                   BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: Colors.red
-                                      .withValues(
+                                  color:
+                                      DojoWalkerColors.error
+                                          .withValues(
                                     alpha: 0.18,
                                   ),
                                   width: 1.5,
@@ -205,8 +195,8 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip>
                           Icon(
                             _icon,
                             color: _state.isLive
-                                ? Colors.red
-                                : AppColors.primary,
+                                ? DojoWalkerColors.error
+                                : DojoWalkerColors.primary,
                             size: 25,
                           ),
                         ],
@@ -234,8 +224,8 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip>
                                 decoration:
                                     BoxDecoration(
                                   color: _state.isLive
-                                      ? Colors.red
-                                      : AppColors.primary,
+                                      ? DojoWalkerColors.error
+                                      : DojoWalkerColors.primary,
                                   shape:
                                       BoxShape.circle,
                                 ),
@@ -249,6 +239,9 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip>
                                       TextOverflow.ellipsis,
                                   style:
                                       const TextStyle(
+                                    color:
+                                        DojoWalkerColors
+                                            .textPrimary,
                                     fontSize: 13,
                                     fontWeight:
                                         FontWeight.w800,
@@ -264,12 +257,14 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip>
                             maxLines: 1,
                             overflow:
                                 TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style:
+                                const TextStyle(
                               fontSize: 11.5,
                               fontWeight:
                                   FontWeight.w500,
                               color:
-                                  Colors.grey.shade600,
+                                  DojoWalkerColors
+                                      .textSecondary,
                             ),
                           ),
                         ],
@@ -290,7 +285,8 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip>
                       ),
                       decoration: BoxDecoration(
                         color:
-                            AppColors.primary.withValues(
+                            DojoWalkerColors.primary
+                                .withValues(
                           alpha: 0.09,
                         ),
                         borderRadius:
@@ -304,9 +300,10 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip>
                             _state.isLive
                                 ? 'OPEN'
                                 : 'VIEW',
-                            style: const TextStyle(
+                            style:
+                                const TextStyle(
                               color:
-                                  AppColors.primary,
+                                  DojoWalkerColors.primary,
                               fontSize: 10,
                               fontWeight:
                                   FontWeight.w800,
@@ -318,7 +315,7 @@ class _ActiveWalkStripState extends State<ActiveWalkStrip>
                             Icons
                                 .arrow_forward_ios_rounded,
                             color:
-                                AppColors.primary,
+                                DojoWalkerColors.primary,
                             size: 13,
                           ),
                         ],
