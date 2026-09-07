@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../core/constants/app_colors.dart';
+import '../core/theme/dojo_walker_colors.dart';
 import '../services/auth_service.dart';
 import 'otp_verification_screen.dart';
 
@@ -104,7 +104,7 @@ class _MobileLoginScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor:
-          AppColors.scaffoldBackground,
+          DojoWalkerColors.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -124,11 +124,12 @@ class _MobileLoginScreenState
                   child: CircleAvatar(
                     radius: 42,
                     backgroundColor:
-                        AppColors.primary,
+                        DojoWalkerColors.primary,
                     child: Icon(
                       Icons.pets_rounded,
                       size: 42,
-                      color: Colors.white,
+                      color:
+                          DojoWalkerColors.white,
                     ),
                   ),
                 ),
@@ -145,7 +146,8 @@ class _MobileLoginScreenState
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+                    color:
+                        DojoWalkerColors.textPrimary,
                   ),
                 ),
 
@@ -156,7 +158,8 @@ class _MobileLoginScreenState
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
-                    color: AppColors.textGrey,
+                    color:
+                        DojoWalkerColors.textSecondary,
                   ),
                 ),
 
@@ -169,7 +172,8 @@ class _MobileLoginScreenState
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color:
+                        DojoWalkerColors.card,
                     borderRadius:
                         BorderRadius.circular(18),
                     boxShadow: const [
@@ -192,7 +196,7 @@ class _MobileLoginScreenState
                           fontWeight:
                               FontWeight.w600,
                           color:
-                              AppColors.textGrey,
+                              DojoWalkerColors.textSecondary,
                         ),
                       ),
 
@@ -225,9 +229,7 @@ class _MobileLoginScreenState
                           prefixText: '+91  ',
                           filled: true,
                           fillColor:
-                              const Color(
-                            0xFFF8F9FA,
-                          ),
+                              DojoWalkerColors.background,
                           border:
                               OutlineInputBorder(
                             borderRadius:
@@ -244,7 +246,7 @@ class _MobileLoginScreenState
                             borderSide:
                                 const BorderSide(
                               color:
-                                  Color(0xFFD9DDE2),
+                                  DojoWalkerColors.border,
                             ),
                           ),
                           focusedBorder:
@@ -256,7 +258,7 @@ class _MobileLoginScreenState
                             borderSide:
                                 const BorderSide(
                               color:
-                                  AppColors.primary,
+                                  DojoWalkerColors.primary,
                               width: 1.5,
                             ),
                           ),
@@ -276,7 +278,8 @@ class _MobileLoginScreenState
                               TextAlign.center,
                           style:
                               const TextStyle(
-                            color: Colors.red,
+                            color:
+                                DojoWalkerColors.error,
                             fontSize: 13,
                             height: 1.35,
                           ),
@@ -299,9 +302,11 @@ class _MobileLoginScreenState
                           style:
                               ElevatedButton.styleFrom(
                             backgroundColor:
-                                AppColors.primary,
+                                DojoWalkerColors.primary,
                             disabledBackgroundColor:
-                                Colors.grey,
+                                DojoWalkerColors.textMuted,
+                            foregroundColor:
+                                DojoWalkerColors.white,
                             shape:
                                 RoundedRectangleBorder(
                               borderRadius:
@@ -317,7 +322,7 @@ class _MobileLoginScreenState
                                   child:
                                       CircularProgressIndicator(
                                     color:
-                                        Colors.white,
+                                        DojoWalkerColors.white,
                                     strokeWidth:
                                         2.5,
                                   ),
@@ -327,7 +332,7 @@ class _MobileLoginScreenState
                                   style:
                                       TextStyle(
                                     color:
-                                        Colors.white,
+                                        DojoWalkerColors.white,
                                     fontSize: 16,
                                     fontWeight:
                                         FontWeight.bold,
@@ -346,7 +351,8 @@ class _MobileLoginScreenState
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textGrey,
+                    color:
+                        DojoWalkerColors.textSecondary,
                   ),
                 ),
               ],
