@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker_colors.dart';
 import '../../../screens/main_navigation_screen.dart';
 import '../../../screens/mobile_login_screen.dart';
 import '../widgets/pending_verification_content.dart';
@@ -452,7 +452,7 @@ class _PendingVerificationScreenState
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: DojoWalkerColors.background,
         appBar: _buildAppBar(),
         body: SafeArea(
           child: LayoutBuilder(
@@ -509,8 +509,8 @@ class _PendingVerificationScreenState
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       automaticallyImplyLeading: false,
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
+      backgroundColor: DojoWalkerColors.white,
+      surfaceTintColor: DojoWalkerColors.white,
       elevation: 0,
       titleSpacing: 16,
       toolbarHeight: 68,
@@ -520,13 +520,13 @@ class _PendingVerificationScreenState
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: AppColors.orange,
+              color: DojoWalkerColors.primary,
               borderRadius:
                   BorderRadius.circular(13),
             ),
             child: const Icon(
               Icons.pets_rounded,
-              color: Colors.white,
+              color: DojoWalkerColors.white,
               size: 24,
             ),
           ),
@@ -540,7 +540,8 @@ class _PendingVerificationScreenState
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
-                  color: AppColors.textDark,
+                  color:
+                      DojoWalkerColors.textPrimary,
                 ),
               ),
               SizedBox(height: 1),
@@ -548,7 +549,8 @@ class _PendingVerificationScreenState
                 'DOJO Walker',
                 style: TextStyle(
                   fontSize: 10.5,
-                  color: AppColors.muted,
+                  color:
+                      DojoWalkerColors.textMuted,
                 ),
               ),
             ],
