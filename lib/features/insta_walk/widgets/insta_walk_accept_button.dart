@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker_colors.dart';
 
 class InstaWalkAcceptButton extends StatelessWidget {
   final VoidCallback? onPressed;
@@ -24,39 +24,43 @@ class InstaWalkAcceptButton extends StatelessWidget {
         child: ElevatedButton(
           onPressed: loading ? null : onPressed,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.buttonPrimary,
-            foregroundColor: AppColors.buttonText,
+            backgroundColor: DojoWalkerColors.primary,
+            foregroundColor: DojoWalkerColors.white,
             disabledBackgroundColor:
-                AppColors.buttonPrimary.withOpacity(.50),
+                DojoWalkerColors.primary.withValues(
+              alpha: .50,
+            ),
             disabledForegroundColor:
-                AppColors.buttonText.withOpacity(.70),
+                DojoWalkerColors.white.withValues(
+              alpha: .70,
+            ),
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
           ),
           child: loading
-              ? SizedBox(
+              ? const SizedBox(
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppColors.buttonText,
+                    color: DojoWalkerColors.white,
                   ),
                 )
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.check_circle_rounded,
-                      color: AppColors.buttonText,
+                      color: DojoWalkerColors.white,
                       size: 18,
                     ),
                     const SizedBox(width: 6),
-                    Text(
+                    const Text(
                       'Accept Walk',
                       style: TextStyle(
-                        color: AppColors.buttonText,
+                        color: DojoWalkerColors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.w900,
                       ),
