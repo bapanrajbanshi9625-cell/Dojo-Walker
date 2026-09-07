@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker_colors.dart';
 
 class ProfileSummaryCard2 extends StatelessWidget {
   const ProfileSummaryCard2({
@@ -35,7 +35,7 @@ class ProfileSummaryCard2 extends StatelessWidget {
               title,
               style: const TextStyle(
                 fontSize: 11,
-                color: AppColors.muted,
+                color: DojoWalkerColors.textMuted,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -46,7 +46,7 @@ class ProfileSummaryCard2 extends StatelessWidget {
               value,
               style: const TextStyle(
                 fontSize: 12,
-                color: AppColors.textDark,
+                color: DojoWalkerColors.textPrimary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -62,10 +62,10 @@ class ProfileSummaryCard2 extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: DojoWalkerColors.background,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppColors.border,
+          color: DojoWalkerColors.border,
         ),
       ),
       child: Column(
@@ -75,7 +75,7 @@ class ProfileSummaryCard2 extends StatelessWidget {
             children: [
               Icon(
                 Icons.person_rounded,
-                color: AppColors.green,
+                color: DojoWalkerColors.success,
               ),
               SizedBox(width: 9),
               Text(
@@ -83,7 +83,7 @@ class ProfileSummaryCard2 extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  color: AppColors.textDark,
+                  color: DojoWalkerColors.textPrimary,
                 ),
               ),
             ],
