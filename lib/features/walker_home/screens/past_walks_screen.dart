@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/dojo_walker_colors.dart';
+import '../../../../core/theme/dojo_walker.dart';
 import '../../my_walks/models/past_walk_model.dart';
 import '../widgets/past_walk_card.dart';
 
@@ -34,11 +34,6 @@ class _PastWalksScreenState
 
   DateTime _selectedDate = DateTime.now();
 
-  // ============================================================
-  // START OF WEEK
-  // Monday = first day of week
-  // ============================================================
-
   DateTime _startOfWeek(
     DateTime date,
   ) {
@@ -55,30 +50,17 @@ class _PastWalksScreenState
     );
   }
 
-  // ============================================================
-  // SELECTED WEEK START
-  // ============================================================
-
   DateTime get _weekStart {
     return _startOfWeek(
       _selectedDate,
     );
   }
 
-  // ============================================================
-  // SELECTED WEEK END
-  // Exclusive
-  // ============================================================
-
   DateTime get _weekEnd {
     return _weekStart.add(
       const Duration(days: 7),
     );
   }
-
-  // ============================================================
-  // SELECTED DATE START
-  // ============================================================
 
   DateTime get _dateStart {
     return DateTime(
@@ -88,25 +70,11 @@ class _PastWalksScreenState
     );
   }
 
-  // ============================================================
-  // SELECTED DATE END
-  // ============================================================
-
   DateTime get _dateEnd {
     return _dateStart.add(
       const Duration(days: 1),
     );
   }
-
-  // ============================================================
-  // FIRESTORE STREAM
-  //
-  // Collection:
-  // walk_history
-  //
-  // Walker field:
-  // walkerId
-  // ============================================================
 
   Stream<List<PastWalkModel>> _watchPastWalks() {
     final User? user = _auth.currentUser;
@@ -142,7 +110,6 @@ class _PastWalksScreenState
                 )
                 .toList();
 
-        // Newest completed walk first.
         walks.sort(
           (
             PastWalkModel a,
@@ -173,10 +140,6 @@ class _PastWalksScreenState
     );
   }
 
-  // ============================================================
-  // FILTER MATCH
-  // ============================================================
-
   bool _matchesSelectedFilter(
     PastWalkModel walk,
   ) {
@@ -189,10 +152,6 @@ class _PastWalksScreenState
       return false;
     }
 
-    // ----------------------------------------------------------
-    // DATE
-    // ----------------------------------------------------------
-
     if (_filterType ==
         _PastWalkFilterType.date) {
       return !walkDate.isBefore(
@@ -203,10 +162,6 @@ class _PastWalksScreenState
           );
     }
 
-    // ----------------------------------------------------------
-    // WEEK
-    // ----------------------------------------------------------
-
     return !walkDate.isBefore(
           _weekStart,
         ) &&
@@ -215,19 +170,16 @@ class _PastWalksScreenState
         );
   }
 
-  // ============================================================
-  // CALENDAR
-  // ============================================================
-
   Future<void> _pickDate() async {
     final DateTime today = DateTime.now();
 
     final DateTime? picked =
         await showDatePicker(
       context: context,
-      initialDate: _selectedDate.isAfter(today)
-          ? today
-          : _selectedDate,
+      initialDate:
+          _selectedDate.isAfter(today)
+              ? today
+              : _selectedDate,
       firstDate: DateTime(2020),
       lastDate: today,
       builder: (
@@ -242,11 +194,11 @@ class _PastWalksScreenState
             colorScheme:
                 theme.colorScheme.copyWith(
               primary:
-                  DojoColors.orange,
+                  DojoWalkerColors.primary,
               surface:
-                  DojoColors.surface,
+                  DojoWalkerColors.card,
               onSurface:
-                  DojoColors.textPrimary,
+                  DojoWalkerColors.textPrimary,
             ),
           ),
           child: child!,
@@ -269,15 +221,11 @@ class _PastWalksScreenState
     });
   }
 
-  // ============================================================
-  // WEEK PICKER
-  // ============================================================
-
   Future<void> _showWeekPicker() async {
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor:
-          DojoColors.surface,
+          DojoWalkerColors.card,
       shape:
           const RoundedRectangleBorder(
         borderRadius:
@@ -301,43 +249,31 @@ class _PastWalksScreenState
               mainAxisSize:
                   MainAxisSize.min,
               children: [
-                // ------------------------------------------------
-                // HANDLE
-                // ------------------------------------------------
-
                 Container(
                   width: 42,
                   height: 4,
                   decoration:
                       BoxDecoration(
                     color:
-                        DojoColors.border,
+                        DojoWalkerColors.border,
                     borderRadius:
                         BorderRadius.circular(
                       20,
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 18),
-
                 const Text(
                   'Past Walks',
                   style: TextStyle(
                     color:
-                        DojoColors.dark,
+                        DojoWalkerColors.textPrimary,
                     fontSize: 19,
                     fontWeight:
                         FontWeight.w800,
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // ------------------------------------------------
-                // CURRENT WEEK
-                // ------------------------------------------------
-
                 _WeekActionTile(
                   icon:
                       Icons.today_rounded,
@@ -361,20 +297,13 @@ class _PastWalksScreenState
                     setState(() {
                       _selectedDate =
                           DateTime.now();
-
                       _filterType =
                           _PastWalkFilterType
                               .week;
                     });
                   },
                 ),
-
                 const SizedBox(height: 8),
-
-                // ------------------------------------------------
-                // PREVIOUS WEEK
-                // ------------------------------------------------
-
                 _WeekActionTile(
                   icon:
                       Icons.chevron_left_rounded,
@@ -404,20 +333,13 @@ class _PastWalksScreenState
                           days: 7,
                         ),
                       );
-
                       _filterType =
                           _PastWalkFilterType
                               .week;
                     });
                   },
                 ),
-
                 const SizedBox(height: 8),
-
-                // ------------------------------------------------
-                // NEXT WEEK
-                // ------------------------------------------------
-
                 _WeekActionTile(
                   icon:
                       Icons.chevron_right_rounded,
@@ -451,7 +373,6 @@ class _PastWalksScreenState
                                     days: 7,
                                   ),
                                 );
-
                                 _filterType =
                                     _PastWalkFilterType
                                         .week;
@@ -459,13 +380,7 @@ class _PastWalksScreenState
                             }
                           : null,
                 ),
-
                 const SizedBox(height: 8),
-
-                // ------------------------------------------------
-                // CALENDAR
-                // ------------------------------------------------
-
                 _WeekActionTile(
                   icon:
                       Icons.calendar_month_rounded,
@@ -477,7 +392,6 @@ class _PastWalksScreenState
                     Navigator.pop(
                       sheetContext,
                     );
-
                     _pickDate();
                   },
                 ),
@@ -488,10 +402,6 @@ class _PastWalksScreenState
       },
     );
   }
-
-  // ============================================================
-  // NEXT WEEK CHECK
-  // ============================================================
 
   bool get _canGoToNextWeek {
     final DateTime currentWeek =
@@ -504,10 +414,6 @@ class _PastWalksScreenState
     );
   }
 
-  // ============================================================
-  // FILTER TITLE
-  // ============================================================
-
   String get _filterTitle {
     if (_filterType ==
         _PastWalkFilterType.date) {
@@ -516,10 +422,6 @@ class _PastWalksScreenState
 
     return 'Week';
   }
-
-  // ============================================================
-  // FILTER VALUE
-  // ============================================================
 
   String get _filterValue {
     if (_filterType ==
@@ -534,10 +436,6 @@ class _PastWalksScreenState
     );
   }
 
-  // ============================================================
-  // DATE FORMAT
-  // ============================================================
-
   String _formatDate(
     DateTime date,
   ) {
@@ -545,10 +443,6 @@ class _PastWalksScreenState
         '${date.month.toString().padLeft(2, '0')}/'
         '${date.year}';
   }
-
-  // ============================================================
-  // WEEK FORMAT
-  // ============================================================
 
   String _formatWeek(
     DateTime start,
@@ -575,10 +469,6 @@ class _PastWalksScreenState
         '${end.year}';
   }
 
-  // ============================================================
-  // MONTH NAME
-  // ============================================================
-
   String _monthName(
     int month,
   ) {
@@ -600,27 +490,18 @@ class _PastWalksScreenState
     return months[month - 1];
   }
 
-  // ============================================================
-  // BUILD
-  // ============================================================
-
   @override
   Widget build(
     BuildContext context,
   ) {
     return Scaffold(
       backgroundColor:
-          DojoColors.background,
-
-      // ========================================================
-      // APP BAR
-      // ========================================================
-
+          DojoWalkerColors.background,
       appBar: AppBar(
         backgroundColor:
-            DojoColors.orange,
+            DojoWalkerColors.primary,
         foregroundColor:
-            Colors.white,
+            DojoWalkerColors.white,
         elevation: 0,
         title: const Text(
           'Past Walks',
@@ -630,16 +511,11 @@ class _PastWalksScreenState
           ),
         ),
       ),
-
       body: Column(
         children: [
-          // ======================================================
-          // THIN DATE / WEEK BAR
-          // ======================================================
-
           Material(
             color:
-                DojoColors.surface,
+                DojoWalkerColors.card,
             child: Container(
               height: 48,
               padding:
@@ -651,16 +527,12 @@ class _PastWalksScreenState
                 border: Border(
                   bottom: BorderSide(
                     color:
-                        DojoColors.divider,
+                        DojoWalkerColors.border,
                   ),
                 ),
               ),
               child: Row(
                 children: [
-                  // ----------------------------------------------
-                  // DATE / WEEK ICON
-                  // ----------------------------------------------
-
                   Icon(
                     _filterType ==
                             _PastWalkFilterType
@@ -671,15 +543,9 @@ class _PastWalksScreenState
                             .date_range_rounded,
                     size: 18,
                     color:
-                        DojoColors.iconPrimary,
+                        DojoWalkerColors.textPrimary,
                   ),
-
                   const SizedBox(width: 8),
-
-                  // ----------------------------------------------
-                  // CURRENT VALUE
-                  // ----------------------------------------------
-
                   Expanded(
                     child: Text(
                       _filterValue,
@@ -689,7 +555,7 @@ class _PastWalksScreenState
                       style:
                           const TextStyle(
                         color:
-                            DojoColors
+                            DojoWalkerColors
                                 .textPrimary,
                         fontSize: 13,
                         fontWeight:
@@ -697,38 +563,25 @@ class _PastWalksScreenState
                       ),
                     ),
                   ),
-
-                  // ----------------------------------------------
-                  // CALENDAR BUTTON
-                  // ----------------------------------------------
-
                   InkWell(
                     onTap: _pickDate,
                     borderRadius:
                         BorderRadius.circular(
                       10,
                     ),
-                    child: Padding(
+                    child: const Padding(
                       padding:
-                          const EdgeInsets.all(
-                        6,
-                      ),
+                          EdgeInsets.all(6),
                       child: Icon(
                         Icons
                             .calendar_month_rounded,
                         size: 20,
                         color:
-                            DojoColors.orange,
+                            DojoWalkerColors.primary,
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 5),
-
-                  // ----------------------------------------------
-                  // WEEK BUTTON
-                  // ----------------------------------------------
-
                   InkWell(
                     onTap:
                         _showWeekPicker,
@@ -749,7 +602,7 @@ class _PastWalksScreenState
                             style:
                                 const TextStyle(
                               color:
-                                  DojoColors
+                                  DojoWalkerColors
                                       .textSecondary,
                               fontSize: 12,
                               fontWeight:
@@ -764,8 +617,8 @@ class _PastWalksScreenState
                                 .keyboard_arrow_down_rounded,
                             size: 19,
                             color:
-                                DojoColors
-                                    .iconSecondary,
+                                DojoWalkerColors
+                                    .textMuted,
                           ),
                         ],
                       ),
@@ -775,11 +628,6 @@ class _PastWalksScreenState
               ),
             ),
           ),
-
-          // ======================================================
-          // WALK LIST
-          // ======================================================
-
           Expanded(
             child: StreamBuilder<
                 List<PastWalkModel>>(
@@ -791,35 +639,23 @@ class _PastWalksScreenState
                         List<PastWalkModel>>
                     snapshot,
               ) {
-                // ----------------------------------------------
-                // LOADING
-                // ----------------------------------------------
-
                 if (snapshot.connectionState ==
                     ConnectionState.waiting) {
                   return const Center(
                     child:
                         CircularProgressIndicator(
                       color:
-                          DojoColors.orange,
+                          DojoWalkerColors.primary,
                     ),
                   );
                 }
 
-                // ----------------------------------------------
-                // ERROR
-                // ----------------------------------------------
-
                 if (snapshot.hasError) {
-                  return _ErrorState(
+                  return const _ErrorState(
                     message:
                         'Unable to load past walks.',
                   );
                 }
-
-                // ----------------------------------------------
-                // DATA
-                // ----------------------------------------------
 
                 final List<PastWalkModel>
                     walks =
@@ -827,20 +663,12 @@ class _PastWalksScreenState
                         const <
                             PastWalkModel>[];
 
-                // ----------------------------------------------
-                // EMPTY
-                // ----------------------------------------------
-
                 if (walks.isEmpty) {
                   return _EmptyState(
                     filterValue:
                         _filterValue,
                   );
                 }
-
-                // ----------------------------------------------
-                // LIST
-                // ----------------------------------------------
 
                 return ListView.separated(
                   padding:
@@ -897,17 +725,13 @@ class _PastWalksScreenState
     );
   }
 
-  // ============================================================
-  // WALK DETAILS
-  // ============================================================
-
   void _showWalkDetails(
     PastWalkModel walk,
   ) {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor:
-          DojoColors.surface,
+          DojoWalkerColors.card,
       isScrollControlled: true,
       shape:
           const RoundedRectangleBorder(
@@ -932,10 +756,6 @@ class _PastWalksScreenState
               crossAxisAlignment:
                   CrossAxisAlignment.start,
               children: [
-                // ------------------------------------------------
-                // HEADER
-                // ------------------------------------------------
-
                 Row(
                   children: [
                     Container(
@@ -944,8 +764,7 @@ class _PastWalksScreenState
                       decoration:
                           BoxDecoration(
                         color:
-                            DojoColors
-                                .orangeLight,
+                            DojoWalkerColors.light,
                         borderRadius:
                             BorderRadius.circular(
                           14,
@@ -954,15 +773,13 @@ class _PastWalksScreenState
                       child: const Icon(
                         Icons.pets_rounded,
                         color:
-                            DojoColors.orange,
+                            DojoWalkerColors.primary,
                         size: 25,
                       ),
                     ),
-
                     const SizedBox(
                       width: 12,
                     ),
-
                     Expanded(
                       child: Column(
                         crossAxisAlignment:
@@ -974,8 +791,8 @@ class _PastWalksScreenState
                             style:
                                 const TextStyle(
                               color:
-                                  DojoColors
-                                      .dark,
+                                  DojoWalkerColors
+                                      .textPrimary,
                               fontSize: 19,
                               fontWeight:
                                   FontWeight.w800,
@@ -986,14 +803,14 @@ class _PastWalksScreenState
                           ),
                           Text(
                             walk.status
-                                .isEmpty
+                                    .isEmpty
                                 ? 'Completed'
                                 : walk.status,
                             style:
                                 const TextStyle(
                               color:
-                                  DojoColors
-                                      .green,
+                                  DojoWalkerColors
+                                      .success,
                               fontSize: 12,
                               fontWeight:
                                   FontWeight.w700,
@@ -1004,15 +821,9 @@ class _PastWalksScreenState
                     ),
                   ],
                 ),
-
                 const SizedBox(
                   height: 18,
                 ),
-
-                // ------------------------------------------------
-                // DOG
-                // ------------------------------------------------
-
                 _DetailRow(
                   label: 'Dog',
                   value:
@@ -1020,22 +831,12 @@ class _PastWalksScreenState
                           ? '—'
                           : walk.dogName,
                 ),
-
-                // ------------------------------------------------
-                // BREED
-                // ------------------------------------------------
-
                 if (walk.dogBreed.isNotEmpty)
                   _DetailRow(
                     label: 'Breed',
                     value:
                         walk.dogBreed,
                   ),
-
-                // ------------------------------------------------
-                // OWNER
-                // ------------------------------------------------
-
                 _DetailRow(
                   label: 'Owner',
                   value:
@@ -1043,21 +844,11 @@ class _PastWalksScreenState
                           ? '—'
                           : walk.ownerName,
                 ),
-
-                // ------------------------------------------------
-                // TIME
-                // ------------------------------------------------
-
                 _DetailRow(
                   label: 'Time',
                   value:
                       walk.displayTime,
                 ),
-
-                // ------------------------------------------------
-                // DISTANCE
-                // ------------------------------------------------
-
                 _DetailRow(
                   label: 'Distance',
                   value:
@@ -1068,11 +859,6 @@ class _PastWalksScreenState
                               ? '${walk.routeDistanceKm.toStringAsFixed(2)} km'
                               : '—',
                 ),
-
-                // ------------------------------------------------
-                // DURATION
-                // ------------------------------------------------
-
                 _DetailRow(
                   label: 'Duration',
                   value:
@@ -1084,31 +870,16 @@ class _PastWalksScreenState
                               ? '${walk.routeDurationMinutes.round()} min'
                               : '—',
                 ),
-
-                // ------------------------------------------------
-                // PEE
-                // ------------------------------------------------
-
                 _DetailRow(
                   label: 'Pee',
                   value:
                       walk.peeCount.toString(),
                 ),
-
-                // ------------------------------------------------
-                // POOP
-                // ------------------------------------------------
-
                 _DetailRow(
                   label: 'Poop',
                   value:
                       walk.poopCount.toString(),
                 ),
-
-                // ------------------------------------------------
-                // RATING
-                // ------------------------------------------------
-
                 _DetailRow(
                   label: 'Rating',
                   value:
@@ -1116,11 +887,6 @@ class _PastWalksScreenState
                           ? '${walk.rating}/5'
                           : '—',
                 ),
-
-                // ------------------------------------------------
-                // WALKER NOTE
-                // ------------------------------------------------
-
                 if (walk.walkerNote
                     .isNotEmpty)
                   _DetailRow(
@@ -1136,10 +902,6 @@ class _PastWalksScreenState
     );
   }
 }
-
-// ================================================================
-// WEEK ACTION TILE
-// ================================================================
 
 class _WeekActionTile
     extends StatelessWidget {
@@ -1166,13 +928,12 @@ class _WeekActionTile
           enabled ? 1.0 : 0.45,
       child: Material(
         color:
-            DojoColors.background,
+            DojoWalkerColors.background,
         borderRadius:
             BorderRadius.circular(16),
         child: InkWell(
-          onTap: enabled
-              ? onTap
-              : null,
+          onTap:
+              enabled ? onTap : null,
           borderRadius:
               BorderRadius.circular(16),
           child: Padding(
@@ -1186,8 +947,7 @@ class _WeekActionTile
                   decoration:
                       BoxDecoration(
                     color:
-                        DojoColors
-                            .orangeLight,
+                        DojoWalkerColors.light,
                     borderRadius:
                         BorderRadius.circular(
                       12,
@@ -1196,15 +956,13 @@ class _WeekActionTile
                   child: Icon(
                     icon,
                     color:
-                        DojoColors.orange,
+                        DojoWalkerColors.primary,
                     size: 22,
                   ),
                 ),
-
                 const SizedBox(
                   width: 12,
                 ),
-
                 Expanded(
                   child: Column(
                     crossAxisAlignment:
@@ -1216,7 +974,7 @@ class _WeekActionTile
                         style:
                             const TextStyle(
                           color:
-                              DojoColors
+                              DojoWalkerColors
                                   .textPrimary,
                           fontSize: 14,
                           fontWeight:
@@ -1231,7 +989,7 @@ class _WeekActionTile
                         style:
                             const TextStyle(
                           color:
-                              DojoColors
+                              DojoWalkerColors
                                   .textSecondary,
                           fontSize: 12,
                         ),
@@ -1239,13 +997,11 @@ class _WeekActionTile
                     ],
                   ),
                 ),
-
                 const Icon(
                   Icons
                       .chevron_right_rounded,
                   color:
-                      DojoColors
-                          .iconSecondary,
+                      DojoWalkerColors.textMuted,
                 ),
               ],
             ),
@@ -1255,10 +1011,6 @@ class _WeekActionTile
     );
   }
 }
-
-// ================================================================
-// EMPTY STATE
-// ================================================================
 
 class _EmptyState
     extends StatelessWidget {
@@ -1286,36 +1038,32 @@ class _EmptyState
               decoration:
                   const BoxDecoration(
                 color:
-                    DojoColors.orangeLight,
+                    DojoWalkerColors.light,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.pets_rounded,
                 color:
-                    DojoColors.orange,
+                    DojoWalkerColors.primary,
                 size: 34,
               ),
             ),
-
             const SizedBox(
               height: 16,
             ),
-
             const Text(
               'No Past Walks',
               style: TextStyle(
                 color:
-                    DojoColors.dark,
+                    DojoWalkerColors.textPrimary,
                 fontSize: 19,
                 fontWeight:
                     FontWeight.w800,
               ),
             ),
-
             const SizedBox(
               height: 6,
             ),
-
             Text(
               'No completed walks found for\n$filterValue.',
               textAlign:
@@ -1323,7 +1071,7 @@ class _EmptyState
               style:
                   const TextStyle(
                 color:
-                    DojoColors
+                    DojoWalkerColors
                         .textSecondary,
                 fontSize: 13,
                 height: 1.4,
@@ -1335,10 +1083,6 @@ class _EmptyState
     );
   }
 }
-
-// ================================================================
-// ERROR STATE
-// ================================================================
 
 class _ErrorState
     extends StatelessWidget {
@@ -1363,15 +1107,12 @@ class _ErrorState
             const Icon(
               Icons.cloud_off_rounded,
               color:
-                  DojoColors
-                      .textSecondary,
+                  DojoWalkerColors.textSecondary,
               size: 44,
             ),
-
             const SizedBox(
               height: 12,
             ),
-
             Text(
               message,
               textAlign:
@@ -1379,7 +1120,7 @@ class _ErrorState
               style:
                   const TextStyle(
                 color:
-                    DojoColors.dark,
+                    DojoWalkerColors.textPrimary,
                 fontSize: 14,
                 fontWeight:
                     FontWeight.w600,
@@ -1391,10 +1132,6 @@ class _ErrorState
     );
   }
 }
-
-// ================================================================
-// DETAIL ROW
-// ================================================================
 
 class _DetailRow
     extends StatelessWidget {
@@ -1426,7 +1163,7 @@ class _DetailRow
               style:
                   const TextStyle(
                 color:
-                    DojoColors
+                    DojoWalkerColors
                         .textSecondary,
                 fontSize: 13,
                 fontWeight:
@@ -1440,7 +1177,7 @@ class _DetailRow
               style:
                   const TextStyle(
                 color:
-                    DojoColors.dark,
+                    DojoWalkerColors.textPrimary,
                 fontSize: 13,
                 fontWeight:
                     FontWeight.w700,
