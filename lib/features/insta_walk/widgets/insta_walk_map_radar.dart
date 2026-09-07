@@ -9,7 +9,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker_colors.dart';
 import '../../../services/walker_location_service.dart';
 
 class InstaWalkMapRadar extends StatefulWidget {
@@ -105,7 +105,6 @@ class _InstaWalkMapRadarState
       _locationMessage = 'Checking GPS...';
     });
 
-    // Use cached location immediately if available.
     final Position? cached =
         _locationService.currentPosition;
 
@@ -211,8 +210,6 @@ class _InstaWalkMapRadarState
           return;
         }
 
-        // Do NOT recenter the map on every GPS update.
-        // This keeps manual map movement smooth.
         _setPosition(
           position,
           centerMap: false,
@@ -453,25 +450,18 @@ class _InstaWalkMapRadarState
         height: 280,
         child: Stack(
           children: <Widget>[
-            // ==================================================
-            // OPEN STREET MAP
-            // ==================================================
-
             FlutterMap(
               mapController: _mapController,
               options: MapOptions(
                 initialCenter: currentPoint,
                 initialZoom:
                     position == null ? 5.0 : 15.5,
-
                 minZoom: 3,
                 maxZoom: 19,
-
                 interactionOptions:
                     const InteractionOptions(
                   flags: InteractiveFlag.all,
                 ),
-
                 onMapReady: () {
                   _mapReady = true;
 
@@ -486,17 +476,13 @@ class _InstaWalkMapRadarState
                   }
                 },
               ),
-
               children: <Widget>[
                 TileLayer(
                   urlTemplate:
                       'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-
                   userAgentPackageName:
                       'com.doojowalker.app',
-
                   maxZoom: 19,
-
                   tileProvider:
                       NetworkTileProvider(),
                 ),
@@ -513,17 +499,14 @@ class _InstaWalkMapRadarState
                         radius:
                             _searchRadiusMeters,
                         useRadiusInMeter: true,
-
                         color:
-                            AppColors.info.withValues(
+                            DojoWalkerColors.info.withValues(
                           alpha: 0.07,
                         ),
-
                         borderColor:
-                            AppColors.info.withValues(
+                            DojoWalkerColors.info.withValues(
                           alpha: 0.45,
                         ),
-
                         borderStrokeWidth: 2,
                       ),
                     ],
@@ -603,7 +586,7 @@ class _InstaWalkMapRadarState
               Positioned.fill(
                 child: Container(
                   color:
-                      Colors.white.withValues(
+                      DojoWalkerColors.white.withValues(
                     alpha: 0.88,
                   ),
                   alignment: Alignment.center,
@@ -625,10 +608,10 @@ class _InstaWalkMapRadarState
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white,
+        color: DojoWalkerColors.white,
         boxShadow: const <BoxShadow>[
           BoxShadow(
-            color: Colors.black26,
+            color: Color(0x26000000),
             blurRadius: 12,
             offset: Offset(0, 3),
           ),
@@ -638,15 +621,15 @@ class _InstaWalkMapRadarState
       child: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.info,
+          color: DojoWalkerColors.info,
           border: Border.all(
-            color: Colors.white,
+            color: DojoWalkerColors.white,
             width: 2,
           ),
         ),
         child: Icon(
           Icons.person_pin_circle_rounded,
-          color: AppColors.iconOnPrimary,
+          color: DojoWalkerColors.white,
           size: 30,
         ),
       ),
@@ -667,14 +650,14 @@ class _InstaWalkMapRadarState
         vertical: 8,
       ),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(
+        color: DojoWalkerColors.white.withValues(
           alpha: 0.96,
         ),
         borderRadius:
             BorderRadius.circular(14),
         boxShadow: const <BoxShadow>[
           BoxShadow(
-            color: Colors.black26,
+            color: Color(0x26000000),
             blurRadius: 9,
             offset: Offset(0, 2),
           ),
@@ -689,8 +672,8 @@ class _InstaWalkMapRadarState
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: hasLocation
-                  ? AppColors.success
-                  : AppColors.warning,
+                  ? DojoWalkerColors.success
+                  : DojoWalkerColors.warning,
             ),
           ),
           const SizedBox(width: 7),
@@ -700,10 +683,10 @@ class _InstaWalkMapRadarState
                     ? 'SEARCHING • 3.5 KM'
                     : 'CURRENT LOCATION'
                 : _locationMessage,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w900,
-              color: AppColors.textDark,
+              color: DojoWalkerColors.textPrimary,
               letterSpacing: .1,
             ),
           ),
@@ -718,7 +701,7 @@ class _InstaWalkMapRadarState
 
   Widget _buildLocationButton() {
     return Material(
-      color: Colors.transparent,
+      color: DojoWalkerColors.transparent,
       child: InkWell(
         borderRadius:
             BorderRadius.circular(15),
@@ -731,23 +714,23 @@ class _InstaWalkMapRadarState
           width: 46,
           height: 46,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(
+            color: DojoWalkerColors.white.withValues(
               alpha: 0.97,
             ),
             borderRadius:
                 BorderRadius.circular(15),
             boxShadow: const <BoxShadow>[
               BoxShadow(
-                color: Colors.black26,
+                color: Color(0x26000000),
                 blurRadius: 9,
                 offset: Offset(0, 2),
               ),
             ],
           ),
-          child: Icon(
+          child: const Icon(
             Icons.my_location_rounded,
             size: 22,
-            color: AppColors.info,
+            color: DojoWalkerColors.info,
           ),
         ),
       ),
@@ -767,20 +750,20 @@ class _InstaWalkMapRadarState
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           if (_locationLoading)
-            SizedBox(
+            const SizedBox(
               width: 28,
               height: 28,
               child:
                   CircularProgressIndicator(
                 strokeWidth: 2.5,
-                color: AppColors.info,
+                color: DojoWalkerColors.info,
               ),
             )
           else
-            Icon(
+            const Icon(
               Icons.location_off_rounded,
               size: 32,
-              color: AppColors.info,
+              color: DojoWalkerColors.info,
             ),
 
           const SizedBox(height: 11),
@@ -788,10 +771,10 @@ class _InstaWalkMapRadarState
           Text(
             _locationMessage,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: AppColors.textDark,
+              color: DojoWalkerColors.textPrimary,
             ),
           ),
 
@@ -818,9 +801,9 @@ class _InstaWalkMapRadarState
                 style:
                     ElevatedButton.styleFrom(
                   backgroundColor:
-                      AppColors.info,
+                      DojoWalkerColors.info,
                   foregroundColor:
-                      AppColors.buttonText,
+                      DojoWalkerColors.white,
                   elevation: 0,
                   padding:
                       const EdgeInsets.symmetric(
@@ -900,14 +883,14 @@ class _MapRadarPainter extends CustomPainter {
             angle - sweepWidth,
         endAngle: angle,
         colors: <Color>[
-          Colors.transparent,
-          AppColors.info.withValues(
+          DojoWalkerColors.transparent,
+          DojoWalkerColors.info.withValues(
             alpha: 0.02,
           ),
-          AppColors.info.withValues(
+          DojoWalkerColors.info.withValues(
             alpha: 0.08,
           ),
-          AppColors.info.withValues(
+          DojoWalkerColors.info.withValues(
             alpha: 0.16,
           ),
         ],
@@ -931,7 +914,7 @@ class _MapRadarPainter extends CustomPainter {
     final Paint ringPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
-      ..color = AppColors.info.withValues(
+      ..color = DojoWalkerColors.info.withValues(
         alpha: 0.13,
       );
 
@@ -958,8 +941,8 @@ class _MapRadarPainter extends CustomPainter {
       ..strokeWidth = 2
       ..shader = LinearGradient(
         colors: <Color>[
-          Colors.transparent,
-          AppColors.info.withValues(
+          DojoWalkerColors.transparent,
+          DojoWalkerColors.info.withValues(
             alpha: 0.55,
           ),
         ],
@@ -981,7 +964,7 @@ class _MapRadarPainter extends CustomPainter {
     // ==========================================================
 
     final Paint centerPaint = Paint()
-      ..color = AppColors.info.withValues(
+      ..color = DojoWalkerColors.info.withValues(
         alpha: 0.75,
       );
 
