@@ -1,9 +1,11 @@
+// File:
+// lib/features/profile/widgets/mobile_number_card.dart
+
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/dojo_walker.dart';
 
-class MobileNumberCard
-    extends StatelessWidget {
+class MobileNumberCard extends StatelessWidget {
   final String phone;
   final VoidCallback onEdit;
 
@@ -17,17 +19,13 @@ class MobileNumberCard
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      margin:
-          const EdgeInsets.only(bottom: 12),
-      padding:
-          const EdgeInsets.all(15),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color:
-            AppColors.cardBackground,
-        borderRadius:
-            BorderRadius.circular(12),
+        color: DojoWalkerColors.card,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.border,
+          color: DojoWalkerColors.border,
         ),
       ),
       child: Row(
@@ -36,16 +34,14 @@ class MobileNumberCard
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color:
-                  AppColors.secondary
-                      .withOpacity(0.09),
-              borderRadius:
-                  BorderRadius.circular(10),
+              color: DojoWalkerColors.primary.withValues(
+                alpha: 0.09,
+              ),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.phone_outlined,
-              color:
-                  AppColors.secondary,
+              color: DojoWalkerColors.primary,
               size: 22,
             ),
           ),
@@ -54,18 +50,14 @@ class MobileNumberCard
 
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Mobile Number',
-                  style:
-                      TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color:
-                        AppColors.textGrey,
-                    fontWeight:
-                        FontWeight.w600,
+                    color: DojoWalkerColors.textSecondary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
 
@@ -73,13 +65,10 @@ class MobileNumberCard
 
                 Text(
                   phone,
-                  style:
-                      const TextStyle(
+                  style: const TextStyle(
                     fontSize: 15,
-                    color:
-                        AppColors.textDark,
-                    fontWeight:
-                        FontWeight.w600,
+                    color: DojoWalkerColors.textPrimary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -87,21 +76,19 @@ class MobileNumberCard
           ),
 
           Material(
-            color: AppColors.secondary
-                .withOpacity(0.09),
-            borderRadius:
-                BorderRadius.circular(9),
+            color: DojoWalkerColors.primary.withValues(
+              alpha: 0.09,
+            ),
+            borderRadius: BorderRadius.circular(9),
             child: InkWell(
               onTap: onEdit,
-              borderRadius:
-                  BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(9),
               child: const SizedBox(
                 width: 36,
                 height: 36,
                 child: Icon(
                   Icons.edit_outlined,
-                  color:
-                      AppColors.secondary,
+                  color: DojoWalkerColors.primary,
                   size: 19,
                 ),
               ),
