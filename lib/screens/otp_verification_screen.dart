@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../core/theme/dojo_walker_colors.dart';
 import '../services/auth_service.dart';
 import '../services/walker_id_service.dart';
 import '../features/profile_setup/services/profile_setup_service.dart';
@@ -54,8 +55,7 @@ class _OtpVerificationScreenState
       }
 
       setState(() {
-        _errorMessage =
-            'Please enter a valid 6-digit OTP.';
+        _errorMessage = 'Please enter a valid 6-digit OTP.';
       });
 
       return;
@@ -440,6 +440,7 @@ class _OtpVerificationScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: DojoWalkerColors.background,
       appBar: AppBar(
         title: const Text(
           'Verify OTP',
@@ -460,6 +461,7 @@ class _OtpVerificationScreenState
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
+                  color: DojoWalkerColors.textPrimary,
                 ),
               ),
 
@@ -470,7 +472,7 @@ class _OtpVerificationScreenState
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 15,
-                  color: Colors.grey,
+                  color: DojoWalkerColors.textSecondary,
                 ),
               ),
 
@@ -478,8 +480,7 @@ class _OtpVerificationScreenState
 
               TextField(
                 controller: _otpController,
-                keyboardType:
-                    TextInputType.number,
+                keyboardType: TextInputType.number,
                 maxLength: 6,
                 textAlign: TextAlign.center,
                 autofocus: true,
@@ -487,10 +488,14 @@ class _OtpVerificationScreenState
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 8,
+                  color: DojoWalkerColors.textPrimary,
                 ),
                 decoration: InputDecoration(
                   counterText: '',
                   hintText: '000000',
+                  hintStyle: const TextStyle(
+                    color: DojoWalkerColors.textMuted,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius:
                         BorderRadius.circular(12),
@@ -512,20 +517,20 @@ class _OtpVerificationScreenState
                   padding:
                       const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color:
-                        Colors.red.withOpacity(0.08),
+                    color: DojoWalkerColors.error
+                        .withValues(alpha: 0.08),
                     borderRadius:
                         BorderRadius.circular(10),
                     border: Border.all(
-                      color:
-                          Colors.red.withOpacity(0.25),
+                      color: DojoWalkerColors.error
+                          .withValues(alpha: 0.25),
                     ),
                   ),
                   child: Text(
                     _errorMessage,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                      color: Colors.red,
+                      color: DojoWalkerColors.error,
                       fontSize: 14,
                       height: 1.4,
                     ),
@@ -549,6 +554,7 @@ class _OtpVerificationScreenState
                           child:
                               CircularProgressIndicator(
                             strokeWidth: 2,
+                            color: DojoWalkerColors.white,
                           ),
                         )
                       : const Text(
@@ -571,7 +577,7 @@ class _OtpVerificationScreenState
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.grey,
+                  color: DojoWalkerColors.textSecondary,
                 ),
               ),
             ],
