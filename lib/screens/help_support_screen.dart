@@ -33,10 +33,6 @@ class WalkerHelpSupportScreen extends StatelessWidget {
             28,
           ),
           children: [
-            // =====================================================
-            // HEADER CARD
-            // =====================================================
-
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -64,14 +60,12 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                   const SizedBox(width: 14),
                   const Expanded(
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'How can we help?',
                           style: TextStyle(
-                            color:
-                                DojoWalkerColors.textPrimary,
+                            color: DojoWalkerColors.textPrimary,
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
                           ),
@@ -81,8 +75,7 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                           'Get help with your walks, account, '
                           'verification and other issues.',
                           style: TextStyle(
-                            color:
-                                DojoWalkerColors.textSecondary,
+                            color: DojoWalkerColors.textSecondary,
                             fontSize: 12,
                             height: 1.4,
                           ),
@@ -93,17 +86,11 @@ class WalkerHelpSupportScreen extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 18),
-
-            // =====================================================
-            // RAISE TICKET
-            // =====================================================
 
             const _SectionTitle(
               title: 'Support Ticket',
             ),
-
             const SizedBox(height: 8),
 
             _RaiseTicketTile(
@@ -120,14 +107,9 @@ class WalkerHelpSupportScreen extends StatelessWidget {
 
             const SizedBox(height: 18),
 
-            // =====================================================
-            // WALK SUPPORT
-            // =====================================================
-
             const _SectionTitle(
               title: 'Walk Support',
             ),
-
             const SizedBox(height: 8),
 
             _SupportTile(
@@ -190,14 +172,9 @@ class WalkerHelpSupportScreen extends StatelessWidget {
 
             const SizedBox(height: 18),
 
-            // =====================================================
-            // ACCOUNT SUPPORT
-            // =====================================================
-
             const _SectionTitle(
               title: 'Account',
             ),
-
             const SizedBox(height: 8),
 
             _SupportTile(
@@ -240,14 +217,9 @@ class WalkerHelpSupportScreen extends StatelessWidget {
 
             const SizedBox(height: 18),
 
-            // =====================================================
-            // GENERAL
-            // =====================================================
-
             const _SectionTitle(
               title: 'General',
             ),
-
             const SizedBox(height: 8),
 
             _SupportTile(
@@ -280,12 +252,11 @@ class WalkerHelpSupportScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            Center(
+            const Center(
               child: Text(
                 'Dojo Walker',
                 style: TextStyle(
-                  color:
-                      DojoWalkerColors.textSecondary,
+                  color: DojoWalkerColors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -317,14 +288,12 @@ class WalkerHelpSupportScreen extends StatelessWidget {
               28,
             ),
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: const [
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const <Widget>[
                 Text(
                   'Frequently Asked Questions',
                   style: TextStyle(
-                    color:
-                        DojoWalkerColors.textPrimary,
+                    color: DojoWalkerColors.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                   ),
@@ -394,7 +363,7 @@ class _RaiseSupportTicketScreenState
   String _priority = 'normal';
   bool _submitting = false;
 
-  final List<String> _categories = const [
+  static const List<String> _categories = [
     'General',
     'Walk Issue',
     'QR Walk',
@@ -406,7 +375,7 @@ class _RaiseSupportTicketScreenState
     'Other',
   ];
 
-  final List<String> _priorities = const [
+  static const List<String> _priorities = [
     'normal',
     'high',
     'urgent',
@@ -460,8 +429,7 @@ class _RaiseSupportTicketScreenState
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: DojoWalkerColors.light,
-                  borderRadius:
-                      BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: DojoWalkerColors.primary
                         .withValues(alpha: .25),
@@ -473,8 +441,7 @@ class _RaiseSupportTicketScreenState
                   children: [
                     Icon(
                       Icons.info_outline_rounded,
-                      color:
-                          DojoWalkerColors.primary,
+                      color: DojoWalkerColors.primary,
                     ),
                     SizedBox(width: 10),
                     Expanded(
@@ -483,8 +450,7 @@ class _RaiseSupportTicketScreenState
                         'Our support team can review and reply '
                         'to your ticket.',
                         style: TextStyle(
-                          color:
-                              DojoWalkerColors.textPrimary,
+                          color: DojoWalkerColors.textPrimary,
                           fontSize: 13,
                           height: 1.4,
                         ),
@@ -499,7 +465,6 @@ class _RaiseSupportTicketScreenState
               const _FormLabel(
                 text: 'Problem Category',
               ),
-
               const SizedBox(height: 7),
 
               DropdownButtonFormField<String>(
@@ -533,7 +498,6 @@ class _RaiseSupportTicketScreenState
               const _FormLabel(
                 text: 'Priority',
               ),
-
               const SizedBox(height: 7),
 
               DropdownButtonFormField<String>(
@@ -569,14 +533,12 @@ class _RaiseSupportTicketScreenState
               const _FormLabel(
                 text: 'Subject',
               ),
-
               const SizedBox(height: 7),
 
               TextFormField(
                 controller: _subjectController,
                 enabled: !_submitting,
-                textInputAction:
-                    TextInputAction.next,
+                textInputAction: TextInputAction.next,
                 maxLength: 100,
                 decoration: _inputDecoration(
                   'Example: QR scan is not working',
@@ -601,7 +563,6 @@ class _RaiseSupportTicketScreenState
               const _FormLabel(
                 text: 'Problem Description',
               ),
-
               const SizedBox(height: 7),
 
               TextFormField(
@@ -633,14 +594,12 @@ class _RaiseSupportTicketScreenState
               const _FormLabel(
                 text: 'Walk ID (Optional)',
               ),
-
               const SizedBox(height: 7),
 
               TextFormField(
                 controller: _walkIdController,
                 enabled: !_submitting,
-                textInputAction:
-                    TextInputAction.done,
+                textInputAction: TextInputAction.done,
                 decoration: _inputDecoration(
                   'Enter Walk ID if related to a walk',
                   Icons.directions_walk_outlined,
@@ -659,11 +618,9 @@ class _RaiseSupportTicketScreenState
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child:
-                              CircularProgressIndicator(
+                          child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color:
-                                DojoWalkerColors.white,
+                            color: DojoWalkerColors.white,
                           ),
                         )
                       : const Icon(
@@ -684,8 +641,7 @@ class _RaiseSupportTicketScreenState
                             .withValues(alpha: .55),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(15),
                     ),
                   ),
                 ),
@@ -697,8 +653,7 @@ class _RaiseSupportTicketScreenState
                 'Your ticket will be assigned a unique Ticket ID.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color:
-                      DojoWalkerColors.textMuted,
+                  color: DojoWalkerColors.textMuted,
                   fontSize: 11,
                 ),
               ),
@@ -717,55 +672,43 @@ class _RaiseSupportTicketScreenState
       hintText: hint,
       prefixIcon: Icon(
         icon,
-        color:
-            DojoWalkerColors.textSecondary,
+        color: DojoWalkerColors.textSecondary,
       ),
       filled: true,
       fillColor: DojoWalkerColors.card,
-      contentPadding:
-          const EdgeInsets.symmetric(
+      contentPadding: const EdgeInsets.symmetric(
         horizontal: 14,
         vertical: 15,
       ),
       border: OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(
-          color:
-              DojoWalkerColors.border,
+          color: DojoWalkerColors.border,
         ),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(
-          color:
-              DojoWalkerColors.border,
+          color: DojoWalkerColors.border,
         ),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(
-          color:
-              DojoWalkerColors.primary,
+          color: DojoWalkerColors.primary,
           width: 1.5,
         ),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(
-          color:
-              DojoWalkerColors.error,
+          color: DojoWalkerColors.error,
         ),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(
-          color:
-              DojoWalkerColors.error,
+          color: DojoWalkerColors.error,
           width: 1.5,
         ),
       ),
@@ -792,13 +735,12 @@ class _RaiseSupportTicketScreenState
     });
 
     try {
-      final CollectionReference<
-          Map<String, dynamic>> tickets =
-          FirebaseFirestore.instance
-              .collection('support_tickets');
+      final CollectionReference<Map<String, dynamic>> tickets =
+          FirebaseFirestore.instance.collection(
+        'support_tickets',
+      );
 
-      final DocumentReference<
-          Map<String, dynamic>> ticketRef =
+      final DocumentReference<Map<String, dynamic>> ticketRef =
           tickets.doc();
 
       final String ticketId = ticketRef.id;
@@ -809,18 +751,15 @@ class _RaiseSupportTicketScreenState
       final String walkId =
           _walkIdController.text.trim();
 
-      final Timestamp now =
-          Timestamp.now();
+      final Timestamp now = Timestamp.now();
 
       await ticketRef.set({
         'ticketId': ticketId,
         'walkerId': user.uid,
         'walkerPhone': walkerPhone,
         'category': _category,
-        'subject':
-            _subjectController.text.trim(),
-        'description':
-            _descriptionController.text.trim(),
+        'subject': _subjectController.text.trim(),
+        'description': _descriptionController.text.trim(),
         'priority': _priority,
         'status': 'open',
         'adminReply': '',
@@ -837,15 +776,13 @@ class _RaiseSupportTicketScreenState
         builder: (BuildContext context) {
           return AlertDialog(
             shape: RoundedRectangleBorder(
-              borderRadius:
-                  BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(20),
             ),
             title: const Row(
               children: [
                 Icon(
                   Icons.check_circle_rounded,
-                  color:
-                      DojoWalkerColors.success,
+                  color: DojoWalkerColors.success,
                   size: 28,
                 ),
                 SizedBox(width: 10),
@@ -867,30 +804,24 @@ class _RaiseSupportTicketScreenState
                 const Text(
                   'Your support ticket has been created successfully.',
                   style: TextStyle(
-                    color:
-                        DojoWalkerColors.textSecondary,
+                    color: DojoWalkerColors.textSecondary,
                     height: 1.4,
                   ),
                 ),
                 const SizedBox(height: 16),
                 Container(
                   width: double.infinity,
-                  padding:
-                      const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color:
-                        DojoWalkerColors.background,
-                    borderRadius:
-                        BorderRadius.circular(12),
+                    color: DojoWalkerColors.background,
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'Ticket ID\n$ticketId',
                     style: const TextStyle(
-                      color:
-                          DojoWalkerColors.textPrimary,
+                      color: DojoWalkerColors.textPrimary,
                       fontSize: 13,
-                      fontWeight:
-                          FontWeight.w700,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -904,10 +835,8 @@ class _RaiseSupportTicketScreenState
                 child: const Text(
                   'Done',
                   style: TextStyle(
-                    color:
-                        DojoWalkerColors.primary,
-                    fontWeight:
-                        FontWeight.w700,
+                    color: DojoWalkerColors.primary,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -948,10 +877,8 @@ class _RaiseSupportTicketScreenState
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior:
-              SnackBarBehavior.floating,
-          backgroundColor:
-              DojoWalkerColors.error,
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: DojoWalkerColors.error,
         ),
       );
   }
@@ -979,15 +906,13 @@ class _RaiseTicketTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            borderRadius:
-                BorderRadius.circular(17),
+            borderRadius: BorderRadius.circular(17),
           ),
           child: const Row(
             children: [
               Icon(
                 Icons.add_comment_rounded,
-                color:
-                    DojoWalkerColors.white,
+                color: DojoWalkerColors.white,
                 size: 27,
               ),
               SizedBox(width: 13),
@@ -999,8 +924,7 @@ class _RaiseTicketTile extends StatelessWidget {
                     Text(
                       'Raise a Support Ticket',
                       style: TextStyle(
-                        color:
-                            DojoWalkerColors.white,
+                        color: DojoWalkerColors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                       ),
@@ -1009,8 +933,7 @@ class _RaiseTicketTile extends StatelessWidget {
                     Text(
                       'Tell us about your problem and get help from Dojo Support.',
                       style: TextStyle(
-                        color:
-                            DojoWalkerColors.white,
+                        color: DojoWalkerColors.white,
                         fontSize: 11,
                         height: 1.35,
                       ),
@@ -1020,8 +943,7 @@ class _RaiseTicketTile extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right_rounded,
-                color:
-                    DojoWalkerColors.white,
+                color: DojoWalkerColors.white,
                 size: 26,
               ),
             ],
@@ -1048,8 +970,7 @@ class _FormLabel extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(
-        color:
-            DojoWalkerColors.textPrimary,
+        color: DojoWalkerColors.textPrimary,
         fontSize: 13,
         fontWeight: FontWeight.w800,
       ),
@@ -1073,8 +994,7 @@ class _SectionTitle extends StatelessWidget {
     return Text(
       title,
       style: const TextStyle(
-        color:
-            DojoWalkerColors.textPrimary,
+        color: DojoWalkerColors.textPrimary,
         fontSize: 14,
         fontWeight: FontWeight.w800,
       ),
@@ -1103,20 +1023,16 @@ class _SupportTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: DojoWalkerColors.card,
-      borderRadius:
-          BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
-        borderRadius:
-            BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            borderRadius:
-                BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color:
-                  DojoWalkerColors.border,
+              color: DojoWalkerColors.border,
             ),
           ),
           child: Row(
@@ -1125,15 +1041,12 @@ class _SupportTile extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color:
-                      DojoWalkerColors.light,
-                  borderRadius:
-                      BorderRadius.circular(13),
+                  color: DojoWalkerColors.light,
+                  borderRadius: BorderRadius.circular(13),
                 ),
                 child: Icon(
                   icon,
-                  color:
-                      DojoWalkerColors.primary,
+                  color: DojoWalkerColors.primary,
                   size: 22,
                 ),
               ),
@@ -1146,22 +1059,18 @@ class _SupportTile extends StatelessWidget {
                     Text(
                       title,
                       style: const TextStyle(
-                        color:
-                            DojoWalkerColors.textPrimary,
+                        color: DojoWalkerColors.textPrimary,
                         fontSize: 14,
-                        fontWeight:
-                            FontWeight.w700,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       subtitle,
                       maxLines: 2,
-                      overflow:
-                          TextOverflow.ellipsis,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color:
-                            DojoWalkerColors.textSecondary,
+                        color: DojoWalkerColors.textSecondary,
                         fontSize: 12,
                         height: 1.3,
                       ),
@@ -1172,8 +1081,7 @@ class _SupportTile extends StatelessWidget {
               const SizedBox(width: 8),
               const Icon(
                 Icons.chevron_right_rounded,
-                color:
-                    DojoWalkerColors.textSecondary,
+                color: DojoWalkerColors.textSecondary,
               ),
             ],
           ),
@@ -1199,53 +1107,42 @@ class _FaqItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin:
-          const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color:
-            DojoWalkerColors.background,
-        borderRadius:
-            BorderRadius.circular(14),
+        color: DojoWalkerColors.background,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color:
-              DojoWalkerColors.border,
+          color: DojoWalkerColors.border,
         ),
       ),
       child: ExpansionTile(
-        tilePadding:
-            const EdgeInsets.symmetric(
+        tilePadding: const EdgeInsets.symmetric(
           horizontal: 14,
         ),
-        childrenPadding:
-            const EdgeInsets.fromLTRB(
+        childrenPadding: const EdgeInsets.fromLTRB(
           14,
           0,
           14,
           14,
         ),
-        iconColor:
-            DojoWalkerColors.primary,
+        iconColor: DojoWalkerColors.primary,
         collapsedIconColor:
             DojoWalkerColors.textSecondary,
         title: Text(
           question,
           style: const TextStyle(
-            color:
-                DojoWalkerColors.textPrimary,
+            color: DojoWalkerColors.textPrimary,
             fontSize: 13,
-            fontWeight:
-                FontWeight.w700,
+            fontWeight: FontWeight.w700,
           ),
         ),
         children: [
           Align(
-            alignment:
-                Alignment.centerLeft,
+            alignment: Alignment.centerLeft,
             child: Text(
               answer,
               style: const TextStyle(
-                color:
-                    DojoWalkerColors.textSecondary,
+                color: DojoWalkerColors.textSecondary,
                 fontSize: 12,
                 height: 1.4,
               ),
