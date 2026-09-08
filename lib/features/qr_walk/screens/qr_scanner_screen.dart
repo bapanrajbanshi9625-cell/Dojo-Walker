@@ -241,20 +241,17 @@ class _QrScannerScreenState
     // ========================================================
 
     await Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => LiveWalkScreen(
-          ownerUid: ownerUid,
-          ownerName: ownerName,
-          requestId: screenId,
-          dogName: dogName,
-          dogBreed: dogBreed.isEmpty
-              ? null
-              : dogBreed,
-          ownerPhone: ownerPhone,
-        ),
-      ),
-    );
-  }
+  MaterialPageRoute(
+    builder: (_) => LiveWalkScreen(
+      ownerUid: ownerUid ?? '',
+      ownerName: ownerName ?? '',
+      requestId: screenId,
+      dogName: dogName ?? '',
+      dogBreed: dogBreed.isEmpty ? null : dogBreed,
+      ownerPhone: ownerPhone,
+    ),
+  ),
+);
 
   // ==========================================================
   // GALLERY
