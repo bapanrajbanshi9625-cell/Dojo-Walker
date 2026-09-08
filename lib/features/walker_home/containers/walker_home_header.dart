@@ -19,7 +19,7 @@ class WalkerHomeHeader extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      color: DojoColors.orange,
+      color: DojoWalkerColors.primary,
       child: SafeArea(
         top: true,
         bottom: false,
