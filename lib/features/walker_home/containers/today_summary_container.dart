@@ -69,7 +69,7 @@ class TodaySummaryContainer extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: DojoWalkerColors.surface,
+        color: DojoWalkerColors.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: DojoWalkerColors.border,
@@ -89,8 +89,9 @@ class TodaySummaryContainer extends StatelessWidget {
               icon: Icons.directions_walk_rounded,
               title: 'Total Walks',
               value: '$totalWalks',
-              background: DojoColors.orange.withValues(alpha: 0.10),
-              iconColor: DojoColors.orange,
+              background:
+                  DojoWalkerColors.primary.withValues(alpha: 0.10),
+              iconColor: DojoWalkerColors.primary,
               onTap: () {
                 onDetails(
                   title: 'Total Walks',
@@ -109,7 +110,7 @@ class TodaySummaryContainer extends StatelessWidget {
               icon: Icons.route_rounded,
               title: 'Distance',
               value: '${distanceKm.toStringAsFixed(1)} km',
-              background: DojoWalkerColors.infoSoft,
+              background: DojoWalkerColors.infoLight,
               iconColor: DojoWalkerColors.info,
               onTap: () {
                 onDetails(
@@ -130,7 +131,7 @@ class TodaySummaryContainer extends StatelessWidget {
               icon: Icons.timer_outlined,
               title: 'Duration',
               value: '${durationMinutes.round()} min',
-              background: DojoWalkerColors.successSoft,
+              background: DojoWalkerColors.successLight,
               iconColor: DojoWalkerColors.success,
               onTap: () {
                 onDetails(
@@ -151,8 +152,9 @@ class TodaySummaryContainer extends StatelessWidget {
               icon: Icons.bar_chart_rounded,
               title: 'Report Card',
               value: performance,
-              background: DojoColors.orange.withValues(alpha: 0.10),
-              iconColor: DojoColors.orange,
+              background:
+                  DojoWalkerColors.primary.withValues(alpha: 0.10),
+              iconColor: DojoWalkerColors.primary,
               onTap: () {
                 onDetails(
                   title: 'Performance Report',
