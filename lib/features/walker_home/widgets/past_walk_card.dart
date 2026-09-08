@@ -68,7 +68,7 @@ class PastWalkCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: DojoWalkerColors.dark,
+                        color: DojoWalkerColors.textPrimary,
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
                         height: 1.1,
