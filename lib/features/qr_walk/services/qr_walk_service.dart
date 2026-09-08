@@ -42,8 +42,6 @@ class QrWalkService {
 
     final String cleanData = rawData.trim();
 
-    _log('STEP 1: Validate QR');
-
     if (cleanData.isEmpty) {
       _log('STEP 1 FAILED: Empty QR');
       throw Exception('Invalid QR code.');
@@ -55,8 +53,6 @@ class QrWalkService {
     // 2. CURRENT WALKER
     // ========================================================
 
-    _log('STEP 2: Check current Walker');
-
     final User? walker = _auth.currentUser;
 
     if (walker == null) {
@@ -67,35 +63,33 @@ class QrWalkService {
     final String walkerUid = walker.uid.trim();
 
     if (walkerUid.isEmpty) {
-      _log('STEP 2 FAILED: Walker UID empty');
+      _log('STEP 2 FAILED: Walker UID missing');
       throw Exception('Walker Firebase UID is missing.');
     }
 
-    _log('STEP 2 OK: walkerUid=$walkerUid');
+    _log('STEP 2 OK');
 
     // ========================================================
     // 3. DECODE QR
     // ========================================================
 
-    _log('STEP 3: Decode QR');
-
-    final Map<String, dynamic> qrData = _decodeQrPayload(cleanData);
+    final Map<String, dynamic> qrData =
+        _decodeQrPayload(cleanData);
 
     _log('STEP 3 OK');
 
     // ========================================================
-    // 4. QR TYPE
+    // 4. VALIDATE QR TYPE
     // ========================================================
-
-    _log('STEP 4: Validate QR type');
 
     final String qrType = _readString(
       qrData,
       <String>['type'],
     );
 
-    if (qrType.isNotEmpty && qrType != 'dojo_owner_qr') {
-      _log('STEP 4 FAILED: Invalid QR type=$qrType');
+    if (qrType.isNotEmpty &&
+        qrType != 'dojo_owner_qr') {
+      _log('STEP 4 FAILED: Invalid QR type');
 
       throw Exception(
         'This QR code is not a valid Dojo Owner QR.',
@@ -105,10 +99,8 @@ class QrWalkService {
     _log('STEP 4 OK');
 
     // ========================================================
-    // 5. OWNER BUSINESS ID
+    // 5. OWNER ID
     // ========================================================
-
-    _log('STEP 5: Read Owner Business ID');
 
     final String ownerId = _readString(
       qrData,
@@ -127,13 +119,11 @@ class QrWalkService {
       );
     }
 
-    _log('STEP 5 OK: ownerId=$ownerId');
+    _log('STEP 5 OK');
 
     // ========================================================
-    // 6. REQUEST ID
+    // 6. REQUEST / WALK ID
     // ========================================================
-
-    _log('STEP 6: Read Walk ID');
 
     String requestId = _readString(
       qrData,
@@ -144,6 +134,8 @@ class QrWalkService {
       ],
     );
 
+    requestId = requestId.trim();
+
     if (requestId.isEmpty) {
       _log('STEP 6 FAILED: Walk ID missing');
 
@@ -152,20 +144,14 @@ class QrWalkService {
       );
     }
 
-    requestId = requestId.trim();
-
-    _log('STEP 6 OK: requestId=$requestId');
+    _log('STEP 6 OK: $requestId');
 
     // ========================================================
-    // 7. VALIDATE DW ID
+    // 7. VALIDATE WALK ID
     // ========================================================
 
-    _log('STEP 7: Validate DW ID');
-
-    if (!RegExp(r'^DW\d{6}$').hasMatch(requestId)) {
-      _log(
-        'STEP 7 FAILED: Invalid requestId=$requestId',
-      );
+    if (!_isValidRequestId(requestId)) {
+      _log('STEP 7 FAILED: Invalid Walk ID');
 
       throw Exception(
         'Invalid Walk ID. Expected DW######.',
@@ -175,12 +161,8 @@ class QrWalkService {
     _log('STEP 7 OK');
 
     // ========================================================
-    // 8. QR CONNECTION READ
+    // 8. READ QR CONNECTION
     // ========================================================
-
-    _log(
-      'STEP 8: READ qr_connections/$ownerId',
-    );
 
     final DocumentReference<Map<String, dynamic>> connectionRef =
         _qrConnections.doc(ownerId);
@@ -189,14 +171,8 @@ class QrWalkService {
 
     try {
       connectionSnapshot = await connectionRef.get();
-
-      _log(
-        'STEP 8 OK: qr_connections/$ownerId READ successful',
-      );
     } catch (error) {
-      _log(
-        'STEP 8 FAILED: qr_connections READ',
-      );
+      _log('STEP 8 FAILED: qr_connections READ');
       _log('ERROR: $error');
 
       throw Exception(
@@ -205,7 +181,7 @@ class QrWalkService {
     }
 
     if (!connectionSnapshot.exists) {
-      _log('STEP 8 FAILED: QR document does not exist');
+      _log('STEP 8 FAILED: QR connection not found');
 
       throw Exception(
         'Owner QR session was not found or has expired.',
@@ -213,15 +189,14 @@ class QrWalkService {
     }
 
     final Map<String, dynamic> connectionData =
-        connectionSnapshot.data() ?? <String, dynamic>{};
+        connectionSnapshot.data() ??
+            <String, dynamic>{};
 
-    _log('STEP 8 DATA OK');
+    _log('STEP 8 OK');
 
     // ========================================================
     // 9. VERIFY OWNER ID
     // ========================================================
-
-    _log('STEP 9: Verify Owner ID');
 
     final String firebaseOwnerId = _readString(
       connectionData,
@@ -229,19 +204,12 @@ class QrWalkService {
     );
 
     if (firebaseOwnerId.isEmpty) {
-      _log('STEP 9 FAILED: Firebase Owner ID missing');
-
       throw Exception(
         'Owner Business ID is missing in Firebase.',
       );
     }
 
     if (firebaseOwnerId != ownerId) {
-      _log(
-        'STEP 9 FAILED: ownerId mismatch '
-        '$firebaseOwnerId != $ownerId',
-      );
-
       throw Exception(
         'Owner Business ID verification failed.',
       );
@@ -250,10 +218,8 @@ class QrWalkService {
     _log('STEP 9 OK');
 
     // ========================================================
-    // 10. FIRESTORE REQUEST ID
+    // 10. VERIFY FIRESTORE WALK ID
     // ========================================================
-
-    _log('STEP 10: Read Firestore requestId');
 
     final String firebaseRequestId = _readString(
       connectionData,
@@ -265,59 +231,28 @@ class QrWalkService {
     );
 
     if (firebaseRequestId.isEmpty) {
-      _log('STEP 10 FAILED: Firebase Walk ID missing');
-
       throw Exception(
         'Owner Walk ID is missing in Firebase.',
       );
     }
 
-    _log(
-      'STEP 10 OK: firebaseRequestId=$firebaseRequestId',
-    );
-
-    // ========================================================
-    // 11. VALIDATE FIRESTORE REQUEST ID
-    // ========================================================
-
-    _log('STEP 11: Validate Firebase Walk ID');
-
-    if (!RegExp(r'^DW\d{6}$').hasMatch(firebaseRequestId)) {
-      _log(
-        'STEP 11 FAILED: Invalid Firebase Walk ID',
-      );
-
+    if (!_isValidRequestId(firebaseRequestId)) {
       throw Exception(
         'Invalid Walk ID in Firebase.',
       );
     }
 
-    _log('STEP 11 OK');
-
-    // ========================================================
-    // 12. MATCH REQUEST ID
-    // ========================================================
-
-    _log('STEP 12: Compare QR and Firebase Walk ID');
-
     if (firebaseRequestId != requestId) {
-      _log(
-        'STEP 12 FAILED: '
-        '$firebaseRequestId != $requestId',
-      );
-
       throw Exception(
         'Walk ID verification failed.',
       );
     }
 
-    _log('STEP 12 OK');
+    _log('STEP 10 OK');
 
     // ========================================================
-    // 13. OWNER UID
+    // 11. OWNER FIREBASE UID
     // ========================================================
-
-    _log('STEP 13: Read Owner Firebase UID');
 
     final String ownerUid = _readString(
       connectionData,
@@ -330,36 +265,22 @@ class QrWalkService {
     );
 
     if (ownerUid.isEmpty) {
-      _log('STEP 13 FAILED: Owner UID missing');
-
       throw Exception(
         'Owner Firebase UID is missing.',
       );
     }
 
-    _log('STEP 13 OK');
-
-    // ========================================================
-    // 14. SELF CONNECTION
-    // ========================================================
-
-    _log('STEP 14: Check Owner/Walker identity');
-
     if (ownerUid == walkerUid) {
-      _log('STEP 14 FAILED: Same account');
-
       throw Exception(
         'Owner and Walker cannot be the same account.',
       );
     }
 
-    _log('STEP 14 OK');
+    _log('STEP 11 OK');
 
     // ========================================================
-    // 15. OWNER DATA
+    // 12. OWNER DATA
     // ========================================================
-
-    _log('STEP 15: Read Owner data');
 
     String ownerName = _firstNonEmpty(
       <String?>[
@@ -379,13 +300,9 @@ class QrWalkService {
       ],
     );
 
-    _log('STEP 15 OK');
-
     // ========================================================
-    // 16. DOG DATA
+    // 13. DOG DATA
     // ========================================================
-
-    _log('STEP 16: Read Dog data');
 
     String dogName = _firstNonEmpty(
       <String?>[
@@ -405,13 +322,11 @@ class QrWalkService {
       ],
     );
 
-    _log('STEP 16 OK');
+    _log('STEP 12-13 OK');
 
     // ========================================================
-    // 17. EXISTING CONNECTION
+    // 14. CHECK EXISTING QR CONNECTION
     // ========================================================
-
-    _log('STEP 17: Check existing QR connection');
 
     final bool connected =
         connectionData['connected'] == true;
@@ -424,24 +339,18 @@ class QrWalkService {
     if (connected &&
         existingWalkerUid.isNotEmpty &&
         existingWalkerUid != walkerUid) {
-      _log(
-        'STEP 17 FAILED: Another Walker connected',
-      );
+      _log('STEP 14 FAILED: Another walker connected');
 
       throw Exception(
         'This Owner QR is already connected to another walker.',
       );
     }
 
-    _log('STEP 17 OK');
+    _log('STEP 14 OK');
 
     // ========================================================
-    // 18. WALKER ACCOUNT READ
+    // 15. WALKER ACCOUNT
     // ========================================================
-
-    _log(
-      'STEP 18: READ phoneAccounts/$walkerUid',
-    );
 
     DocumentSnapshot<Map<String, dynamic>>
         walkerAccountSnapshot;
@@ -451,18 +360,12 @@ class QrWalkService {
           .collection('phoneAccounts')
           .doc(walkerUid)
           .get();
-
-      _log(
-        'STEP 18 OK: phoneAccounts READ successful',
-      );
     } catch (error) {
-      _log(
-        'STEP 18 FAILED: phoneAccounts READ',
-      );
+      _log('STEP 15 FAILED: phoneAccounts READ');
       _log('ERROR: $error');
 
       throw Exception(
-        'QR STEP 18 - phoneAccounts READ failed: $error',
+        'QR STEP 15 - phoneAccounts READ failed: $error',
       );
     }
 
@@ -470,14 +373,12 @@ class QrWalkService {
         walkerAccountSnapshot.data();
 
     _log(
-      'STEP 18 DATA: exists=${walkerAccountSnapshot.exists}',
+      'STEP 15 OK: exists=${walkerAccountSnapshot.exists}',
     );
 
     // ========================================================
-    // 19. WALKER BUSINESS ID
+    // 16. WALKER BUSINESS ID
     // ========================================================
-
-    _log('STEP 19: Read Walker Business ID');
 
     final String walkerId = _firstNonEmpty(
       <String?>[
@@ -492,20 +393,18 @@ class QrWalkService {
     );
 
     if (walkerId.isEmpty) {
-      _log('STEP 19 FAILED: Walker Business ID missing');
+      _log('STEP 16 FAILED: Walker Business ID missing');
 
       throw Exception(
         'Walker Business ID not found.',
       );
     }
 
-    _log('STEP 19 OK: walkerId=$walkerId');
+    _log('STEP 16 OK');
 
     // ========================================================
-    // 20. WALKER NAME
+    // 17. WALKER NAME
     // ========================================================
-
-    _log('STEP 20: Read Walker Name');
 
     String walkerName = _firstNonEmpty(
       <String?>[
@@ -521,164 +420,77 @@ class QrWalkService {
       walkerName = 'Walker';
     }
 
-    _log('STEP 20 OK: walkerName=$walkerName');
+    _log('STEP 17 OK');
 
     // ========================================================
-    // 21. LIVE SESSION REFERENCE
+    // 18. SESSION REFERENCE
     // ========================================================
-
-    _log(
-      'STEP 21: Prepare liveWalkSessions/$requestId',
-    );
 
     final DocumentReference<Map<String, dynamic>> sessionRef =
         _liveWalkSessions.doc(requestId);
 
-    _log('STEP 21 OK');
-
-    // ========================================================
-    // 22. LIVE SESSION READ
-    // ========================================================
-
     _log(
-      'STEP 22: READ liveWalkSessions/$requestId',
+      'STEP 18 OK: Prepared liveWalkSessions/$requestId',
     );
 
-    DocumentSnapshot<Map<String, dynamic>> existingSession;
-
-    try {
-      existingSession = await sessionRef.get();
-
-      _log(
-        'STEP 22 OK: liveWalkSessions READ successful',
-      );
-    } catch (error) {
-      _log(
-        'STEP 22 FAILED: liveWalkSessions READ',
-      );
-      _log('ERROR: $error');
-
-      throw Exception(
-        'QR STEP 22 - liveWalkSessions READ failed: $error',
-      );
-    }
-
     // ========================================================
-    // 23. EXISTING LIVE SESSION
+    // IMPORTANT
+    //
+    // DO NOT READ liveWalkSessions HERE.
+    //
+    // QR SCAN MUST CREATE THE SESSION DIRECTLY.
+    //
     // ========================================================
 
-    _log('STEP 23: Check existing Live Session');
-
-    if (existingSession.exists) {
-      final Map<String, dynamic> existingData =
-          existingSession.data() ?? <String, dynamic>{};
-
-      final String existingStatus =
-          existingData['status']?.toString().trim().toLowerCase() ??
-              '';
-
-      final String existingWalker =
-          existingData['walkerUid']?.toString().trim() ?? '';
-
-      if (existingWalker.isNotEmpty &&
-          existingWalker != walkerUid) {
-        _log(
-          'STEP 23 FAILED: Another Walker owns session',
-        );
-
-        throw Exception(
-          'This Live Walk is already connected to another walker.',
-        );
-      }
-
-      if (existingStatus != 'completed' &&
-          existingStatus != 'cancelled' &&
-          existingStatus != 'ended') {
-        final String existingWalkerId = _firstNonEmpty(
-          <String?>[
-            existingData['walkerId']?.toString(),
-            walkerId,
-          ],
-        );
-
-        final String existingWalkerName = _firstNonEmpty(
-          <String?>[
-            existingData['walkerName']?.toString(),
-            walkerName,
-          ],
-        );
-
-        _log(
-          'STEP 23 OK: Existing active session found',
-        );
-
-        return <String, dynamic>{
-          'ownerId': ownerId,
-          'ownerUid': ownerUid,
-          'ownerName': ownerName,
-          'ownerPhone': ownerPhone,
-          'walkerId': existingWalkerId,
-          'walkerUid': walkerUid,
-          'walkerName': existingWalkerName,
-          'requestId': requestId,
-          'walkId': requestId,
-          'liveSessionId': requestId,
-          'sessionId': requestId,
-          'dogName': dogName,
-          'dogBreed': dogBreed,
-          'status': existingStatus.isEmpty
-              ? 'READY'
-              : existingData['status'],
-          'source': 'qr',
-          'startedFromQr': true,
-          'existingSession': true,
-        };
-      }
-    }
-
-    _log('STEP 23 OK: No active existing session');
-
     // ========================================================
-    // 24. PREPARE BATCH
+    // 19. PREPARE BATCH
     // ========================================================
-
-    _log('STEP 24: Prepare Firestore batch');
 
     final FieldValue serverTimestamp =
         FieldValue.serverTimestamp();
 
     final WriteBatch batch = _firestore.batch();
 
-    _log('STEP 24 OK');
+    _log('STEP 19 OK: Batch prepared');
 
     // ========================================================
-    // 25. QR CONNECTION UPDATE
+    // 20. UPDATE QR CONNECTION
     // ========================================================
-
-    _log(
-      'STEP 25: Prepare UPDATE qr_connections/$ownerId',
-    );
 
     batch.set(
       connectionRef,
       <String, dynamic>{
         'type': 'dojo_owner_qr',
         'version': 2,
+
+        // OWNER
         'ownerId': ownerId,
         'ownerUid': ownerUid,
         'ownerName': ownerName,
         'ownerPhone': ownerPhone,
+
+        // WALK
         'requestId': requestId,
         'walkId': requestId,
+
+        // DOG
         'dogName': dogName,
         'dogBreed': dogBreed,
+
+        // WALKER
         'walkerId': walkerId,
         'walkerUid': walkerUid,
         'walkerName': walkerName,
+
+        // CONNECTION
         'scanned': true,
         'connected': true,
+
+        // SESSION
         'liveSessionId': requestId,
         'activeWalkId': requestId,
+
+        // TIMESTAMPS
         'scannedAt': serverTimestamp,
         'connectedAt': serverTimestamp,
         'updatedAt': serverTimestamp,
@@ -686,48 +498,63 @@ class QrWalkService {
       SetOptions(merge: true),
     );
 
-    _log('STEP 25 OK: QR update prepared');
+    _log('STEP 20 OK: QR connection prepared');
 
     // ========================================================
-    // 26. LIVE SESSION CREATE / MERGE
+    // 21. CREATE LIVE WALK SESSION
     // ========================================================
-
-    _log(
-      'STEP 26: Prepare WRITE liveWalkSessions/$requestId',
-    );
 
     batch.set(
       sessionRef,
       <String, dynamic>{
+        // IDENTIFIERS
         'sessionId': requestId,
         'requestId': requestId,
         'walkId': requestId,
+
+        // SOURCE
         'source': 'qr',
         'startedFromQr': true,
+
+        // OWNER
         'ownerId': ownerId,
         'ownerUid': ownerUid,
         'ownerName': ownerName,
         'ownerPhone': ownerPhone,
+
+        // WALKER
         'walkerId': walkerId,
         'walkerUid': walkerUid,
         'walkerName': walkerName,
+
+        // DOG
         'dogName': dogName,
         'dogBreed': dogBreed,
+
+        // LOCATION
         'currentLocation': <String, double>{
           'lat': 0.0,
           'lng': 0.0,
         },
+
+        // STATS
         'distanceKm': 0.0,
         'elapsedSeconds': 0,
         'peeCount': 0,
         'poopCount': 0,
+
+        // EVENTS / ROUTE
         'events': <Map<String, dynamic>>[],
         'routeCoordinates': <Map<String, dynamic>>[],
+
+        // STATUS
         'status': 'READY',
         'walkStarted': false,
         'walkEnded': false,
         'trackingStarted': false,
         'trackingEnded': false,
+
+        // TIMESTAMPS
         'startedAt': null,
         'endedAt': null,
         'createdAt': serverTimestamp,
@@ -737,86 +564,85 @@ class QrWalkService {
     );
 
     _log(
-      'STEP 26 OK: Live session write prepared',
+      'STEP 21 OK: Live session create prepared',
     );
 
     // ========================================================
-    // 27. COMMIT
+    // 22. COMMIT
     // ========================================================
-
-    _log(
-      'STEP 27: COMMIT batch',
-    );
 
     try {
       await batch.commit();
 
-      _log(
-        'STEP 27 OK: BATCH COMMIT SUCCESS',
-      );
+      _log('STEP 22 OK: Firestore batch committed');
     } catch (error) {
-      _log(
-        'STEP 27 FAILED: BATCH COMMIT',
-      );
+      _log('STEP 22 FAILED: Firestore batch commit');
       _log('ERROR: $error');
 
       throw Exception(
-        'QR STEP 27 - Firestore BATCH WRITE failed: $error',
+        'QR STEP 22 - Firestore WRITE failed: $error',
       );
     }
 
     // ========================================================
-    // 28. RETURN RESULT
+    // 23. RETURN LIVE WALK DATA
     // ========================================================
 
-    _log('STEP 28: Return Live Walk data');
-
-    final Map<String, dynamic> result = <String, dynamic>{
+    final Map<String, dynamic> result =
+        <String, dynamic>{
       'ownerId': ownerId,
       'ownerUid': ownerUid,
       'ownerName': ownerName,
       'ownerPhone': ownerPhone,
+
       'walkerId': walkerId,
       'walkerUid': walkerUid,
       'walkerName': walkerName,
+
       'requestId': requestId,
       'walkId': requestId,
       'liveSessionId': requestId,
       'sessionId': requestId,
+
       'dogName': dogName,
       'dogBreed': dogBreed,
+
       'status': 'READY',
+
       'source': 'qr',
       'startedFromQr': true,
       'existingSession': false,
     };
 
-    _log('STEP 28 OK');
+    _log('STEP 23 OK');
     _log('========== QR WALK SUCCESS ==========');
 
     return result;
   }
 
   // ==========================================================
-  // DECODE QR
+  // DECODE QR PAYLOAD
   // ==========================================================
 
   Map<String, dynamic> _decodeQrPayload(
     String rawData,
   ) {
     try {
-      final dynamic decoded = jsonDecode(rawData);
+      final dynamic decoded =
+          jsonDecode(rawData);
 
       if (decoded is Map) {
         return Map<String, dynamic>.from(decoded);
       }
     } catch (_) {
-      // URI fallback below.
+      // Try URI format below.
     }
 
-    final Uri? uri = Uri.tryParse(rawData);
+    final Uri? uri =
+        Uri.tryParse(rawData);
 
-    if (uri != null && uri.queryParameters.isNotEmpty) {
+    if (uri != null &&
+        uri.queryParameters.isNotEmpty) {
       return <String, dynamic>{
         ...uri.queryParameters,
       };
@@ -842,7 +668,8 @@ class QrWalkService {
         continue;
       }
 
-      final String text = value.toString().trim();
+      final String text =
+          value.toString().trim();
 
       if (text.isNotEmpty) {
         return text;
@@ -860,7 +687,8 @@ class QrWalkService {
     List<String?> values,
   ) {
     for (final String? value in values) {
-      final String text = value?.trim() ?? '';
+      final String text =
+          value?.trim() ?? '';
 
       if (text.isNotEmpty) {
         return text;
@@ -871,10 +699,26 @@ class QrWalkService {
   }
 
   // ==========================================================
+  // WALK ID VALIDATION
+  // ==========================================================
+
+  bool _isValidRequestId(
+    String requestId,
+  ) {
+    return RegExp(
+      r'^DW\d{6}$',
+    ).hasMatch(
+      requestId.trim(),
+    );
+  }
+
+  // ==========================================================
   // DEBUG LOG
   // ==========================================================
 
   void _log(String message) {
-    debugPrint('[QR WALK] $message');
+    debugPrint(
+      '[QR WALK] $message',
+    );
   }
 }
