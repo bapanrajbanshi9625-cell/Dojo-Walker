@@ -96,6 +96,7 @@ class QrWalkService {
 
     if (qrType.isNotEmpty && qrType != 'dojo_owner_qr') {
       _log('STEP 4 FAILED: Invalid QR type=$qrType');
+
       throw Exception(
         'This QR code is not a valid Dojo Owner QR.',
       );
@@ -120,6 +121,7 @@ class QrWalkService {
 
     if (ownerId.isEmpty) {
       _log('STEP 5 FAILED: Owner ID missing');
+
       throw Exception(
         'Owner Business ID is missing from QR code.',
       );
@@ -144,6 +146,7 @@ class QrWalkService {
 
     if (requestId.isEmpty) {
       _log('STEP 6 FAILED: Walk ID missing');
+
       throw Exception(
         'Walk ID is missing from QR code.',
       );
@@ -160,7 +163,9 @@ class QrWalkService {
     _log('STEP 7: Validate DW ID');
 
     if (!RegExp(r'^DW\d{6}$').hasMatch(requestId)) {
-      _log('STEP 7 FAILED: Invalid requestId=$requestId');
+      _log(
+        'STEP 7 FAILED: Invalid requestId=$requestId',
+      );
 
       throw Exception(
         'Invalid Walk ID. Expected DW######.',
@@ -194,7 +199,9 @@ class QrWalkService {
       );
       _log('ERROR: $error');
 
-      rethrow;
+      throw Exception(
+        'QR STEP 8 - qr_connections READ failed: $error',
+      );
     }
 
     if (!connectionSnapshot.exists) {
@@ -454,7 +461,9 @@ class QrWalkService {
       );
       _log('ERROR: $error');
 
-      rethrow;
+      throw Exception(
+        'QR STEP 18 - phoneAccounts READ failed: $error',
+      );
     }
 
     final Map<String, dynamic>? walkerAccountData =
@@ -549,7 +558,9 @@ class QrWalkService {
       );
       _log('ERROR: $error');
 
-      rethrow;
+      throw Exception(
+        'QR STEP 22 - liveWalkSessions READ failed: $error',
+      );
     }
 
     // ========================================================
@@ -749,7 +760,9 @@ class QrWalkService {
       );
       _log('ERROR: $error');
 
-      rethrow;
+      throw Exception(
+        'QR STEP 27 - Firestore BATCH WRITE failed: $error',
+      );
     }
 
     // ========================================================
