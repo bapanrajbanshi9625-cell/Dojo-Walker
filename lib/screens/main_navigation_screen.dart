@@ -134,148 +134,148 @@ class _MainNavigationScreenState
   // ============================================================
 
   Widget _buildBottomNavigation() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(
-              alpha: .10,
-            ),
-            blurRadius: 18,
-            offset: const Offset(
-              0,
-              -5,
-            ),
+  return Container(
+    decoration: BoxDecoration(
+      color: Colors.white,
+      boxShadow: <BoxShadow>[
+        BoxShadow(
+          color: Colors.black.withValues(
+            alpha: .10,
           ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 72,
-          child: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            selectedItemColor: _selectedColor,
-            unselectedItemColor: AppColors.textGrey,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            type: BottomNavigationBarType.fixed,
-            selectedFontSize: 11,
-            unselectedFontSize: 10,
-            selectedLabelStyle: const TextStyle(
-              fontWeight: FontWeight.w800,
-            ),
-            unselectedLabelStyle: const TextStyle(
-              fontWeight: FontWeight.w600,
-            ),
-            onTap: (int index) async {
-              if (index == 2) {
-                await _openQrScanner();
-                return;
-              }
-
-              if (index == _currentIndex) {
-                return;
-              }
-
-              setState(() {
-                _currentIndex = index;
-              });
-            },
-            items: <BottomNavigationBarItem>[
-              const BottomNavigationBarItem(
-                icon: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: 3,
-                  ),
-                  child: Icon(
-                    Icons.home_rounded,
-                    size: 25,
-                  ),
-                ),
-                activeIcon: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: 3,
-                  ),
-                  child: Icon(
-                    Icons.home_rounded,
-                    size: 27,
-                  ),
-                ),
-                label: 'Home',
-              ),
-              const BottomNavigationBarItem(
-                icon: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: 3,
-                  ),
-                  child: Icon(
-                    Icons.directions_walk_rounded,
-                    size: 25,
-                  ),
-                ),
-                activeIcon: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: 3,
-                  ),
-                  child: Icon(
-                    Icons.directions_walk_rounded,
-                    size: 27,
-                  ),
-                ),
-                label: 'Walks',
-              ),
-              BottomNavigationBarItem(
-                icon: Padding(
-                  padding: const EdgeInsets.only(
-                    bottom: 3,
-                  ),
-                  child: Icon(
-                    Icons.qr_code_scanner_rounded,
-                    size: 25,
-                    color: AppColors.textGrey,
-                  ),
-                ),
-                activeIcon: Padding(
-                  padding: const EdgeInsets.only(
-                    bottom: 3,
-                  ),
-                  child: Icon(
-                    Icons.qr_code_scanner_rounded,
-                    size: 27,
-                    color: AppColors.primary,
-                  ),
-                ),
-                label: 'Scan',
-              ),
-              const BottomNavigationBarItem(
-                icon: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: 3,
-                  ),
-                  child: Icon(
-                    Icons.menu_rounded,
-                    size: 25,
-                  ),
-                ),
-                activeIcon: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: 3,
-                  ),
-                  child: Icon(
-                    Icons.menu_rounded,
-                    size: 27,
-                  ),
-                ),
-                label: 'Menu',
-              ),
-            ],
+          blurRadius: 18,
+          offset: const Offset(
+            0,
+            -5,
           ),
         ),
+      ],
+    ),
+    child: SafeArea(
+      top: false,
+      child: SizedBox(
+        height: 72,
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          selectedItemColor: _selectedColor,
+          unselectedItemColor: AppColors.textGrey,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          type: BottomNavigationBarType.fixed,
+          selectedFontSize: 11,
+          unselectedFontSize: 10,
+          selectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.w800,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.w600,
+          ),
+          onTap: (int index) async {
+            if (index == 2) {
+              await _openQrScanner();
+              return;
+            }
+
+            if (index == _currentIndex) {
+              return;
+            }
+
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          items: <BottomNavigationBarItem>[
+            const BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(
+                  bottom: 3,
+                ),
+                child: Icon(
+                  Icons.home_rounded,
+                  size: 25,
+                ),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(
+                  bottom: 3,
+                ),
+                child: Icon(
+                  Icons.home_rounded,
+                  size: 27,
+                ),
+              ),
+              label: 'Home',
+            ),
+            const BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(
+                  bottom: 3,
+                ),
+                child: Icon(
+                  Icons.directions_walk_rounded,
+                  size: 25,
+                ),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(
+                  bottom: 3,
+                ),
+                child: Icon(
+                  Icons.directions_walk_rounded,
+                  size: 27,
+                ),
+              ),
+              label: 'Walks',
+            ),
+            const BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(
+                  bottom: 3,
+                ),
+                child: Icon(
+                  Icons.qr_code_scanner_rounded,
+                  size: 25,
+                  color: AppColors.textGrey,
+                ),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(
+                  bottom: 3,
+                ),
+                child: Icon(
+                  Icons.qr_code_scanner_rounded,
+                  size: 27,
+                  color: AppColors.primary,
+                ),
+              ),
+              label: 'Scan',
+            ),
+            const BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(
+                  bottom: 3,
+                ),
+                child: Icon(
+                  Icons.menu_rounded,
+                  size: 25,
+                ),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(
+                  bottom: 3,
+                ),
+                child: Icon(
+                  Icons.menu_rounded,
+                  size: 27,
+                ),
+              ),
+              label: 'Menu',
+            ),
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ============================================================
   // OPEN QR SCANNER
