@@ -249,7 +249,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       // PROCESS QR
       // ======================================================
 
-      await _processQr(qrValue!);
+      await _processQr(qrValue);
     } catch (error) {
       if (!mounted) {
         return;
