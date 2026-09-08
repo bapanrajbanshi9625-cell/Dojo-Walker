@@ -33,21 +33,21 @@ class WalkerSectionTitle extends StatelessWidget {
 
         // ========================================================
         // SECTION TITLE
-        // ========================================================
+        // =======================================================
 
         Expanded(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: DojoWalkerColors.dark,
-              fontSize: 18,
-              height: 1.15,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+  child: Text(
+    title,
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: const TextStyle(
+      color: DojoWalkerColors.textPrimary,
+      fontSize: 18,
+      height: 1.15,
+      fontWeight: FontWeight.w700,
+    ),
+  ),
+),
 
         // ========================================================
         // LIVE BADGE
