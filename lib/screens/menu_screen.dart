@@ -35,7 +35,7 @@ class MenuScreen extends StatelessWidget {
             30,
           ),
           decoration: const BoxDecoration(
-            color: DojoWalkerColors.surface,
+            color: DojoWalkerColors.card,
             borderRadius: BorderRadius.vertical(
               top: Radius.circular(24),
             ),
@@ -59,9 +59,6 @@ class MenuScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                '',
-              ),
               Text(
                 title,
                 textAlign: TextAlign.center,
@@ -158,7 +155,7 @@ class MenuScreen extends StatelessWidget {
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor:
-              DojoWalkerColors.surface,
+              DojoWalkerColors.card,
           title: const Text(
             'Logout',
             style: TextStyle(
@@ -672,7 +669,7 @@ class _MenuCard extends StatelessWidget {
             BorderRadius.circular(16),
         child: Ink(
           decoration: BoxDecoration(
-            color: DojoWalkerColors.surface,
+            color: DojoWalkerColors.card,
             borderRadius:
                 BorderRadius.circular(16),
             border: Border.all(
