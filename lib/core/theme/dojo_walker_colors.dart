@@ -13,6 +13,9 @@ class DojoWalkerColors {
   /// Dark brand orange.
   static const Color dark = Color(0xFFC94F00);
 
+  /// Premium dark navy used for dashboard surfaces.
+  static const Color navy = Color(0xFF111827);
+
   /// Deep premium orange.
   static const Color deep = Color(0xFF9E3D00);
 
