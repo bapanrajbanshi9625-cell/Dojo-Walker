@@ -102,9 +102,9 @@ class DetailsDateFilter extends StatelessWidget {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: DojoColors.primary,
-              surface: DojoColors.surface,
-              onSurface: DojoColors.textPrimary,
+              primary: DojoWalkerColors.primary,
+              surface: DojoWalkerColors.card,
+              onSurface: DojoWalkerColors.textPrimary,
             ),
           ),
           child: child ?? const SizedBox.shrink(),
@@ -125,7 +125,7 @@ class DetailsDateFilter extends StatelessWidget {
   ) async {
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: DojoColors.surface,
+      backgroundColor: DojoWalkerColors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(24),
@@ -149,7 +149,7 @@ class DetailsDateFilter extends StatelessWidget {
                   width: 42,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: DojoColors.border,
+                    color: DojoWalkerColors.border,
                     borderRadius: BorderRadius.circular(20),
                   ),
                 ),
@@ -157,7 +157,7 @@ class DetailsDateFilter extends StatelessWidget {
                 const Text(
                   'Select Period',
                   style: TextStyle(
-                    color: DojoColors.textPrimary,
+                    color: DojoWalkerColors.textPrimary,
                     fontSize: 19,
                     fontWeight: FontWeight.w800,
                   ),
@@ -197,7 +197,7 @@ class DetailsDateFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: DojoColors.surface,
+      color: DojoWalkerColors.card,
       child: Container(
         height: 50,
         padding: const EdgeInsets.symmetric(
@@ -206,7 +206,7 @@ class DetailsDateFilter extends StatelessWidget {
         decoration: const BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: DojoColors.divider,
+              color: DojoWalkerColors.border,
             ),
           ),
         ),
@@ -217,7 +217,7 @@ class DetailsDateFilter extends StatelessWidget {
                   ? Icons.calendar_today_rounded
                   : Icons.date_range_rounded,
               size: 18,
-              color: DojoColors.iconPrimary,
+              color: DojoWalkerColors.textPrimary,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -226,7 +226,7 @@ class DetailsDateFilter extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: DojoColors.textPrimary,
+                  color: DojoWalkerColors.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
@@ -240,7 +240,7 @@ class DetailsDateFilter extends StatelessWidget {
                 child: Icon(
                   Icons.calendar_month_rounded,
                   size: 20,
-                  color: DojoColors.primary,
+                  color: DojoWalkerColors.primary,
                 ),
               ),
             ),
@@ -260,7 +260,7 @@ class DetailsDateFilter extends StatelessWidget {
                           ? 'Date'
                           : 'Week',
                       style: const TextStyle(
-                        color: DojoColors.textSecondary,
+                        color: DojoWalkerColors.textSecondary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -269,7 +269,7 @@ class DetailsDateFilter extends StatelessWidget {
                     const Icon(
                       Icons.keyboard_arrow_down_rounded,
                       size: 19,
-                      color: DojoColors.iconSecondary,
+                      color: DojoWalkerColors.textSecondary,
                     ),
                   ],
                 ),
@@ -302,7 +302,7 @@ class _FilterTile extends StatelessWidget {
     return Opacity(
       opacity: selected ? 1.0 : 0.85,
       child: Material(
-        color: DojoColors.background,
+        color: DojoWalkerColors.background,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           onTap: onTap,
@@ -315,12 +315,12 @@ class _FilterTile extends StatelessWidget {
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: DojoColors.orangeSoft,
+                    color: DojoWalkerColors.light,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     icon,
-                    color: DojoColors.primary,
+                    color: DojoWalkerColors.primary,
                     size: 22,
                   ),
                 ),
@@ -333,7 +333,7 @@ class _FilterTile extends StatelessWidget {
                       Text(
                         title,
                         style: const TextStyle(
-                          color: DojoColors.textPrimary,
+                          color: DojoWalkerColors.textPrimary,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
@@ -342,7 +342,7 @@ class _FilterTile extends StatelessWidget {
                       Text(
                         subtitle,
                         style: const TextStyle(
-                          color: DojoColors.textSecondary,
+                          color: DojoWalkerColors.textSecondary,
                           fontSize: 12,
                         ),
                       ),
@@ -352,13 +352,13 @@ class _FilterTile extends StatelessWidget {
                 if (selected)
                   const Icon(
                     Icons.check_circle_rounded,
-                    color: DojoColors.primary,
+                    color: DojoWalkerColors.primary,
                     size: 21,
                   )
                 else
                   const Icon(
                     Icons.chevron_right_rounded,
-                    color: DojoColors.iconSecondary,
+                    color: DojoWalkerColors.textSecondary,
                   ),
               ],
             ),
