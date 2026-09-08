@@ -1,9 +1,14 @@
+// File:
+// lib/features/qr_walk/screens/qr_scanner_screen.dart
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../live_walk/screens/live_walk_screen.dart';
 import '../services/qr_walk_service.dart';
 
 class QrScannerScreen extends StatefulWidget {
@@ -34,6 +39,13 @@ class _QrScannerScreenState
       MobileScannerController();
 
   // ==========================================================
+  // GALLERY
+  // ==========================================================
+
+  final ImagePicker _imagePicker =
+      ImagePicker();
+
+  // ==========================================================
   // STATE
   // ==========================================================
 
@@ -58,6 +70,10 @@ class _QrScannerScreenState
       return;
     }
 
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       _isProcessing = true;
     });
@@ -65,6 +81,10 @@ class _QrScannerScreenState
     await _scannerController.stop();
 
     try {
+      // ======================================================
+      // PROCESS OWNER QR
+      // ======================================================
+
       final Map<String, dynamic> result =
           await _qrWalkService.processOwnerQr(
         rawData: cleanData,
@@ -74,9 +94,178 @@ class _QrScannerScreenState
         return;
       }
 
-      Navigator.of(context).pop(
-        jsonEncode(result),
+      // ======================================================
+      // OPEN LIVE WALK
+      // ======================================================
+
+      await _openLiveWalk(
+        result,
       );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isProcessing = false;
+      });
+
+      await _scannerController.start();
+
+      _showError(
+        error
+            .toString()
+            .replaceFirst(
+              'Exception: ',
+              '',
+            )
+            .trim(),
+      );
+    }
+  }
+
+  // ==========================================================
+  // OPEN LIVE WALK
+  // ==========================================================
+
+  Future<void> _openLiveWalk(
+    Map<String, dynamic> result,
+  ) async {
+    if (!mounted) {
+      return;
+    }
+
+    // ========================================================
+    // REQUEST / WALK ID
+    //
+    // New architecture:
+    // requestId = DW000001
+    //
+    // Backward compatibility:
+    // walkId
+    // ========================================================
+
+    final String requestId =
+        _firstNonEmpty(
+      <String?>[
+        result['requestId']?.toString(),
+        result['walkId']?.toString(),
+      ],
+    );
+
+    // ========================================================
+    // LIVE SESSION ID
+    // ========================================================
+
+    final String liveSessionId =
+        _firstNonEmpty(
+      <String?>[
+        result['liveSessionId']?.toString(),
+        result['sessionId']?.toString(),
+      ],
+    );
+
+    if (requestId.isEmpty &&
+        liveSessionId.isEmpty) {
+      setState(() {
+        _isProcessing = false;
+      });
+
+      await _scannerController.start();
+
+      _showError(
+        'Walk ID is missing from QR code.',
+      );
+
+      return;
+    }
+
+    // ========================================================
+    // CLOSE SCANNER CAMERA
+    // ========================================================
+
+    await _scannerController.stop();
+
+    if (!mounted) {
+      return;
+    }
+
+    // ========================================================
+    // LIVE WALK SCREEN
+    //
+    // requestId is preferred.
+    // If requestId is unavailable, use liveSessionId.
+    // ========================================================
+
+    final String screenId =
+        requestId.isNotEmpty
+            ? requestId
+            : liveSessionId;
+
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) =>
+            LiveWalkScreen(
+          requestId: screenId,
+          isWalker: true,
+        ),
+      ),
+    );
+  }
+
+  // ==========================================================
+  // GALLERY
+  // ==========================================================
+
+  Future<void> _pickQrFromGallery() async {
+    if (_isProcessing) {
+      return;
+    }
+
+    try {
+      final XFile? image =
+          await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+      );
+
+      if (image == null) {
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isProcessing = true;
+      });
+
+      await _scannerController.stop();
+
+      // ======================================================
+      // ANALYZE GALLERY IMAGE
+      // ======================================================
+
+      final bool found =
+          await _scannerController.analyzeImage(
+        image.path,
+      );
+
+      if (!found) {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _isProcessing = false;
+        });
+
+        await _scannerController.start();
+
+        _showError(
+          'No valid QR code found in this image.',
+        );
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -175,6 +364,10 @@ class _QrScannerScreenState
 
   // ==========================================================
   // CLOSE
+  //
+  // No visible Back button.
+  // This method is kept so the screen can still be closed
+  // programmatically if required by the app.
   // ==========================================================
 
   Future<void> _closeScanner() async {
@@ -185,6 +378,25 @@ class _QrScannerScreenState
     }
 
     Navigator.of(context).pop();
+  }
+
+  // ==========================================================
+  // FIRST NON EMPTY
+  // ==========================================================
+
+  String _firstNonEmpty(
+    List<String?> values,
+  ) {
+    for (final String? value in values) {
+      final String cleaned =
+          value?.trim() ?? '';
+
+      if (cleaned.isNotEmpty) {
+        return cleaned;
+      }
+    }
+
+    return '';
   }
 
   // ==========================================================
@@ -278,6 +490,8 @@ class _QrScannerScreenState
 
           // ====================================================
           // TOP BAR
+          //
+          // BACK BUTTON REMOVED
           // ====================================================
 
           SafeArea(
@@ -291,14 +505,9 @@ class _QrScannerScreenState
               ),
               child: Row(
                 children: [
-                  _roundButton(
-                    icon:
-                        Icons.arrow_back_rounded,
-                    onTap:
-                        _closeScanner,
-                  ),
-
-                  const SizedBox(width: 14),
+                  // ============================================
+                  // TITLE
+                  // ============================================
 
                   const Expanded(
                     child: Column(
@@ -329,6 +538,10 @@ class _QrScannerScreenState
                       ],
                     ),
                   ),
+
+                  // ============================================
+                  // FLASH
+                  // ============================================
 
                   _roundButton(
                     icon: _isFlashOn
@@ -666,7 +879,7 @@ class _QrScannerScreenState
             ),
 
           // ====================================================
-          // BOTTOM HELP
+          // BOTTOM HELP + GALLERY
           // ====================================================
 
           if (!_isProcessing)
@@ -676,90 +889,168 @@ class _QrScannerScreenState
               bottom: 22,
               child: SafeArea(
                 top: false,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 13,
-                  ),
-                  decoration:
-                      BoxDecoration(
-                    color: Colors.black
-                        .withValues(
-                      alpha: .72,
-                    ),
-                    borderRadius:
-                        BorderRadius.circular(
-                      18,
-                    ),
-                    border:
-                        Border.all(
-                      color: Colors.white
+                child: Row(
+                  children: [
+                    // ==========================================
+                    // GALLERY BUTTON
+                    // ==========================================
+
+                    Material(
+                      color: Colors.black
                           .withValues(
-                        alpha: .10,
+                        alpha: .72,
+                      ),
+                      borderRadius:
+                          BorderRadius.circular(
+                        18,
+                      ),
+                      child: InkWell(
+                        onTap:
+                            _pickQrFromGallery,
+                        borderRadius:
+                            BorderRadius.circular(
+                          18,
+                        ),
+                        child: SizedBox(
+                          width: 58,
+                          height: 66,
+                          child: Column(
+                            mainAxisAlignment:
+                                MainAxisAlignment
+                                    .center,
+                            children: [
+                              Icon(
+                                Icons
+                                    .photo_library_rounded,
+                                color:
+                                    AppColors.primary,
+                                size: 22,
+                              ),
+                              const SizedBox(
+                                height: 4,
+                              ),
+                              const Text(
+                                'Gallery',
+                                style:
+                                    TextStyle(
+                                  color:
+                                      Colors.white,
+                                  fontSize: 9,
+                                  fontWeight:
+                                      FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
+
+                    const SizedBox(width: 10),
+
+                    // ==========================================
+                    // HELP / READY CARD
+                    // ==========================================
+
+                    Expanded(
+                      child: Container(
+                        padding:
+                            const EdgeInsets
+                                .symmetric(
+                          horizontal: 16,
+                          vertical: 13,
+                        ),
                         decoration:
                             BoxDecoration(
-                          color: AppColors
-                              .primary
+                          color: Colors.black
                               .withValues(
-                            alpha: .16,
+                            alpha: .72,
                           ),
                           borderRadius:
                               BorderRadius.circular(
-                            12,
+                            18,
+                          ),
+                          border:
+                              Border.all(
+                            color: Colors.white
+                                .withValues(
+                              alpha: .10,
+                            ),
                           ),
                         ),
-                        child: const Icon(
-                          Icons
-                              .center_focus_strong_rounded,
-                          color:
-                              AppColors.primary,
-                          size: 21,
-                        ),
-                      ),
-
-                      const SizedBox(width: 12),
-
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
+                        child: Row(
                           children: [
-                            Text(
-                              'Ready to scan',
-                              style: TextStyle(
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration:
+                                  BoxDecoration(
+                                color: AppColors
+                                    .primary
+                                    .withValues(
+                                  alpha: .16,
+                                ),
+                                borderRadius:
+                                    BorderRadius
+                                        .circular(
+                                  12,
+                                ),
+                              ),
+                              child:
+                                  const Icon(
+                                Icons
+                                    .center_focus_strong_rounded,
                                 color:
-                                    Colors.white,
-                                fontSize: 13,
-                                fontWeight:
-                                    FontWeight.w800,
+                                    AppColors
+                                        .primary,
+                                size: 21,
                               ),
                             ),
-                            SizedBox(height: 3),
-                            Text(
-                              'Keep the QR clear and well lit.',
-                              style: TextStyle(
-                                color:
-                                    Colors.white70,
-                                fontSize: 11,
-                                fontWeight:
-                                    FontWeight.w500,
+
+                            const SizedBox(
+                                width: 12),
+
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment
+                                        .start,
+                                children: [
+                                  Text(
+                                    'Ready to scan',
+                                    style:
+                                        TextStyle(
+                                      color: Colors
+                                          .white,
+                                      fontSize: 13,
+                                      fontWeight:
+                                          FontWeight
+                                              .w800,
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    height: 3,
+                                  ),
+                                  Text(
+                                    'Keep the QR clear and well lit.',
+                                    style:
+                                        TextStyle(
+                                      color: Colors
+                                          .white70,
+                                      fontSize: 11,
+                                      fontWeight:
+                                          FontWeight
+                                              .w500,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -815,9 +1106,9 @@ class _QrScannerScreenState
       height: size,
       child: Stack(
         children: [
-          // -----------------------------------------------
+          // ====================================================
           // HORIZONTAL
-          // -----------------------------------------------
+          // ====================================================
 
           Positioned(
             top: top ? 0 : null,
@@ -849,9 +1140,9 @@ class _QrScannerScreenState
             ),
           ),
 
-          // -----------------------------------------------
+          // ====================================================
           // VERTICAL
-          // -----------------------------------------------
+          // ====================================================
 
           Positioned(
             top: top ? 0 : null,
