@@ -13,7 +13,6 @@ import '../features/insta_walk/services/insta_walk_accept_service.dart';
 import '../features/insta_walk/services/insta_walk_reject_service.dart';
 import '../features/insta_walk/services/insta_walk_request_service.dart';
 import '../features/insta_walk/widgets/insta_walk_container.dart';
-import '../features/insta_walk/widgets/insta_walk_request_card.dart';
 import '../features/walker_home/containers/walker_home_header.dart';
 
 class WalksScreen extends StatefulWidget {
@@ -486,14 +485,6 @@ class _WalksScreenState extends State<WalksScreen>
 
   // ============================================================
   // ACCEPT REQUEST
-  //
-  // Accept service handles:
-  //
-  // walk_request/{walkId}
-  // status = accepted
-  //
-  // After acceptance the next flow can open
-  // pickup/reach screen.
   // ============================================================
 
   Future<void> _acceptRequest(
@@ -767,6 +758,12 @@ class _WalksScreenState extends State<WalksScreen>
 
   // ============================================================
   // REQUEST UI
+  //
+  // Incoming requests are now handled directly by
+  // IncomingWalkRequestScreen.
+  //
+  // The old InstaWalkRequestCard has been deleted and is not
+  // recreated here.
   // ============================================================
 
   Widget _buildRequests(
@@ -817,42 +814,9 @@ class _WalksScreenState extends State<WalksScreen>
       );
     }
 
-    return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
-      children: <Widget>[
-        const Padding(
-          padding: EdgeInsets.only(
-            left: 3,
-            bottom: 9,
-          ),
-          child: Text(
-            'AVAILABLE WALK REQUESTS',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight:
-                  FontWeight.w900,
-              letterSpacing: 1.1,
-            ),
-          ),
-        ),
-        ..._requests.map(
-          (
-            InstaWalkRequest request,
-          ) {
-            return InstaWalkRequestCard(
-              request: request,
-              onAccept: () {
-                _acceptRequest(request);
-              },
-              onReject: () {
-                _rejectRequest(request);
-              },
-            );
-          },
-        ),
-      ],
-    );
+    // A request is automatically opened in the
+    // full-screen IncomingWalkRequestScreen.
+    return const SizedBox.shrink();
   }
 
   // ============================================================
