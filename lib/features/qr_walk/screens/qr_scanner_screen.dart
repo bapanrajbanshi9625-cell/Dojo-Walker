@@ -1,8 +1,6 @@
 // File:
 // lib/features/qr_walk/screens/qr_scanner_screen.dart
 
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -98,9 +96,7 @@ class _QrScannerScreenState
       // OPEN LIVE WALK
       // ======================================================
 
-      await _openLiveWalk(
-        result,
-      );
+      await _openLiveWalk(result);
     } catch (error) {
       if (!mounted) {
         return;
@@ -136,7 +132,7 @@ class _QrScannerScreenState
     }
 
     // ========================================================
-    // REQUEST / WALK ID
+    // CANONICAL REQUEST / WALK ID
     //
     // New architecture:
     // requestId = DW000001
@@ -181,20 +177,7 @@ class _QrScannerScreenState
     }
 
     // ========================================================
-    // CLOSE SCANNER CAMERA
-    // ========================================================
-
-    await _scannerController.stop();
-
-    if (!mounted) {
-      return;
-    }
-
-    // ========================================================
-    // LIVE WALK SCREEN
-    //
-    // requestId is preferred.
-    // If requestId is unavailable, use liveSessionId.
+    // SCREEN ID
     // ========================================================
 
     final String screenId =
@@ -202,12 +185,96 @@ class _QrScannerScreenState
             ? requestId
             : liveSessionId;
 
+    // ========================================================
+    // OWNER DATA
+    // ========================================================
+
+    final String ownerUid =
+        result['ownerUid']
+                ?.toString()
+                .trim() ??
+            '';
+
+    final String ownerName =
+        result['ownerName']
+                ?.toString()
+                .trim()
+                .isNotEmpty ==
+            true
+        ? result['ownerName']
+            .toString()
+            .trim()
+        : 'Owner';
+
+    // ========================================================
+    // DOG DATA
+    // ========================================================
+
+    final String dogName =
+        result['dogName']
+                ?.toString()
+                .trim()
+                .isNotEmpty ==
+            true
+        ? result['dogName']
+            .toString()
+            .trim()
+        : 'Dog';
+
+    final String dogBreed =
+        result['dogBreed']
+                ?.toString()
+                .trim() ??
+            '';
+
+    // ========================================================
+    // OWNER PHONE
+    // ========================================================
+
+    final String ownerPhoneValue =
+        result['ownerPhone']
+                ?.toString()
+                .trim() ??
+            '';
+
+    final String? ownerPhone =
+        ownerPhoneValue.isEmpty
+            ? null
+            : ownerPhoneValue;
+
+    // ========================================================
+    // REQUIRED OWNER UID CHECK
+    // ========================================================
+
+    if (ownerUid.isEmpty) {
+      setState(() {
+        _isProcessing = false;
+      });
+
+      await _scannerController.start();
+
+      _showError(
+        'Owner information is incomplete.',
+      );
+
+      return;
+    }
+
+    // ========================================================
+    // OPEN LIVE WALK
+    // ========================================================
+
     await Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) =>
-            LiveWalkScreen(
+        builder: (_) => LiveWalkScreen(
+          ownerUid: ownerUid,
+          ownerName: ownerName,
           requestId: screenId,
-          isWalker: true,
+          dogName: dogName,
+          dogBreed: dogBreed.isEmpty
+              ? null
+              : dogBreed,
+          ownerPhone: ownerPhone,
         ),
       ),
     );
@@ -246,12 +313,17 @@ class _QrScannerScreenState
       // ANALYZE GALLERY IMAGE
       // ======================================================
 
-      final bool found =
+      final BarcodeCapture? capture =
           await _scannerController.analyzeImage(
         image.path,
       );
 
-      if (!found) {
+      // ======================================================
+      // NO QR FOUND
+      // ======================================================
+
+      if (capture == null ||
+          capture.barcodes.isEmpty) {
         if (!mounted) {
           return;
         }
@@ -265,7 +337,56 @@ class _QrScannerScreenState
         _showError(
           'No valid QR code found in this image.',
         );
+
+        return;
       }
+
+      // ======================================================
+      // FIND QR VALUE
+      // ======================================================
+
+      String? qrValue;
+
+      for (final Barcode barcode
+          in capture.barcodes) {
+        final String? value =
+            barcode.rawValue;
+
+        if (value != null &&
+            value.trim().isNotEmpty) {
+          qrValue = value.trim();
+          break;
+        }
+      }
+
+      // ======================================================
+      // INVALID QR
+      // ======================================================
+
+      if (qrValue == null ||
+          qrValue.isEmpty) {
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _isProcessing = false;
+        });
+
+        await _scannerController.start();
+
+        _showError(
+          'No valid QR code found in this image.',
+        );
+
+        return;
+      }
+
+      // ======================================================
+      // PROCESS GALLERY QR
+      // ======================================================
+
+      await _processQr(qrValue);
     } catch (error) {
       if (!mounted) {
         return;
@@ -319,7 +440,8 @@ class _QrScannerScreenState
                       : message,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontWeight: FontWeight.w600,
+                    fontWeight:
+                        FontWeight.w600,
                     fontSize: 13,
                   ),
                 ),
@@ -360,24 +482,6 @@ class _QrScannerScreenState
     setState(() {
       _isFlashOn = !_isFlashOn;
     });
-  }
-
-  // ==========================================================
-  // CLOSE
-  //
-  // No visible Back button.
-  // This method is kept so the screen can still be closed
-  // programmatically if required by the app.
-  // ==========================================================
-
-  Future<void> _closeScanner() async {
-    await _scannerController.stop();
-
-    if (!mounted) {
-      return;
-    }
-
-    Navigator.of(context).pop();
   }
 
   // ==========================================================
@@ -490,8 +594,6 @@ class _QrScannerScreenState
 
           // ====================================================
           // TOP BAR
-          //
-          // BACK BUTTON REMOVED
           // ====================================================
 
           SafeArea(
@@ -505,10 +607,6 @@ class _QrScannerScreenState
               ),
               child: Row(
                 children: [
-                  // ============================================
-                  // TITLE
-                  // ============================================
-
                   const Expanded(
                     child: Column(
                       crossAxisAlignment:
@@ -539,10 +637,6 @@ class _QrScannerScreenState
                     ),
                   ),
 
-                  // ============================================
-                  // FLASH
-                  // ============================================
-
                   _roundButton(
                     icon: _isFlashOn
                         ? Icons.flash_on_rounded
@@ -564,10 +658,6 @@ class _QrScannerScreenState
               mainAxisSize:
                   MainAxisSize.min,
               children: [
-                // ----------------------------------------------
-                // SCANNER FRAME
-                // ----------------------------------------------
-
                 SizedBox(
                   width: 300,
                   height: 300,
@@ -575,10 +665,6 @@ class _QrScannerScreenState
                     alignment:
                         Alignment.center,
                     children: [
-                      // ----------------------------------------
-                      // SOFT CENTER BOX
-                      // ----------------------------------------
-
                       Container(
                         width: 258,
                         height: 258,
@@ -599,10 +685,6 @@ class _QrScannerScreenState
                         ),
                       ),
 
-                      // ----------------------------------------
-                      // TOP LEFT
-                      // ----------------------------------------
-
                       Positioned(
                         top: 21,
                         left: 21,
@@ -612,10 +694,6 @@ class _QrScannerScreenState
                           left: true,
                         ),
                       ),
-
-                      // ----------------------------------------
-                      // TOP RIGHT
-                      // ----------------------------------------
 
                       Positioned(
                         top: 21,
@@ -627,10 +705,6 @@ class _QrScannerScreenState
                         ),
                       ),
 
-                      // ----------------------------------------
-                      // BOTTOM LEFT
-                      // ----------------------------------------
-
                       Positioned(
                         bottom: 21,
                         left: 21,
@@ -641,10 +715,6 @@ class _QrScannerScreenState
                         ),
                       ),
 
-                      // ----------------------------------------
-                      // BOTTOM RIGHT
-                      // ----------------------------------------
-
                       Positioned(
                         bottom: 21,
                         right: 21,
@@ -654,10 +724,6 @@ class _QrScannerScreenState
                           left: false,
                         ),
                       ),
-
-                      // ----------------------------------------
-                      // CENTER QR ICON
-                      // ----------------------------------------
 
                       Container(
                         width: 42,
@@ -685,10 +751,6 @@ class _QrScannerScreenState
                 ),
 
                 const SizedBox(height: 24),
-
-                // ----------------------------------------------
-                // MAIN INSTRUCTION
-                // ----------------------------------------------
 
                 Container(
                   margin:
@@ -746,9 +808,7 @@ class _QrScannerScreenState
                           size: 21,
                         ),
                       ),
-
                       const SizedBox(width: 11),
-
                       const Flexible(
                         child: Text(
                           'Place the Owner QR\ninside the frame',
@@ -891,10 +951,6 @@ class _QrScannerScreenState
                 top: false,
                 child: Row(
                   children: [
-                    // ==========================================
-                    // GALLERY BUTTON
-                    // ==========================================
-
                     Material(
                       color: Colors.black
                           .withValues(
@@ -919,7 +975,7 @@ class _QrScannerScreenState
                                 MainAxisAlignment
                                     .center,
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons
                                     .photo_library_rounded,
                                 color:
@@ -947,10 +1003,6 @@ class _QrScannerScreenState
                     ),
 
                     const SizedBox(width: 10),
-
-                    // ==========================================
-                    // HELP / READY CARD
-                    // ==========================================
 
                     Expanded(
                       child: Container(
@@ -1008,7 +1060,8 @@ class _QrScannerScreenState
                             ),
 
                             const SizedBox(
-                                width: 12),
+                              width: 12,
+                            ),
 
                             const Expanded(
                               child: Column(
@@ -1106,10 +1159,6 @@ class _QrScannerScreenState
       height: size,
       child: Stack(
         children: [
-          // ====================================================
-          // HORIZONTAL
-          // ====================================================
-
           Positioned(
             top: top ? 0 : null,
             bottom: top ? null : 0,
@@ -1139,10 +1188,6 @@ class _QrScannerScreenState
               ),
             ),
           ),
-
-          // ====================================================
-          // VERTICAL
-          // ====================================================
 
           Positioned(
             top: top ? 0 : null,
