@@ -183,7 +183,7 @@ class _MainNavigationScreenState
                 _currentIndex = index;
               });
             },
-            items: const <BottomNavigationBarItem>[
+            items: const [
               BottomNavigationBarItem(
                 icon: Padding(
                   padding: EdgeInsets.only(
