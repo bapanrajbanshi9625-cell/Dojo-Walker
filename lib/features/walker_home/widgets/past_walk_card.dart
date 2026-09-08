@@ -26,10 +26,10 @@ class PastWalkCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: DojoColors.surface,
+            color: DojoWalkerColors.card,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: DojoColors.border,
+              color: DojoWalkerColors.border,
             ),
           ),
           child: Row(
@@ -42,12 +42,12 @@ class PastWalkCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: DojoColors.greenLight,
+                  color: DojoWalkerColors.successLight,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   Icons.pets_rounded,
-                  color: DojoColors.green,
+                  color: DojoWalkerColors.success,
                   size: 22,
                 ),
               ),
@@ -68,7 +68,7 @@ class PastWalkCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: DojoColors.dark,
+                        color: DojoWalkerColors.dark,
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
                         height: 1.1,
@@ -82,7 +82,7 @@ class PastWalkCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: DojoColors.textSecondary,
+                        color: DojoWalkerColors.textSecondary,
                         fontSize: 11,
                         height: 1.1,
                       ),
@@ -103,13 +103,13 @@ class PastWalkCard extends StatelessWidget {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: DojoColors.greenLight,
+                  color: DojoWalkerColors.successLight,
                   borderRadius: BorderRadius.circular(9),
                 ),
                 child: Text(
                   'DONE',
                   style: TextStyle(
-                    color: DojoColors.green,
+                    color: DojoWalkerColors.success,
                     fontWeight: FontWeight.w800,
                     fontSize: 9,
                   ),
@@ -124,7 +124,7 @@ class PastWalkCard extends StatelessWidget {
 
               const Icon(
                 Icons.chevron_right_rounded,
-                color: DojoColors.textSecondary,
+                color: DojoWalkerColors.textSecondary,
                 size: 20,
               ),
             ],
