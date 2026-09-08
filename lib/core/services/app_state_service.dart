@@ -567,11 +567,10 @@ class AppStateService {
 
     _sessionSubscription = null;
 
-    final String? sessionId =
-        _activeSessionId;
+    final String sessionId =
+        _activeSessionId ?? '';
 
-    if (sessionId == null ||
-        sessionId.trim().isEmpty) {
+    if (sessionId.trim().isEmpty) {
       _activeSessionData = null;
       return;
     }
