@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'dojo_walker_colors.dart';
-
 class DojoWalkerShadows {
   DojoWalkerShadows._();
 
