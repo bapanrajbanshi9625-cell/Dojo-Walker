@@ -1,6 +1,3 @@
-// File:
-// lib/features/qr_walk/screens/qr_scanner_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -10,41 +7,27 @@ import '../../live_walk/screens/live_walk_screen.dart';
 import '../services/qr_walk_service.dart';
 
 class QrScannerScreen extends StatefulWidget {
-  const QrScannerScreen({super.key});
+  const QrScannerScreen({
+    super.key,
+  });
 
   @override
   State<QrScannerScreen> createState() => _QrScannerScreenState();
 }
 
 class _QrScannerScreenState extends State<QrScannerScreen> {
-  // ==========================================================
-  // SERVICE
-  // ==========================================================
-
   final QrWalkService _qrWalkService = QrWalkService();
-
-  // ==========================================================
-  // SCANNER
-  // ==========================================================
 
   final MobileScannerController _scannerController =
       MobileScannerController();
 
-  // ==========================================================
-  // GALLERY
-  // ==========================================================
-
   final ImagePicker _imagePicker = ImagePicker();
-
-  // ==========================================================
-  // STATE
-  // ==========================================================
 
   bool _isProcessing = false;
   bool _isFlashOn = false;
 
   // ==========================================================
-  // QR PROCESS
+  // PROCESS QR
   // ==========================================================
 
   Future<void> _processQr(String rawData) async {
@@ -55,6 +38,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     final String cleanData = rawData.trim();
 
     if (cleanData.isEmpty) {
+      _showError('Invalid QR code.');
       return;
     }
 
@@ -66,9 +50,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       _isProcessing = true;
     });
 
-    await _scannerController.stop();
-
     try {
+      await _scannerController.stop();
+
       final Map<String, dynamic> result =
           await _qrWalkService.processOwnerQr(
         rawData: cleanData,
@@ -91,10 +75,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       await _scannerController.start();
 
       _showError(
-        error
-            .toString()
-            .replaceFirst('Exception: ', '')
-            .trim(),
+        error.toString().replaceFirst('Exception: ', '').trim(),
       );
     }
   }
@@ -106,123 +87,67 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   Future<void> _openLiveWalk(
     Map<String, dynamic> result,
   ) async {
+    final String ownerUid =
+        _firstNonEmpty([
+      result['ownerUid']?.toString(),
+      result['ownerAuthUid']?.toString(),
+      result['authUid']?.toString(),
+    ]);
+
+    final String ownerName =
+        _firstNonEmpty([
+      result['ownerName']?.toString(),
+      'Owner',
+    ]);
+
+    final String screenId =
+        _firstNonEmpty([
+      result['requestId']?.toString(),
+      result['walkId']?.toString(),
+    ]);
+
+    final String dogName =
+        _firstNonEmpty([
+      result['dogName']?.toString(),
+      'Dog',
+    ]);
+
+    final String dogBreed =
+        _firstNonEmpty([
+      result['dogBreed']?.toString(),
+    ]);
+
+    final String ownerPhone =
+        _firstNonEmpty([
+      result['ownerPhone']?.toString(),
+      result['phone']?.toString(),
+    ]);
+
+    if (ownerUid.isEmpty) {
+      throw Exception('Owner information not found.');
+    }
+
+    if (screenId.isEmpty) {
+      throw Exception('Walk ID not found.');
+    }
+
     if (!mounted) {
       return;
     }
 
-    // ========================================================
-    // REQUEST ID
-    // ========================================================
-
-    final String requestId = _firstNonEmpty(
-      <String?>[
-        result['requestId']?.toString(),
-        result['walkId']?.toString(),
-      ],
-    );
-
-    // ========================================================
-    // LIVE SESSION ID
-    // ========================================================
-
-    final String liveSessionId = _firstNonEmpty(
-      <String?>[
-        result['liveSessionId']?.toString(),
-        result['sessionId']?.toString(),
-      ],
-    );
-
-    if (requestId.isEmpty && liveSessionId.isEmpty) {
-      setState(() {
-        _isProcessing = false;
-      });
-
-      await _scannerController.start();
-
-      _showError(
-        'Walk ID is missing from QR code.',
-      );
-
-      return;
-    }
-
-    final String screenId = requestId.isNotEmpty
-        ? requestId
-        : liveSessionId;
-
-    // ========================================================
-    // OWNER
-    // ========================================================
-
-    final String ownerUid =
-        result['ownerUid']?.toString().trim() ?? '';
-
-    final String ownerName = _firstNonEmpty(
-      <String?>[
-        result['ownerName']?.toString(),
-        'Owner',
-      ],
-    );
-
-    // ========================================================
-    // DOG
-    // ========================================================
-
-    final String dogName = _firstNonEmpty(
-      <String?>[
-        result['dogName']?.toString(),
-        'Dog',
-      ],
-    );
-
-    final String dogBreed =
-        result['dogBreed']?.toString().trim() ?? '';
-
-    // ========================================================
-    // OWNER PHONE
-    // ========================================================
-
-    final String ownerPhoneValue =
-        result['ownerPhone']?.toString().trim() ?? '';
-
-    final String? ownerPhone = ownerPhoneValue.isEmpty
-        ? null
-        : ownerPhoneValue;
-
-    // ========================================================
-    // OWNER UID VALIDATION
-    // ========================================================
-
-    if (ownerUid.isEmpty) {
-      setState(() {
-        _isProcessing = false;
-      });
-
-      await _scannerController.start();
-
-      _showError(
-        'Owner information is incomplete.',
-      );
-
-      return;
-    }
-
-    // ========================================================
-    // OPEN LIVE WALK
-    // ========================================================
-
     await Navigator.of(context).pushReplacement(
-     MaterialPageRoute(
-      builder: (_) => LiveWalkScreen(
-       ownerUid: ownerUid,
-       ownerName: ownerName,
-       requestId: screenId,
-       dogName: dogName,
-       dogBreed: dogBreed,
-       ownerPhone: ownerPhone,
-     ),
-   ),
- );
+      MaterialPageRoute(
+        builder: (_) => LiveWalkScreen(
+          ownerUid: ownerUid,
+          ownerName: ownerName,
+          requestId: screenId,
+          dogName: dogName,
+          dogBreed: dogBreed,
+          ownerPhone: ownerPhone.isEmpty ? null : ownerPhone,
+        ),
+      ),
+    );
+  }
 
   // ==========================================================
   // GALLERY
@@ -324,7 +249,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       // PROCESS QR
       // ======================================================
 
-      await _processQr(qrValue);
+      await _processQr(qrValue!);
     } catch (error) {
       if (!mounted) {
         return;
@@ -337,10 +262,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       await _scannerController.start();
 
       _showError(
-        error
-            .toString()
-            .replaceFirst('Exception: ', '')
-            .trim(),
+        error.toString().replaceFirst('Exception: ', '').trim(),
       );
     }
   }
@@ -400,15 +322,19 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   // ==========================================================
 
   Future<void> _toggleFlash() async {
-    await _scannerController.toggleTorch();
+    try {
+      await _scannerController.toggleTorch();
 
-    if (!mounted) {
-      return;
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isFlashOn = !_isFlashOn;
+      });
+    } catch (_) {
+      // Ignore torch errors.
     }
-
-    setState(() {
-      _isFlashOn = !_isFlashOn;
-    });
   }
 
   // ==========================================================
@@ -417,10 +343,8 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
   String _firstNonEmpty(List<String?> values) {
     for (final String? value in values) {
-      final String cleaned = value?.trim() ?? '';
-
-      if (cleaned.isNotEmpty) {
-        return cleaned;
+      if (value != null && value.trim().isNotEmpty) {
+        return value.trim();
       }
     }
 
@@ -444,7 +368,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DojoWalkerColors.black,
+      backgroundColor: Colors.black,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -463,7 +387,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                 final String? value = barcode.rawValue;
 
                 if (value != null && value.trim().isNotEmpty) {
-                  _processQr(value);
+                  _processQr(value.trim());
                   break;
                 }
               }
@@ -471,217 +395,134 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           ),
 
           // ====================================================
-          // CAMERA OVERLAY
+          // DARK OVERLAY
           // ====================================================
 
           IgnorePointer(
             child: Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [
-                    0.0,
-                    0.28,
-                    0.62,
-                    1.0,
-                  ],
-                  colors: [
-                    Colors.black.withValues(alpha: .68),
-                    Colors.black.withValues(alpha: .18),
-                    Colors.black.withValues(alpha: .10),
-                    Colors.black.withValues(alpha: .72),
-                  ],
-                ),
+                color: Colors.black.withValues(alpha: 0.42),
               ),
             ),
           ),
 
           // ====================================================
-          // TOP BAR
+          // TOP CONTENT
           // ====================================================
 
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                16,
-                12,
-                16,
-                0,
-              ),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Scan Owner QR',
-                          style: TextStyle(
-                            color: DojoWalkerColors.white,
-                            fontSize: 19,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -.2,
-                          ),
-                        ),
-                        SizedBox(height: 3),
-                        Text(
-                          'Connect to a Live Walk',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+            child: Column(
+              children: [
+                const SizedBox(height: 24),
+
+                const Text(
+                  'Scan Owner QR',
+                  style: TextStyle(
+                    color: DojoWalkerColors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    'Scan the owner QR code to connect and start the Live Walk.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: DojoWalkerColors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  _roundButton(
-                    icon: _isFlashOn
-                        ? Icons.flash_on_rounded
-                        : Icons.flash_off_rounded,
-                    onTap: _toggleFlash,
-                  ),
-                ],
-              ),
-            ),
-          ),
+                ),
 
-          // ====================================================
-          // CENTER SCANNER
-          // ====================================================
+                const Spacer(),
 
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+                // ==================================================
+                // SCANNER FRAME
+                // ==================================================
+
                 SizedBox(
-                  width: 300,
-                  height: 300,
+                  width: 270,
+                  height: 270,
                   child: Stack(
-                    alignment: Alignment.center,
                     children: [
-                      Container(
-                        width: 258,
-                        height: 258,
-                        decoration: BoxDecoration(
-                          borderRadius:
-                              BorderRadius.circular(26),
-                          border: Border.all(
-                            color: Colors.white.withValues(
-                              alpha: .16,
-                            ),
-                            width: 1,
-                          ),
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        child: _scannerCorner(
+                          topLeft: true,
                         ),
                       ),
                       Positioned(
-                        top: 21,
-                        left: 21,
+                        top: 0,
+                        right: 0,
                         child: _scannerCorner(
-                          top: true,
-                          left: true,
+                          topRight: true,
                         ),
                       ),
                       Positioned(
-                        top: 21,
-                        right: 21,
+                        bottom: 0,
+                        left: 0,
                         child: _scannerCorner(
-                          top: true,
-                          left: false,
+                          bottomLeft: true,
                         ),
                       ),
                       Positioned(
-                        bottom: 21,
-                        left: 21,
+                        bottom: 0,
+                        right: 0,
                         child: _scannerCorner(
-                          top: false,
-                          left: true,
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 21,
-                        right: 21,
-                        child: _scannerCorner(
-                          top: false,
-                          left: false,
-                        ),
-                      ),
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(
-                            alpha: .32,
-                          ),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.qr_code_scanner_rounded,
-                          color: Colors.white.withValues(
-                            alpha: .65,
-                          ),
-                          size: 23,
+                          bottomRight: true,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
-                Container(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 30,
-                  ),
-                  padding: const EdgeInsets.fromLTRB(
-                    18,
-                    14,
-                    20,
-                    14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(
-                      alpha: .68,
-                    ),
-                    borderRadius:
-                        BorderRadius.circular(18),
-                    border: Border.all(
-                      color: Colors.white.withValues(
-                        alpha: .12,
+
+                const Spacer(),
+
+                // ==================================================
+                // PROCESSING
+                // ==================================================
+
+                if (_isProcessing)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        DojoWalkerColors.primary,
                       ),
                     ),
+                  ),
+
+                // ==================================================
+                // CONTROLS
+                // ==================================================
+
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    24,
+                    0,
+                    24,
+                    34,
                   ),
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: DojoWalkerColors.primary
-                              .withValues(alpha: .18),
-                          borderRadius:
-                              BorderRadius.circular(11),
-                        ),
-                        child: const Icon(
-                          Icons.qr_code_2_rounded,
-                          color:
-                              DojoWalkerColors.primary,
-                          size: 21,
-                        ),
+                      _roundButton(
+                        icon: _isFlashOn
+                            ? Icons.flash_on_rounded
+                            : Icons.flash_off_rounded,
+                        onTap: _toggleFlash,
                       ),
-                      const SizedBox(width: 11),
-                      const Flexible(
-                        child: Text(
-                          'Place the Owner QR\ninside the frame',
-                          style: TextStyle(
-                            color:
-                                DojoWalkerColors.white,
-                            fontSize: 13,
-                            height: 1.3,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                      const SizedBox(width: 24),
+                      _roundButton(
+                        icon: Icons.photo_library_rounded,
+                        onTap: _pickQrFromGallery,
                       ),
                     ],
                   ),
@@ -689,232 +530,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ],
             ),
           ),
-
-          // ====================================================
-          // PROCESSING
-          // ====================================================
-
-          if (_isProcessing)
-            Container(
-              color: Colors.black.withValues(alpha: .78),
-              child: Center(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(
-                    horizontal: 30,
-                  ),
-                  padding: const EdgeInsets.fromLTRB(
-                    26,
-                    28,
-                    26,
-                    25,
-                  ),
-                  decoration: BoxDecoration(
-                    color: DojoWalkerColors.card,
-                    borderRadius:
-                        BorderRadius.circular(26),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black38,
-                        blurRadius: 25,
-                        offset: Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 66,
-                        height: 66,
-                        decoration: BoxDecoration(
-                          color: DojoWalkerColors.primary
-                              .withValues(alpha: .10),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Padding(
-                          padding: EdgeInsets.all(16),
-                          child:
-                              CircularProgressIndicator(
-                            strokeWidth: 3,
-                            valueColor:
-                                AlwaysStoppedAnimation<
-                                    Color>(
-                              DojoWalkerColors.primary,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'Connecting to Owner',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color:
-                              DojoWalkerColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      const Text(
-                        'Verifying QR and creating\nyour Live Walk session.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          height: 1.45,
-                          color:
-                              DojoWalkerColors.textSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-          // ====================================================
-          // BOTTOM GALLERY + READY
-          // ====================================================
-
-          if (!_isProcessing)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 22,
-              child: SafeArea(
-                top: false,
-                child: Row(
-                  children: [
-                    Material(
-                      color: Colors.black.withValues(
-                        alpha: .72,
-                      ),
-                      borderRadius:
-                          BorderRadius.circular(18),
-                      child: InkWell(
-                        onTap: _pickQrFromGallery,
-                        borderRadius:
-                            BorderRadius.circular(18),
-                        child: SizedBox(
-                          width: 58,
-                          height: 66,
-                          child: Column(
-                            mainAxisAlignment:
-                                MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons
-                                    .photo_library_rounded,
-                                color:
-                                    DojoWalkerColors
-                                        .primary,
-                                size: 22,
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Gallery',
-                                style: TextStyle(
-                                  color:
-                                      DojoWalkerColors
-                                          .white,
-                                  fontSize: 9,
-                                  fontWeight:
-                                      FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Container(
-                        padding:
-                            const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 13,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(
-                            alpha: .72,
-                          ),
-                          borderRadius:
-                              BorderRadius.circular(18),
-                          border: Border.all(
-                            color:
-                                Colors.white.withValues(
-                              alpha: .10,
-                            ),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color:
-                                    DojoWalkerColors
-                                        .primary
-                                        .withValues(
-                                  alpha: .16,
-                                ),
-                                borderRadius:
-                                    BorderRadius.circular(
-                                  12,
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons
-                                    .center_focus_strong_rounded,
-                                color:
-                                    DojoWalkerColors
-                                        .primary,
-                                size: 21,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment
-                                        .start,
-                                children: [
-                                  Text(
-                                    'Ready to scan',
-                                    style: TextStyle(
-                                      color:
-                                          DojoWalkerColors
-                                              .white,
-                                      fontSize: 13,
-                                      fontWeight:
-                                          FontWeight.w800,
-                                    ),
-                                  ),
-                                  SizedBox(height: 3),
-                                  Text(
-                                    'Keep the QR clear and well lit.',
-                                    style: TextStyle(
-                                      color:
-                                          Colors.white70,
-                                      fontSize: 11,
-                                      fontWeight:
-                                          FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -929,18 +544,18 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.black.withValues(alpha: .52),
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.black.withValues(alpha: 0.55),
+      shape: const CircleBorder(),
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        onTap: _isProcessing ? null : onTap,
+        customBorder: const CircleBorder(),
         child: SizedBox(
-          width: 48,
-          height: 48,
+          width: 56,
+          height: 56,
           child: Icon(
             icon,
             color: DojoWalkerColors.white,
-            size: 22,
+            size: 24,
           ),
         ),
       ),
@@ -952,60 +567,65 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   // ==========================================================
 
   Widget _scannerCorner({
-    required bool top,
-    required bool left,
+    bool topLeft = false,
+    bool topRight = false,
+    bool bottomLeft = false,
+    bool bottomRight = false,
   }) {
-    const double size = 48;
+    const double size = 34;
     const double thickness = 4;
 
-    return SizedBox(
+    BorderRadius radius;
+
+    if (topLeft) {
+      radius = const BorderRadius.only(
+        topLeft: Radius.circular(8),
+      );
+    } else if (topRight) {
+      radius = const BorderRadius.only(
+        topRight: Radius.circular(8),
+      );
+    } else if (bottomLeft) {
+      radius = const BorderRadius.only(
+        bottomLeft: Radius.circular(8),
+      );
+    } else {
+      radius = const BorderRadius.only(
+        bottomRight: Radius.circular(8),
+      );
+    }
+
+    return Container(
       width: size,
       height: size,
-      child: Stack(
-        children: [
-          Positioned(
-            top: top ? 0 : null,
-            bottom: top ? null : 0,
-            left: left ? 0 : null,
-            right: left ? null : 0,
-            child: Container(
-              width: size,
-              height: thickness,
-              decoration: BoxDecoration(
-                color: DojoWalkerColors.primary,
-                borderRadius: BorderRadius.circular(5),
-                boxShadow: [
-                  BoxShadow(
-                    color: DojoWalkerColors.primary
-                        .withValues(alpha: .35),
-                    blurRadius: 7,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            top: top ? 0 : null,
-            bottom: top ? null : 0,
-            left: left ? 0 : null,
-            right: left ? null : 0,
-            child: Container(
-              width: thickness,
-              height: size,
-              decoration: BoxDecoration(
-                color: DojoWalkerColors.primary,
-                borderRadius: BorderRadius.circular(5),
-                boxShadow: [
-                  BoxShadow(
-                    color: DojoWalkerColors.primary
-                        .withValues(alpha: .35),
-                    blurRadius: 7,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+      decoration: BoxDecoration(
+        border: Border(
+          top: topLeft || topRight
+              ? const BorderSide(
+                  color: DojoWalkerColors.primary,
+                  width: thickness,
+                )
+              : BorderSide.none,
+          bottom: bottomLeft || bottomRight
+              ? const BorderSide(
+                  color: DojoWalkerColors.primary,
+                  width: thickness,
+                )
+              : BorderSide.none,
+          left: topLeft || bottomLeft
+              ? const BorderSide(
+                  color: DojoWalkerColors.primary,
+                  width: thickness,
+                )
+              : BorderSide.none,
+          right: topRight || bottomRight
+              ? const BorderSide(
+                  color: DojoWalkerColors.primary,
+                  width: thickness,
+                )
+              : BorderSide.none,
+        ),
+        borderRadius: radius,
       ),
     );
   }
