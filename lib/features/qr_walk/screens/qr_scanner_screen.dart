@@ -79,10 +79,6 @@ class _QrScannerScreenState
     await _scannerController.stop();
 
     try {
-      // ======================================================
-      // PROCESS OWNER QR
-      // ======================================================
-
       final Map<String, dynamic> result =
           await _qrWalkService.processOwnerQr(
         rawData: cleanData,
@@ -91,10 +87,6 @@ class _QrScannerScreenState
       if (!mounted) {
         return;
       }
-
-      // ======================================================
-      // OPEN LIVE WALK
-      // ======================================================
 
       await _openLiveWalk(result);
     } catch (error) {
@@ -132,13 +124,7 @@ class _QrScannerScreenState
     }
 
     // ========================================================
-    // CANONICAL REQUEST / WALK ID
-    //
-    // New architecture:
-    // requestId = DW000001
-    //
-    // Backward compatibility:
-    // walkId
+    // REQUEST ID
     // ========================================================
 
     final String requestId =
@@ -176,17 +162,13 @@ class _QrScannerScreenState
       return;
     }
 
-    // ========================================================
-    // SCREEN ID
-    // ========================================================
-
     final String screenId =
         requestId.isNotEmpty
             ? requestId
             : liveSessionId;
 
     // ========================================================
-    // OWNER DATA
+    // OWNER
     // ========================================================
 
     final String ownerUid =
@@ -196,30 +178,24 @@ class _QrScannerScreenState
             '';
 
     final String ownerName =
-        result['ownerName']
-                ?.toString()
-                .trim()
-                .isNotEmpty ==
-            true
-        ? result['ownerName']
-            .toString()
-            .trim()
-        : 'Owner';
+        _firstNonEmpty(
+      <String?>[
+        result['ownerName']?.toString(),
+        'Owner',
+      ],
+    );
 
     // ========================================================
-    // DOG DATA
+    // DOG
     // ========================================================
 
     final String dogName =
-        result['dogName']
-                ?.toString()
-                .trim()
-                .isNotEmpty ==
-            true
-        ? result['dogName']
-            .toString()
-            .trim()
-        : 'Dog';
+        _firstNonEmpty(
+      <String?>[
+        result['dogName']?.toString(),
+        'Dog',
+      ],
+    );
 
     final String dogBreed =
         result['dogBreed']
@@ -243,7 +219,7 @@ class _QrScannerScreenState
             : ownerPhoneValue;
 
     // ========================================================
-    // REQUIRED OWNER UID CHECK
+    // OWNER UID VALIDATION
     // ========================================================
 
     if (ownerUid.isEmpty) {
@@ -319,7 +295,7 @@ class _QrScannerScreenState
       );
 
       // ======================================================
-      // NO QR FOUND
+      // NO QR
       // ======================================================
 
       if (capture == null ||
@@ -383,7 +359,7 @@ class _QrScannerScreenState
       }
 
       // ======================================================
-      // PROCESS GALLERY QR
+      // PROCESS QR
       // ======================================================
 
       await _processQr(qrValue);
@@ -429,7 +405,8 @@ class _QrScannerScreenState
             children: [
               const Icon(
                 Icons.error_outline_rounded,
-                color: Colors.white,
+                color:
+                    DojoWalkerColors.white,
                 size: 22,
               ),
               const SizedBox(width: 10),
@@ -439,7 +416,8 @@ class _QrScannerScreenState
                       ? 'Unable to scan QR code.'
                       : message,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color:
+                        DojoWalkerColors.white,
                     fontWeight:
                         FontWeight.w600,
                     fontSize: 13,
@@ -449,7 +427,7 @@ class _QrScannerScreenState
             ],
           ),
           backgroundColor:
-              AppColors.errorDark,
+              DojoWalkerColors.error,
           behavior:
               SnackBarBehavior.floating,
           margin:
@@ -522,7 +500,8 @@ class _QrScannerScreenState
     BuildContext context,
   ) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor:
+          DojoWalkerColors.black,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -615,7 +594,9 @@ class _QrScannerScreenState
                         Text(
                           'Scan Owner QR',
                           style: TextStyle(
-                            color: Colors.white,
+                            color:
+                                DojoWalkerColors
+                                    .white,
                             fontSize: 19,
                             fontWeight:
                                 FontWeight.w900,
@@ -636,7 +617,6 @@ class _QrScannerScreenState
                       ],
                     ),
                   ),
-
                   _roundButton(
                     icon: _isFlashOn
                         ? Icons.flash_on_rounded
@@ -684,7 +664,6 @@ class _QrScannerScreenState
                           ),
                         ),
                       ),
-
                       Positioned(
                         top: 21,
                         left: 21,
@@ -694,7 +673,6 @@ class _QrScannerScreenState
                           left: true,
                         ),
                       ),
-
                       Positioned(
                         top: 21,
                         right: 21,
@@ -704,7 +682,6 @@ class _QrScannerScreenState
                           left: false,
                         ),
                       ),
-
                       Positioned(
                         bottom: 21,
                         left: 21,
@@ -714,7 +691,6 @@ class _QrScannerScreenState
                           left: true,
                         ),
                       ),
-
                       Positioned(
                         bottom: 21,
                         right: 21,
@@ -724,7 +700,6 @@ class _QrScannerScreenState
                           left: false,
                         ),
                       ),
-
                       Container(
                         width: 42,
                         height: 42,
@@ -791,9 +766,10 @@ class _QrScannerScreenState
                         height: 36,
                         decoration:
                             BoxDecoration(
-                          color: AppColors
-                              .primary
-                              .withValues(
+                          color:
+                              DojoWalkerColors
+                                  .primary
+                                  .withValues(
                             alpha: .18,
                           ),
                           borderRadius:
@@ -801,10 +777,13 @@ class _QrScannerScreenState
                             11,
                           ),
                         ),
-                        child: const Icon(
-                          Icons.qr_code_2_rounded,
+                        child:
+                            const Icon(
+                          Icons
+                              .qr_code_2_rounded,
                           color:
-                              AppColors.primary,
+                              DojoWalkerColors
+                                  .primary,
                           size: 21,
                         ),
                       ),
@@ -812,10 +791,10 @@ class _QrScannerScreenState
                       const Flexible(
                         child: Text(
                           'Place the Owner QR\ninside the frame',
-                          textAlign:
-                              TextAlign.left,
                           style: TextStyle(
-                            color: Colors.white,
+                            color:
+                                DojoWalkerColors
+                                    .white,
                             fontSize: 13,
                             height: 1.3,
                             fontWeight:
@@ -855,7 +834,7 @@ class _QrScannerScreenState
                   decoration:
                       BoxDecoration(
                     color:
-                        AppColors.surface,
+                        DojoWalkerColors.card,
                     borderRadius:
                         BorderRadius.circular(
                       26,
@@ -877,15 +856,17 @@ class _QrScannerScreenState
                         height: 66,
                         decoration:
                             BoxDecoration(
-                          color: AppColors
-                              .primary
-                              .withValues(
+                          color:
+                              DojoWalkerColors
+                                  .primary
+                                  .withValues(
                             alpha: .10,
                           ),
                           shape:
                               BoxShape.circle,
                         ),
-                        child: const Padding(
+                        child:
+                            const Padding(
                           padding:
                               EdgeInsets.all(
                             16,
@@ -896,7 +877,8 @@ class _QrScannerScreenState
                             valueColor:
                                 AlwaysStoppedAnimation<
                                     Color>(
-                              AppColors.primary,
+                              DojoWalkerColors
+                                  .primary,
                             ),
                           ),
                         ),
@@ -913,7 +895,8 @@ class _QrScannerScreenState
                           fontWeight:
                               FontWeight.w900,
                           color:
-                              AppColors.textPrimary,
+                              DojoWalkerColors
+                                  .textPrimary,
                         ),
                       ),
 
@@ -927,7 +910,8 @@ class _QrScannerScreenState
                           fontSize: 12,
                           height: 1.45,
                           color:
-                              AppColors.textSecondary,
+                              DojoWalkerColors
+                                  .textSecondary,
                           fontWeight:
                               FontWeight.w500,
                         ),
@@ -939,7 +923,7 @@ class _QrScannerScreenState
             ),
 
           // ====================================================
-          // BOTTOM HELP + GALLERY
+          // BOTTOM GALLERY + READY
           // ====================================================
 
           if (!_isProcessing)
@@ -979,7 +963,8 @@ class _QrScannerScreenState
                                 Icons
                                     .photo_library_rounded,
                                 color:
-                                    AppColors.primary,
+                                    DojoWalkerColors
+                                        .primary,
                                 size: 22,
                               ),
                               const SizedBox(
@@ -990,7 +975,8 @@ class _QrScannerScreenState
                                 style:
                                     TextStyle(
                                   color:
-                                      Colors.white,
+                                      DojoWalkerColors
+                                          .white,
                                   fontSize: 9,
                                   fontWeight:
                                       FontWeight.w700,
@@ -1037,9 +1023,10 @@ class _QrScannerScreenState
                               height: 40,
                               decoration:
                                   BoxDecoration(
-                                color: AppColors
-                                    .primary
-                                    .withValues(
+                                color:
+                                    DojoWalkerColors
+                                        .primary
+                                        .withValues(
                                   alpha: .16,
                                 ),
                                 borderRadius:
@@ -1053,7 +1040,7 @@ class _QrScannerScreenState
                                 Icons
                                     .center_focus_strong_rounded,
                                 color:
-                                    AppColors
+                                    DojoWalkerColors
                                         .primary,
                                 size: 21,
                               ),
@@ -1073,8 +1060,9 @@ class _QrScannerScreenState
                                     'Ready to scan',
                                     style:
                                         TextStyle(
-                                      color: Colors
-                                          .white,
+                                      color:
+                                          DojoWalkerColors
+                                              .white,
                                       fontSize: 13,
                                       fontWeight:
                                           FontWeight
@@ -1088,8 +1076,9 @@ class _QrScannerScreenState
                                     'Keep the QR clear and well lit.',
                                     style:
                                         TextStyle(
-                                      color: Colors
-                                          .white70,
+                                      color:
+                                          Colors
+                                              .white70,
                                       fontSize: 11,
                                       fontWeight:
                                           FontWeight
@@ -1130,12 +1119,13 @@ class _QrScannerScreenState
         onTap: onTap,
         borderRadius:
             BorderRadius.circular(16),
-        child: SizedBox(
+        child: const SizedBox(
           width: 48,
           height: 48,
           child: Icon(
-            icon,
-            color: Colors.white,
+            Icons.flash_off_rounded,
+            color:
+                DojoWalkerColors.white,
             size: 22,
           ),
         ),
@@ -1170,16 +1160,17 @@ class _QrScannerScreenState
               decoration:
                   BoxDecoration(
                 color:
-                    AppColors.primary,
+                    DojoWalkerColors.primary,
                 borderRadius:
                     BorderRadius.circular(
                   5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors
-                        .primary
-                        .withValues(
+                    color:
+                        DojoWalkerColors
+                            .primary
+                            .withValues(
                       alpha: .35,
                     ),
                     blurRadius: 7,
@@ -1188,7 +1179,6 @@ class _QrScannerScreenState
               ),
             ),
           ),
-
           Positioned(
             top: top ? 0 : null,
             bottom: top ? null : 0,
@@ -1200,16 +1190,17 @@ class _QrScannerScreenState
               decoration:
                   BoxDecoration(
                 color:
-                    AppColors.primary,
+                    DojoWalkerColors.primary,
                 borderRadius:
                     BorderRadius.circular(
                   5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors
-                        .primary
-                        .withValues(
+                    color:
+                        DojoWalkerColors
+                            .primary
+                            .withValues(
                       alpha: .35,
                     ),
                     blurRadius: 7,
