@@ -212,18 +212,17 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     // ========================================================
 
     await Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => LiveWalkScreen(
-          ownerUid: ownerUid,
-          ownerName: ownerName,
-          requestId: screenId,
-          dogName: dogName,
-          dogBreed: dogBreed.isEmpty ? null : dogBreed,
-          ownerPhone: ownerPhone,
-        ),
-      ),
-    );
-  }
+     MaterialPageRoute(
+      builder: (_) => LiveWalkScreen(
+       ownerUid: ownerUid,
+       ownerName: ownerName,
+       requestId: screenId,
+       dogName: dogName,
+       dogBreed: dogBreed,
+       ownerPhone: ownerPhone,
+     ),
+   ),
+ );
 
   // ==========================================================
   // GALLERY
