@@ -9,8 +9,6 @@ import 'package:flutter/material.dart';
 
 import '../features/insta_walk/models/insta_walk_request.dart';
 import '../features/insta_walk/screens/incoming_walk_request_screen.dart';
-import '../features/insta_walk/services/insta_walk_accept_service.dart';
-import '../features/insta_walk/services/insta_walk_reject_service.dart';
 import '../features/insta_walk/services/insta_walk_request_service.dart';
 import '../features/insta_walk/widgets/insta_walk_container.dart';
 import '../features/walker_home/containers/walker_home_header.dart';
@@ -37,17 +35,11 @@ class _WalksScreenState extends State<WalksScreen>
       FirebaseAuth.instance;
 
   // ============================================================
-  // INSTA WALK SERVICES
+  // INSTA WALK SERVICE
   // ============================================================
 
   final InstaWalkRequestService _requestService =
       InstaWalkRequestService.instance;
-
-  final InstaWalkAcceptService _acceptService =
-      InstaWalkAcceptService.instance;
-
-  final InstaWalkRejectService _rejectService =
-      InstaWalkRejectService.instance;
 
   // ============================================================
   // REQUEST SUBSCRIPTION
@@ -359,7 +351,7 @@ class _WalksScreenState extends State<WalksScreen>
   // searching
   //
   // NEW REQUEST:
-  // full screen incoming request opens.
+  // full-screen incoming request opens automatically.
   // ============================================================
 
   void _startRequestListener() {
@@ -398,7 +390,7 @@ class _WalksScreenState extends State<WalksScreen>
         });
 
         // ------------------------------------------------------
-        // FULL SCREEN INCOMING REQUEST
+        // OPEN FULL-SCREEN INCOMING REQUEST
         // ------------------------------------------------------
 
         if (sortedRequests.isNotEmpty) {
@@ -446,7 +438,10 @@ class _WalksScreenState extends State<WalksScreen>
     _openingIncomingRequest = true;
     _shownRequestId = request.id;
 
-    // Stop search while request screen is open.
+    // ----------------------------------------------------------
+    // Stop search while incoming request screen is open.
+    // ----------------------------------------------------------
+
     try {
       await _stopSearchState(
         clearRequests: false,
@@ -480,110 +475,6 @@ class _WalksScreenState extends State<WalksScreen>
       );
     } finally {
       _openingIncomingRequest = false;
-    }
-  }
-
-  // ============================================================
-  // ACCEPT REQUEST
-  // ============================================================
-
-  Future<void> _acceptRequest(
-    InstaWalkRequest request,
-  ) async {
-    final User? user =
-        _auth.currentUser;
-
-    if (user == null) {
-      _showMessage(
-        'Please login first.',
-      );
-      return;
-    }
-
-    try {
-      await _acceptService.acceptWalk(
-        request.id,
-      );
-
-      await _stopSearchState(
-        clearRequests: false,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _requests.removeWhere(
-          (InstaWalkRequest item) {
-            return item.id == request.id;
-          },
-        );
-      });
-
-      _showMessage(
-        'Walk request accepted.',
-      );
-    } catch (e) {
-      debugPrint(
-        'Accept Insta Walk error: $e',
-      );
-
-      if (mounted) {
-        _showMessage(
-          e.toString().replaceFirst(
-            'Exception: ',
-            '',
-          ),
-        );
-      }
-    }
-  }
-
-  // ============================================================
-  // REJECT REQUEST
-  // ============================================================
-
-  Future<void> _rejectRequest(
-    InstaWalkRequest request,
-  ) async {
-    try {
-      await _rejectService.rejectWalk(
-        request.id,
-      );
-
-      await _requestService.stopRequestSound(
-        request.id,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _requests.removeWhere(
-          (InstaWalkRequest item) {
-            return item.id == request.id;
-          },
-        );
-
-        if (_shownRequestId == request.id) {
-          _shownRequestId = null;
-        }
-      });
-    } catch (e) {
-      debugPrint(
-        'Reject Insta Walk error: $e',
-      );
-
-      if (mounted) {
-        _showMessage(
-          e.toString().replaceFirst(
-            'Exception: ',
-            '',
-          ),
-        );
-      }
     }
   }
 
@@ -759,11 +650,10 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
   // REQUEST UI
   //
-  // Incoming requests are now handled directly by
+  // Incoming requests are handled directly by
   // IncomingWalkRequestScreen.
   //
-  // The old InstaWalkRequestCard has been deleted and is not
-  // recreated here.
+  // Old InstaWalkRequestCard has been deleted.
   // ============================================================
 
   Widget _buildRequests(
@@ -791,8 +681,7 @@ class _WalksScreenState extends State<WalksScreen>
             SizedBox(
               width: 18,
               height: 18,
-              child:
-                  CircularProgressIndicator(
+              child: CircularProgressIndicator(
                 strokeWidth: 2,
               ),
             ),
@@ -804,8 +693,7 @@ class _WalksScreenState extends State<WalksScreen>
                 'Waiting for nearby walk requests...',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight:
-                      FontWeight.w600,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -814,7 +702,7 @@ class _WalksScreenState extends State<WalksScreen>
       );
     }
 
-    // A request is automatically opened in the
+    // Request automatically opens in the
     // full-screen IncomingWalkRequestScreen.
     return const SizedBox.shrink();
   }
