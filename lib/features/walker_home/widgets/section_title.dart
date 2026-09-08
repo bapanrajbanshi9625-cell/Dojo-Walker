@@ -24,7 +24,7 @@ class WalkerSectionTitle extends StatelessWidget {
           width: 4,
           height: 21,
           decoration: BoxDecoration(
-            color: DojoColors.orange,
+            color: DojoWalkerColors.primary,
             borderRadius: BorderRadius.circular(8),
           ),
         ),
@@ -41,7 +41,7 @@ class WalkerSectionTitle extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: DojoColors.dark,
+              color: DojoWalkerColors.dark,
               fontSize: 18,
               height: 1.15,
               fontWeight: FontWeight.w700,
@@ -60,7 +60,7 @@ class WalkerSectionTitle extends StatelessWidget {
               vertical: 4,
             ),
             decoration: BoxDecoration(
-              color: DojoColors.greenLight,
+              color: DojoWalkerColors.successLight,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -69,7 +69,7 @@ class WalkerSectionTitle extends StatelessWidget {
                 Icon(
                   Icons.circle,
                   size: 6,
-                  color: DojoColors.green,
+                  color: DojoWalkerColors.success,
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -77,7 +77,7 @@ class WalkerSectionTitle extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w800,
-                    color: DojoColors.green,
+                    color: DojoWalkerColors.success,
                   ),
                 ),
               ],
