@@ -1,3 +1,5 @@
+// File: lib/screens/no_network_screen.dart
+
 import 'package:flutter/material.dart';
 
 class NoNetworkScreen extends StatelessWidget {
@@ -30,10 +32,11 @@ class NoNetworkScreen extends StatelessWidget {
                 height: 230,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.white.withOpacity(0.88),
+                  color: Colors.white.withValues(alpha: 0.88),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFFF26A21).withOpacity(0.10),
+                      color: const Color(0xFFF26A21)
+                          .withValues(alpha: 0.10),
                       blurRadius: 45,
                       spreadRadius: 5,
                       offset: const Offset(0, 18),
