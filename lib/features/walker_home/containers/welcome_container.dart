@@ -73,7 +73,7 @@ class _WelcomeContainerState
         vertical: 10,
       ),
       decoration: BoxDecoration(
-        color: DojoColors.dark,
+        color: DojoWalkerColors.dark,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -95,19 +95,19 @@ class _WelcomeContainerState
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: DojoColors.orange.withValues(
+              color: DojoWalkerColors.primary.withValues(
                 alpha: .14,
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: DojoColors.orange.withValues(
+                color: DojoWalkerColors.primary.withValues(
                   alpha: .40,
                 ),
               ),
             ),
             child: const Icon(
               Icons.pets_rounded,
-              color: DojoColors.orange,
+              color: DojoWalkerColors.primary,
               size: 32,
             ),
           ),
@@ -177,9 +177,7 @@ class _WelcomeContainerState
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-
                     const SizedBox(height: 4),
-
                     Text(
                       message.subtitle,
                       maxLines: 1,
