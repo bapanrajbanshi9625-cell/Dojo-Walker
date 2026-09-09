@@ -29,6 +29,12 @@ class LiveWalkSessionService {
     );
   }
 
+  CollectionReference<Map<String, dynamic>> get _walkRequests {
+    return _firestore.collection(
+      'walk_request',
+    );
+  }
+
   // ============================================================
   // AUTH
   // ============================================================
@@ -96,9 +102,6 @@ class LiveWalkSessionService {
   // ONE WALK = ONE SESSION
   //
   // liveWalkSessions/{requestId}
-  //
-  // Example:
-  // liveWalkSessions/DW000001
   // ============================================================
 
   DocumentReference<Map<String, dynamic>> sessionRef(
@@ -124,18 +127,6 @@ class LiveWalkSessionService {
 
   // ============================================================
   // START WALK
-  //
-  // Canonical ID:
-  //
-  // requestId
-  //
-  // Firestore:
-  //
-  // liveWalkSessions/{requestId}
-  //
-  // sessionId = requestId
-  //
-  // No separate walkId.
   // ============================================================
 
   Future<void> startWalk({
@@ -208,8 +199,6 @@ class LiveWalkSessionService {
 
     // ==========================================================
     // VERIFY REQUEST ID
-    //
-    // Firestore document ID is authoritative.
     // ==========================================================
 
     final String existingRequestId =
@@ -385,12 +374,6 @@ class LiveWalkSessionService {
               <dynamic>[],
     };
 
-    // ==========================================================
-    // WRITE TO CANONICAL DOCUMENT
-    //
-    // liveWalkSessions/{requestId}
-    // ==========================================================
-
     await session.set(
       sessionData,
       SetOptions(
@@ -400,12 +383,18 @@ class LiveWalkSessionService {
   }
 
   // ============================================================
-  // COMPLETE WALK + SAVE HISTORY
+  // COMPLETE WALK + SAVE HISTORY + COMPLETE REQUEST
   //
   // SAME REQUEST ID:
   //
   // liveWalkSessions/{requestId}
+  // walk_request/{requestId}
   // walk_history/{requestId}
+  //
+  // FINAL STATE:
+  //
+  // walk_request:
+  // accepted -> completed
   // ============================================================
 
   Future<void> completeWalk({
@@ -420,6 +409,22 @@ class LiveWalkSessionService {
     final DocumentReference<Map<String, dynamic>>
         session =
         sessionRef(cleanRequestId);
+
+    final DocumentReference<Map<String, dynamic>>
+        request =
+        _walkRequests.doc(
+      cleanRequestId,
+    );
+
+    final DocumentReference<Map<String, dynamic>>
+        history =
+        _history.doc(
+      cleanRequestId,
+    );
+
+    // ==========================================================
+    // GET LIVE SESSION
+    // ==========================================================
 
     final DocumentSnapshot<Map<String, dynamic>>
         snapshot =
@@ -436,9 +441,7 @@ class LiveWalkSessionService {
             <String, dynamic>{};
 
     // ==========================================================
-    // REQUEST ID
-    //
-    // Document ID is authoritative.
+    // VERIFY REQUEST ID
     // ==========================================================
 
     final String sessionRequestId =
@@ -455,7 +458,7 @@ class LiveWalkSessionService {
     }
 
     // ==========================================================
-    // WALKER
+    // VERIFY WALKER
     // ==========================================================
 
     final String sessionWalkerUid =
@@ -489,10 +492,21 @@ class LiveWalkSessionService {
 
     // ==========================================================
     // ALREADY COMPLETED
+    //
+    // IMPORTANT:
+    // Even if Live Session is already completed,
+    // ensure walk_request is also completed.
     // ==========================================================
 
     if (status == 'completed' ||
         status == 'ended') {
+      await _completeRequestIfNeeded(
+        requestRef:
+            request,
+        requestId:
+            cleanRequestId,
+      );
+
       await _ensureHistoryExists(
         requestId:
             cleanRequestId,
@@ -564,15 +578,18 @@ class LiveWalkSessionService {
     // ==========================================================
     // ATOMIC SAVE
     //
-    // liveWalkSessions/{requestId}
-    // walk_history/{requestId}
+    // THREE DOCUMENTS:
+    //
+    // 1. liveWalkSessions/{requestId}
+    // 2. walk_request/{requestId}
+    // 3. walk_history/{requestId}
     // ==========================================================
 
     final WriteBatch batch =
         _firestore.batch();
 
     // ----------------------------------------------------------
-    // LIVE SESSION
+    // 1. LIVE SESSION
     // ----------------------------------------------------------
 
     batch.set(
@@ -611,17 +628,38 @@ class LiveWalkSessionService {
     );
 
     // ----------------------------------------------------------
-    // HISTORY
+    // 2. WALK REQUEST
     //
-    // Document ID = Request ID.
+    // THIS IS THE MAIN FIX.
+    //
+    // walk_request/{requestId}
+    //
+    // accepted -> completed
     // ----------------------------------------------------------
 
-    final DocumentReference<Map<String, dynamic>>
-        historyRef =
-        _history.doc(cleanRequestId);
+    batch.set(
+      request,
+      <String, dynamic>{
+        'status':
+            'completed',
+
+        'completedAt':
+            completedTime,
+
+        'updatedAt':
+            completedTime,
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    // ----------------------------------------------------------
+    // 3. HISTORY
+    // ----------------------------------------------------------
 
     batch.set(
-      historyRef,
+      history,
       _buildHistoryData(
         sessionData:
             completedSessionData,
@@ -637,20 +675,64 @@ class LiveWalkSessionService {
       ),
     );
 
-    // ----------------------------------------------------------
-    // COMMIT
-    // ----------------------------------------------------------
+    // ==========================================================
+    // COMMIT ALL THREE
+    // ==========================================================
 
     await batch.commit();
   }
 
   // ============================================================
+  // COMPLETE REQUEST IF NEEDED
+  //
+  // Used when the live session is already completed but
+  // walk_request still incorrectly says accepted.
+  // ============================================================
+
+  Future<void> _completeRequestIfNeeded({
+    required DocumentReference<Map<String, dynamic>>
+        requestRef,
+    required String requestId,
+  }) async {
+    final DocumentSnapshot<Map<String, dynamic>>
+        requestSnapshot =
+        await requestRef.get();
+
+    if (!requestSnapshot.exists) {
+      return;
+    }
+
+    final Map<String, dynamic> requestData =
+        requestSnapshot.data() ??
+            <String, dynamic>{};
+
+    final String requestStatus =
+        requestData['status']
+                ?.toString()
+                .trim()
+                .toLowerCase() ??
+            '';
+
+    if (requestStatus == 'completed') {
+      return;
+    }
+
+    await requestRef.update(
+      <String, dynamic>{
+        'status':
+            'completed',
+
+        'completedAt':
+            FieldValue.serverTimestamp(),
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
+      },
+    );
+  }
+
+  // ============================================================
   // ENSURE HISTORY EXISTS
-  //
-  // Used when completeWalk() is called again after the session
-  // has already been completed.
-  //
-  // Document ID = requestId.
   // ============================================================
 
   Future<void> _ensureHistoryExists({
@@ -697,8 +779,6 @@ class LiveWalkSessionService {
 
   // ============================================================
   // BUILD HISTORY DATA
-  //
-  // Existing live session fields are preserved.
   // ============================================================
 
   Map<String, dynamic> _buildHistoryData({
