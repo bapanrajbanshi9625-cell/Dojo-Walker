@@ -34,21 +34,22 @@ class _LiveWalkStartScreenState
     extends State<LiveWalkStartScreen> {
   late final LiveWalkSessionController _controller;
 
+  late final String _requestId;
+
   @override
   void initState() {
     super.initState();
 
-    final String cleanRequestId =
-        widget.requestId.trim();
+    _requestId = widget.requestId.trim();
 
-    if (!RegExp(r'^DW\d{6}$').hasMatch(cleanRequestId)) {
+    if (!RegExp(r'^DW\d{6}$').hasMatch(_requestId)) {
       throw ArgumentError(
         'Invalid requestId. Expected DW######.',
       );
     }
 
     _controller = LiveWalkSessionController(
-      requestId: cleanRequestId,
+      requestId: _requestId,
       ownerUid: widget.ownerUid,
       ownerName: widget.ownerName,
       dogName: widget.dogName,
@@ -62,7 +63,7 @@ class _LiveWalkStartScreenState
   }
 
   // ============================================================
-  // CONTROLLER
+  // CONTROLLER LISTENER
   // ============================================================
 
   void _onControllerChanged() {
@@ -79,11 +80,8 @@ class _LiveWalkStartScreenState
 
   @override
   Widget build(BuildContext context) {
-    final bool starting =
-        _controller.startingWalk;
-
-    final bool ending =
-        _controller.ending;
+    final bool starting = _controller.startingWalk;
+    final bool ending = _controller.ending;
 
     return Scaffold(
       backgroundColor: AppColors.cardBackground,
@@ -118,8 +116,7 @@ class _LiveWalkStartScreenState
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.all(16),
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildDogOwnerCard(),
 
@@ -143,25 +140,24 @@ class _LiveWalkStartScreenState
   // ============================================================
 
   Widget _buildDogOwnerCard() {
-    final String cleanDogName =
+    final String dogName =
         widget.dogName.trim().isEmpty
             ? 'Dog'
             : widget.dogName.trim();
 
-    final String cleanOwnerName =
+    final String ownerName =
         widget.ownerName.trim().isEmpty
             ? 'Owner'
             : widget.ownerName.trim();
 
-    final String cleanBreed =
+    final String breed =
         widget.dogBreed.trim();
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
@@ -172,12 +168,17 @@ class _LiveWalkStartScreenState
       ),
       child: Row(
         children: [
+          // ======================================================
+          // DOG ICON
+          // ======================================================
+
           Container(
             width: 58,
             height: 58,
             decoration: BoxDecoration(
-              color: AppColors.primary
-                  .withValues(alpha: .10),
+              color: AppColors.primary.withValues(
+                alpha: .10,
+              ),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -189,41 +190,47 @@ class _LiveWalkStartScreenState
 
           const SizedBox(width: 12),
 
+          // ======================================================
+          // DOG DETAILS
+          // ======================================================
+
           Expanded(
             child: Column(
               crossAxisAlignment:
                   CrossAxisAlignment.start,
               children: [
                 Text(
-                  cleanDogName,
+                  dogName,
                   maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 19,
-                    fontWeight:
-                        FontWeight.w900,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
 
-                if (cleanBreed.isNotEmpty)
+                if (breed.isNotEmpty) ...[
+                  const SizedBox(height: 2),
                   Text(
-                    cleanBreed,
+                    breed,
                     maxLines: 1,
-                    overflow:
-                        TextOverflow.ellipsis,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.black54,
                       fontSize: 12,
-                      fontWeight:
-                          FontWeight.w600,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
+                ],
               ],
             ),
           ),
 
           const SizedBox(width: 8),
+
+          // ======================================================
+          // OWNER
+          // ======================================================
 
           Column(
             crossAxisAlignment:
@@ -237,15 +244,19 @@ class _LiveWalkStartScreenState
 
               const SizedBox(height: 3),
 
-              Text(
-                cleanOwnerName,
-                maxLines: 1,
-                overflow:
-                    TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight:
-                      FontWeight.w800,
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 100,
+                ),
+                child: Text(
+                  ownerName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],
@@ -263,12 +274,16 @@ class _LiveWalkStartScreenState
     required bool starting,
     required bool ending,
   }) {
+    final bool sliderEnabled =
+        !starting &&
+        !ending &&
+        !_controller.walkStarted;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: const [
           BoxShadow(
             color: Colors.black12,
@@ -281,14 +296,19 @@ class _LiveWalkStartScreenState
         crossAxisAlignment:
             CrossAxisAlignment.stretch,
         children: [
+          // ======================================================
+          // HEADER
+          // ======================================================
+
           Row(
             children: [
               Container(
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.primary
-                      .withValues(alpha: .10),
+                  color: AppColors.primary.withValues(
+                    alpha: .10,
+                  ),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -309,8 +329,7 @@ class _LiveWalkStartScreenState
                       'Ready to Start?',
                       style: TextStyle(
                         fontSize: 18,
-                        fontWeight:
-                            FontWeight.w900,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
 
@@ -321,8 +340,7 @@ class _LiveWalkStartScreenState
                       style: TextStyle(
                         color: Colors.black54,
                         fontSize: 12,
-                        fontWeight:
-                            FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -333,12 +351,19 @@ class _LiveWalkStartScreenState
 
           const SizedBox(height: 16),
 
+          // ======================================================
+          // START SLIDER
+          // ======================================================
+
           LiveWalkStartSlider(
             key: ValueKey<bool>(starting),
-            enabled:
-                !starting && !ending,
+            enabled: sliderEnabled,
             onStarted: _startWalk,
           ),
+
+          // ======================================================
+          // STARTING INDICATOR
+          // ======================================================
 
           if (starting) ...[
             const SizedBox(height: 12),
@@ -347,12 +372,10 @@ class _LiveWalkStartScreenState
               child: SizedBox(
                 width: 22,
                 height: 22,
-                child:
-                    CircularProgressIndicator(
+                child: CircularProgressIndicator(
                   strokeWidth: 2.5,
                   valueColor:
-                      AlwaysStoppedAnimation<
-                          Color>(
+                      AlwaysStoppedAnimation<Color>(
                     AppColors.primary,
                   ),
                 ),
@@ -367,8 +390,7 @@ class _LiveWalkStartScreenState
                 style: TextStyle(
                   color: Colors.black54,
                   fontSize: 12,
-                  fontWeight:
-                      FontWeight.w700,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -379,7 +401,7 @@ class _LiveWalkStartScreenState
   }
 
   // ============================================================
-  // START WALK
+  // ACTUAL WALK START
   // ============================================================
 
   Future<void> _startWalk() async {
@@ -390,6 +412,10 @@ class _LiveWalkStartScreenState
     }
 
     try {
+      // ========================================================
+      // THIS IS THE ACTUAL WALK START
+      // ========================================================
+
       await _controller.startWalk();
 
       if (!mounted) {
@@ -397,16 +423,8 @@ class _LiveWalkStartScreenState
       }
 
       // ========================================================
-      // START SUCCESS
-      //
-      // GPS is NOT started here.
-      // GPS was already started at Accept.
-      //
-      // startWalk() starts:
-      // - timer
-      // - distance
-      // - route processing
-      // - steps/metrics processing
+      // ONLY AFTER startWalk() SUCCESS:
+      // OPEN ACTIVE LIVE WALK SCREEN
       // ========================================================
 
       Navigator.of(context).pushReplacement(
@@ -414,7 +432,7 @@ class _LiveWalkStartScreenState
           builder: (_) => LiveWalkScreen(
             ownerUid: widget.ownerUid,
             ownerName: widget.ownerName,
-            requestId: widget.requestId,
+            requestId: _requestId,
             dogName: widget.dogName,
             dogBreed: widget.dogBreed,
             ownerPhone: widget.ownerPhone,
@@ -433,28 +451,25 @@ class _LiveWalkStartScreenState
   }
 
   // ============================================================
-  // ERROR
+  // ERROR CLEANUP
   // ============================================================
 
-  String _cleanError(
-    Object error,
-  ) {
-    return error
+  String _cleanError(Object error) {
+    final String message = error
         .toString()
-        .replaceFirst(
-          'Exception: ',
-          '',
-        )
+        .replaceFirst('Exception: ', '')
         .trim();
+
+    return message.isEmpty
+        ? 'Unable to start the walk.'
+        : message;
   }
 
   // ============================================================
   // ERROR MESSAGE
   // ============================================================
 
-  void _showError(
-    String message,
-  ) {
+  void _showError(String message) {
     if (!mounted) {
       return;
     }
@@ -464,10 +479,8 @@ class _LiveWalkStartScreenState
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor:
-              AppColors.error,
-          behavior:
-              SnackBarBehavior.floating,
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
         ),
       );
   }
