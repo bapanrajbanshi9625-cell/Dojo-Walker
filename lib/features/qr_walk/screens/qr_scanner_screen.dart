@@ -137,7 +137,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
     await Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => LiveWalkScreen(
+        builder: (_) => LiveWalkStartScreen(
           ownerUid: ownerUid,
           ownerName: ownerName,
           requestId: screenId,
