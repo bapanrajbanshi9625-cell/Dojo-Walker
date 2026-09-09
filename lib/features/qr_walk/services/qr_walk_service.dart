@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
 
 class QrWalkService {
   QrWalkService({
@@ -349,7 +350,49 @@ class QrWalkService {
     _log('STEP 14 OK');
 
     // ========================================================
-    // 15. WALKER ACCOUNT
+    // 15. GET FRESH WALKER GPS
+    //
+    // This location is captured at QR connection time.
+    // It becomes the fixed pickup location.
+    // ========================================================
+
+    _log('STEP 15: Requesting fresh GPS location...');
+
+    final Position? pickupPosition =
+        await _getVerifiedFreshLocation();
+
+    if (pickupPosition == null) {
+      _log('STEP 15 FAILED: Verified fresh GPS unavailable');
+
+      throw Exception(
+        'Unable to get a verified current location. '
+        'Please turn on GPS and try again.',
+      );
+    }
+
+    final double pickupLatitude =
+        pickupPosition.latitude;
+
+    final double pickupLongitude =
+        pickupPosition.longitude;
+
+    final double pickupAccuracy =
+        pickupPosition.accuracy;
+
+    final Map<String, double> pickupLocation =
+        <String, double>{
+      'lat': pickupLatitude,
+      'lng': pickupLongitude,
+    };
+
+    _log(
+      'STEP 15 OK: Fresh pickup location '
+      '$pickupLatitude, $pickupLongitude '
+      '(accuracy ${pickupAccuracy.toStringAsFixed(1)}m)',
+    );
+
+    // ========================================================
+    // 16. WALKER ACCOUNT
     // ========================================================
 
     DocumentSnapshot<Map<String, dynamic>>
@@ -361,11 +404,11 @@ class QrWalkService {
           .doc(walkerUid)
           .get();
     } catch (error) {
-      _log('STEP 15 FAILED: phoneAccounts READ');
+      _log('STEP 16 FAILED: phoneAccounts READ');
       _log('ERROR: $error');
 
       throw Exception(
-        'QR STEP 15 - phoneAccounts READ failed: $error',
+        'QR STEP 16 - phoneAccounts READ failed: $error',
       );
     }
 
@@ -373,11 +416,11 @@ class QrWalkService {
         walkerAccountSnapshot.data();
 
     _log(
-      'STEP 15 OK: exists=${walkerAccountSnapshot.exists}',
+      'STEP 16 OK: exists=${walkerAccountSnapshot.exists}',
     );
 
     // ========================================================
-    // 16. WALKER BUSINESS ID
+    // 17. WALKER BUSINESS ID
     // ========================================================
 
     final String walkerId = _firstNonEmpty(
@@ -393,17 +436,17 @@ class QrWalkService {
     );
 
     if (walkerId.isEmpty) {
-      _log('STEP 16 FAILED: Walker Business ID missing');
+      _log('STEP 17 FAILED: Walker Business ID missing');
 
       throw Exception(
         'Walker Business ID not found.',
       );
     }
 
-    _log('STEP 16 OK');
+    _log('STEP 17 OK');
 
     // ========================================================
-    // 17. WALKER NAME
+    // 18. WALKER NAME
     // ========================================================
 
     String walkerName = _firstNonEmpty(
@@ -420,17 +463,17 @@ class QrWalkService {
       walkerName = 'Walker';
     }
 
-    _log('STEP 17 OK');
+    _log('STEP 18 OK');
 
     // ========================================================
-    // 18. SESSION REFERENCE
+    // 19. SESSION REFERENCE
     // ========================================================
 
     final DocumentReference<Map<String, dynamic>> sessionRef =
         _liveWalkSessions.doc(requestId);
 
     _log(
-      'STEP 18 OK: Prepared liveWalkSessions/$requestId',
+      'STEP 19 OK: Prepared liveWalkSessions/$requestId',
     );
 
     // ========================================================
@@ -443,7 +486,7 @@ class QrWalkService {
     // ========================================================
 
     // ========================================================
-    // 19. PREPARE BATCH
+    // 20. PREPARE BATCH
     // ========================================================
 
     final FieldValue serverTimestamp =
@@ -451,10 +494,10 @@ class QrWalkService {
 
     final WriteBatch batch = _firestore.batch();
 
-    _log('STEP 19 OK: Batch prepared');
+    _log('STEP 20 OK: Batch prepared');
 
     // ========================================================
-    // 20. UPDATE QR CONNECTION
+    // 21. UPDATE QR CONNECTION
     // ========================================================
 
     batch.set(
@@ -486,6 +529,9 @@ class QrWalkService {
         'scanned': true,
         'connected': true,
 
+        // FIXED PICKUP LOCATION
+        'pickupLocation': pickupLocation,
+
         // SESSION
         'liveSessionId': requestId,
         'activeWalkId': requestId,
@@ -498,10 +544,13 @@ class QrWalkService {
       SetOptions(merge: true),
     );
 
-    _log('STEP 20 OK: QR connection prepared');
+    _log(
+      'STEP 21 OK: QR connection prepared '
+      'with fixed pickup location',
+    );
 
     // ========================================================
-    // 21. CREATE LIVE WALK SESSION
+    // 22. CREATE LIVE WALK SESSION
     // ========================================================
 
     batch.set(
@@ -531,7 +580,18 @@ class QrWalkService {
         'dogName': dogName,
         'dogBreed': dogBreed,
 
-        // LOCATION
+        // FIXED PICKUP LOCATION
+        //
+        // This is the fresh Walker GPS position captured
+        // at QR connection time.
+        //
+        'pickupLocation': pickupLocation,
+
+        // WALKER LIVE LOCATION
+        //
+        // This remains separate and will be updated later
+        // by the existing Walker GPS / Live Walk system.
+        //
         'currentLocation': <String, double>{
           'lat': 0.0,
           'lng': 0.0,
@@ -564,28 +624,29 @@ class QrWalkService {
     );
 
     _log(
-      'STEP 21 OK: Live session create prepared',
+      'STEP 22 OK: Live session create prepared '
+      'with pickup location',
     );
 
     // ========================================================
-    // 22. COMMIT
+    // 23. COMMIT
     // ========================================================
 
     try {
       await batch.commit();
 
-      _log('STEP 22 OK: Firestore batch committed');
+      _log('STEP 23 OK: Firestore batch committed');
     } catch (error) {
-      _log('STEP 22 FAILED: Firestore batch commit');
+      _log('STEP 23 FAILED: Firestore batch commit');
       _log('ERROR: $error');
 
       throw Exception(
-        'QR STEP 22 - Firestore WRITE failed: $error',
+        'QR STEP 23 - Firestore WRITE failed: $error',
       );
     }
 
     // ========================================================
-    // 23. RETURN LIVE WALK DATA
+    // 24. RETURN LIVE WALK DATA
     // ========================================================
 
     final Map<String, dynamic> result =
@@ -607,6 +668,9 @@ class QrWalkService {
       'dogName': dogName,
       'dogBreed': dogBreed,
 
+      // FIXED QR PICKUP LOCATION
+      'pickupLocation': pickupLocation,
+
       'status': 'READY',
 
       'source': 'qr',
@@ -614,10 +678,107 @@ class QrWalkService {
       'existingSession': false,
     };
 
-    _log('STEP 23 OK');
+    _log('STEP 24 OK');
     _log('========== QR WALK SUCCESS ==========');
 
     return result;
+  }
+
+  // ==========================================================
+  // GET VERIFIED FRESH LOCATION
+  // ==========================================================
+
+  Future<Position?> _getVerifiedFreshLocation() async {
+    try {
+      final bool serviceEnabled =
+          await Geolocator.isLocationServiceEnabled();
+
+      if (!serviceEnabled) {
+        _log('GPS is disabled');
+        return null;
+      }
+
+      LocationPermission permission =
+          await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission =
+            await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _log(
+          'GPS permission unavailable: $permission',
+        );
+        return null;
+      }
+
+      final Position position =
+          await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 20),
+      );
+
+      final double latitude = position.latitude;
+      final double longitude = position.longitude;
+      final double accuracy = position.accuracy;
+
+      if (latitude == 0.0 && longitude == 0.0) {
+        _log('Rejected GPS: 0,0 location');
+        return null;
+      }
+
+      if (!latitude.isFinite ||
+          !longitude.isFinite ||
+          !accuracy.isFinite) {
+        _log('Rejected GPS: invalid coordinate values');
+        return null;
+      }
+
+      // Reject an inaccurate GPS fix.
+      if (accuracy > 50.0) {
+        _log(
+          'Rejected GPS: accuracy '
+          '${accuracy.toStringAsFixed(1)}m > 50m',
+        );
+        return null;
+      }
+
+      final DateTime now = DateTime.now();
+      final Duration age =
+          now.difference(position.timestamp);
+
+      if (age.inSeconds.abs() > 30) {
+        _log(
+          'Rejected GPS: location age '
+          '${age.inSeconds.abs()}s > 30s',
+        );
+        return null;
+      }
+
+      _log(
+        'Verified fresh GPS: '
+        '$latitude, $longitude '
+        'accuracy=${accuracy.toStringAsFixed(1)}m '
+        'age=${age.inSeconds.abs()}s',
+      );
+
+      return position;
+    } on TimeoutException {
+      _log('Fresh GPS timeout');
+      return null;
+    } on LocationServiceDisabledException {
+      _log('GPS disabled while getting fresh location');
+      return null;
+    } on PermissionDeniedException {
+      _log('GPS permission denied while getting fresh location');
+      return null;
+    } catch (error, stackTrace) {
+      _log('Fresh GPS error: $error');
+      debugPrint('$stackTrace');
+      return null;
+    }
   }
 
   // ==========================================================
