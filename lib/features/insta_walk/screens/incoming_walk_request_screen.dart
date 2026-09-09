@@ -8,7 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../services/walker_location_service.dart';
-import '../../live_walk/screens/live_walk_screen.dart';
+import '../../live_walk/screens/live_walk_start_screen.dart';
 import '../models/insta_walk_request.dart';
 import '../services/insta_walk_accept_service.dart';
 import '../services/insta_walk_reach_service.dart';
@@ -967,7 +967,7 @@ class _IncomingWalkRequestScreenState
           builder: (
             BuildContext context,
           ) {
-            return LiveWalkScreen(
+            return LiveWalkStartScreen(
               ownerUid: _ownerUid,
               ownerName: _ownerName,
               requestId: requestId,
