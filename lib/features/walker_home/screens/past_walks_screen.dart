@@ -857,25 +857,20 @@ class _PastWalksScreenState
                         walks[index];
 
                     return SizedBox(
-                      height: 64,
-                      child: PastWalkCard(
-                        walk: walk,
-                        onTap: () =>
-                            _showWalkDetails(
-                          walk,
-                        ),
+                     height: 64,
+                     child: PastWalkCard(
+                      id: walk.displayId,
+                      time: walk.displayTime,
+                      details: walk.displayDetails,
+                      onTap: () => _showWalkDetails(
+                       walk,
                       ),
+                     ),
                     );
                   },
                 );
               },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
+            );     
   // ============================================================
   // WALK DETAILS
   // ============================================================
