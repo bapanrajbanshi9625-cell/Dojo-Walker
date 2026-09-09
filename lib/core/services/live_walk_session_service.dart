@@ -35,6 +35,12 @@ class LiveWalkSessionService {
     );
   }
 
+  CollectionReference<Map<String, dynamic>> get _qrConnections {
+    return _firestore.collection(
+      'qr_connections',
+    );
+  }
+
   // ============================================================
   // AUTH
   // ============================================================
@@ -56,18 +62,6 @@ class LiveWalkSessionService {
 
   // ============================================================
   // REQUEST ID VALIDATION
-  //
-  // Canonical ID:
-  //
-  // DW000001
-  // DW000002
-  // DW000003
-  //
-  // Same ID is used for:
-  //
-  // walk_request/{requestId}
-  // liveWalkSessions/{requestId}
-  // walk_history/{requestId}
   // ============================================================
 
   bool _isValidRequestId(String requestId) {
@@ -98,10 +92,6 @@ class LiveWalkSessionService {
 
   // ============================================================
   // SESSION REFERENCE
-  //
-  // ONE WALK = ONE SESSION
-  //
-  // liveWalkSessions/{requestId}
   // ============================================================
 
   DocumentReference<Map<String, dynamic>> sessionRef(
@@ -165,10 +155,6 @@ class LiveWalkSessionService {
         snapshot =
         await session.get();
 
-    // ==========================================================
-    // SESSION MUST EXIST
-    // ==========================================================
-
     if (!snapshot.exists) {
       throw Exception(
         'Live walk session was not found. '
@@ -179,10 +165,6 @@ class LiveWalkSessionService {
     final Map<String, dynamic> existing =
         snapshot.data() ??
             <String, dynamic>{};
-
-    // ==========================================================
-    // VERIFY WALKER
-    // ==========================================================
 
     final String existingWalkerUid =
         existing['walkerUid']
@@ -197,10 +179,6 @@ class LiveWalkSessionService {
       );
     }
 
-    // ==========================================================
-    // VERIFY REQUEST ID
-    // ==========================================================
-
     final String existingRequestId =
         existing['requestId']
                 ?.toString()
@@ -213,10 +191,6 @@ class LiveWalkSessionService {
         'Request ID does not match the live session.',
       );
     }
-
-    // ==========================================================
-    // STATUS
-    // ==========================================================
 
     final String currentStatus =
         existing['status']
@@ -238,25 +212,13 @@ class LiveWalkSessionService {
       return;
     }
 
-    // ==========================================================
-    // START
-    // ==========================================================
-
     final Map<String, dynamic> sessionData =
         <String, dynamic>{
-      // --------------------------------------------------------
-      // IDENTIFIERS
-      // --------------------------------------------------------
-
       'requestId':
           cleanRequestId,
 
       'sessionId':
           cleanRequestId,
-
-      // --------------------------------------------------------
-      // OWNER
-      // --------------------------------------------------------
 
       'ownerUid':
           ownerUid.trim(),
@@ -264,19 +226,11 @@ class LiveWalkSessionService {
       'ownerName':
           ownerName.trim(),
 
-      // --------------------------------------------------------
-      // DOG
-      // --------------------------------------------------------
-
       'dogName':
           dogName.trim(),
 
       'dogBreed':
           dogBreed.trim(),
-
-      // --------------------------------------------------------
-      // WALKER
-      // --------------------------------------------------------
 
       'walkerUid':
           cleanWalkerUid,
@@ -289,10 +243,6 @@ class LiveWalkSessionService {
 
       'walkerPhone':
           walkerPhone.trim(),
-
-      // --------------------------------------------------------
-      // STATUS
-      // --------------------------------------------------------
 
       'status':
           'active',
@@ -309,19 +259,11 @@ class LiveWalkSessionService {
       'trackingEnded':
           false,
 
-      // --------------------------------------------------------
-      // TIME
-      // --------------------------------------------------------
-
       'startedAt':
           FieldValue.serverTimestamp(),
 
       'updatedAt':
           FieldValue.serverTimestamp(),
-
-      // --------------------------------------------------------
-      // STATS
-      // --------------------------------------------------------
 
       'distanceKm':
           existing['distanceKm'] ?? 0.0,
@@ -341,17 +283,9 @@ class LiveWalkSessionService {
       'poopCount':
           existing['poopCount'] ?? 0,
 
-      // --------------------------------------------------------
-      // ROUTE
-      // --------------------------------------------------------
-
       'routeCoordinates':
           existing['routeCoordinates'] ??
               <dynamic>[],
-
-      // --------------------------------------------------------
-      // LOCATION
-      // --------------------------------------------------------
 
       if (existing['currentLocation'] != null)
         'currentLocation':
@@ -364,10 +298,6 @@ class LiveWalkSessionService {
       if (existing['currentLng'] != null)
         'currentLng':
             existing['currentLng'],
-
-      // --------------------------------------------------------
-      // EVENTS
-      // --------------------------------------------------------
 
       'events':
           existing['events'] ??
@@ -383,18 +313,18 @@ class LiveWalkSessionService {
   }
 
   // ============================================================
-  // COMPLETE WALK + SAVE HISTORY + COMPLETE REQUEST
+  // COMPLETE WALK
   //
-  // SAME REQUEST ID:
+  // INSTA WALK:
+  //   liveWalkSessions -> completed
+  //   walk_request     -> completed
+  //   walk_history     -> save
   //
-  // liveWalkSessions/{requestId}
-  // walk_request/{requestId}
-  // walk_history/{requestId}
-  //
-  // FINAL STATE:
-  //
-  // walk_request:
-  // accepted -> completed
+  // QR WALK:
+  //   qr_connections   -> read full data
+  //   liveWalkSessions -> completed
+  //   walk_request     -> DO NOT TOUCH
+  //   walk_history     -> save
   // ============================================================
 
   Future<void> completeWalk({
@@ -480,6 +410,60 @@ class LiveWalkSessionService {
     }
 
     // ==========================================================
+    // SOURCE CHECK
+    // ==========================================================
+
+    final String source =
+        data['source']
+                ?.toString()
+                .trim()
+                .toLowerCase() ??
+            '';
+
+    final bool isQrWalk =
+        source == 'qr';
+
+    // ==========================================================
+    // QR CONNECTION DATA
+    //
+    // QR connection document is:
+    //
+    // qr_connections/{ownerId}
+    //
+    // ownerId is taken from the live session first.
+    // ownerUid is used as fallback.
+    // ==========================================================
+
+    Map<String, dynamic> qrConnectionData =
+        <String, dynamic>{};
+
+    if (isQrWalk) {
+      final String ownerId =
+          _firstString(
+        <dynamic>[
+          data['ownerId'],
+          data['ownerUid'],
+        ],
+      );
+
+      if (ownerId.isNotEmpty) {
+        final DocumentSnapshot<Map<String, dynamic>>
+            qrSnapshot =
+            await _qrConnections
+                .doc(ownerId)
+                .get();
+
+        if (qrSnapshot.exists) {
+          qrConnectionData =
+              Map<String, dynamic>.from(
+            qrSnapshot.data() ??
+                <String, dynamic>{},
+          );
+        }
+      }
+    }
+
+    // ==========================================================
     // STATUS
     // ==========================================================
 
@@ -492,14 +476,35 @@ class LiveWalkSessionService {
 
     // ==========================================================
     // ALREADY COMPLETED
-    //
-    // IMPORTANT:
-    // Even if Live Session is already completed,
-    // ensure walk_request is also completed.
     // ==========================================================
 
     if (status == 'completed' ||
         status == 'ended') {
+      // --------------------------------------------------------
+      // QR:
+      // NEVER COMPLETE walk_request.
+      // --------------------------------------------------------
+
+      if (isQrWalk) {
+        await _ensureHistoryExists(
+          requestId:
+              cleanRequestId,
+          sessionData:
+              data,
+          authUid:
+              authUid,
+          qrConnectionData:
+              qrConnectionData,
+        );
+
+        return;
+      }
+
+      // --------------------------------------------------------
+      // INSTA:
+      // Keep existing behavior.
+      // --------------------------------------------------------
+
       await _completeRequestIfNeeded(
         requestRef:
             request,
@@ -514,6 +519,8 @@ class LiveWalkSessionService {
             data,
         authUid:
             authUid,
+        qrConnectionData:
+            qrConnectionData,
       );
 
       return;
@@ -576,13 +583,31 @@ class LiveWalkSessionService {
     );
 
     // ==========================================================
+    // BUILD HISTORY
+    //
+    // QR:
+    //   qr_connections data + live session data
+    //
+    // INSTA:
+    //   existing live session data
+    // ==========================================================
+
+    final Map<String, dynamic> historyData =
+        _buildHistoryData(
+      sessionData:
+          completedSessionData,
+      requestId:
+          cleanRequestId,
+      authUid:
+          authUid,
+      completedAt:
+          completedTime,
+      qrConnectionData:
+          qrConnectionData,
+    );
+
+    // ==========================================================
     // ATOMIC SAVE
-    //
-    // THREE DOCUMENTS:
-    //
-    // 1. liveWalkSessions/{requestId}
-    // 2. walk_request/{requestId}
-    // 3. walk_history/{requestId}
     // ==========================================================
 
     final WriteBatch batch =
@@ -630,53 +655,44 @@ class LiveWalkSessionService {
     // ----------------------------------------------------------
     // 2. WALK REQUEST
     //
-    // THIS IS THE MAIN FIX.
+    // ONLY INSTA WALK.
     //
-    // walk_request/{requestId}
-    //
-    // accepted -> completed
+    // QR WALK MUST NEVER WRITE HERE.
     // ----------------------------------------------------------
 
-    batch.set(
-      request,
-      <String, dynamic>{
-        'status':
-            'completed',
+    if (!isQrWalk) {
+      batch.set(
+        request,
+        <String, dynamic>{
+          'status':
+              'completed',
 
-        'completedAt':
-            completedTime,
+          'completedAt':
+              completedTime,
 
-        'updatedAt':
-            completedTime,
-      },
-      SetOptions(
-        merge: true,
-      ),
-    );
+          'updatedAt':
+              completedTime,
+        },
+        SetOptions(
+          merge: true,
+        ),
+      );
+    }
 
     // ----------------------------------------------------------
-    // 3. HISTORY
+    // 3. WALK HISTORY
     // ----------------------------------------------------------
 
     batch.set(
       history,
-      _buildHistoryData(
-        sessionData:
-            completedSessionData,
-        requestId:
-            cleanRequestId,
-        authUid:
-            authUid,
-        completedAt:
-            completedTime,
-      ),
+      historyData,
       SetOptions(
         merge: true,
       ),
     );
 
     // ==========================================================
-    // COMMIT ALL THREE
+    // COMMIT
     // ==========================================================
 
     await batch.commit();
@@ -685,8 +701,7 @@ class LiveWalkSessionService {
   // ============================================================
   // COMPLETE REQUEST IF NEEDED
   //
-  // Used when the live session is already completed but
-  // walk_request still incorrectly says accepted.
+  // INSTA WALK ONLY.
   // ============================================================
 
   Future<void> _completeRequestIfNeeded({
@@ -739,6 +754,7 @@ class LiveWalkSessionService {
     required String requestId,
     required Map<String, dynamic> sessionData,
     required String authUid,
+    required Map<String, dynamic> qrConnectionData,
   }) async {
     final DocumentReference<Map<String, dynamic>>
         historyRef =
@@ -770,6 +786,8 @@ class LiveWalkSessionService {
             authUid,
         completedAt:
             completedAt,
+        qrConnectionData:
+            qrConnectionData,
       ),
       SetOptions(
         merge: true,
@@ -779,6 +797,12 @@ class LiveWalkSessionService {
 
   // ============================================================
   // BUILD HISTORY DATA
+  //
+  // For QR:
+  //   Full QR connection data is included.
+  //
+  // Live session data is then applied over it so that
+  // live metrics remain canonical.
   // ============================================================
 
   Map<String, dynamic> _buildHistoryData({
@@ -786,10 +810,34 @@ class LiveWalkSessionService {
     required String requestId,
     required String authUid,
     required Timestamp completedAt,
+    Map<String, dynamic>? qrConnectionData,
   }) {
     final Map<String, dynamic> history =
+        <String, dynamic>{};
+
+    // ==========================================================
+    // QR CONNECTION DATA FIRST
+    // ==========================================================
+
+    if (qrConnectionData != null &&
+        qrConnectionData.isNotEmpty) {
+      history.addAll(
         Map<String, dynamic>.from(
-      sessionData,
+          qrConnectionData,
+        ),
+      );
+    }
+
+    // ==========================================================
+    // LIVE SESSION DATA SECOND
+    //
+    // This keeps live GPS/metrics/session values canonical.
+    // ==========================================================
+
+    history.addAll(
+      Map<String, dynamic>.from(
+        sessionData,
+      ),
     );
 
     history.addAll(
