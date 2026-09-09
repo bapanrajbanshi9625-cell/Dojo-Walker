@@ -1,6 +1,7 @@
 // File:
 // lib/screens/main_navigation_screen.dart
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,6 +11,7 @@ import '../core/constants/app_colors.dart';
 import '../core/services/active_walk_strip_service.dart';
 import '../core/services/app_state_service.dart';
 import '../features/insta_walk/models/insta_walk_request.dart';
+import '../features/live_walk/screens/live_walk_review_bottom_sheet.dart';
 import '../features/live_walk/screens/live_walk_screen.dart';
 import '../features/qr_walk/screens/qr_scanner_screen.dart';
 import '../widgets/active_walk_strip.dart';
@@ -38,6 +40,8 @@ class _MainNavigationScreenState
 
   late final List<Widget> _screens;
 
+  bool _openingReview = false;
+
   // ============================================================
   // INIT
   // ============================================================
@@ -55,7 +59,9 @@ class _MainNavigationScreenState
       MenuScreen(),
     ];
 
-    AppStateService.instance.refresh();
+    unawaited(
+      AppStateService.instance.refresh(),
+    );
   }
 
   // ============================================================
@@ -69,7 +75,9 @@ class _MainNavigationScreenState
     super.didChangeAppLifecycleState(state);
 
     if (state == AppLifecycleState.resumed) {
-      AppStateService.instance.refresh();
+      unawaited(
+        AppStateService.instance.refresh(),
+      );
     }
   }
 
@@ -183,7 +191,7 @@ class _MainNavigationScreenState
                 _currentIndex = index;
               });
             },
-            items: const [
+            items: const <BottomNavigationBarItem>[
               BottomNavigationBarItem(
                 icon: Padding(
                   padding: EdgeInsets.only(
@@ -375,7 +383,9 @@ class _MainNavigationScreenState
       'Owner connected successfully.',
     );
 
-    AppStateService.instance.refresh();
+    unawaited(
+      AppStateService.instance.refresh(),
+    );
   }
 
   // ============================================================
@@ -576,8 +586,9 @@ class _MainNavigationScreenState
       return;
     }
 
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+    final dynamic result =
+        await Navigator.of(context).push(
+      MaterialPageRoute<dynamic>(
         builder: (_) {
           return LiveWalkScreen(
             ownerUid: ownerUid,
@@ -598,10 +609,282 @@ class _MainNavigationScreenState
     // REFRESH AFTER RETURN
     // ==========================================================
 
-    if (mounted) {
-      await AppStateService.instance
-          .refresh();
+    if (!mounted) {
+      return;
     }
+
+    await AppStateService.instance.refresh();
+
+    // ==========================================================
+    // REVIEW AFTER COMPLETED WALK
+    // ==========================================================
+
+    if (result is Map) {
+      final Map<String, dynamic>
+          reviewResult =
+          Map<String, dynamic>.from(
+        result,
+      );
+
+      final bool walkCompleted =
+          reviewResult['walkCompleted'] ==
+              true;
+
+      final bool showReview =
+          reviewResult['showReview'] ==
+              true;
+
+      if (walkCompleted &&
+          showReview) {
+        await _openWalkReview(
+          reviewResult,
+        );
+      }
+    }
+  }
+
+  // ============================================================
+  // OPEN WALK REVIEW
+  // ============================================================
+
+  Future<void> _openWalkReview(
+    Map<String, dynamic> result,
+  ) async {
+    if (_openingReview ||
+        !mounted) {
+      return;
+    }
+
+    _openingReview = true;
+
+    try {
+      // --------------------------------------------------------
+      // MAIN NAVIGATION IS ALREADY VISIBLE HERE.
+      //
+      // Make sure Home is selected before showing review.
+      // --------------------------------------------------------
+
+      if (_currentIndex != 0) {
+        setState(() {
+          _currentIndex = 0;
+        });
+      }
+
+      final String walkId =
+          _readString(
+        result['requestId'] ??
+            result['walkId'],
+      );
+
+      if (!_isValidRequestId(walkId)) {
+        _showMessage(
+          'Review could not be opened: Walk ID is missing.',
+        );
+
+        return;
+      }
+
+      final String ownerUid =
+          _readString(
+        result['ownerUid'],
+      );
+
+      final String dogName =
+          _firstNonEmpty(
+        <dynamic>[
+          result['dogName'],
+          'Dog',
+        ],
+      );
+
+      final double distanceKm =
+          _readDouble(
+                result['distanceKm'],
+              ) ??
+              0.0;
+
+      final String duration =
+          _readString(
+        result['duration'],
+      ).isEmpty
+            ? '0m'
+            : _readString(
+                result['duration'],
+              );
+
+      final int steps =
+          _readInt(
+        result['steps'],
+      );
+
+      final List<Offset> routePoints =
+          _readRoutePoints(
+        result['routePoints'],
+      );
+
+      // --------------------------------------------------------
+      // Wait for Main Navigation/Home to render.
+      // --------------------------------------------------------
+
+      await Future<void>.delayed(
+        const Duration(
+          milliseconds: 120,
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      // --------------------------------------------------------
+      // REVIEW BOTTOM SHEET
+      // --------------------------------------------------------
+
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor:
+            Colors.transparent,
+        barrierColor:
+            Colors.black54,
+        builder: (_) {
+          return LiveWalkReviewBottomSheet(
+            routePoints:
+                routePoints,
+            distanceKm:
+                distanceKm,
+            duration:
+                duration,
+            steps:
+                steps,
+            walkId:
+                walkId,
+            ownerUid:
+                ownerUid,
+            dogName:
+                dogName,
+            onBackToHome:
+                _returnToHome,
+          );
+        },
+      );
+
+      // --------------------------------------------------------
+      // Refresh after review sheet closes.
+      // --------------------------------------------------------
+
+      if (mounted) {
+        await AppStateService.instance
+            .refresh();
+      }
+    } finally {
+      _openingReview = false;
+    }
+  }
+
+  // ============================================================
+  // RETURN TO HOME
+  // ============================================================
+
+  void _returnToHome() {
+    if (!mounted) {
+      return;
+    }
+
+    if (_currentIndex != 0) {
+      setState(() {
+        _currentIndex = 0;
+      });
+    }
+
+    unawaited(
+      AppStateService.instance.refresh(),
+    );
+  }
+
+  // ============================================================
+  // READ ROUTE POINTS
+  // ============================================================
+
+  List<Offset> _readRoutePoints(
+    dynamic raw,
+  ) {
+    if (raw is! List) {
+      return <Offset>[];
+    }
+
+    final List<Offset> points =
+        <Offset>[];
+
+    for (final dynamic item in raw) {
+      if (item is Offset) {
+        points.add(item);
+        continue;
+      }
+
+      if (item is GeoPoint) {
+        points.add(
+          Offset(
+            item.latitude,
+            item.longitude,
+          ),
+        );
+        continue;
+      }
+
+      if (item is Map) {
+        final dynamic lat =
+            item['latitude'] ??
+            item['lat'];
+
+        final dynamic lng =
+            item['longitude'] ??
+            item['lng'] ??
+            item['lon'];
+
+        final double? latitude =
+            _readDouble(lat);
+
+        final double? longitude =
+            _readDouble(lng);
+
+        if (latitude != null &&
+            longitude != null) {
+          points.add(
+            Offset(
+              latitude,
+              longitude,
+            ),
+          );
+        }
+
+        continue;
+      }
+
+      // Support List/array format:
+      // [latitude, longitude]
+      if (item is List &&
+          item.length >= 2) {
+        final double? latitude =
+            _readDouble(item[0]);
+
+        final double? longitude =
+            _readDouble(item[1]);
+
+        if (latitude != null &&
+            longitude != null) {
+          points.add(
+            Offset(
+              latitude,
+              longitude,
+            ),
+          );
+        }
+      }
+    }
+
+    return points;
   }
 
   // ============================================================
