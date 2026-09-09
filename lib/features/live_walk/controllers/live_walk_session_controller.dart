@@ -3,8 +3,9 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
-import '../services/live_walk_background_service.dart';
 import '../../../core/services/live_walk_session_service.dart';
+import '../../../services/walker_location_service.dart';
+import '../services/live_walk_background_service.dart';
 
 class LiveWalkSessionController extends ChangeNotifier {
   LiveWalkSessionController({
@@ -22,7 +23,7 @@ class LiveWalkSessionController extends ChangeNotifier {
 
   /// CANONICAL WALK / REQUEST ID
   ///
-  /// Same ID is used for:
+  /// Same ID:
   ///
   /// walk_request/{requestId}
   /// liveWalkSessions/{requestId}
@@ -40,9 +41,6 @@ class LiveWalkSessionController extends ChangeNotifier {
 
   // ============================================================
   // COMPATIBILITY GETTERS
-  //
-  // Existing UI/code can still read these names temporarily,
-  // but there is only ONE canonical ID.
   // ============================================================
 
   String get walkId => requestId;
@@ -58,6 +56,13 @@ class LiveWalkSessionController extends ChangeNotifier {
 
   final LiveWalkSessionService _sessionService =
       LiveWalkSessionService.instance;
+
+  /// CANONICAL GPS SERVICE.
+  ///
+  /// GPS is started ONLY at Accept.
+  /// GPS is stopped ONLY at Complete.
+  final WalkerLocationService _locationService =
+      WalkerLocationService.instance;
 
   // ============================================================
   // STATE
@@ -545,7 +550,21 @@ class LiveWalkSessionController extends ChangeNotifier {
   }
 
   // ============================================================
-  // START WALK
+  // START WALK / ROCKSTAR
+  //
+  // IMPORTANT:
+  //
+  // GPS IS NOT STARTED HERE.
+  //
+  // GPS was already started by ACCEPT.
+  //
+  // Rockstar only starts:
+  // - seconds
+  // - minutes
+  // - distance/KM
+  // - route
+  // - steps
+  // - pee/poop tracking
   // ============================================================
 
   Future<void> startWalk() async {
@@ -584,20 +603,16 @@ class LiveWalkSessionController extends ChangeNotifier {
       );
 
       // --------------------------------------------------------
-      // FIRESTORE START
+      // STEP 1
+      // MARK LIVE SESSION ACTIVE
       // --------------------------------------------------------
 
       await _sessionService.startWalk(
-        requestId:
-            requestId,
-        ownerUid:
-            ownerUid,
-        ownerName:
-            ownerName,
-        dogName:
-            dogName,
-        dogBreed:
-            dogBreed,
+        requestId: requestId,
+        ownerUid: ownerUid,
+        ownerName: ownerName,
+        dogName: dogName,
+        dogBreed: dogBreed,
       );
 
       if (_disposed) {
@@ -605,57 +620,92 @@ class LiveWalkSessionController extends ChangeNotifier {
       }
 
       // --------------------------------------------------------
-      // BACKGROUND GPS
+      // STEP 2
+      // START COUNTING / METRICS
+      //
+      // DOES NOT START GPS.
       // --------------------------------------------------------
 
-      _backgroundService.start(
-        requestId:
-            requestId,
-        initialDistanceKm:
-            _distanceKm,
-        initialSteps:
-            _steps,
-        initialPeeCount:
-            _peeCount,
-        initialPoopCount:
-            _poopCount,
+      final bool metricsStarted =
+          await _backgroundService.start(
+        requestId: requestId,
+        initialDistanceKm: _distanceKm,
+        initialSteps: _steps,
+        initialPeeCount: _peeCount,
+        initialPoopCount: _poopCount,
       );
 
+      if (!metricsStarted) {
+        throw Exception(
+          'Unable to start live walk metrics.',
+        );
+      }
+
+      if (_disposed) {
+        return;
+      }
+
       // --------------------------------------------------------
+      // STEP 3
       // LOCAL STATE
       // --------------------------------------------------------
 
       _walkStarted = true;
       _walkCompleted = false;
 
-      _sessionData = <String, dynamic>{
+      final Timestamp startTime =
+          Timestamp.now();
+
+      _sessionData =
+          <String, dynamic>{
         ..._sessionData,
-        'requestId':
-            requestId,
-        'sessionId':
-            requestId,
-        'ownerUid':
-            ownerUid,
-        'ownerName':
-            ownerName,
-        'dogName':
-            dogName,
-        'dogBreed':
-            dogBreed,
-        'status':
-            'active',
-        'walkStarted':
-            true,
-        'trackingStarted':
-            true,
-        'trackingEnded':
-            false,
-        'walkEnded':
-            false,
+        'requestId': requestId,
+        'sessionId': requestId,
+        'ownerUid': ownerUid,
+        'ownerName': ownerName,
+        'dogName': dogName,
+        'dogBreed': dogBreed,
+        'status': 'active',
+        'walkStarted': true,
+        'trackingStarted': true,
+        'trackingEnded': false,
+        'walkEnded': false,
         'startedAt':
             _sessionData['startedAt'] ??
-                Timestamp.now(),
+                startTime,
       };
+
+      debugPrint(
+        '==================================================',
+      );
+
+      debugPrint(
+        'LIVE WALK STARTED',
+      );
+
+      debugPrint(
+        'requestId=$requestId',
+      );
+
+      debugPrint(
+        'Counting=started',
+      );
+
+      debugPrint(
+        'Distance=started',
+      );
+
+      debugPrint(
+        'Steps=started',
+      );
+
+      debugPrint(
+        'GPS=already running from Accept',
+      );
+
+      debugPrint(
+        '==================================================',
+      );
 
       notifyListeners();
     } catch (error) {
@@ -676,11 +726,7 @@ class LiveWalkSessionController extends ChangeNotifier {
   // ============================================================
   // END / COMPLETE WALK
   //
-  // IMPORTANT:
-  // This method ONLY ends the walk.
-  //
-  // Review Bottom Sheet is opened by LiveWalkScreen
-  // AFTER this Future completes successfully.
+  // GPS OFF ONLY HERE.
   // ============================================================
 
   Future<void> endWalk() async {
@@ -718,27 +764,38 @@ class LiveWalkSessionController extends ChangeNotifier {
 
       // ========================================================
       // STEP 1
-      // FIRESTORE MUST COMPLETE FIRST
+      // COMPLETE FIRESTORE SESSION
       // ========================================================
 
       await _sessionService.completeWalk(
-        requestId:
-            requestId,
+        requestId: requestId,
       );
+
+      // ========================================================
+      // STEP 2
+      // STOP METRICS SERVICE
+      //
+      // IMPORTANT:
+      // This does NOT stop GPS.
+      // ========================================================
+
+      await _backgroundService.stop();
+
+      // ========================================================
+      // STEP 3
+      // GPS OFF
+      //
+      // THIS IS THE ONLY GPS OFF GUARD.
+      // ========================================================
+
+      await _locationService.stopTracking();
 
       if (_disposed) {
         return;
       }
 
       // ========================================================
-      // STEP 2
-      // STOP BACKGROUND GPS
-      // ========================================================
-
-      _backgroundService.stop();
-
-      // ========================================================
-      // STEP 3
+      // STEP 4
       // LOCAL COMPLETED STATE
       // ========================================================
 
@@ -748,22 +805,16 @@ class LiveWalkSessionController extends ChangeNotifier {
       _walkStarted = false;
       _walkCompleted = true;
 
-      _sessionData = <String, dynamic>{
+      _sessionData =
+          <String, dynamic>{
         ..._sessionData,
-        'requestId':
-            requestId,
-        'sessionId':
-            requestId,
-        'status':
-            'completed',
-        'walkStarted':
-            false,
-        'trackingStarted':
-            true,
-        'trackingEnded':
-            true,
-        'walkEnded':
-            true,
+        'requestId': requestId,
+        'sessionId': requestId,
+        'status': 'completed',
+        'walkStarted': false,
+        'trackingStarted': true,
+        'trackingEnded': true,
+        'walkEnded': true,
         'completedAt':
             _sessionData['completedAt'] ??
                 completionTime,
@@ -789,7 +840,11 @@ class LiveWalkSessionController extends ChangeNotifier {
       );
 
       debugPrint(
-        'GPS=stopped',
+        'Metrics=stopped',
+      );
+
+      debugPrint(
+        'GPS=OFF',
       );
 
       debugPrint(
@@ -799,12 +854,6 @@ class LiveWalkSessionController extends ChangeNotifier {
       debugPrint(
         '==================================================',
       );
-
-      // ========================================================
-      // IMPORTANT
-      //
-      // Notify ONLY after the walk has been marked completed.
-      // ========================================================
 
       notifyListeners();
     } catch (error) {
@@ -956,6 +1005,14 @@ class LiveWalkSessionController extends ChangeNotifier {
       );
     }
 
+    // IMPORTANT:
+    //
+    // Do NOT stop GPS here.
+    //
+    // GPS lifecycle is controlled only by:
+    // Accept -> ON
+    // Complete -> OFF
+    //
     super.dispose();
   }
 }
