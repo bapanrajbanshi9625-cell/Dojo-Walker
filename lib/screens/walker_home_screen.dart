@@ -33,7 +33,8 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
     required String description,
     required IconData icon,
   }) {
-    final String normalizedTitle = title.toLowerCase().trim();
+    final String normalizedTitle =
+        title.toLowerCase().trim();
 
     Widget? screen;
 
@@ -87,6 +88,19 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
   }
 
   // ============================================================
+  // OPEN FULL PAST WALKS / PASSBOOK
+  // ============================================================
+
+  void _openPastWalks() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const PastWalksScreen(),
+      ),
+    );
+  }
+
+  // ============================================================
   // BUILD
   // ============================================================
 
@@ -94,80 +108,117 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DojoWalkerColors.background,
-      body: Column(
-        children: [
-          // ======================================================
-          // HEADER
-          // ======================================================
 
-          const WalkerHomeHeader(),
+      // ========================================================
+      // SAFE AREA
+      // ========================================================
 
-          // ======================================================
-          // HOME CONTENT
-          // ======================================================
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // ====================================================
+            // HEADER
+            // ====================================================
 
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(
-                16,
-                8,
-                16,
-                24,
-              ),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  // ==================================================
-                  // WELCOME
-                  // ==================================================
+            const WalkerHomeHeader(),
 
-                  const WelcomeContainer(),
+            // ====================================================
+            // SCROLLABLE HOME CONTENT
+            // ====================================================
 
-                  const SizedBox(height: 10),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (
+                  BuildContext context,
+                  BoxConstraints constraints,
+                ) {
+                  return SingleChildScrollView(
+                    physics:
+                        const AlwaysScrollableScrollPhysics(),
 
-                  // ==================================================
-                  // TODAY SUMMARY
-                  // ==================================================
+                    padding: const EdgeInsets.fromLTRB(
+                      16,
+                      8,
+                      16,
+                      40,
+                    ),
 
-                  TodaySummaryContainer(
-                    onDetails: ({
-                      required String title,
-                      required String description,
-                      required IconData icon,
-                    }) {
-                      _showDetails(
-                        title: title,
-                        description: description,
-                        icon: icon,
-                      );
-                    },
-                  ),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
 
-                  const SizedBox(height: 14),
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                        children: [
+                          // ======================================
+                          // WELCOME
+                          // ======================================
 
-                  // ==================================================
-                  // PAST WALKS
-                  // ==================================================
+                          const WelcomeContainer(),
 
-                  PastWalksContainer(
-                    onDetails: ({
-                      required String title,
-                      required String description,
-                      required IconData icon,
-                    }) {
-                      _showDetails(
-                        title: title,
-                        description: description,
-                        icon: icon,
-                      );
-                    },
-                  ),
-                ],
+                          const SizedBox(height: 10),
+
+                          // ======================================
+                          // TODAY SUMMARY
+                          // ======================================
+
+                          TodaySummaryContainer(
+                            onDetails: ({
+                              required String title,
+                              required String description,
+                              required IconData icon,
+                            }) {
+                              _showDetails(
+                                title: title,
+                                description: description,
+                                icon: icon,
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 14),
+
+                          // ======================================
+                          // PAST WALKS
+                          // ======================================
+
+                          PastWalksContainer(
+                            onDetails: ({
+                              required String title,
+                              required String description,
+                              required IconData icon,
+                            }) {
+                              _showDetails(
+                                title: title,
+                                description: description,
+                                icon: icon,
+                              );
+                            },
+
+                            // ------------------------------------
+                            // SEE MORE
+                            // ------------------------------------
+
+                            onSeeMore: _openPastWalks,
+                          ),
+
+                          // ======================================
+                          // BOTTOM SPACE
+                          // ======================================
+
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
