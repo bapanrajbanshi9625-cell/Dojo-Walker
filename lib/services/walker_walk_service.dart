@@ -7,7 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../features/live_walk/screens/live_walk_screen.dart';
+import '../features/live_walk/screens/live_walk_start_screen.dart';
 import '../features/qr_walk/screens/qr_scanner_screen.dart';
 
 /// ============================================================
@@ -926,7 +926,7 @@ class WalkerWalkService {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) {
-          return LiveWalkScreen(
+          return LiveWalkStartScreen(
             ownerUid: finalOwnerUid,
             ownerName: walk.ownerName,
             requestId: requestId,
