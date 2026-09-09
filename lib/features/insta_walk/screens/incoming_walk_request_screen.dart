@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../services/walker_location_service.dart';
 import '../../live_walk/screens/live_walk_screen.dart';
 import '../models/insta_walk_request.dart';
 import '../services/insta_walk_accept_service.dart';
@@ -45,6 +46,33 @@ class _IncomingWalkRequestScreenState
 
   final InstaWalkReachService _reachService =
       InstaWalkReachService.instance;
+
+  // ============================================================
+  // CANONICAL GPS SERVICE
+  //
+  // IMPORTANT:
+  // This screen NEVER starts or stops GPS.
+  //
+  // GPS lifecycle:
+  //
+  // ACCEPT  -> GPS ON
+  // REACHED -> GPS stays ON
+  // LIVE    -> GPS stays ON
+  // COMPLETE -> GPS OFF
+  //
+  // The actual GPS owner is:
+  // WalkerLocationService.instance
+  // ============================================================
+
+  final WalkerLocationService _locationService =
+      WalkerLocationService.instance;
+
+  // ============================================================
+  // LOCAL LOCATION SUBSCRIPTION
+  //
+  // This subscription only listens to the canonical GPS stream.
+  // It does NOT control GPS lifecycle.
+  // ============================================================
 
   StreamSubscription<Position>? _locationSubscription;
 
@@ -156,8 +184,6 @@ class _IncomingWalkRequestScreenState
   // ============================================================
   // CANONICAL WALK REQUEST ID
   //
-  // Firestore:
-  //
   // walk_request/{requestId}
   //
   // Example:
@@ -180,11 +206,65 @@ class _IncomingWalkRequestScreenState
         widget.request.status.trim().toLowerCase() ==
             'accepted';
 
-    unawaited(
-      _startLocationTracking(),
-    );
+    // ----------------------------------------------------------
+    // IMPORTANT:
+    //
+    // We only LISTEN to the canonical GPS service.
+    //
+    // We do NOT call startTracking() here.
+    //
+    // AcceptService is the ONLY GPS ON guard.
+    // ----------------------------------------------------------
+
+    _listenToCanonicalLocation();
 
     _startRequestMonitoring();
+
+    // ----------------------------------------------------------
+    // Before acceptance, GPS is intentionally not required.
+    // ----------------------------------------------------------
+
+    if (!_accepted && mounted) {
+      _loadingLocation = false;
+    }
+  }
+
+  // ============================================================
+  // CANONICAL LOCATION LISTENER
+  // ============================================================
+
+  void _listenToCanonicalLocation() {
+    _locationSubscription?.cancel();
+
+    _locationSubscription =
+        _locationService.locationStream.listen(
+      _updateWalkerLocation,
+      onError: (Object error) {
+        debugPrint(
+          'Incoming walk canonical GPS error: $error',
+        );
+      },
+      cancelOnError: false,
+    );
+
+    // ----------------------------------------------------------
+    // If GPS is already running and a position is available,
+    // immediately use it.
+    //
+    // This is especially useful when this screen is restored
+    // after acceptance.
+    // ----------------------------------------------------------
+
+    final Position? currentPosition =
+        _locationService.currentPosition;
+
+    if (currentPosition != null) {
+      _updateWalkerLocation(
+        currentPosition,
+      );
+    } else if (_accepted && mounted) {
+      _loadingLocation = true;
+    }
   }
 
   // ============================================================
@@ -250,7 +330,16 @@ class _IncomingWalkRequestScreenState
           if (!_accepted) {
             setState(() {
               _accepted = true;
+              _loadingLocation = true;
             });
+
+            // ----------------------------------------------------
+            // IMPORTANT:
+            //
+            // Do NOT start GPS here.
+            //
+            // acceptWalk() already started canonical GPS.
+            // ----------------------------------------------------
           }
 
           return;
@@ -335,97 +424,9 @@ class _IncomingWalkRequestScreenState
   }
 
   // ============================================================
-  // LOCATION TRACKING
-  // ============================================================
-
-  Future<void> _startLocationTracking() async {
-    try {
-      final bool serviceEnabled =
-          await Geolocator.isLocationServiceEnabled();
-
-      if (!serviceEnabled) {
-        if (mounted) {
-          _showMessage(
-            'Please turn on Location/GPS.',
-          );
-        }
-
-        return;
-      }
-
-      LocationPermission permission =
-          await Geolocator.checkPermission();
-
-      if (permission ==
-          LocationPermission.denied) {
-        permission =
-            await Geolocator.requestPermission();
-      }
-
-      if (permission ==
-              LocationPermission.denied ||
-          permission ==
-              LocationPermission.deniedForever) {
-        if (mounted) {
-          _showMessage(
-            'Location permission is required.',
-          );
-        }
-
-        return;
-      }
-
-      final Position position =
-          await Geolocator.getCurrentPosition(
-        desiredAccuracy:
-            LocationAccuracy.high,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      _updateWalkerLocation(position);
-
-      await _locationSubscription?.cancel();
-
-      _locationSubscription =
-          Geolocator.getPositionStream(
-        locationSettings:
-            const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 5,
-        ),
-      ).listen(
-        _updateWalkerLocation,
-        onError: (Object error) {
-          debugPrint(
-            'Incoming walk GPS error: $error',
-          );
-        },
-        cancelOnError: false,
-      );
-    } catch (error) {
-      debugPrint(
-        'Incoming walk location error: $error',
-      );
-
-      if (mounted) {
-        _showMessage(
-          'Unable to get your location.',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loadingLocation = false;
-        });
-      }
-    }
-  }
-
-  // ============================================================
   // UPDATE WALKER LOCATION
+  //
+  // This receives locations from the ONE canonical GPS stream.
   // ============================================================
 
   void _updateWalkerLocation(
@@ -457,6 +458,7 @@ class _IncomingWalkRequestScreenState
     setState(() {
       _walkerPosition = position;
       _distanceMeters = distance;
+      _loadingLocation = false;
     });
   }
 
@@ -567,6 +569,11 @@ class _IncomingWalkRequestScreenState
 
   // ============================================================
   // ACCEPT WALK
+  //
+  // ACCEPT = GPS ON
+  //
+  // InstaWalkAcceptService is responsible for starting the
+  // canonical WalkerLocationService.
   // ============================================================
 
   Future<void> _acceptWalk() async {
@@ -603,6 +610,12 @@ class _IncomingWalkRequestScreenState
     });
 
     try {
+      // --------------------------------------------------------
+      // ACCEPT SERVICE
+      //
+      // This is the GPS ON guard.
+      // --------------------------------------------------------
+
       await _acceptService.acceptWalk(
         requestId,
       );
@@ -613,6 +626,7 @@ class _IncomingWalkRequestScreenState
 
       setState(() {
         _accepted = true;
+        _loadingLocation = true;
       });
 
       _showMessage(
@@ -639,6 +653,9 @@ class _IncomingWalkRequestScreenState
 
   // ============================================================
   // REJECT WALK
+  //
+  // Reject is BEFORE acceptance, so GPS has not been started
+  // by this screen.
   // ============================================================
 
   Future<void> _rejectWalk() async {
@@ -754,19 +771,27 @@ class _IncomingWalkRequestScreenState
   // ============================================================
   // REACH OWNER
   //
-  // FLOW:
+  // IMPORTANT:
   //
-  // ACCEPTED
-  //    ↓
-  // Walker moves to Owner
-  //    ↓
-  // within 100m
-  //    ↓
-  // REACHED OWNER
-  //    ↓
-  // liveWalkSessions/{requestId}
-  //    ↓
-  // LiveWalkScreen
+  // REACHED DOES NOT TURN GPS OFF.
+  //
+  // GPS remains owned by WalkerLocationService.
+  //
+  // Flow:
+  //
+  // ACCEPT
+  //   ↓
+  // GPS ON
+  //   ↓
+  // WALK TO OWNER
+  //   ↓
+  // WITHIN 100m
+  //   ↓
+  // REACHED
+  //   ↓
+  // GPS STILL ON
+  //   ↓
+  // LIVE WALK
   // ============================================================
 
   Future<void> _reachOwner() async {
@@ -796,7 +821,7 @@ class _IncomingWalkRequestScreenState
     }
 
     // ----------------------------------------------------------
-    // DISTANCE
+    // WALKER LOCATION
     // ----------------------------------------------------------
 
     if (_walkerPosition == null) {
@@ -805,6 +830,10 @@ class _IncomingWalkRequestScreenState
       );
       return;
     }
+
+    // ----------------------------------------------------------
+    // DISTANCE
+    // ----------------------------------------------------------
 
     if (_distanceMeters > 100) {
       _showMessage(
@@ -877,11 +906,9 @@ class _IncomingWalkRequestScreenState
       // --------------------------------------------------------
       // CREATE LIVE WALK SESSION
       //
-      // The service creates:
-      //
       // liveWalkSessions/{requestId}
       //
-      // No separate sessionId is used.
+      // SAME CANONICAL WALK ID.
       // --------------------------------------------------------
 
       await _reachService.createLiveWalkSession(
@@ -889,11 +916,6 @@ class _IncomingWalkRequestScreenState
         walkerUid: walkerUid,
         walkerId: walkerId,
       );
-
-      // --------------------------------------------------------
-      // IMPORTANT:
-      // Check mounted AFTER async Firebase operation.
-      // --------------------------------------------------------
 
       if (!mounted) {
         return;
@@ -908,18 +930,24 @@ class _IncomingWalkRequestScreenState
       _requestSubscription = null;
 
       // --------------------------------------------------------
-      // STOP ARRIVAL GPS
+      // IMPORTANT:
       //
-      // LiveWalkScreen will manage live GPS.
+      // DO NOT STOP GPS HERE.
+      //
+      // The old code cancelled the local GPS stream because
+      // LiveWalkScreen was expected to manage GPS.
+      //
+      // That architecture is now removed.
+      //
+      // Canonical GPS continues running.
+      //
+      // We only cancel THIS SCREEN'S local listener.
+      // WalkerLocationService itself remains ON.
       // --------------------------------------------------------
 
       await _locationSubscription?.cancel();
 
       _locationSubscription = null;
-
-      // --------------------------------------------------------
-      // CHECK MOUNTED AGAIN
-      // --------------------------------------------------------
 
       if (!mounted) {
         return;
@@ -929,6 +957,9 @@ class _IncomingWalkRequestScreenState
 
       // --------------------------------------------------------
       // OPEN LIVE WALK
+      //
+      // LiveWalkScreen will attach to the same canonical GPS
+      // service through LiveWalkBackgroundService.
       // --------------------------------------------------------
 
       await Navigator.of(context).pushReplacement(
@@ -1065,7 +1096,7 @@ class _IncomingWalkRequestScreenState
           // LOCATION LOADING
           // ======================================================
 
-          if (_loadingLocation)
+          if (_loadingLocation && _accepted)
             const Positioned.fill(
               child: IgnorePointer(
                 child: ColoredBox(
@@ -1145,6 +1176,16 @@ class _IncomingWalkRequestScreenState
 
   // ============================================================
   // DISPOSE
+  //
+  // IMPORTANT:
+  //
+  // We cancel only this screen's subscription.
+  //
+  // We DO NOT call:
+  //
+  // _locationService.stopTracking()
+  //
+  // because GPS must remain ON until Complete.
   // ============================================================
 
   @override
