@@ -11,7 +11,7 @@ import '../core/constants/app_colors.dart';
 import '../core/services/active_walk_strip_service.dart';
 import '../core/services/app_state_service.dart';
 import '../features/insta_walk/models/insta_walk_request.dart';
-import '../features/live_walk/screens/live_walk_review_bottom_sheet.dart';
+import '../features/live_walk/widgets/live_walk_review_bottom_sheet.dart';
 import '../features/live_walk/screens/live_walk_screen.dart';
 import '../features/qr_walk/screens/qr_scanner_screen.dart';
 import '../widgets/active_walk_strip.dart';
