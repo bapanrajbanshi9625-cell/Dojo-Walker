@@ -1,5 +1,5 @@
 // File:
-// lib/features/my_walks/screens/past_walks_screen.dart
+// lib/features/Walker_home/screens/past_walks_screen.dart
 
 import 'dart:async';
 
@@ -8,7 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/dojo_walker.dart';
-import '../models/past_walk_model.dart';
+import '../../my_walks/models/past_walk_model.dart';
 import '../widgets/past_walk_card.dart';
 
 enum _PastWalkFilterType {
