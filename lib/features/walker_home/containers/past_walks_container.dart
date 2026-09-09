@@ -12,9 +12,13 @@ class PastWalksContainer extends StatelessWidget {
     required IconData icon,
   }) onDetails;
 
+  /// Opens the existing full Past Walks / Passbook screen.
+  final VoidCallback onSeeMore;
+
   PastWalksContainer({
     super.key,
     required this.onDetails,
+    required this.onSeeMore,
   });
 
   final WalkerHomeService _service = WalkerHomeService();
@@ -56,26 +60,58 @@ class PastWalksContainer extends StatelessWidget {
               return const _EmptyState();
             }
 
+            // ----------------------------------------------------
+            // HOME SCREEN:
+            // Show ONLY the latest 3 walks.
+            // Full history remains available through See More.
+            // ----------------------------------------------------
+
+            final List<PastWalkModel> latestWalks =
+                walks.take(3).toList();
+
             return Column(
-              children: walks.map((walk) {
-                return Padding(
-                  padding: const EdgeInsets.only(
-                    bottom: 8,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ------------------------------------------------
+                // LATEST 3 WALKS
+                // ------------------------------------------------
+                ...latestWalks.map(
+                  (walk) {
+                    return Padding(
+                      padding: const EdgeInsets.only(
+                        bottom: 8,
+                      ),
+                      child: PastWalkCard(
+                        id: walk.displayId,
+                        time: walk.displayTime,
+                        details: walk.displayDetails,
+                        onTap: () {
+                          onDetails(
+                            title: 'Walk ${walk.displayId}',
+                            icon: Icons.pets_rounded,
+                            description: _buildDetails(walk),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+
+                // ------------------------------------------------
+                // SEE MORE
+                // Only show if more than 3 walks exist.
+                // ------------------------------------------------
+                if (walks.length > 3)
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 2,
+                      bottom: 4,
+                    ),
+                    child: _SeeMoreButton(
+                      onTap: onSeeMore,
+                    ),
                   ),
-                  child: PastWalkCard(
-                    id: walk.displayId,
-                    time: walk.displayTime,
-                    details: walk.displayDetails,
-                    onTap: () {
-                      onDetails(
-                        title: 'Walk ${walk.displayId}',
-                        icon: Icons.pets_rounded,
-                        description: _buildDetails(walk),
-                      );
-                    },
-                  ),
-                );
-              }).toList(),
+              ],
             );
           },
         ),
@@ -111,6 +147,62 @@ class PastWalksContainer extends StatelessWidget {
     ];
 
     return details.join('\n');
+  }
+}
+
+// ================================================================
+// SEE MORE BUTTON
+// ================================================================
+
+class _SeeMoreButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _SeeMoreButton({
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 13,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: const Color(0xFFE1E4E8),
+            ),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'See More',
+                style: TextStyle(
+                  color: Color(0xFFFF6B35),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+              SizedBox(width: 6),
+              Icon(
+                Icons.arrow_forward_rounded,
+                color: Color(0xFFFF6B35),
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
