@@ -13,43 +13,18 @@ import '../../walks/services/walk_request_sound_service.dart';
 /// ============================================================
 /// INSTA WALK ACCEPT SERVICE
 ///
-/// Firestore:
+/// GPS lifecycle:
 ///
-///   walk_request/{requestId}
-///
-/// Accept:
-///
-///   searching → accepted
-///
-/// Walker profile:
-///
-///   walkers/{walkerUid}
-///
-/// On accept, this service saves:
-///
-///   walkerId
-///   walkerUid
-///   walkerName
-///   walkerPhone
-///   walkerProfileImage
-///   acceptedBy
-///   acceptedByUid
-///   acceptedAt
-///
-/// After successful accept:
-///
-///   GPS tracking starts
-///   walkerLocation is continuously written to Firestore
+///   ACCEPT  → GPS ON
+///   COMPLETE → GPS OFF
 ///
 /// IMPORTANT:
 ///
-///   requestId is the single canonical Walk ID.
+/// This service starts GPS after a successful accept.
+/// It does NOT stop GPS during Reached / Live Walk.
 ///
-///   Example:
-///
-///   DW000001
-///
-///   walk_request/DW000001
+/// The final GPS stop must be controlled by the
+/// Complete Walk flow.
 /// ============================================================
 
 class InstaWalkAcceptService {
@@ -72,7 +47,7 @@ class InstaWalkAcceptService {
   String? _trackingRequestId;
 
   // ============================================================
-  // COLLECTION
+  // COLLECTIONS
   // ============================================================
 
   CollectionReference<Map<String, dynamic>>
@@ -94,7 +69,7 @@ class InstaWalkAcceptService {
   }
 
   // ============================================================
-  // CURRENT WALKER PROFILE
+  // GET WALKER PROFILE
   // ============================================================
 
   Future<Map<String, String>> _getWalkerProfile() async {
@@ -117,9 +92,7 @@ class InstaWalkAcceptService {
 
     final DocumentSnapshot<Map<String, dynamic>>
         snapshot =
-        await _walkers
-            .doc(walkerUid)
-            .get();
+        await _walkers.doc(walkerUid).get();
 
     if (!snapshot.exists) {
       throw Exception(
@@ -310,10 +283,6 @@ class InstaWalkAcceptService {
               '';
     }
 
-    // ==========================================================
-    // DEBUG
-    // ==========================================================
-
     // ignore: avoid_print
     print(
       'Walker profile loaded: '
@@ -345,6 +314,8 @@ class InstaWalkAcceptService {
 
   // ============================================================
   // ACCEPT WALK
+  //
+  // THIS IS THE GPS ON GUARD.
   // ============================================================
 
   Future<void> acceptWalk(
@@ -387,7 +358,7 @@ class InstaWalkAcceptService {
     }
 
     // ==========================================================
-    // GET WALKER PROFILE
+    // WALKER PROFILE
     // ==========================================================
 
     final Map<String, String> walkerProfile =
@@ -498,48 +469,24 @@ class InstaWalkAcceptService {
         }
 
         // --------------------------------------------------------
-        // ACCEPT + WALKER DETAILS
+        // ACCEPT
         // --------------------------------------------------------
 
         transaction.update(
           walkRef,
           <String, dynamic>{
-            // ====================================================
-            // CANONICAL REQUEST ID
-            // ====================================================
-
             'requestId': id,
 
-            // ====================================================
-            // STATUS
-            // ====================================================
-
             'status': 'accepted',
-
-            // ====================================================
-            // WALKER IDENTITY
-            // ====================================================
 
             'walkerId': walkerId,
             'walkerUid': walkerUid,
 
-            // ====================================================
-            // WALKER PROFILE
-            // ====================================================
-
             'walkerName': walkerName,
             'walkerPhone': walkerPhone,
 
-            // ====================================================
-            // WALKER PROFILE PHOTO
-            // ====================================================
-
             'walkerProfileImage':
                 walkerProfileImage,
-
-            // ====================================================
-            // ACCEPT INFORMATION
-            // ====================================================
 
             'acceptedBy': walkerId,
             'acceptedByUid': walkerUid,
@@ -555,7 +502,12 @@ class InstaWalkAcceptService {
     );
 
     // ==========================================================
-    // START WALKER GPS
+    // GPS ON
+    //
+    // GPS starts ONLY after accept succeeds.
+    //
+    // IMPORTANT:
+    // Nothing in Reached / Live Walk should stop this service.
     // ==========================================================
 
     try {
@@ -564,7 +516,8 @@ class InstaWalkAcceptService {
       );
     } catch (e) {
       // Accept already succeeded.
-      // GPS failure must not undo the accept.
+      //
+      // GPS failure must not undo the accepted walk.
 
       // ignore: avoid_print
       print(
@@ -603,7 +556,7 @@ class InstaWalkAcceptService {
     }
 
     // ----------------------------------------------------------
-    // CANCEL PREVIOUS FIRESTORE LOCATION LISTENER
+    // ONLY CANCEL THIS SERVICE'S FIRESTORE LISTENER
     // ----------------------------------------------------------
 
     await _locationSubscription?.cancel();
@@ -613,7 +566,7 @@ class InstaWalkAcceptService {
     _trackingRequestId = id;
 
     // ----------------------------------------------------------
-    // START GPS SERVICE
+    // GPS ON
     // ----------------------------------------------------------
 
     final bool started =
@@ -627,7 +580,7 @@ class InstaWalkAcceptService {
     }
 
     // ----------------------------------------------------------
-    // GET FIRST LOCATION
+    // FIRST LOCATION
     // ----------------------------------------------------------
 
     final Position? currentPosition =
@@ -704,8 +657,7 @@ class InstaWalkAcceptService {
         },
       );
     } catch (e) {
-      // GPS stream should continue even if one
-      // Firestore update fails.
+      // Firestore failure must NOT stop GPS.
 
       // ignore: avoid_print
       print(
@@ -715,24 +667,42 @@ class InstaWalkAcceptService {
   }
 
   // ============================================================
-  // STOP LOCATION TRACKING
+  // TRACKING STATUS
   // ============================================================
 
-  Future<void> stopLocationTracking() async {
+  bool get isTracking {
+    return _trackingRequestId != null;
+  }
+
+  String? get trackingRequestId {
+    return _trackingRequestId;
+  }
+
+  // ============================================================
+  // INTERNAL LISTENER CLEANUP
+  //
+  // IMPORTANT:
+  //
+  // This does NOT stop WalkerLocationService.
+  //
+  // GPS must remain ON until Complete.
+  // ============================================================
+
+  Future<void> _cancelLocationListener() async {
     await _locationSubscription?.cancel();
 
     _locationSubscription = null;
-
-    _trackingRequestId = null;
-
-    await _locationService.stopTracking();
   }
 
   // ============================================================
   // DISPOSE
+  //
+  // Do NOT use this for normal Reached/Live Walk navigation.
+  //
+  // Complete flow must explicitly stop GPS.
   // ============================================================
 
   Future<void> dispose() async {
-    await stopLocationTracking();
+    await _cancelLocationListener();
   }
 }
