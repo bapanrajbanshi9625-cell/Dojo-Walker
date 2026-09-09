@@ -19,17 +19,11 @@ class LiveWalkStartSlider extends StatefulWidget {
 
 class _LiveWalkStartSliderState
     extends State<LiveWalkStartSlider> {
-  double _position = 0.0;
+  double _dragValue = 0.0;
+  bool _completed = false;
 
-  bool _started = false;
-
-  static const double _height = 60.0;
-  static const double _handleSize = 50.0;
   static const double _horizontalPadding = 5.0;
-
-  // ============================================================
-  // RESET
-  // ============================================================
+  static const double _thumbSize = 54.0;
 
   void _reset() {
     if (!mounted) {
@@ -37,70 +31,77 @@ class _LiveWalkStartSliderState
     }
 
     setState(() {
-      _position = 0.0;
+      _dragValue = 0.0;
+      _completed = false;
     });
   }
 
-  // ============================================================
-  // DRAG UPDATE
-  // ============================================================
-
-  void _onDragUpdate(
+  void _handleDragUpdate(
     DragUpdateDetails details,
-    double maxPosition,
+    double availableWidth,
   ) {
-    if (!widget.enabled || _started) {
+    if (!widget.enabled || _completed) {
+      return;
+    }
+
+    final double maxDrag =
+        availableWidth - _thumbSize - (_horizontalPadding * 2);
+
+    if (maxDrag <= 0) {
+      return;
+    }
+
+    final double newValue =
+        (_dragValue + details.delta.dx / maxDrag)
+            .clamp(0.0, 1.0);
+
+    setState(() {
+      _dragValue = newValue;
+    });
+
+    if (_dragValue >= 0.90) {
+      _completeSlider();
+    }
+  }
+
+  void _handleDragEnd(
+    DragEndDetails details,
+    double availableWidth,
+  ) {
+    if (!widget.enabled || _completed) {
+      return;
+    }
+
+    if (_dragValue >= 0.90) {
+      _completeSlider();
+      return;
+    }
+
+    _reset();
+  }
+
+  void _completeSlider() {
+    if (!widget.enabled || _completed) {
       return;
     }
 
     setState(() {
-      _position += details.delta.dx;
-
-      _position = _position.clamp(
-        0.0,
-        maxPosition,
-      );
+      _dragValue = 1.0;
+      _completed = true;
     });
+
+    // IMPORTANT:
+    // This widget does NOT start GPS.
+    // This widget does NOT write to Firestore.
+    // This widget does NOT start the walk directly.
+    //
+    // LiveWalkStartScreen receives this callback and calls:
+    //   await _controller.startWalk();
+    //
+    // After the real walk starts, LiveWalkStartScreen
+    // navigates to LiveWalkScreen.
+    widget.onStarted();
   }
-
-  // ============================================================
-  // DRAG END
-  // ============================================================
-
-  void _onDragEnd(
-    DragEndDetails details,
-    double maxPosition,
-  ) {
-    if (!widget.enabled || _started) {
-      return;
-    }
-
-    final double threshold =
-        maxPosition * 0.82;
-
-    if (_position >= threshold) {
-      setState(() {
-        _position = maxPosition;
-        _started = true;
-      });
-
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) {
-          if (!mounted) {
-            return;
-          }
-
-          widget.onStarted();
-        },
-      );
-    } else {
-      _reset();
-    }
-  }
-
-  // ============================================================
-  // BUILD
-  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -109,82 +110,69 @@ class _LiveWalkStartSliderState
         BuildContext context,
         BoxConstraints constraints,
       ) {
-        final double width =
-            constraints.maxWidth;
+        final double width = constraints.maxWidth;
 
-        final double maxPosition =
-            (width -
-                    (_horizontalPadding * 2) -
-                    _handleSize)
-                .clamp(
-          0.0,
-          double.infinity,
-        );
+        final double maxDrag =
+            width - _thumbSize - (_horizontalPadding * 2);
 
-        final bool enabled =
-            widget.enabled && !_started;
+        final double thumbLeft =
+            _horizontalPadding +
+            (maxDrag > 0
+                ? maxDrag * _dragValue
+                : 0);
 
-        final double progress =
-            maxPosition <= 0
-                ? 0.0
-                : (_position / maxPosition)
-                    .clamp(0.0, 1.0);
+        final bool disabled = !widget.enabled;
 
-        return AnimatedContainer(
-          duration:
-              const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          height: _height,
-          width: double.infinity,
-          padding: const EdgeInsets.all(
-            _horizontalPadding,
-          ),
-          decoration: BoxDecoration(
-            color: enabled
-                ? AppColors.primary.withValues(
-                    alpha: 0.08,
-                  )
-                : Colors.grey.withValues(
-                    alpha: 0.08,
-                  ),
-            borderRadius:
-                BorderRadius.circular(18),
-            border: Border.all(
-              color: enabled
-                  ? AppColors.primary.withValues(
-                      alpha: 0.16,
-                    )
-                  : Colors.grey.withValues(
-                      alpha: 0.14,
-                    ),
+        return AnimatedOpacity(
+          duration: const Duration(milliseconds: 180),
+          opacity: disabled ? 0.55 : 1.0,
+          child: Container(
+            height: 64,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(
+                alpha: .10,
+              ),
+              borderRadius:
+                  BorderRadius.circular(34),
+              border: Border.all(
+                color: AppColors.primary.withValues(
+                  alpha: .22,
+                ),
+              ),
             ),
-          ),
-          child: ClipRRect(
-            borderRadius:
-                BorderRadius.circular(14),
             child: Stack(
               alignment: Alignment.centerLeft,
               children: [
                 // ==================================================
-                // PROGRESS FILL
+                // SLIDER TEXT
                 // ==================================================
 
                 Positioned.fill(
-                  child: Align(
-                    alignment:
-                        Alignment.centerLeft,
-                    child: FractionallySizedBox(
-                      widthFactor: progress,
-                      child: Container(
-                        decoration:
-                            BoxDecoration(
-                          color: AppColors.primary
-                              .withValues(
-                            alpha: 0.14,
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 62,
+                      ),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(
+                          milliseconds: 180,
+                        ),
+                        child: Text(
+                          _completed
+                              ? 'Starting...'
+                              : 'Slide to Start Walk',
+                          key: ValueKey<bool>(
+                            _completed,
                           ),
-                          borderRadius:
-                              BorderRadius.circular(
-                            14,
+                          maxLines: 1,
+                          overflow:
+                              TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 14,
+                            fontWeight:
+                                FontWeight.w900,
                           ),
                         ),
                       ),
@@ -193,176 +181,60 @@ class _LiveWalkStartSliderState
                 ),
 
                 // ==================================================
-                // CENTER TEXT
-                // ==================================================
-
-                Center(
-                  child: IgnorePointer(
-                    child: AnimatedSwitcher(
-                      duration:
-                          const Duration(
-                        milliseconds: 160,
-                      ),
-                      child: Text(
-                        _started
-                            ? 'Walk Started'
-                            : 'Slide to Start Walk',
-                        key: ValueKey<String>(
-                          _started
-                              ? 'started'
-                              : 'start',
-                        ),
-                        textAlign:
-                            TextAlign.center,
-                        style: TextStyle(
-                          color: enabled
-                              ? AppColors.primary
-                              : Colors.grey,
-                          fontSize: 13,
-                          fontWeight:
-                              FontWeight.w900,
-                          letterSpacing: 0.1,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // ==================================================
-                // RIGHT CHEVRONS
-                // ==================================================
-
-                if (!_started)
-                  Positioned(
-                    right: 14,
-                    child: IgnorePointer(
-                      child: Row(
-                        mainAxisSize:
-                            MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons
-                                .chevron_right_rounded,
-                            size: 19,
-                            color: enabled
-                                ? AppColors.primary
-                                    .withValues(
-                                    alpha: 0.32,
-                                  )
-                                : Colors.grey
-                                    .withValues(
-                                    alpha: 0.25,
-                                  ),
-                          ),
-                          Icon(
-                            Icons
-                                .chevron_right_rounded,
-                            size: 19,
-                            color: enabled
-                                ? AppColors.primary
-                                    .withValues(
-                                    alpha: 0.58,
-                                  )
-                                : Colors.grey
-                                    .withValues(
-                                    alpha: 0.35,
-                                  ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                // ==================================================
-                // SLIDE HANDLE
+                // THUMB
                 // ==================================================
 
                 AnimatedPositioned(
-                  duration:
-                      const Duration(
-                    milliseconds: 70,
-                  ),
+                  duration: _completed
+                      ? const Duration(milliseconds: 160)
+                      : Duration.zero,
                   curve: Curves.easeOut,
-                  left: _position,
-                  top: 0,
+                  left: thumbLeft,
+                  top: _horizontalPadding,
                   child: GestureDetector(
                     behavior:
                         HitTestBehavior.opaque,
                     onHorizontalDragUpdate:
-                        enabled
-                            ? (
-                                DragUpdateDetails
-                                    details,
-                              ) {
-                                _onDragUpdate(
+                        disabled
+                            ? null
+                            : (details) {
+                                _handleDragUpdate(
                                   details,
-                                  maxPosition,
+                                  width,
                                 );
-                              }
-                            : null,
+                              },
                     onHorizontalDragEnd:
-                        enabled
-                            ? (
-                                DragEndDetails
-                                    details,
-                              ) {
-                                _onDragEnd(
+                        disabled
+                            ? null
+                            : (details) {
+                                _handleDragEnd(
                                   details,
-                                  maxPosition,
+                                  width,
                                 );
-                              }
-                            : null,
-                    child: AnimatedContainer(
-                      duration:
-                          const Duration(
-                        milliseconds: 160,
-                      ),
-                      width: _handleSize,
-                      height: _handleSize,
-                      decoration:
-                          BoxDecoration(
-                        color: enabled
-                            ? Colors.white
-                            : const Color(
-                                0xFFE5E5E5,
-                              ),
-                        borderRadius:
-                            BorderRadius.circular(
-                          15,
-                        ),
-                        boxShadow: [
+                              },
+                    child: Container(
+                      width: _thumbSize,
+                      height: _thumbSize,
+                      decoration: BoxDecoration(
+                        color: disabled
+                            ? Colors.grey
+                            : AppColors.primary,
+                        shape: BoxShape.circle,
+                        boxShadow: const [
                           BoxShadow(
-                            color: Colors.black
-                                .withValues(
-                              alpha: 0.12,
-                            ),
-                            blurRadius: 10,
-                            offset:
-                                const Offset(
-                              0,
-                              3,
-                            ),
+                            color: Colors.black26,
+                            blurRadius: 7,
+                            offset: Offset(0, 3),
                           ),
                         ],
                       ),
-                      child: AnimatedSwitcher(
-                        duration:
-                            const Duration(
-                          milliseconds: 160,
-                        ),
-                        child: Icon(
-                          _started
-                              ? Icons.check_rounded
-                              : Icons
-                                  .arrow_forward_rounded,
-                          key: ValueKey<bool>(
-                            _started,
-                          ),
-                          color: enabled
-                              ? AppColors.primary
-                              : Colors.grey,
-                          size: 25,
-                        ),
+                      child: Icon(
+                        _completed
+                            ? Icons.check_rounded
+                            : Icons
+                                .arrow_forward_rounded,
+                        color: Colors.white,
+                        size: 27,
                       ),
                     ),
                   ),
