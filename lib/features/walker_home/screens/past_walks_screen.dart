@@ -1,8 +1,13 @@
+// File:
+// lib/features/my_walks/screens/past_walks_screen.dart
+
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/dojo_walker.dart';
+import '../../../core/theme/dojo_walker.dart';
 import '../../my_walks/models/past_walk_model.dart';
 import '../widgets/past_walk_card.dart';
 
@@ -23,16 +28,19 @@ class PastWalksScreen extends StatefulWidget {
 
 class _PastWalksScreenState
     extends State<PastWalksScreen> {
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
-
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  // ============================================================
+  // DEFAULT FILTER
+  // ============================================================
 
   _PastWalkFilterType _filterType =
       _PastWalkFilterType.week;
 
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate =
+      DateTime.now();
+
+  // ============================================================
+  // WEEK HELPERS
+  // ============================================================
 
   DateTime _startOfWeek(
     DateTime date,
@@ -45,165 +53,332 @@ class _PastWalksScreenState
 
     return day.subtract(
       Duration(
-        days: day.weekday - 1,
+        days: day.weekday - DateTime.monday,
       ),
     );
   }
 
-  DateTime get _weekStart {
-    return _startOfWeek(
-      _selectedDate,
-    );
-  }
-
-  DateTime get _weekEnd {
-    return _weekStart.add(
+  DateTime _endOfWeek(
+    DateTime date,
+  ) {
+    return _startOfWeek(date).add(
       const Duration(days: 7),
     );
   }
 
-  DateTime get _dateStart {
-    return DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-    );
+  bool _isInSelectedWeek(
+    DateTime date,
+  ) {
+    final DateTime start =
+        _startOfWeek(_selectedDate);
+
+    final DateTime end =
+        _endOfWeek(_selectedDate);
+
+    return !date.isBefore(start) &&
+        date.isBefore(end);
   }
 
-  DateTime get _dateEnd {
-    return _dateStart.add(
-      const Duration(days: 1),
-    );
+  bool _isSameDate(
+    DateTime first,
+    DateTime second,
+  ) {
+    return first.year == second.year &&
+        first.month == second.month &&
+        first.day == second.day;
   }
 
-  Stream<List<PastWalkModel>> _watchPastWalks() {
-    final User? user = _auth.currentUser;
-
-    if (user == null) {
-      return Stream.value(
-        const <PastWalkModel>[],
-      );
-    }
-
-    return _firestore
-        .collection('walk_history')
-        .where(
-          'walkerId',
-          isEqualTo: user.uid,
-        )
-        .snapshots()
-        .map(
-      (
-        QuerySnapshot<Map<String, dynamic>> snapshot,
-      ) {
-        final List<PastWalkModel> walks =
-            snapshot.docs
-                .map(
-                  PastWalkModel.fromDocument,
-                )
-                .where(
-                  (PastWalkModel walk) =>
-                      walk.isCompleted,
-                )
-                .where(
-                  _matchesSelectedFilter,
-                )
-                .toList();
-
-        walks.sort(
-          (
-            PastWalkModel a,
-            PastWalkModel b,
-          ) {
-            final DateTime aDate =
-                a.completedAt ??
-                    a.startedAt ??
-                    a.createdAt ??
-                    DateTime.fromMillisecondsSinceEpoch(
-                      0,
-                    );
-
-            final DateTime bDate =
-                b.completedAt ??
-                    b.startedAt ??
-                    b.createdAt ??
-                    DateTime.fromMillisecondsSinceEpoch(
-                      0,
-                    );
-
-            return bDate.compareTo(aDate);
-          },
-        );
-
-        return walks;
-      },
-    );
-  }
+  // ============================================================
+  // FILTER MATCH
+  // ============================================================
 
   bool _matchesSelectedFilter(
     PastWalkModel walk,
   ) {
-    final DateTime? walkDate =
-        walk.completedAt ??
-            walk.startedAt ??
-            walk.createdAt;
+    final DateTime? activityDate =
+        walk.activityDate;
 
-    if (walkDate == null) {
+    if (activityDate == null) {
       return false;
     }
 
     if (_filterType ==
         _PastWalkFilterType.date) {
-      return !walkDate.isBefore(
-            _dateStart,
-          ) &&
-          walkDate.isBefore(
-            _dateEnd,
-          );
+      return _isSameDate(
+        activityDate,
+        _selectedDate,
+      );
     }
 
-    return !walkDate.isBefore(
-          _weekStart,
-        ) &&
-        walkDate.isBefore(
-          _weekEnd,
-        );
+    return _isInSelectedWeek(
+      activityDate,
+    );
   }
 
+  // ============================================================
+  // FIRESTORE STREAM
+  //
+  // Supports BOTH:
+  // walkerId
+  // walkerUid
+  //
+  // We intentionally don't depend on a single
+  // Firestore field here.
+  // ============================================================
+
+  Stream<List<PastWalkModel>>
+      _watchPastWalks() {
+    final User? user =
+        FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      return Stream.value(
+        <PastWalkModel>[],
+      );
+    }
+
+    final String uid = user.uid;
+
+    final Stream<QuerySnapshot<
+        Map<String, dynamic>>> walkerIdStream =
+        FirebaseFirestore.instance
+            .collection('walk_history')
+            .where(
+              'walkerId',
+              isEqualTo: uid,
+            )
+            .snapshots();
+
+    final Stream<QuerySnapshot<
+        Map<String, dynamic>>> walkerUidStream =
+        FirebaseFirestore.instance
+            .collection('walk_history')
+            .where(
+              'walkerUid',
+              isEqualTo: uid,
+            )
+            .snapshots();
+
+    return _mergeWalkStreams(
+      walkerIdStream,
+      walkerUidStream,
+    );
+  }
+
+  // ============================================================
+  // MERGE BOTH QUERIES
+  // ============================================================
+
+  Stream<List<PastWalkModel>> _mergeWalkStreams(
+    Stream<QuerySnapshot<Map<String, dynamic>>>
+        walkerIdStream,
+    Stream<QuerySnapshot<Map<String, dynamic>>>
+        walkerUidStream,
+  ) async* {
+    List<QueryDocumentSnapshot<
+        Map<String, dynamic>>> walkerIdDocs =
+        <QueryDocumentSnapshot<
+            Map<String, dynamic>>>[];
+
+    List<QueryDocumentSnapshot<
+        Map<String, dynamic>>> walkerUidDocs =
+        <QueryDocumentSnapshot<
+            Map<String, dynamic>>>[];
+
+    await for (final dynamic event
+        in _combineStreams(
+      walkerIdStream,
+      walkerUidStream,
+    )) {
+      walkerIdDocs = event.$1;
+      walkerUidDocs = event.$2;
+
+      final Map<String,
+              QueryDocumentSnapshot<
+                  Map<String, dynamic>>>
+          uniqueDocuments =
+          <String,
+              QueryDocumentSnapshot<
+                  Map<String, dynamic>>>{};
+
+      for (final doc in walkerIdDocs) {
+        uniqueDocuments[doc.id] = doc;
+      }
+
+      for (final doc in walkerUidDocs) {
+        uniqueDocuments[doc.id] = doc;
+      }
+
+      final List<PastWalkModel> walks =
+          uniqueDocuments.values
+              .map(
+                PastWalkModel.fromDocument,
+              )
+              .where(
+                (PastWalkModel walk) =>
+                    walk.isCompleted,
+              )
+              .where(
+                _matchesSelectedFilter,
+              )
+              .toList();
+
+      walks.sort(
+        (
+          PastWalkModel a,
+          PastWalkModel b,
+        ) {
+          final DateTime aDate =
+              a.activityDate ??
+                  DateTime.fromMillisecondsSinceEpoch(
+                    0,
+                  );
+
+          final DateTime bDate =
+              b.activityDate ??
+                  DateTime.fromMillisecondsSinceEpoch(
+                    0,
+                  );
+
+          return bDate.compareTo(aDate);
+        },
+      );
+
+      yield walks;
+    }
+  }
+
+  // ============================================================
+  // COMBINE STREAMS
+  // ============================================================
+
+  Stream<
+      (
+        List<
+            QueryDocumentSnapshot<
+                Map<String, dynamic>>>,
+        List<
+            QueryDocumentSnapshot<
+                Map<String, dynamic>>>
+      )> _combineStreams(
+    Stream<QuerySnapshot<Map<String, dynamic>>>
+        first,
+    Stream<QuerySnapshot<Map<String, dynamic>>>
+        second,
+  ) async* {
+    List<QueryDocumentSnapshot<
+        Map<String, dynamic>>> firstDocs =
+        <QueryDocumentSnapshot<
+            Map<String, dynamic>>>[];
+
+    List<QueryDocumentSnapshot<
+        Map<String, dynamic>>> secondDocs =
+        <QueryDocumentSnapshot<
+            Map<String, dynamic>>>[];
+
+    bool firstReady = false;
+    bool secondReady = false;
+
+    late final StreamSubscription<
+        QuerySnapshot<Map<String, dynamic>>>
+        firstSubscription;
+
+    late final StreamSubscription<
+        QuerySnapshot<Map<String, dynamic>>>
+        secondSubscription;
+
+    final StreamController<
+        (
+          List<
+              QueryDocumentSnapshot<
+                  Map<String, dynamic>>>,
+          List<
+              QueryDocumentSnapshot<
+                  Map<String, dynamic>>>
+        )> controller =
+        StreamController<
+            (
+              List<
+                  QueryDocumentSnapshot<
+                      Map<String, dynamic>>>,
+              List<
+                  QueryDocumentSnapshot<
+                      Map<String, dynamic>>>
+            )>();
+
+    firstSubscription = first.listen(
+      (
+        QuerySnapshot<
+            Map<String, dynamic>> snapshot,
+      ) {
+        firstDocs = snapshot.docs;
+        firstReady = true;
+
+        if (firstReady && secondReady) {
+          controller.add(
+            (
+              firstDocs,
+              secondDocs,
+            ),
+          );
+        }
+      },
+      onError: controller.addError,
+    );
+
+    secondSubscription = second.listen(
+      (
+        QuerySnapshot<
+            Map<String, dynamic>> snapshot,
+      ) {
+        secondDocs = snapshot.docs;
+        secondReady = true;
+
+        if (firstReady && secondReady) {
+          controller.add(
+            (
+              firstDocs,
+              secondDocs,
+            ),
+          );
+        }
+      },
+      onError: controller.addError,
+    );
+
+    try {
+      await for (final value
+          in controller.stream) {
+        yield value;
+      }
+    } finally {
+      await firstSubscription.cancel();
+      await secondSubscription.cancel();
+      await controller.close();
+    }
+  }
+
+  // ============================================================
+  // DATE PICKER
+  // ============================================================
+
   Future<void> _pickDate() async {
-    final DateTime today = DateTime.now();
+    final DateTime now =
+        DateTime.now();
 
     final DateTime? picked =
         await showDatePicker(
       context: context,
-      initialDate:
-          _selectedDate.isAfter(today)
-              ? today
-              : _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: today,
-      builder: (
-        BuildContext context,
-        Widget? child,
-      ) {
-        final ThemeData theme =
-            Theme.of(context);
-
-        return Theme(
-          data: theme.copyWith(
-            colorScheme:
-                theme.colorScheme.copyWith(
-              primary:
-                  DojoWalkerColors.primary,
-              surface:
-                  DojoWalkerColors.card,
-              onSurface:
-                  DojoWalkerColors.textPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      initialDate: _selectedDate.isAfter(now)
+          ? now
+          : _selectedDate,
+      firstDate: DateTime(
+        2020,
+        1,
+        1,
+      ),
+      lastDate: now,
+      helpText: 'Select walk date',
     );
 
     if (picked == null) {
@@ -215,204 +390,231 @@ class _PastWalksScreenState
     }
 
     setState(() {
-      _selectedDate = picked;
       _filterType =
           _PastWalkFilterType.date;
+
+      _selectedDate = picked;
     });
   }
 
+  // ============================================================
+  // WEEK PICKER
+  // ============================================================
+
   Future<void> _showWeekPicker() async {
-    await showModalBottomSheet<void>(
+    final String? result =
+        await showModalBottomSheet<String>(
       context: context,
-      backgroundColor:
-          DojoWalkerColors.card,
-      shape:
-          const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (
-        BuildContext sheetContext,
+        BuildContext context,
       ) {
         return SafeArea(
-          child: Padding(
-            padding:
-                const EdgeInsets.fromLTRB(
-              20,
-              12,
-              20,
-              20,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context)
+                  .scaffoldBackgroundColor,
+              borderRadius:
+                  const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
+              mainAxisSize: MainAxisSize.min,
               children: [
+                const SizedBox(height: 10),
+
                 Container(
                   width: 42,
                   height: 4,
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        DojoWalkerColors.border,
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
                     borderRadius:
-                        BorderRadius.circular(
-                      20,
-                    ),
+                        BorderRadius.circular(20),
                   ),
                 ),
+
                 const SizedBox(height: 18),
+
                 const Text(
-                  'Past Walks',
+                  'Filter Past Walks',
                   style: TextStyle(
-                    color:
-                        DojoWalkerColors.textPrimary,
-                    fontSize: 19,
+                    fontSize: 18,
                     fontWeight:
                         FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 16),
+
+                const SizedBox(height: 12),
+
                 _WeekActionTile(
-                  icon:
-                      Icons.today_rounded,
-                  title:
-                      'Current Week',
+                  icon: Icons.calendar_view_week,
+                  title: 'Current Week',
                   subtitle:
-                      _formatWeek(
+                      _weekRangeText(
+                    DateTime.now(),
+                  ),
+                  onTap: () {
+                    Navigator.pop(
+                      context,
+                      'current',
+                    );
+                  },
+                ),
+
+                _WeekActionTile(
+                  icon: Icons.history,
+                  title: 'Previous Week',
+                  subtitle:
+                      _weekRangeText(
                     _startOfWeek(
                       DateTime.now(),
+                    ).subtract(
+                      const Duration(days: 7),
                     ),
                   ),
                   onTap: () {
                     Navigator.pop(
-                      sheetContext,
+                      context,
+                      'previous',
                     );
-
-                    if (!mounted) {
-                      return;
-                    }
-
-                    setState(() {
-                      _selectedDate =
-                          DateTime.now();
-                      _filterType =
-                          _PastWalkFilterType
-                              .week;
-                    });
                   },
                 ),
-                const SizedBox(height: 8),
-                _WeekActionTile(
-                  icon:
-                      Icons.chevron_left_rounded,
-                  title:
-                      'Previous Week',
-                  subtitle:
-                      _formatWeek(
-                    _weekStart.subtract(
-                      const Duration(
-                        days: 7,
+
+                if (_canGoToNextWeek())
+                  _WeekActionTile(
+                    icon: Icons.arrow_forward,
+                    title: 'Next Week',
+                    subtitle:
+                        _weekRangeText(
+                      _startOfWeek(
+                        DateTime.now(),
+                      ).add(
+                        const Duration(days: 7),
                       ),
                     ),
-                  ),
-                  onTap: () {
-                    Navigator.pop(
-                      sheetContext,
-                    );
-
-                    if (!mounted) {
-                      return;
-                    }
-
-                    setState(() {
-                      _selectedDate =
-                          _weekStart.subtract(
-                        const Duration(
-                          days: 7,
-                        ),
+                    onTap: () {
+                      Navigator.pop(
+                        context,
+                        'next',
                       );
-                      _filterType =
-                          _PastWalkFilterType
-                              .week;
-                    });
-                  },
-                ),
-                const SizedBox(height: 8),
-                _WeekActionTile(
-                  icon:
-                      Icons.chevron_right_rounded,
-                  title:
-                      'Next Week',
-                  subtitle:
-                      _formatWeek(
-                    _weekStart.add(
-                      const Duration(
-                        days: 7,
-                      ),
-                    ),
+                    },
                   ),
-                  enabled:
-                      _canGoToNextWeek,
-                  onTap:
-                      _canGoToNextWeek
-                          ? () {
-                              Navigator.pop(
-                                sheetContext,
-                              );
 
-                              if (!mounted) {
-                                return;
-                              }
-
-                              setState(() {
-                                _selectedDate =
-                                    _weekStart.add(
-                                  const Duration(
-                                    days: 7,
-                                  ),
-                                );
-                                _filterType =
-                                    _PastWalkFilterType
-                                        .week;
-                              });
-                            }
-                          : null,
-                ),
-                const SizedBox(height: 8),
                 _WeekActionTile(
-                  icon:
-                      Icons.calendar_month_rounded,
-                  title:
-                      'Choose Date',
+                  icon: Icons.event,
+                  title: 'Choose Date',
                   subtitle:
-                      'Open calendar',
+                      'View walks for a specific date',
                   onTap: () {
                     Navigator.pop(
-                      sheetContext,
+                      context,
+                      'date',
                     );
-                    _pickDate();
                   },
                 ),
+
+                const SizedBox(height: 12),
               ],
             ),
           ),
         );
       },
     );
+
+    if (!mounted || result == null) {
+      return;
+    }
+
+    switch (result) {
+      case 'current':
+        setState(() {
+          _filterType =
+              _PastWalkFilterType.week;
+          _selectedDate =
+              DateTime.now();
+        });
+        break;
+
+      case 'previous':
+        setState(() {
+          _filterType =
+              _PastWalkFilterType.week;
+
+          _selectedDate =
+              _startOfWeek(
+                DateTime.now(),
+              ).subtract(
+                const Duration(days: 7),
+              );
+        });
+        break;
+
+      case 'next':
+        setState(() {
+          _filterType =
+              _PastWalkFilterType.week;
+
+          _selectedDate =
+              _startOfWeek(
+                DateTime.now(),
+              ).add(
+                const Duration(days: 7),
+              );
+        });
+        break;
+
+      case 'date':
+        await _pickDate();
+        break;
+    }
   }
 
-  bool get _canGoToNextWeek {
-    final DateTime currentWeek =
-        _startOfWeek(
-      DateTime.now(),
+  // ============================================================
+  // NEXT WEEK LIMIT
+  // ============================================================
+
+  bool _canGoToNextWeek() {
+    final DateTime selectedWeekStart =
+        _startOfWeek(_selectedDate);
+
+    final DateTime currentWeekStart =
+        _startOfWeek(DateTime.now());
+
+    return selectedWeekStart
+        .isBefore(currentWeekStart);
+  }
+
+  // ============================================================
+  // WEEK TEXT
+  // ============================================================
+
+  String _weekRangeText(
+    DateTime date,
+  ) {
+    final DateTime start =
+        _startOfWeek(date);
+
+    final DateTime end =
+        start.add(
+      const Duration(days: 6),
     );
 
-    return _weekStart.isBefore(
-      currentWeek,
-    );
+    return '${_formatShortDate(start)} - '
+        '${_formatShortDate(end)}';
   }
+
+  String _formatShortDate(
+    DateTime date,
+  ) {
+    return '${date.day.toString().padLeft(2, '0')}/'
+        '${date.month.toString().padLeft(2, '0')}/'
+        '${date.year}';
+  }
+
+  // ============================================================
+  // FILTER TITLE
+  // ============================================================
 
   String get _filterTitle {
     if (_filterType ==
@@ -426,69 +628,19 @@ class _PastWalksScreenState
   String get _filterValue {
     if (_filterType ==
         _PastWalkFilterType.date) {
-      return _formatDate(
+      return _formatShortDate(
         _selectedDate,
       );
     }
 
-    return _formatWeek(
-      _weekStart,
+    return _weekRangeText(
+      _selectedDate,
     );
   }
 
-  String _formatDate(
-    DateTime date,
-  ) {
-    return '${date.day.toString().padLeft(2, '0')}/'
-        '${date.month.toString().padLeft(2, '0')}/'
-        '${date.year}';
-  }
-
-  String _formatWeek(
-    DateTime start,
-  ) {
-    final DateTime end =
-        start.add(
-      const Duration(days: 6),
-    );
-
-    if (start.year == end.year) {
-      return '${start.day} '
-          '${_monthName(start.month)}'
-          ' - '
-          '${end.day} '
-          '${_monthName(end.month)}';
-    }
-
-    return '${start.day} '
-        '${_monthName(start.month)} '
-        '${start.year}'
-        ' - '
-        '${end.day} '
-        '${_monthName(end.month)} '
-        '${end.year}';
-  }
-
-  String _monthName(
-    int month,
-  ) {
-    const List<String> months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-
-    return months[month - 1];
-  }
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(
@@ -496,143 +648,147 @@ class _PastWalksScreenState
   ) {
     return Scaffold(
       backgroundColor:
-          DojoWalkerColors.background,
+          Theme.of(context)
+              .scaffoldBackgroundColor,
+
       appBar: AppBar(
-        backgroundColor:
-            DojoWalkerColors.primary,
-        foregroundColor:
-            DojoWalkerColors.white,
         elevation: 0,
+        centerTitle: false,
         title: const Text(
           'Past Walks',
           style: TextStyle(
-            fontWeight:
-                FontWeight.w800,
+            fontWeight: FontWeight.w800,
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Filter',
+            onPressed: _showWeekPicker,
+            icon: const Icon(
+              Icons.tune_rounded,
+            ),
+          ),
+        ],
       ),
+
       body: Column(
         children: [
-          Material(
-            color:
-                DojoWalkerColors.card,
-            child: Container(
-              height: 48,
-              padding:
-                  const EdgeInsets.symmetric(
-                horizontal: 14,
-              ),
-              decoration:
-                  const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color:
-                        DojoWalkerColors.border,
+          // ======================================================
+          // FILTER BAR
+          // ======================================================
+
+          Padding(
+            padding:
+                const EdgeInsets.fromLTRB(
+              16,
+              12,
+              16,
+              10,
+            ),
+            child: InkWell(
+              borderRadius:
+                  BorderRadius.circular(14),
+              onTap: _showWeekPicker,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius:
+                      BorderRadius.circular(14),
+                  border: Border.all(
+                    color: Colors.black12,
                   ),
                 ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    _filterType ==
-                            _PastWalkFilterType
-                                .date
-                        ? Icons
-                            .calendar_today_rounded
-                        : Icons
-                            .date_range_rounded,
-                    size: 18,
-                    color:
-                        DojoWalkerColors.textPrimary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _filterValue,
-                      maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
-                      style:
-                          const TextStyle(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: DojoWalkerColors
+                            .primary
+                            .withOpacity(0.10),
+                        borderRadius:
+                            BorderRadius.circular(
+                          12,
+                        ),
+                      ),
+                      child: Icon(
+                        _filterType ==
+                                _PastWalkFilterType
+                                    .date
+                            ? Icons.event
+                            : Icons
+                                .calendar_view_week,
                         color:
                             DojoWalkerColors
-                                .textPrimary,
-                        fontSize: 13,
-                        fontWeight:
-                            FontWeight.w700,
+                                .primary,
+                        size: 21,
                       ),
                     ),
-                  ),
-                  InkWell(
-                    onTap: _pickDate,
-                    borderRadius:
-                        BorderRadius.circular(
-                      10,
-                    ),
-                    child: const Padding(
-                      padding:
-                          EdgeInsets.all(6),
-                      child: Icon(
-                        Icons
-                            .calendar_month_rounded,
-                        size: 20,
-                        color:
-                            DojoWalkerColors.primary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  InkWell(
-                    onTap:
-                        _showWeekPicker,
-                    borderRadius:
-                        BorderRadius.circular(
-                      10,
-                    ),
-                    child: Padding(
-                      padding:
-                          const EdgeInsets.symmetric(
-                        horizontal: 5,
-                        vertical: 6,
-                      ),
-                      child: Row(
+
+                    const SizedBox(width: 12),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment
+                                .start,
                         children: [
                           Text(
                             _filterTitle,
                             style:
                                 const TextStyle(
+                              fontSize: 11,
                               color:
-                                  DojoWalkerColors
-                                      .textSecondary,
-                              fontSize: 12,
+                                  Colors.black54,
                               fontWeight:
                                   FontWeight.w600,
                             ),
                           ),
                           const SizedBox(
-                            width: 2,
+                            height: 2,
                           ),
-                          const Icon(
-                            Icons
-                                .keyboard_arrow_down_rounded,
-                            size: 19,
-                            color:
-                                DojoWalkerColors
-                                    .textMuted,
+                          Text(
+                            _filterValue,
+                            maxLines: 1,
+                            overflow:
+                                TextOverflow
+                                    .ellipsis,
+                            style:
+                                const TextStyle(
+                              fontSize: 14,
+                              fontWeight:
+                                  FontWeight.w800,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ],
+
+                    const Icon(
+                      Icons
+                          .keyboard_arrow_down_rounded,
+                      color: Colors.black54,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
+
+          // ======================================================
+          // WALKS
+          // ======================================================
+
           Expanded(
             child: StreamBuilder<
                 List<PastWalkModel>>(
-              stream:
-                  _watchPastWalks(),
+              stream: _watchPastWalks(),
               builder: (
                 BuildContext context,
                 AsyncSnapshot<
@@ -640,33 +796,35 @@ class _PastWalksScreenState
                     snapshot,
               ) {
                 if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
+                        ConnectionState.waiting &&
+                    !snapshot.hasData) {
                   return const Center(
                     child:
-                        CircularProgressIndicator(
-                      color:
-                          DojoWalkerColors.primary,
-                    ),
+                        CircularProgressIndicator(),
                   );
                 }
 
                 if (snapshot.hasError) {
-                  return const _ErrorState(
+                  return _ErrorState(
                     message:
                         'Unable to load past walks.',
+                    onRetry: () {
+                      setState(() {});
+                    },
                   );
                 }
 
                 final List<PastWalkModel>
                     walks =
                     snapshot.data ??
-                        const <
-                            PastWalkModel>[];
+                        <PastWalkModel>[];
 
                 if (walks.isEmpty) {
                   return _EmptyState(
                     filterValue:
                         _filterValue,
+                    onChangeFilter:
+                        _showWeekPicker,
                   );
                 }
 
@@ -674,19 +832,20 @@ class _PastWalksScreenState
                   padding:
                       const EdgeInsets.fromLTRB(
                     16,
+                    4,
                     16,
-                    16,
-                    24,
+                    32,
                   ),
-                  itemCount:
-                      walks.length,
+                  physics:
+                      const AlwaysScrollableScrollPhysics(),
+                  itemCount: walks.length,
                   separatorBuilder:
                       (
                     BuildContext context,
                     int index,
                   ) {
                     return const SizedBox(
-                      height: 8,
+                      height: 10,
                     );
                   },
                   itemBuilder:
@@ -694,25 +853,17 @@ class _PastWalksScreenState
                     BuildContext context,
                     int index,
                   ) {
-                    final PastWalkModel
-                        walk =
+                    final PastWalkModel walk =
                         walks[index];
 
                     return SizedBox(
                       height: 64,
-                      child:
-                          PastWalkCard(
-                        id:
-                            walk.displayId,
-                        time:
-                            walk.displayTime,
-                        details:
-                            walk.displayDetails,
-                        onTap: () {
-                          _showWalkDetails(
-                            walk,
-                          );
-                        },
+                      child: PastWalkCard(
+                        walk: walk,
+                        onTap: () =>
+                            _showWalkDetails(
+                          walk,
+                        ),
                       ),
                     );
                   },
@@ -725,176 +876,281 @@ class _PastWalksScreenState
     );
   }
 
+  // ============================================================
+  // WALK DETAILS
+  // ============================================================
+
   void _showWalkDetails(
     PastWalkModel walk,
   ) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor:
-          DojoWalkerColors.card,
       isScrollControlled: true,
-      shape:
-          const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
-      ),
+      backgroundColor:
+          Colors.transparent,
       builder: (
         BuildContext context,
       ) {
         return SafeArea(
-          child: SingleChildScrollView(
-            padding:
-                const EdgeInsets.fromLTRB(
-              20,
-              20,
-              20,
-              24,
+          child: Container(
+            constraints:
+                const BoxConstraints(
+              maxHeight: 620,
             ),
-            child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius:
+                  const BorderRadius.vertical(
+                top: Radius.circular(26),
+              ),
+            ),
+            child: SingleChildScrollView(
+              padding:
+                  const EdgeInsets.fromLTRB(
+                20,
+                12,
+                20,
+                28,
+              ),
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
                       decoration:
                           BoxDecoration(
-                        color:
-                            DojoWalkerColors.light,
+                        color: Colors.black26,
                         borderRadius:
-                            BorderRadius.circular(
-                          14,
+                            BorderRadius
+                                .circular(20),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  Row(
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration:
+                            BoxDecoration(
+                          color:
+                              DojoWalkerColors
+                                  .primary
+                                  .withOpacity(
+                            0.10,
+                          ),
+                          borderRadius:
+                              BorderRadius
+                                  .circular(
+                            16,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons
+                              .pets_rounded,
+                          color:
+                              DojoWalkerColors
+                                  .primary,
+                          size: 27,
                         ),
                       ),
-                      child: const Icon(
-                        Icons.pets_rounded,
-                        color:
-                            DojoWalkerColors.primary,
-                        size: 25,
+
+                      const SizedBox(width: 12),
+
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment
+                                  .start,
+                          children: [
+                            Text(
+                              walk.dogName
+                                      .isNotEmpty
+                                  ? walk.dogName
+                                  : 'Dog Walk',
+                              style:
+                                  const TextStyle(
+                                fontSize: 19,
+                                fontWeight:
+                                    FontWeight
+                                        .w800,
+                              ),
+                            ),
+                            const SizedBox(
+                              height: 3,
+                            ),
+                            Text(
+                              walk.dogBreed
+                                      .isNotEmpty
+                                  ? walk.dogBreed
+                                  : 'Completed Walk',
+                              style:
+                                  const TextStyle(
+                                fontSize: 13,
+                                color:
+                                    Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      Container(
+                        padding:
+                            const EdgeInsets
+                                .symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration:
+                            BoxDecoration(
+                          color: Colors.green
+                              .withOpacity(
+                            0.10,
+                          ),
+                          borderRadius:
+                              BorderRadius
+                                  .circular(
+                            20,
+                          ),
+                        ),
+                        child: const Text(
+                          'DONE',
+                          style: TextStyle(
+                            color:
+                                Colors.green,
+                            fontSize: 11,
+                            fontWeight:
+                                FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 22),
+
+                  _DetailRow(
+                    icon:
+                        Icons.confirmation_number_outlined,
+                    title: 'Walk ID',
+                    value:
+                        walk.displayId,
+                  ),
+
+                  _DetailRow(
+                    icon: Icons.person_outline,
+                    title: 'Owner',
+                    value:
+                        walk.ownerName.isNotEmpty
+                            ? walk.ownerName
+                            : '—',
+                  ),
+
+                  _DetailRow(
+                    icon:
+                        Icons.access_time_rounded,
+                    title: 'Time',
+                    value:
+                        walk.displayTime,
+                  ),
+
+                  _DetailRow(
+                    icon:
+                        Icons.route_rounded,
+                    title: 'Distance',
+                    value:
+                        walk.effectiveDistanceKm >
+                                0
+                            ? '${walk.effectiveDistanceKm.toStringAsFixed(1)} km'
+                            : '—',
+                  ),
+
+                  _DetailRow(
+                    icon:
+                        Icons.timer_outlined,
+                    title: 'Duration',
+                    value:
+                        walk.effectiveDurationMinutes >
+                                0
+                            ? '${walk.effectiveDurationMinutes.round()} min'
+                            : '—',
+                  ),
+
+                  _DetailRow(
+                    icon:
+                        Icons.water_drop_outlined,
+                    title: 'Pee',
+                    value:
+                        '${walk.peeCount}',
+                  ),
+
+                  _DetailRow(
+                    icon:
+                        Icons.circle_outlined,
+                    title: 'Poop',
+                    value:
+                        '${walk.poopCount}',
+                  ),
+
+                  if (walk.rating > 0)
+                    _DetailRow(
+                      icon:
+                          Icons.star_outline_rounded,
+                      title: 'Rating',
+                      value:
+                          '${walk.rating}/5',
+                    ),
+
+                  if (walk.walkerNote
+                      .isNotEmpty) ...[
+                    const SizedBox(
+                      height: 8,
+                    ),
+                    const Text(
+                      'Walker Note',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight:
+                            FontWeight.w800,
                       ),
                     ),
                     const SizedBox(
-                      width: 12,
+                      height: 6,
                     ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
-                        children: [
-                          Text(
-                            walk.displayId,
-                            style:
-                                const TextStyle(
-                              color:
-                                  DojoWalkerColors
-                                      .textPrimary,
-                              fontSize: 19,
-                              fontWeight:
-                                  FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(
-                            height: 3,
-                          ),
-                          Text(
-                            walk.status
-                                    .isEmpty
-                                ? 'Completed'
-                                : walk.status,
-                            style:
-                                const TextStyle(
-                              color:
-                                  DojoWalkerColors
-                                      .success,
-                              fontSize: 12,
-                              fontWeight:
-                                  FontWeight.w700,
-                            ),
-                          ),
-                        ],
+                    Container(
+                      width: double.infinity,
+                      padding:
+                          const EdgeInsets
+                              .all(14),
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            Colors.grey.shade100,
+                        borderRadius:
+                            BorderRadius
+                                .circular(
+                          14,
+                        ),
+                      ),
+                      child: Text(
+                        walk.walkerNote,
+                        style:
+                            const TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(
-                  height: 18,
-                ),
-                _DetailRow(
-                  label: 'Dog',
-                  value:
-                      walk.dogName.isEmpty
-                          ? '—'
-                          : walk.dogName,
-                ),
-                if (walk.dogBreed.isNotEmpty)
-                  _DetailRow(
-                    label: 'Breed',
-                    value:
-                        walk.dogBreed,
-                  ),
-                _DetailRow(
-                  label: 'Owner',
-                  value:
-                      walk.ownerName.isEmpty
-                          ? '—'
-                          : walk.ownerName,
-                ),
-                _DetailRow(
-                  label: 'Time',
-                  value:
-                      walk.displayTime,
-                ),
-                _DetailRow(
-                  label: 'Distance',
-                  value:
-                      walk.distanceKm > 0
-                          ? '${walk.distanceKm.toStringAsFixed(2)} km'
-                          : walk.routeDistanceKm >
-                                  0
-                              ? '${walk.routeDistanceKm.toStringAsFixed(2)} km'
-                              : '—',
-                ),
-                _DetailRow(
-                  label: 'Duration',
-                  value:
-                      walk.durationMinutes >
-                              0
-                          ? '${walk.durationMinutes.round()} min'
-                          : walk.routeDurationMinutes >
-                                  0
-                              ? '${walk.routeDurationMinutes.round()} min'
-                              : '—',
-                ),
-                _DetailRow(
-                  label: 'Pee',
-                  value:
-                      walk.peeCount.toString(),
-                ),
-                _DetailRow(
-                  label: 'Poop',
-                  value:
-                      walk.poopCount.toString(),
-                ),
-                _DetailRow(
-                  label: 'Rating',
-                  value:
-                      walk.rating > 0
-                          ? '${walk.rating}/5'
-                          : '—',
-                ),
-                if (walk.walkerNote
-                    .isNotEmpty)
-                  _DetailRow(
-                    label: 'Note',
-                    value:
-                        walk.walkerNote,
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -903,121 +1159,82 @@ class _PastWalksScreenState
   }
 }
 
+// ============================================================
+// WEEK ACTION TILE
+// ============================================================
+
 class _WeekActionTile
     extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final VoidCallback? onTap;
-  final bool enabled;
+  final VoidCallback onTap;
 
   const _WeekActionTile({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.onTap,
-    this.enabled = true,
   });
 
   @override
   Widget build(
     BuildContext context,
   ) {
-    return Opacity(
-      opacity:
-          enabled ? 1.0 : 0.45,
-      child: Material(
-        color:
-            DojoWalkerColors.background,
-        borderRadius:
-            BorderRadius.circular(16),
-        child: InkWell(
-          onTap:
-              enabled ? onTap : null,
+    return ListTile(
+      contentPadding:
+          const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 3,
+      ),
+      leading: Container(
+        width: 42,
+        height: 42,
+        decoration: BoxDecoration(
+          color: DojoWalkerColors.primary
+              .withOpacity(0.10),
           borderRadius:
-              BorderRadius.circular(16),
-          child: Padding(
-            padding:
-                const EdgeInsets.all(13),
-            child: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        DojoWalkerColors.light,
-                    borderRadius:
-                        BorderRadius.circular(
-                      12,
-                    ),
-                  ),
-                  child: Icon(
-                    icon,
-                    color:
-                        DojoWalkerColors.primary,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(
-                  width: 12,
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
-                    children: [
-                      Text(
-                        title,
-                        style:
-                            const TextStyle(
-                          color:
-                              DojoWalkerColors
-                                  .textPrimary,
-                          fontSize: 14,
-                          fontWeight:
-                              FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(
-                        height: 2,
-                      ),
-                      Text(
-                        subtitle,
-                        style:
-                            const TextStyle(
-                          color:
-                              DojoWalkerColors
-                                  .textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons
-                      .chevron_right_rounded,
-                  color:
-                      DojoWalkerColors.textMuted,
-                ),
-              ],
-            ),
-          ),
+              BorderRadius.circular(12),
+        ),
+        child: Icon(
+          icon,
+          color:
+              DojoWalkerColors.primary,
         ),
       ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(
+          fontSize: 12,
+          color: Colors.black54,
+        ),
+      ),
+      trailing: const Icon(
+        Icons.chevron_right_rounded,
+      ),
+      onTap: onTap,
     );
   }
 }
 
+// ============================================================
+// EMPTY STATE
+// ============================================================
+
 class _EmptyState
     extends StatelessWidget {
   final String filterValue;
+  final VoidCallback onChangeFilter;
 
   const _EmptyState({
     required this.filterValue,
+    required this.onChangeFilter,
   });
 
   @override
@@ -1033,48 +1250,56 @@ class _EmptyState
               MainAxisAlignment.center,
           children: [
             Container(
-              width: 72,
-              height: 72,
-              decoration:
-                  const BoxDecoration(
-                color:
-                    DojoWalkerColors.light,
+              width: 82,
+              height: 82,
+              decoration: BoxDecoration(
+                color: DojoWalkerColors
+                    .primary
+                    .withOpacity(0.10),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.pets_rounded,
+                Icons
+                    .directions_walk_rounded,
                 color:
                     DojoWalkerColors.primary,
-                size: 34,
+                size: 38,
               ),
             ),
-            const SizedBox(
-              height: 16,
-            ),
+
+            const SizedBox(height: 18),
+
             const Text(
               'No Past Walks',
+              textAlign: TextAlign.center,
               style: TextStyle(
-                color:
-                    DojoWalkerColors.textPrimary,
                 fontSize: 19,
                 fontWeight:
                     FontWeight.w800,
               ),
             ),
-            const SizedBox(
-              height: 6,
-            ),
+
+            const SizedBox(height: 7),
+
             Text(
               'No completed walks found for\n$filterValue.',
-              textAlign:
-                  TextAlign.center,
-              style:
-                  const TextStyle(
-                color:
-                    DojoWalkerColors
-                        .textSecondary,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
                 fontSize: 13,
+                color: Colors.black54,
                 height: 1.4,
+              ),
+            ),
+
+            const SizedBox(height: 18),
+
+            OutlinedButton.icon(
+              onPressed: onChangeFilter,
+              icon: const Icon(
+                Icons.filter_alt_outlined,
+              ),
+              label: const Text(
+                'Change Filter',
               ),
             ),
           ],
@@ -1084,12 +1309,18 @@ class _EmptyState
   }
 }
 
+// ============================================================
+// ERROR STATE
+// ============================================================
+
 class _ErrorState
     extends StatelessWidget {
   final String message;
+  final VoidCallback onRetry;
 
   const _ErrorState({
     required this.message,
+    required this.onRetry,
   });
 
   @override
@@ -1105,25 +1336,29 @@ class _ErrorState
               MainAxisAlignment.center,
           children: [
             const Icon(
-              Icons.cloud_off_rounded,
-              color:
-                  DojoWalkerColors.textSecondary,
-              size: 44,
+              Icons
+                  .error_outline_rounded,
+              size: 52,
+              color: Colors.redAccent,
             ),
-            const SizedBox(
-              height: 12,
-            ),
+
+            const SizedBox(height: 14),
+
             Text(
               message,
-              textAlign:
-                  TextAlign.center,
-              style:
-                  const TextStyle(
-                color:
-                    DojoWalkerColors.textPrimary,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
                 fontSize: 14,
-                fontWeight:
-                    FontWeight.w600,
+                color: Colors.black54,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            ElevatedButton(
+              onPressed: onRetry,
+              child: const Text(
+                'Retry',
               ),
             ),
           ],
@@ -1133,13 +1368,19 @@ class _ErrorState
   }
 }
 
+// ============================================================
+// DETAIL ROW
+// ============================================================
+
 class _DetailRow
     extends StatelessWidget {
-  final String label;
+  final IconData icon;
+  final String title;
   final String value;
 
   const _DetailRow({
-    required this.label,
+    required this.icon,
+    required this.title,
     required this.value,
   });
 
@@ -1149,35 +1390,39 @@ class _DetailRow
   ) {
     return Padding(
       padding:
-          const EdgeInsets.symmetric(
-        vertical: 6,
+          const EdgeInsets.only(
+        bottom: 13,
       ),
       child: Row(
         crossAxisAlignment:
             CrossAxisAlignment.start,
         children: [
+          Icon(
+            icon,
+            size: 19,
+            color: Colors.black54,
+          ),
+
+          const SizedBox(width: 12),
+
           SizedBox(
-            width: 90,
+            width: 82,
             child: Text(
-              label,
-              style:
-                  const TextStyle(
-                color:
-                    DojoWalkerColors
-                        .textSecondary,
+              title,
+              style: const TextStyle(
                 fontSize: 13,
-                fontWeight:
-                    FontWeight.w600,
+                color: Colors.black54,
               ),
             ),
           ),
+
+          const SizedBox(width: 8),
+
           Expanded(
             child: Text(
               value,
-              style:
-                  const TextStyle(
-                color:
-                    DojoWalkerColors.textPrimary,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
                 fontSize: 13,
                 fontWeight:
                     FontWeight.w700,
