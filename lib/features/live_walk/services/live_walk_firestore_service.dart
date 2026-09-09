@@ -20,6 +20,12 @@ class LiveWalkFirestoreService {
             'liveWalkSessions',
           );
 
+  CollectionReference<Map<String, dynamic>>
+      get _walkRequests =>
+          _firestore.collection(
+            'walk_request',
+          );
+
   // ============================================================
   // REQUEST ID VALIDATION
   //
@@ -49,14 +55,9 @@ class LiveWalkFirestoreService {
   // ============================================================
   // GET SESSION
   //
-  // One Walk = One Live Session.
-  //
   // Firestore:
   //
   // liveWalkSessions/{requestId}
-  //
-  // Example:
-  // liveWalkSessions/DW000001
   // ============================================================
 
   Future<Map<String, dynamic>?> getSession(
@@ -91,8 +92,6 @@ class LiveWalkFirestoreService {
 
     // ==========================================================
     // VERIFY REQUEST ID
-    //
-    // Document ID is authoritative.
     // ==========================================================
 
     final String storedRequestId =
@@ -174,9 +173,6 @@ class LiveWalkFirestoreService {
 
       // --------------------------------------------------------
       // IDENTIFIERS
-      //
-      // One Walk = One Session.
-      // requestId is the canonical ID.
       // --------------------------------------------------------
 
       'requestId':
@@ -293,13 +289,9 @@ class LiveWalkFirestoreService {
     };
 
     // ==========================================================
-    // WRITE TO CANONICAL DOCUMENT
+    // WRITE TO CANONICAL LIVE SESSION
     //
-    // IMPORTANT:
-    // Firestore document ID = requestId.
-    //
-    // Example:
-    // liveWalkSessions/DW000001
+    // liveWalkSessions/{requestId}
     // ==========================================================
 
     await _sessions
@@ -310,5 +302,149 @@ class LiveWalkFirestoreService {
             merge: true,
           ),
         );
+  }
+
+  // ============================================================
+  // COMPLETE WALK
+  //
+  // IMPORTANT:
+  //
+  // One Walk = One Request = One Live Session
+  //
+  // requestId is the canonical ID.
+  //
+  // This updates BOTH:
+  //
+  // liveWalkSessions/{requestId}
+  // walk_request/{requestId}
+  //
+  // Final request status:
+  //
+  // accepted -> completed
+  // ============================================================
+
+  Future<void> completeWalk({
+    required String requestId,
+  }) async {
+    final User? user =
+        _auth.currentUser;
+
+    if (user == null) {
+      throw StateError(
+        'Walker is not authenticated.',
+      );
+    }
+
+    final String cleanRequestId =
+        requestId.trim();
+
+    if (cleanRequestId.isEmpty) {
+      throw ArgumentError(
+        'requestId cannot be empty.',
+      );
+    }
+
+    if (!_isValidRequestId(
+      cleanRequestId,
+    )) {
+      throw ArgumentError(
+        'Invalid requestId: $cleanRequestId',
+      );
+    }
+
+    // ==========================================================
+    // ATOMIC BATCH
+    //
+    // Both documents are updated together.
+    // ==========================================================
+
+    final WriteBatch batch =
+        _firestore.batch();
+
+    // ----------------------------------------------------------
+    // LIVE SESSION
+    // ----------------------------------------------------------
+
+    final DocumentReference<Map<String, dynamic>>
+        sessionRef =
+        _sessions.doc(
+      cleanRequestId,
+    );
+
+    batch.set(
+      sessionRef,
+      <String, dynamic>{
+        'requestId':
+            cleanRequestId,
+
+        'sessionId':
+            cleanRequestId,
+
+        'walkerUid':
+            user.uid,
+
+        'status':
+            'completed',
+
+        'walkEnded':
+            true,
+
+        'trackingEnded':
+            true,
+
+        'completedAt':
+            FieldValue
+                .serverTimestamp(),
+
+        'endedAt':
+            FieldValue
+                .serverTimestamp(),
+
+        'updatedAt':
+            FieldValue
+                .serverTimestamp(),
+      },
+      SetOptions(
+        merge: true,
+      ),
+    );
+
+    // ----------------------------------------------------------
+    // WALK REQUEST
+    //
+    // THIS IS THE IMPORTANT FIX.
+    //
+    // walk_request/{requestId}
+    //
+    // accepted -> completed
+    // ----------------------------------------------------------
+
+    final DocumentReference<Map<String, dynamic>>
+        requestRef =
+        _walkRequests.doc(
+      cleanRequestId,
+    );
+
+    batch.update(
+      requestRef,
+      <String, dynamic>{
+        'status':
+            'completed',
+
+        'completedAt':
+            FieldValue
+                .serverTimestamp(),
+
+        'updatedAt':
+            FieldValue
+                .serverTimestamp(),
+      },
+    );
+
+    // ==========================================================
+    // COMMIT
+    // ==========================================================
+
+    await batch.commit();
   }
 }
