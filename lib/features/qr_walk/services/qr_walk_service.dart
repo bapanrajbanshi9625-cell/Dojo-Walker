@@ -1,6 +1,7 @@
 // File:
 // lib/features/qr_walk/services/qr_walk_service.dart
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
