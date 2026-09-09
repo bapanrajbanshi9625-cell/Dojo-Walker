@@ -247,7 +247,22 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
       // ======================================================
       // PROCESS QR
+      //
+      // IMPORTANT:
+      // _pickQrFromGallery() already set _isProcessing = true.
+      // _processQr() also checks _isProcessing at the beginning.
+      //
+      // Reset it here so _processQr() can take over normally.
+      // No QR/Firebase/Live Walk logic is changed.
       // ======================================================
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isProcessing = false;
+      });
 
       await _processQr(qrValue);
     } catch (error) {
