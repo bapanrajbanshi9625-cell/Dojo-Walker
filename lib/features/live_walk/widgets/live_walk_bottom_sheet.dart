@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../communication/screens/chat_sheet.dart';
+import '../../contacts/screens/chat_sheet.dart';
 import 'live_walk_complete_slider.dart';
 
 class LiveWalkBottomSheet extends StatelessWidget {
