@@ -13,6 +13,7 @@ import '../models/insta_walk_request.dart';
 import '../services/insta_walk_accept_service.dart';
 import '../services/insta_walk_reach_service.dart';
 import '../services/insta_walk_reject_service.dart';
+import '../services/walker_route_service.dart';
 import '../widgets/incoming_walk_bottom_panel.dart';
 import '../widgets/incoming_walk_map.dart';
 import '../widgets/incoming_walk_top_bar.dart';
@@ -47,36 +48,16 @@ class _IncomingWalkRequestScreenState
   final InstaWalkReachService _reachService =
       InstaWalkReachService.instance;
 
-  // ============================================================
-  // CANONICAL GPS SERVICE
-  //
-  // IMPORTANT:
-  // This screen NEVER starts or stops GPS.
-  //
-  // GPS lifecycle:
-  //
-  // ACCEPT  -> GPS ON
-  // REACHED -> GPS stays ON
-  // LIVE    -> GPS stays ON
-  // COMPLETE -> GPS OFF
-  //
-  // The actual GPS owner is:
-  // WalkerLocationService.instance
-  // ============================================================
-
   final WalkerLocationService _locationService =
       WalkerLocationService.instance;
 
-  // ============================================================
-  // LOCAL LOCATION SUBSCRIPTION
-  //
-  // This subscription only listens to the canonical GPS stream.
-  // It does NOT control GPS lifecycle.
-  // ============================================================
+  final WalkerRouteService _routeService =
+      WalkerRouteService.instance;
 
   StreamSubscription<Position>? _locationSubscription;
 
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+  StreamSubscription<
+      DocumentSnapshot<Map<String, dynamic>>>?
       _requestSubscription;
 
   Position? _walkerPosition;
@@ -90,6 +71,21 @@ class _IncomingWalkRequestScreenState
   bool _leavingScreen = false;
 
   double _distanceMeters = 0;
+
+  // ============================================================
+  // ROAD ROUTE
+  // ============================================================
+
+  List<LatLng> _routePoints =
+      <LatLng>[];
+
+  LatLng? _lastRouteStart;
+
+  bool _routeLoading = false;
+
+  // Refresh road route after approximately 50m movement.
+  static const double _routeRefreshDistanceMeters =
+      50;
 
   // ============================================================
   // OWNER DATA
@@ -125,7 +121,9 @@ class _IncomingWalkRequestScreenState
     final String value =
         widget.request.ownerName.trim();
 
-    return value.isEmpty ? 'Owner' : value;
+    return value.isEmpty
+        ? 'Owner'
+        : value;
   }
 
   String get _ownerPhone {
@@ -159,7 +157,9 @@ class _IncomingWalkRequestScreenState
     final String value =
         widget.request.dogName.trim();
 
-    return value.isEmpty ? 'Your Pet' : value;
+    return value.isEmpty
+        ? 'Your Pet'
+        : value;
   }
 
   String get _dogBreed {
@@ -182,12 +182,7 @@ class _IncomingWalkRequestScreenState
   }
 
   // ============================================================
-  // CANONICAL WALK REQUEST ID
-  //
-  // walk_request/{requestId}
-  //
-  // Example:
-  // walk_request/DW000001
+  // REQUEST ID
   // ============================================================
 
   String get _requestId {
@@ -203,26 +198,14 @@ class _IncomingWalkRequestScreenState
     super.initState();
 
     _accepted =
-        widget.request.status.trim().toLowerCase() ==
+        widget.request.status
+                .trim()
+                .toLowerCase() ==
             'accepted';
-
-    // ----------------------------------------------------------
-    // IMPORTANT:
-    //
-    // We only LISTEN to the canonical GPS service.
-    //
-    // We do NOT call startTracking() here.
-    //
-    // AcceptService is the ONLY GPS ON guard.
-    // ----------------------------------------------------------
 
     _listenToCanonicalLocation();
 
     _startRequestMonitoring();
-
-    // ----------------------------------------------------------
-    // Before acceptance, GPS is intentionally not required.
-    // ----------------------------------------------------------
 
     if (!_accepted && mounted) {
       _loadingLocation = false;
@@ -247,14 +230,6 @@ class _IncomingWalkRequestScreenState
       cancelOnError: false,
     );
 
-    // ----------------------------------------------------------
-    // If GPS is already running and a position is available,
-    // immediately use it.
-    //
-    // This is especially useful when this screen is restored
-    // after acceptance.
-    // ----------------------------------------------------------
-
     final Position? currentPosition =
         _locationService.currentPosition;
 
@@ -272,7 +247,8 @@ class _IncomingWalkRequestScreenState
   // ============================================================
 
   void _startRequestMonitoring() {
-    final String requestId = _requestId;
+    final String requestId =
+        _requestId;
 
     if (requestId.isEmpty) {
       debugPrint(
@@ -281,16 +257,20 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    final DocumentReference<Map<String, dynamic>> requestRef =
+    final DocumentReference<
+        Map<String, dynamic>> requestRef =
         _firestore
             .collection('walk_request')
             .doc(requestId);
 
-    _requestSubscription = requestRef.snapshots().listen(
+    _requestSubscription =
+        requestRef.snapshots().listen(
       (
-        DocumentSnapshot<Map<String, dynamic>> snapshot,
+        DocumentSnapshot<
+            Map<String, dynamic>> snapshot,
       ) {
-        if (!mounted || _leavingScreen) {
+        if (!mounted ||
+            _leavingScreen) {
           return;
         }
 
@@ -321,43 +301,26 @@ class _IncomingWalkRequestScreenState
                     .trim() ??
                 '';
 
-        // --------------------------------------------------------
-        // CURRENT WALKER ACCEPTED
-        // --------------------------------------------------------
-
         if (status == 'accepted' &&
             _isCurrentWalker(walkerUid)) {
           if (!_accepted) {
             setState(() {
               _accepted = true;
-              _loadingLocation = true;
+              _loadingLocation =
+                  _locationService.currentPosition ==
+                      null;
             });
-
-            // ----------------------------------------------------
-            // IMPORTANT:
-            //
-            // Do NOT start GPS here.
-            //
-            // acceptWalk() already started canonical GPS.
-            // ----------------------------------------------------
           }
 
           return;
         }
 
-        // --------------------------------------------------------
-        // REQUEST IS STILL SEARCHING
-        // --------------------------------------------------------
-
         if (status == 'searching') {
           return;
         }
 
-        // --------------------------------------------------------
-        // SOMEONE ELSE ACCEPTED / REQUEST CHANGED
-        // --------------------------------------------------------
-
-        if (!_accepted && status.isNotEmpty) {
+        if (!_accepted &&
+            status.isNotEmpty) {
           _handleRequestUnavailable(
             'This walk has already been accepted by another Walker.',
           );
@@ -412,7 +375,9 @@ class _IncomingWalkRequestScreenState
     _showMessage(message);
 
     Future<void>.delayed(
-      const Duration(milliseconds: 900),
+      const Duration(
+        milliseconds: 900,
+      ),
       () {
         if (!mounted) {
           return;
@@ -425,8 +390,6 @@ class _IncomingWalkRequestScreenState
 
   // ============================================================
   // UPDATE WALKER LOCATION
-  //
-  // This receives locations from the ONE canonical GPS stream.
   // ============================================================
 
   void _updateWalkerLocation(
@@ -460,6 +423,110 @@ class _IncomingWalkRequestScreenState
       _distanceMeters = distance;
       _loadingLocation = false;
     });
+
+    // ----------------------------------------------------------
+    // ROAD ROUTE REFRESH
+    // ----------------------------------------------------------
+
+    if (_accepted) {
+      _maybeRefreshRoute(
+        position,
+      );
+    }
+  }
+
+  // ============================================================
+  // ROAD ROUTE
+  // ============================================================
+
+  Future<void> _maybeRefreshRoute(
+    Position position,
+  ) async {
+    final double? ownerLatitude =
+        _ownerLatitude;
+
+    final double? ownerLongitude =
+        _ownerLongitude;
+
+    if (ownerLatitude == null ||
+        ownerLongitude == null) {
+      return;
+    }
+
+    final LatLng newStart =
+        LatLng(
+      position.latitude,
+      position.longitude,
+    );
+
+    final LatLng destination =
+        LatLng(
+      ownerLatitude,
+      ownerLongitude,
+    );
+
+    final LatLng? previousStart =
+        _lastRouteStart;
+
+    if (_routeLoading) {
+      return;
+    }
+
+    if (previousStart != null) {
+      final double moved =
+          Geolocator.distanceBetween(
+        previousStart.latitude,
+        previousStart.longitude,
+        newStart.latitude,
+        newStart.longitude,
+      );
+
+      if (moved <
+          _routeRefreshDistanceMeters) {
+        return;
+      }
+    }
+
+    _lastRouteStart =
+        newStart;
+
+    _routeLoading = true;
+
+    try {
+      final List<LatLng> route =
+          await _routeService.getRoute(
+        start: newStart,
+        destination: destination,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (route.length >= 2) {
+        setState(() {
+          _routePoints =
+              List<LatLng>.unmodifiable(
+            route,
+          );
+        });
+      }
+    } catch (error) {
+      debugPrint(
+        'Incoming walk road route error: $error',
+      );
+
+      // --------------------------------------------------------
+      // IMPORTANT:
+      //
+      // Do NOT replace a valid road route with a straight line.
+      //
+      // If the next route request fails, the previous valid route
+      // remains visible.
+      // --------------------------------------------------------
+    } finally {
+      _routeLoading = false;
+    }
   }
 
   // ============================================================
@@ -528,7 +595,8 @@ class _IncomingWalkRequestScreenState
       return '—';
     }
 
-    const double walkingSpeedKmH = 5;
+    const double walkingSpeedKmH =
+        5;
 
     final double minutes =
         (_distanceMeters / 1000) /
@@ -537,9 +605,9 @@ class _IncomingWalkRequestScreenState
 
     final int rounded =
         math.max(
-          1,
-          minutes.ceil(),
-        );
+      1,
+      minutes.ceil(),
+    );
 
     return '$rounded min';
   }
@@ -569,11 +637,6 @@ class _IncomingWalkRequestScreenState
 
   // ============================================================
   // ACCEPT WALK
-  //
-  // ACCEPT = GPS ON
-  //
-  // InstaWalkAcceptService is responsible for starting the
-  // canonical WalkerLocationService.
   // ============================================================
 
   Future<void> _acceptWalk() async {
@@ -610,12 +673,6 @@ class _IncomingWalkRequestScreenState
     });
 
     try {
-      // --------------------------------------------------------
-      // ACCEPT SERVICE
-      //
-      // This is the GPS ON guard.
-      // --------------------------------------------------------
-
       await _acceptService.acceptWalk(
         requestId,
       );
@@ -626,8 +683,19 @@ class _IncomingWalkRequestScreenState
 
       setState(() {
         _accepted = true;
-        _loadingLocation = true;
+        _loadingLocation =
+            _locationService.currentPosition ==
+                null;
       });
+
+      final Position? currentPosition =
+          _locationService.currentPosition;
+
+      if (currentPosition != null) {
+        _updateWalkerLocation(
+          currentPosition,
+        );
+      }
 
       _showMessage(
         'Walk accepted. Please reach the owner.',
@@ -653,9 +721,6 @@ class _IncomingWalkRequestScreenState
 
   // ============================================================
   // REJECT WALK
-  //
-  // Reject is BEFORE acceptance, so GPS has not been started
-  // by this screen.
   // ============================================================
 
   Future<void> _rejectWalk() async {
@@ -682,7 +747,8 @@ class _IncomingWalkRequestScreenState
           title: const Text(
             'Reject Walk?',
             style: TextStyle(
-              fontWeight: FontWeight.w900,
+              fontWeight:
+                  FontWeight.w900,
             ),
           ),
           content: const Text(
@@ -691,25 +757,25 @@ class _IncomingWalkRequestScreenState
           actions: <Widget>[
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(
-                  false,
-                );
+                Navigator.of(
+                  dialogContext,
+                ).pop(false);
               },
-              child: const Text(
-                'CANCEL',
-              ),
+              child:
+                  const Text('CANCEL'),
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(
-                  true,
-                );
+                Navigator.of(
+                  dialogContext,
+                ).pop(true);
               },
               child: const Text(
                 'REJECT',
                 style: TextStyle(
                   color: Colors.red,
-                  fontWeight: FontWeight.w900,
+                  fontWeight:
+                      FontWeight.w900,
                 ),
               ),
             ),
@@ -770,28 +836,6 @@ class _IncomingWalkRequestScreenState
 
   // ============================================================
   // REACH OWNER
-  //
-  // IMPORTANT:
-  //
-  // REACHED DOES NOT TURN GPS OFF.
-  //
-  // GPS remains owned by WalkerLocationService.
-  //
-  // Flow:
-  //
-  // ACCEPT
-  //   ↓
-  // GPS ON
-  //   ↓
-  // WALK TO OWNER
-  //   ↓
-  // WITHIN 100m
-  //   ↓
-  // REACHED
-  //   ↓
-  // GPS STILL ON
-  //   ↓
-  // LIVE WALK
   // ============================================================
 
   Future<void> _reachOwner() async {
@@ -801,10 +845,6 @@ class _IncomingWalkRequestScreenState
         _leavingScreen) {
       return;
     }
-
-    // ----------------------------------------------------------
-    // OWNER LOCATION
-    // ----------------------------------------------------------
 
     final double? ownerLatitude =
         _ownerLatitude;
@@ -820,20 +860,12 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    // ----------------------------------------------------------
-    // WALKER LOCATION
-    // ----------------------------------------------------------
-
     if (_walkerPosition == null) {
       _showMessage(
         'Your current location is unavailable.',
       );
       return;
     }
-
-    // ----------------------------------------------------------
-    // DISTANCE
-    // ----------------------------------------------------------
 
     if (_distanceMeters > 100) {
       _showMessage(
@@ -842,27 +874,15 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    // ----------------------------------------------------------
-    // CANONICAL REQUEST ID
-    // ----------------------------------------------------------
-
     final String requestId =
         _requestId;
 
     if (requestId.isEmpty) {
-      debugPrint(
-        'REACH ERROR: requestId is empty.',
-      );
-
       _showMessage(
         'Walk ID is missing from the accepted walk request.',
       );
       return;
     }
-
-    // ----------------------------------------------------------
-    // FIREBASE AUTH USER
-    // ----------------------------------------------------------
 
     final User? currentUser =
         _auth.currentUser;
@@ -884,10 +904,6 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    // ----------------------------------------------------------
-    // WALKER ID
-    // ----------------------------------------------------------
-
     final String walkerId =
         _walkerId;
 
@@ -903,15 +919,8 @@ class _IncomingWalkRequestScreenState
     });
 
     try {
-      // --------------------------------------------------------
-      // CREATE LIVE WALK SESSION
-      //
-      // liveWalkSessions/{requestId}
-      //
-      // SAME CANONICAL WALK ID.
-      // --------------------------------------------------------
-
-      await _reachService.createLiveWalkSession(
+      await _reachService
+          .createLiveWalkSession(
         walkRequestId: requestId,
         walkerUid: walkerUid,
         walkerId: walkerId,
@@ -921,28 +930,14 @@ class _IncomingWalkRequestScreenState
         return;
       }
 
-      // --------------------------------------------------------
-      // STOP REQUEST MONITOR
-      // --------------------------------------------------------
-
       await _requestSubscription?.cancel();
 
       _requestSubscription = null;
 
       // --------------------------------------------------------
-      // IMPORTANT:
+      // Cancel only this screen's listener.
       //
-      // DO NOT STOP GPS HERE.
-      //
-      // The old code cancelled the local GPS stream because
-      // LiveWalkScreen was expected to manage GPS.
-      //
-      // That architecture is now removed.
-      //
-      // Canonical GPS continues running.
-      //
-      // We only cancel THIS SCREEN'S local listener.
-      // WalkerLocationService itself remains ON.
+      // Canonical GPS remains ON.
       // --------------------------------------------------------
 
       await _locationSubscription?.cancel();
@@ -955,18 +950,11 @@ class _IncomingWalkRequestScreenState
 
       _leavingScreen = true;
 
-      // --------------------------------------------------------
-      // OPEN LIVE WALK
-      //
-      // LiveWalkScreen will attach to the same canonical GPS
-      // service through LiveWalkBackgroundService.
-      // --------------------------------------------------------
-
-      await Navigator.of(context).pushReplacement(
+      await Navigator.of(context)
+          .pushReplacement(
         MaterialPageRoute<void>(
-          builder: (
-            BuildContext context,
-          ) {
+          builder:
+              (BuildContext context) {
             return LiveWalkStartScreen(
               ownerUid: _ownerUid,
               ownerName: _ownerName,
@@ -1013,22 +1001,16 @@ class _IncomingWalkRequestScreenState
           const Color(0xFFE9EEF3),
       body: Stack(
         children: <Widget>[
-          // ======================================================
-          // MAP
-          // ======================================================
-
           Positioned.fill(
             child: IncomingWalkMap(
               walkerLocation:
                   _walkerLocation,
               ownerLocation:
                   _ownerLocation,
+              routePoints:
+                  _routePoints,
             ),
           ),
-
-          // ======================================================
-          // TOP BAR
-          // ======================================================
 
           Positioned(
             top: 0,
@@ -1046,15 +1028,12 @@ class _IncomingWalkRequestScreenState
             ),
           ),
 
-          // ======================================================
-          // BOTTOM PANEL
-          // ======================================================
-
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: IncomingWalkBottomPanel(
+            child:
+                IncomingWalkBottomPanel(
               dogName:
                   _dogName,
               dogBreed:
@@ -1092,26 +1071,21 @@ class _IncomingWalkRequestScreenState
             ),
           ),
 
-          // ======================================================
-          // LOCATION LOADING
-          // ======================================================
+          // ----------------------------------------------------
+          // IMPORTANT:
+          //
+          // Do not lock the entire screen while waiting for GPS.
+          // GPS may take a few seconds to provide the first fix.
+          // The user can still see/use the accepted screen.
+          // ----------------------------------------------------
 
-          if (_loadingLocation && _accepted)
-            const Positioned.fill(
-              child: IgnorePointer(
-                child: ColoredBox(
-                  color: Colors.white70,
-                  child: Center(
-                    child:
-                        CircularProgressIndicator(),
-                  ),
-                ),
-              ),
+          if (_loadingLocation &&
+              _accepted)
+            const Positioned(
+              top: 86,
+              right: 14,
+              child: _LocationLoadingBadge(),
             ),
-
-          // ======================================================
-          // REQUEST UNAVAILABLE
-          // ======================================================
 
           if (_requestUnavailable)
             const Positioned.fill(
@@ -1176,16 +1150,6 @@ class _IncomingWalkRequestScreenState
 
   // ============================================================
   // DISPOSE
-  //
-  // IMPORTANT:
-  //
-  // We cancel only this screen's subscription.
-  //
-  // We DO NOT call:
-  //
-  // _locationService.stopTracking()
-  //
-  // because GPS must remain ON until Complete.
   // ============================================================
 
   @override
@@ -1199,5 +1163,56 @@ class _IncomingWalkRequestScreenState
     );
 
     super.dispose();
+  }
+}
+
+class _LocationLoadingBadge
+    extends StatelessWidget {
+  const _LocationLoadingBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      elevation: 4,
+      borderRadius:
+          BorderRadius.circular(18),
+      child: Padding(
+        padding:
+            const EdgeInsets.symmetric(
+          horizontal: 11,
+          vertical: 8,
+        ),
+        child: Row(
+          mainAxisSize:
+              MainAxisSize.min,
+          children: <Widget>[
+            SizedBox(
+              width: 13,
+              height: 13,
+              child:
+                  CircularProgressIndicator(
+                strokeWidth: 2,
+                color: const Color(
+                  0xFF1976D2,
+                ),
+              ),
+            ),
+            const SizedBox(width: 7),
+            const Text(
+              'Getting location',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight:
+                    FontWeight.w800,
+                color: Color(
+                  0xFF374151,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
