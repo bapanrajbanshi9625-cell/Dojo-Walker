@@ -6,8 +6,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../controllers/live_walk_session_controller.dart';
+import '../widgets/live_walk_app_bar.dart';
 import '../widgets/live_walk_bottom_sheet.dart';
-import '../widgets/live_walk_map_layer.dart';
+import '../widgets/live_walk_map.dart';
 
 class LiveWalkScreen extends StatefulWidget {
   const LiveWalkScreen({
@@ -134,75 +135,10 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
         return Scaffold(
           backgroundColor: Colors.white,
-          extendBodyBehindAppBar: true,
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            backgroundColor: Colors.transparent,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            centerTitle: true,
-            title: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(
-                  alpha: .94,
-                ),
-                borderRadius:
-                    BorderRadius.circular(22),
-                boxShadow: const <BoxShadow>[
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 10,
-                    offset: Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: const Text(
-                'LIVE WALK',
-                style: TextStyle(
-                  color: AppColors.secondary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: .7,
-                ),
-              ),
-            ),
-            actions: <Widget>[
-              Padding(
-                padding: const EdgeInsets.only(
-                  right: 8,
-                ),
-                child: Row(
-                  children: <Widget>[
-                    _topActionButton(
-                      icon: Icons.sos_rounded,
-                      tooltip: 'SOS',
-                      onPressed:
-                          ending ? null : _openSos,
-                      iconColor:
-                          AppColors.error,
-                    ),
-                    const SizedBox(
-                      width: 8,
-                    ),
-                    _topActionButton(
-                      icon:
-                          Icons.support_agent_rounded,
-                      tooltip: 'Support',
-                      onPressed:
-                          ending
-                              ? null
-                              : _openSupport,
-                      iconColor:
-                          AppColors.primary,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          appBar: LiveWalkAppBar(
+            enabled: !ending,
+            onSos: _openSos,
+            onSupport: _openSupport,
           ),
           body: Stack(
             children: <Widget>[
@@ -211,10 +147,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               // ==================================================
 
               Positioned.fill(
-                child: LiveWalkMapLayer(
+                child: LiveWalkMap(
                   sessionData: sessionData,
-                  gpsReady:
-                      _controller.gpsReady,
                 ),
               ),
 
@@ -247,34 +181,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           ),
         );
       },
-    );
-  }
-
-  // ============================================================
-  // TOP ACTION BUTTON
-  // ============================================================
-
-  Widget _topActionButton({
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback? onPressed,
-    required Color iconColor,
-  }) {
-    return Material(
-      color: Colors.white.withValues(
-        alpha: .95,
-      ),
-      shape: const CircleBorder(),
-      elevation: 2,
-      child: IconButton(
-        tooltip: tooltip,
-        onPressed: onPressed,
-        icon: Icon(
-          icon,
-          color: iconColor,
-          size: 22,
-        ),
-      ),
     );
   }
 
@@ -420,20 +326,15 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         BuildContext dialogContext,
       ) {
         return AlertDialog(
-          backgroundColor:
-              Colors.white,
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(20),
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
           title: const Text(
             'Complete Walk?',
             style: TextStyle(
-              color:
-                  AppColors.secondary,
-              fontWeight:
-                  FontWeight.w900,
+              color: AppColors.secondary,
+              fontWeight: FontWeight.w900,
             ),
           ),
           content: const Text(
@@ -453,10 +354,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               child: const Text(
                 'Cancel',
                 style: TextStyle(
-                  color:
-                      AppColors.secondary,
-                  fontWeight:
-                      FontWeight.w800,
+                  color: AppColors.secondary,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
@@ -470,19 +369,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                   _completeWalk(),
                 );
               },
-              style:
-                  ElevatedButton.styleFrom(
-                backgroundColor:
-                    AppColors.primary,
-                foregroundColor:
-                    Colors.white,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
                 elevation: 0,
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    12,
-                  ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               child: const Text(
@@ -525,15 +417,13 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
       final double distance =
           _readDouble(
-                resultSessionData[
-                    'distanceKm'],
+                resultSessionData['distanceKm'],
               ) ??
               _controller.totalDistanceKm;
 
       final int steps =
           _readInt(
-                resultSessionData[
-                    'steps'],
+                resultSessionData['steps'],
               ) ??
               _controller.steps;
 
@@ -542,8 +432,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         resultSessionData,
       );
 
-      final List<Offset>
-          routePoints =
+      final List<Offset> routePoints =
           _extractRoutePoints(
         resultSessionData,
       );
@@ -597,16 +486,13 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor:
-          Colors.transparent,
+      backgroundColor: Colors.transparent,
       builder: (
         BuildContext sheetContext,
       ) {
         return _SosSheet(
-          ownerName:
-              widget.ownerName,
-          ownerPhone:
-              widget.ownerPhone,
+          ownerName: widget.ownerName,
+          ownerPhone: widget.ownerPhone,
         );
       },
     );
@@ -623,91 +509,64 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor:
-          Colors.transparent,
+      backgroundColor: Colors.transparent,
       builder: (
         BuildContext sheetContext,
       ) {
         return Container(
-          padding:
-              const EdgeInsets.fromLTRB(
+          padding: const EdgeInsets.fromLTRB(
             20,
             14,
             20,
             25,
           ),
-          decoration:
-              const BoxDecoration(
-            color:
-                AppColors.cardBackground,
-            borderRadius:
-                BorderRadius.vertical(
-              top:
-                  Radius.circular(25),
+          decoration: const BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(25),
             ),
           ),
           child: SafeArea(
             child: Column(
-              mainAxisSize:
-                  MainAxisSize.min,
+              mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 Container(
                   width: 42,
                   height: 5,
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        AppColors.border,
-                    borderRadius:
-                        BorderRadius.circular(
-                      10,
-                    ),
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
-                const SizedBox(
-                  height: 18,
-                ),
+                const SizedBox(height: 18),
                 const Icon(
-                  Icons
-                      .support_agent_rounded,
-                  color:
-                      AppColors.primary,
+                  Icons.support_agent_rounded,
+                  color: AppColors.primary,
                   size: 38,
                 ),
-                const SizedBox(
-                  height: 10,
-                ),
+                const SizedBox(height: 10),
                 const Text(
                   'Walk Support',
                   style: TextStyle(
-                    color:
-                        AppColors.secondary,
+                    color: AppColors.secondary,
                     fontSize: 19,
-                    fontWeight:
-                        FontWeight.w900,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(
-                  height: 6,
-                ),
+                const SizedBox(height: 6),
                 const Text(
                   'Need help during this walk?',
-                  textAlign:
-                      TextAlign.center,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.grey,
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(
-                  height: 18,
-                ),
+                const SizedBox(height: 18),
                 SizedBox(
-                  width:
-                      double.infinity,
+                  width: double.infinity,
                   height: 50,
-                  child:
-                      ElevatedButton.icon(
+                  child: ElevatedButton.icon(
                     onPressed: () {
                       Navigator.of(
                         sheetContext,
@@ -718,28 +577,17 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                       );
                     },
                     icon: const Icon(
-                      Icons
-                          .support_agent_rounded,
+                      Icons.support_agent_rounded,
                     ),
-                    label:
-                        const Text(
+                    label: const Text(
                       'Contact Support',
                     ),
-                    style:
-                        ElevatedButton
-                            .styleFrom(
-                      backgroundColor:
-                          AppColors.primary,
-                      foregroundColor:
-                          Colors.white,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
                       elevation: 0,
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius
-                                .circular(
-                          14,
-                        ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                   ),
@@ -931,12 +779,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content:
-              Text(message),
-          backgroundColor:
-              AppColors.error,
-          behavior:
-              SnackBarBehavior.floating,
+          content: Text(message),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
         ),
       );
   }
@@ -956,14 +801,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content:
-              Text(message),
-          behavior:
-              SnackBarBehavior.floating,
-          duration:
-              const Duration(
-            seconds: 2,
-          ),
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
         ),
       );
   }
@@ -1005,115 +845,76 @@ class _SosSheet extends StatelessWidget {
         ownerName.trim();
 
     return Container(
-      padding:
-          const EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
         20,
         14,
         20,
         25,
       ),
-      decoration:
-          const BoxDecoration(
-        color:
-            AppColors.cardBackground,
-        borderRadius:
-            BorderRadius.vertical(
-          top:
-              Radius.circular(25),
+      decoration: const BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(25),
         ),
       ),
       child: SafeArea(
         child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Container(
               width: 42,
               height: 5,
-              decoration:
-                  BoxDecoration(
-                color:
-                    AppColors.border,
-                borderRadius:
-                    BorderRadius.circular(
-                  10,
-                ),
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
-            const SizedBox(
-              height: 18,
-            ),
+            const SizedBox(height: 18),
             const Icon(
               Icons.sos_rounded,
-              color:
-                  AppColors.error,
+              color: AppColors.error,
               size: 48,
             ),
-            const SizedBox(
-              height: 10,
-            ),
+            const SizedBox(height: 10),
             const Text(
               'Emergency SOS',
               style: TextStyle(
-                color:
-                    AppColors.secondary,
+                color: AppColors.secondary,
                 fontSize: 20,
-                fontWeight:
-                    FontWeight.w900,
+                fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(
-              height: 6,
-            ),
+            const SizedBox(height: 6),
             Text(
               cleanOwnerName.isEmpty
                   ? 'Emergency assistance'
                   : 'Emergency assistance for $cleanOwnerName',
-              textAlign:
-                  TextAlign.center,
-              style:
-                  const TextStyle(
+              textAlign: TextAlign.center,
+              style: const TextStyle(
                 color: Colors.grey,
                 fontSize: 12,
               ),
             ),
-            const SizedBox(
-              height: 18,
-            ),
+            const SizedBox(height: 18),
             SizedBox(
-              width:
-                  double.infinity,
+              width: double.infinity,
               height: 50,
-              child:
-                  ElevatedButton.icon(
+              child: ElevatedButton.icon(
                 onPressed: () {
-                  Navigator.of(
-                    context,
-                  ).pop();
+                  Navigator.of(context).pop();
                 },
                 icon: const Icon(
-                  Icons
-                      .emergency_rounded,
+                  Icons.emergency_rounded,
                 ),
-                label:
-                    const Text(
+                label: const Text(
                   'Emergency Assistance',
                 ),
-                style:
-                    ElevatedButton
-                        .styleFrom(
-                  backgroundColor:
-                      AppColors.error,
-                  foregroundColor:
-                      Colors.white,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
                   elevation: 0,
-                  shape:
-                      RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      14,
-                    ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
               ),
