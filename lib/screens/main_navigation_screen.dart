@@ -910,6 +910,12 @@ class _MainNavigationScreenState
 
   // ============================================================
   // GET WALK REQUEST
+  //
+  // FIRST:
+  // walk_request/{requestId}
+  //
+  // FALLBACK:
+  // Find a document whose requestId field matches requestId.
   // ============================================================
 
   Future<Map<String, dynamic>?> _getWalkRequest(
@@ -923,35 +929,99 @@ class _MainNavigationScreenState
     }
 
     try {
+      final FirebaseFirestore firestore =
+          FirebaseFirestore.instance;
+
+      // ========================================================
+      // FIRST: CANONICAL DOCUMENT ID
+      // ========================================================
+
       final DocumentSnapshot<
           Map<String, dynamic>> document =
-          await FirebaseFirestore.instance
+          await firestore
               .collection('walk_request')
               .doc(id)
               .get();
 
-      if (!document.exists) {
-        return null;
+      if (document.exists) {
+        final Map<String, dynamic>? data =
+            document.data();
+
+        if (data != null) {
+          final String status =
+              _status(data['status']);
+
+          if (_isEndedRequest(status)) {
+            return null;
+          }
+
+          return <String, dynamic>{
+            ...data,
+            'requestId': id,
+          };
+        }
       }
 
-      final Map<String, dynamic>? data =
-          document.data();
+      // ========================================================
+      // FALLBACK: requestId FIELD
+      //
+      // This supports:
+      //
+      // walk_request/{someOtherDocumentId}
+      //
+      // {
+      //   requestId: DW000001
+      // }
+      // ========================================================
 
-      if (data == null) {
-        return null;
+      final QuerySnapshot<
+          Map<String, dynamic>> querySnapshot =
+          await firestore
+              .collection('walk_request')
+              .where(
+                'requestId',
+                isEqualTo: id,
+              )
+              .limit(10)
+              .get();
+
+      for (final QueryDocumentSnapshot<
+              Map<String, dynamic>>
+          queryDocument in querySnapshot.docs) {
+        final Map<String, dynamic> data =
+            queryDocument.data();
+
+        final String storedRequestId =
+            _firstNonEmpty(
+          <dynamic>[
+            data['requestId'],
+            queryDocument.id,
+          ],
+        );
+
+        if (storedRequestId != id) {
+          continue;
+        }
+
+        final String status =
+            _status(data['status']);
+
+        if (_isEndedRequest(status)) {
+          continue;
+        }
+
+        return <String, dynamic>{
+          ...data,
+          'requestId': id,
+        };
       }
 
-      final String status =
-          _status(data['status']);
+      debugPrint(
+        'MainNavigation: walk request not found '
+        'for requestId=$id',
+      );
 
-      if (_isEndedRequest(status)) {
-        return null;
-      }
-
-      return <String, dynamic>{
-        ...data,
-        'requestId': id,
-      };
+      return null;
     } on FirebaseException catch (error) {
       debugPrint(
         'MainNavigation walk request error: '
