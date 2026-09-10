@@ -8,13 +8,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../core/constants/app_colors.dart';
-import '../core/services/active_walk_strip_service.dart';
 import '../core/services/app_state_service.dart';
+import '../features/accept_live_strip/models/accept_live_strip_data.dart';
+import '../features/accept_live_strip/widgets/accept_live_strip.dart';
 import '../features/insta_walk/models/insta_walk_request.dart';
-import '../features/live_walk/widgets/live_walk_review_bottom_sheet.dart';
+import '../features/insta_walk/screens/incoming_walk_request_screen.dart';
 import '../features/live_walk/screens/live_walk_screen.dart';
+import '../features/live_walk/widgets/live_walk_review_bottom_sheet.dart';
 import '../features/qr_walk/screens/qr_scanner_screen.dart';
-import '../widgets/active_walk_strip.dart';
 import 'menu_screen.dart';
 import 'walker_home_screen.dart';
 import 'walks_screen.dart';
@@ -126,7 +127,7 @@ class _MainNavigationScreenState
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          ActiveWalkStrip(
+          AcceptLiveStrip(
             onTap: _openCurrentWalk,
           ),
           _buildBottomNavigation(),
@@ -401,14 +402,14 @@ class _MainNavigationScreenState
   // ============================================================
 
   Future<void> _openCurrentWalk(
-    ActiveWalkStripState stripState,
+    AcceptLiveStripData stripData,
   ) async {
-    if (!stripState.show) {
+    if (stripData.isHidden) {
       return;
     }
 
     final String requestId =
-        stripState.walkId.trim();
+        stripData.requestId.trim();
 
     if (!_isValidRequestId(requestId)) {
       return;
@@ -417,7 +418,7 @@ class _MainNavigationScreenState
     debugPrint(
       'MainNavigation: opening requestId='
       '$requestId '
-      'isLive=${stripState.isLive}',
+      'status=${stripData.status}',
     );
 
     final AppStateService appState =
@@ -475,6 +476,46 @@ class _MainNavigationScreenState
     );
 
     if (!request.hasValidRequestId) {
+      return;
+    }
+
+    // ==========================================================
+    // ACCEPTED → INCOMING / PICKUP SCREEN
+    //
+    // IMPORTANT:
+    // Accepted state MUST NOT open Live Walk.
+    //
+    // After reached, AcceptLiveStripService switches to
+    // LIVE state and this branch is not executed.
+    // ==========================================================
+
+    if (stripData.isAccepted) {
+      if (!mounted) {
+        return;
+      }
+
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) {
+            return IncomingWalkRequestScreen(
+              request: request,
+            );
+          },
+        ),
+      );
+
+      if (mounted) {
+        await AppStateService.instance.refresh();
+      }
+
+      return;
+    }
+
+    // ==========================================================
+    // ONLY LIVE STATE CAN CONTINUE BELOW
+    // ==========================================================
+
+    if (!stripData.isLive) {
       return;
     }
 
@@ -658,12 +699,6 @@ class _MainNavigationScreenState
     _openingReview = true;
 
     try {
-      // --------------------------------------------------------
-      // MAIN NAVIGATION IS ALREADY VISIBLE HERE.
-      //
-      // Make sure Home is selected before showing review.
-      // --------------------------------------------------------
-
       if (_currentIndex != 0) {
         setState(() {
           _currentIndex = 0;
@@ -722,10 +757,6 @@ class _MainNavigationScreenState
         result['routePoints'],
       );
 
-      // --------------------------------------------------------
-      // Wait for Main Navigation/Home to render.
-      // --------------------------------------------------------
-
       await Future<void>.delayed(
         const Duration(
           milliseconds: 120,
@@ -735,10 +766,6 @@ class _MainNavigationScreenState
       if (!mounted) {
         return;
       }
-
-      // --------------------------------------------------------
-      // REVIEW BOTTOM SHEET
-      // --------------------------------------------------------
 
       await showModalBottomSheet<void>(
         context: context,
@@ -769,10 +796,6 @@ class _MainNavigationScreenState
           );
         },
       );
-
-      // --------------------------------------------------------
-      // Refresh after review sheet closes.
-      // --------------------------------------------------------
 
       if (mounted) {
         await AppStateService.instance
@@ -862,8 +885,6 @@ class _MainNavigationScreenState
         continue;
       }
 
-      // Support List/array format:
-      // [latitude, longitude]
       if (item is List &&
           item.length >= 2) {
         final double? latitude =
@@ -1165,7 +1186,8 @@ class _MainNavigationScreenState
         data['timeFormatted'],
       ),
 
-      date: _readString(
+      date:
+          _readString(
         data['date'],
       ),
 
