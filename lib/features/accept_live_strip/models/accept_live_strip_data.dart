@@ -2,14 +2,14 @@ import 'package:flutter/foundation.dart';
 
 /// The state represented by the Walker Accept/Live Strip.
 ///
-/// The strip has only three meaningful states:
-///
 /// accepted -> Incoming Walk screen
+/// ready    -> Live Walk Start screen
 /// live     -> Live Walk screen
 /// hidden   -> no strip
 enum AcceptLiveStripStatus {
   hidden,
   accepted,
+  ready,
   live,
 }
 
@@ -38,6 +38,10 @@ class AcceptLiveStripData {
 
   bool get isAccepted {
     return status == AcceptLiveStripStatus.accepted;
+  }
+
+  bool get isReady {
+    return status == AcceptLiveStripStatus.ready;
   }
 
   bool get isLive {
