@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../contacts/screens/chat_sheet.dart';
+import '../../contacts/screens/chat_screen.dart';
 import 'live_walk_complete_slider.dart';
 
 class LiveWalkBottomSheet extends StatelessWidget {
@@ -8,6 +8,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
     super.key,
     required this.scrollController,
     required this.ending,
+    required this.ownerUid,
     required this.ownerName,
     required this.dogName,
     required this.dogBreed,
@@ -26,6 +27,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
   final ScrollController scrollController;
   final bool ending;
 
+  final String ownerUid;
   final String ownerName;
   final String dogName;
   final String dogBreed;
@@ -502,13 +504,19 @@ class LiveWalkBottomSheet extends StatelessWidget {
             height: 50,
             child: OutlinedButton.icon(
               onPressed: () {
-                ChatSheet.show(
-                  context,
-                  contactName: ownerName.trim().isEmpty
-                      ? 'Owner'
-                      : ownerName.trim(),
-                  contactPhotoUrl: ownerPhotoUrl,
-                  currentUserIsWalker: true,
+                final String name = ownerName.trim().isEmpty
+                    ? 'Owner'
+                    : ownerName.trim();
+
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ChatScreen(
+                      otherUid: ownerUid,
+                      contactName: name,
+                      contactPhotoUrl: ownerPhotoUrl,
+                      currentUserIsWalker: true,
+                    ),
+                  ),
                 );
               },
               icon: const Icon(
