@@ -13,6 +13,7 @@ class IncomingWalkTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
+      bottom: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
           14,
@@ -21,39 +22,46 @@ class IncomingWalkTopBar extends StatelessWidget {
           0,
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             _circleButton(
               icon: Icons.arrow_back_rounded,
               onTap: onBack,
             ),
+
             const Spacer(),
+
             Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: 14,
+                horizontal: 13,
                 vertical: 9,
               ),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius:
-                    BorderRadius.circular(25),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: const Color(0xFFE8EAED),
+                ),
                 boxShadow: const <BoxShadow>[
                   BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 10,
+                    color: Color(0x1A000000),
+                    blurRadius: 14,
+                    offset: Offset(0, 4),
                   ),
                 ],
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  Icon(
-                    accepted
-                        ? Icons.check_circle_rounded
-                        : Icons.notifications_active_rounded,
-                    color: accepted
-                        ? Colors.green
-                        : const Color(0xFFF4511E),
-                    size: 18,
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: accepted
+                          ? const Color(0xFF22A06B)
+                          : const Color(0xFFE85D04),
+                      shape: BoxShape.circle,
+                    ),
                   ),
                   const SizedBox(width: 7),
                   Text(
@@ -61,8 +69,10 @@ class IncomingWalkTopBar extends StatelessWidget {
                         ? 'WALK ACCEPTED'
                         : 'INCOMING WALK',
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: FontWeight.w900,
+                      letterSpacing: 0.35,
+                      color: Color(0xFF202328),
                     ),
                   ),
                 ],
@@ -80,18 +90,20 @@ class IncomingWalkTopBar extends StatelessWidget {
   }) {
     return Material(
       color: Colors.white,
-      elevation: 5,
+      elevation: 4,
+      shadowColor: const Color(0x33000000),
       shape: const CircleBorder(),
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: 46,
-          height: 46,
+        child: const SizedBox(
+          width: 44,
+          height: 44,
           child: Center(
             child: Icon(
-              icon,
-              size: 22,
+              Icons.arrow_back_rounded,
+              size: 21,
+              color: Color(0xFF202328),
             ),
           ),
         ),
