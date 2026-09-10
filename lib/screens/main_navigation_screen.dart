@@ -444,21 +444,33 @@ class _MainNavigationScreenState
     }
 
     // ==========================================================
-    // QR READY FALLBACK
+    // READY / LIVE / ACCEPTED SESSION FALLBACK
     //
-    // QR walk can have READY state directly in
-    // liveWalkSessions/{requestId} without a
-    // walk_request/{requestId} document.
+    // The canonical live session uses:
     //
-    // Insta Walk behavior remains unchanged.
+    // liveWalkSessions/{requestId}
+    //
+    // This fallback protects all three strip states:
+    //
+    // ACCEPTED → IncomingWalkRequestScreen
+    // READY    → LiveWalkStartScreen
+    // LIVE     → LiveWalkScreen
+    //
+    // It is used only when walk_request data is unavailable.
     // ==========================================================
 
     if ((walkData == null ||
             walkData.isEmpty) &&
-        stripData.isReady) {
+        (stripData.isAccepted ||
+            stripData.isReady ||
+            stripData.isLive)) {
       walkData =
           await _findLiveSession(requestId);
     }
+
+    // ==========================================================
+    // WALK DATA REQUIRED
+    // ==========================================================
 
     if (walkData == null ||
         walkData.isEmpty) {
@@ -478,7 +490,8 @@ class _MainNavigationScreenState
     final String status =
         _status(walkData['status']);
 
-    if (_isEndedRequest(status)) {
+    if (_isEndedRequest(status) &&
+        !stripData.isLive) {
       await appState.refresh();
       return;
     }
@@ -530,10 +543,8 @@ class _MainNavigationScreenState
     // OR
     // liveWalkSessions.status = READY
     //
-    // IMPORTANT:
     // READY does not require an active live session.
-    // LiveWalkStartScreen handles the Start slider and the
-    // controller starts the actual live walk.
+    // LiveWalkStartScreen handles the Start slider.
     // ==========================================================
 
     if (stripData.isReady) {
@@ -648,7 +659,7 @@ class _MainNavigationScreenState
     }
 
     // ==========================================================
-    // SESSION REQUIRED FOR LIVE WALK
+    // LIVE SESSION REQUIRED
     // ==========================================================
 
     if (sessionData == null ||
@@ -664,6 +675,10 @@ class _MainNavigationScreenState
 
     // ==========================================================
     // OWNER
+    //
+    // Prefer walk request data.
+    // If some information exists only in the live session,
+    // use the session as fallback.
     // ==========================================================
 
     final String ownerUid =
@@ -675,6 +690,9 @@ class _MainNavigationScreenState
         walkData['ownerUid'],
         walkData['ownerAuthUid'],
         walkData['ownerId'],
+        sessionData['ownerUid'],
+        sessionData['ownerAuthUid'],
+        sessionData['ownerId'],
       ],
     );
 
@@ -683,13 +701,14 @@ class _MainNavigationScreenState
       <dynamic>[
         request.ownerName,
         walkData['ownerName'],
+        sessionData['ownerName'],
         'Owner',
       ],
     );
 
-    // ==========================================================
+    // ============================================================
     // DOG
-    // ==========================================================
+    // ============================================================
 
     final String dogName =
         _firstNonEmpty(
@@ -697,6 +716,8 @@ class _MainNavigationScreenState
         request.dogName,
         walkData['dogName'],
         walkData['petName'],
+        sessionData['dogName'],
+        sessionData['petName'],
         'Dog',
       ],
     );
@@ -707,12 +728,14 @@ class _MainNavigationScreenState
         request.dogBreed,
         walkData['dogBreed'],
         walkData['breed'],
+        sessionData['dogBreed'],
+        sessionData['breed'],
       ],
     );
 
-    // ==========================================================
+    // ============================================================
     // PHONE
-    // ==========================================================
+    // ============================================================
 
     final String ownerPhone =
         _firstNonEmpty(
@@ -722,12 +745,16 @@ class _MainNavigationScreenState
         walkData['ownerMobile'],
         walkData['mobileNumber'],
         walkData['phone'],
+        sessionData['ownerPhone'],
+        sessionData['ownerMobile'],
+        sessionData['mobileNumber'],
+        sessionData['phone'],
       ],
     );
 
-    // ==========================================================
+    // ============================================================
     // OPEN LIVE WALK
-    // ==========================================================
+    // ============================================================
 
     if (!mounted) {
       return;
@@ -752,9 +779,9 @@ class _MainNavigationScreenState
       ),
     );
 
-    // ==========================================================
+    // ============================================================
     // REFRESH AFTER RETURN
-    // ==========================================================
+    // ============================================================
 
     if (!mounted) {
       return;
@@ -762,9 +789,9 @@ class _MainNavigationScreenState
 
     await AppStateService.instance.refresh();
 
-    // ==========================================================
+    // ============================================================
     // REVIEW AFTER COMPLETED WALK
-    // ==========================================================
+    // ============================================================
 
     if (result is Map) {
       final Map<String, dynamic>
@@ -1143,7 +1170,7 @@ class _MainNavigationScreenState
   //
   // liveWalkSessions/{requestId}
   //
-  // NO where('walkId')
+  // NO separate walkId/sessionId.
   // ============================================================
 
   Future<Map<String, dynamic>?> _findLiveSession(
@@ -1165,6 +1192,11 @@ class _MainNavigationScreenState
               .get();
 
       if (!document.exists) {
+        debugPrint(
+          'MainNavigation: live session not found '
+          'for requestId=$id',
+        );
+
         return null;
       }
 
@@ -1184,6 +1216,11 @@ class _MainNavigationScreenState
       );
 
       if (storedRequestId != id) {
+        debugPrint(
+          'MainNavigation: live session requestId mismatch '
+          'expected=$id actual=$storedRequestId',
+        );
+
         return null;
       }
 
@@ -1191,6 +1228,11 @@ class _MainNavigationScreenState
           _status(data['status']);
 
       if (_isEndedSession(status)) {
+        debugPrint(
+          'MainNavigation: live session already ended '
+          'requestId=$id status=$status',
+        );
+
         return null;
       }
 
