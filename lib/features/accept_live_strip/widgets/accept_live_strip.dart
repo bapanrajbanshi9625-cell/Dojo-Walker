@@ -12,6 +12,7 @@ class AcceptLiveStrip extends StatelessWidget {
   final ValueChanged<AcceptLiveStripData> onTap;
 
   static const Color _acceptedBlue = Color(0xFF1976D2);
+  static const Color _readyOrange = Color(0xFFD95F00);
   static const Color _liveOrange = Color(0xFFD95F00);
 
   @override
@@ -20,14 +21,34 @@ class AcceptLiveStrip extends StatelessWidget {
       stream: AcceptLiveStripTrigger.instance.watch(),
       initialData: const AcceptLiveStripData.hidden(),
       builder: (context, snapshot) {
-        final data = snapshot.data ?? const AcceptLiveStripData.hidden();
+        final data =
+            snapshot.data ?? const AcceptLiveStripData.hidden();
 
         if (data.isHidden) {
           return const SizedBox.shrink();
         }
 
+        final bool isAccepted = data.isAccepted;
+        final bool isReady = data.isReady;
         final bool isLive = data.isLive;
-        final Color baseColor = isLive ? _liveOrange : _acceptedBlue;
+
+        final Color baseColor = isLive
+            ? _liveOrange
+            : isReady
+                ? _readyOrange
+                : _acceptedBlue;
+
+        final String title = isLive
+            ? 'LIVE WALK'
+            : isReady
+                ? 'READY TO START'
+                : 'WALK ACCEPTED';
+
+        final String subtitle = isLive
+            ? 'Tap to open your live walk'
+            : isReady
+                ? 'Tap to start your walk'
+                : 'Tap to continue to pickup';
 
         return Material(
           color: Colors.transparent,
@@ -69,6 +90,8 @@ class AcceptLiveStrip extends StatelessWidget {
               child: Row(
                 children: [
                   _StatusIcon(
+                    isAccepted: isAccepted,
+                    isReady: isReady,
                     isLive: isLive,
                   ),
                   const SizedBox(width: 12),
@@ -78,7 +101,7 @@ class AcceptLiveStrip extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isLive ? 'LIVE WALK' : 'WALK ACCEPTED',
+                          title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -90,9 +113,7 @@ class AcceptLiveStrip extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          isLive
-                              ? 'Tap to open your live walk'
-                              : 'Tap to continue to pickup',
+                          subtitle,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -122,13 +143,27 @@ class AcceptLiveStrip extends StatelessWidget {
 
 class _StatusIcon extends StatelessWidget {
   const _StatusIcon({
+    required this.isAccepted,
+    required this.isReady,
     required this.isLive,
   });
 
+  final bool isAccepted;
+  final bool isReady;
   final bool isLive;
 
   @override
   Widget build(BuildContext context) {
+    final IconData icon;
+
+    if (isLive) {
+      icon = Icons.directions_walk_rounded;
+    } else if (isReady) {
+      icon = Icons.play_arrow_rounded;
+    } else {
+      icon = Icons.navigation_rounded;
+    }
+
     return Container(
       width: 40,
       height: 40,
@@ -140,9 +175,7 @@ class _StatusIcon extends StatelessWidget {
         ),
       ),
       child: Icon(
-        isLive
-            ? Icons.directions_walk_rounded
-            : Icons.navigation_rounded,
+        icon,
         color: Colors.white,
         size: 21,
       ),
