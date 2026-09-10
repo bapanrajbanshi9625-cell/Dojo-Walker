@@ -14,6 +14,7 @@ import '../features/accept_live_strip/widgets/accept_live_strip.dart';
 import '../features/insta_walk/models/insta_walk_request.dart';
 import '../features/insta_walk/screens/incoming_walk_request_screen.dart';
 import '../features/live_walk/screens/live_walk_screen.dart';
+import '../features/live_walk/screens/live_walk_start_screen.dart';
 import '../features/live_walk/widgets/live_walk_review_bottom_sheet.dart';
 import '../features/qr_walk/screens/qr_scanner_screen.dart';
 import 'menu_screen.dart';
@@ -481,12 +482,6 @@ class _MainNavigationScreenState
 
     // ==========================================================
     // ACCEPTED → INCOMING / PICKUP SCREEN
-    //
-    // IMPORTANT:
-    // Accepted state MUST NOT open Live Walk.
-    //
-    // After reached, AcceptLiveStripService switches to
-    // LIVE state and this branch is not executed.
     // ==========================================================
 
     if (stripData.isAccepted) {
@@ -499,6 +494,100 @@ class _MainNavigationScreenState
           builder: (_) {
             return IncomingWalkRequestScreen(
               request: request,
+            );
+          },
+        ),
+      );
+
+      if (mounted) {
+        await AppStateService.instance.refresh();
+      }
+
+      return;
+    }
+
+    // ==========================================================
+    // READY → LIVE WALK START SCREEN
+    //
+    // walk_request.status = REACHED
+    // OR
+    // liveWalkSessions.status = READY
+    //
+    // IMPORTANT:
+    // READY does not require an active live session.
+    // LiveWalkStartScreen handles the Start slider and the
+    // controller starts the actual live walk.
+    // ==========================================================
+
+    if (stripData.isReady) {
+      if (!mounted) {
+        return;
+      }
+
+      final String ownerUid =
+          _firstNonEmpty(
+        <dynamic>[
+          request.ownerUid,
+          request.ownerAuthUid,
+          request.ownerId,
+          walkData['ownerUid'],
+          walkData['ownerAuthUid'],
+          walkData['ownerId'],
+        ],
+      );
+
+      final String ownerName =
+          _firstNonEmpty(
+        <dynamic>[
+          request.ownerName,
+          walkData['ownerName'],
+          'Owner',
+        ],
+      );
+
+      final String dogName =
+          _firstNonEmpty(
+        <dynamic>[
+          request.dogName,
+          walkData['dogName'],
+          walkData['petName'],
+          'Dog',
+        ],
+      );
+
+      final String dogBreed =
+          _firstNonEmpty(
+        <dynamic>[
+          request.dogBreed,
+          walkData['dogBreed'],
+          walkData['breed'],
+        ],
+      );
+
+      final String ownerPhone =
+          _firstNonEmpty(
+        <dynamic>[
+          request.ownerPhone,
+          walkData['ownerPhone'],
+          walkData['ownerMobile'],
+          walkData['mobileNumber'],
+          walkData['phone'],
+        ],
+      );
+
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) {
+            return LiveWalkStartScreen(
+              ownerUid: ownerUid,
+              ownerName: ownerName,
+              requestId: requestId,
+              dogName: dogName,
+              dogBreed: dogBreed,
+              ownerPhone:
+                  ownerPhone.trim().isEmpty
+                      ? null
+                      : ownerPhone.trim(),
             );
           },
         ),
@@ -964,14 +1053,6 @@ class _MainNavigationScreenState
 
       // ========================================================
       // FALLBACK: requestId FIELD
-      //
-      // This supports:
-      //
-      // walk_request/{someOtherDocumentId}
-      //
-      // {
-      //   requestId: DW000001
-      // }
       // ========================================================
 
       final QuerySnapshot<
