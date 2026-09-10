@@ -207,6 +207,22 @@ class _IncomingWalkRequestScreenState
 
     _startRequestMonitoring();
 
+    // ----------------------------------------------------------
+    // IMPORTANT:
+    //
+    // When the Accepted strip reopens this screen, the canonical
+    // GPS service may already be tracking but its cached position
+    // can be temporarily unavailable.
+    //
+    // Restore the current position without starting/stopping
+    // canonical GPS tracking from this screen.
+    // ----------------------------------------------------------
+    if (_accepted) {
+      unawaited(
+        _restoreLocationOnReopen(),
+      );
+    }
+
     if (!_accepted && mounted) {
       _loadingLocation = false;
     }
@@ -239,6 +255,64 @@ class _IncomingWalkRequestScreenState
       );
     } else if (_accepted && mounted) {
       _loadingLocation = true;
+    }
+  }
+
+  // ============================================================
+  // RESTORE LOCATION ON SCREEN REOPEN
+  // ============================================================
+
+  Future<void> _restoreLocationOnReopen() async {
+    if (!_accepted ||
+        _leavingScreen ||
+        !mounted) {
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // First use the canonical cached position if available.
+    // This avoids an unnecessary GPS request.
+    // ----------------------------------------------------------
+
+    final Position? cachedPosition =
+        _locationService.currentPosition;
+
+    if (cachedPosition != null) {
+      _updateWalkerLocation(
+        cachedPosition,
+      );
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // No cached position:
+    //
+    // Ask the canonical location service for one fresh position.
+    // This does NOT start/stop WalkerLocationService tracking.
+    // ----------------------------------------------------------
+
+    if (mounted) {
+      setState(() {
+        _loadingLocation = true;
+      });
+    }
+
+    final Position? freshPosition =
+        await _locationService.refreshLocation();
+
+    if (!mounted ||
+        _leavingScreen) {
+      return;
+    }
+
+    if (freshPosition != null) {
+      _updateWalkerLocation(
+        freshPosition,
+      );
+    } else {
+      setState(() {
+        _loadingLocation = false;
+      });
     }
   }
 
@@ -310,6 +384,14 @@ class _IncomingWalkRequestScreenState
                   _locationService.currentPosition ==
                       null;
             });
+
+            // --------------------------------------------------
+            // If the screen becomes accepted through the
+            // canonical Firestore listener, restore location too.
+            // --------------------------------------------------
+            unawaited(
+              _restoreLocationOnReopen(),
+            );
           }
 
           return;
@@ -694,6 +776,14 @@ class _IncomingWalkRequestScreenState
       if (currentPosition != null) {
         _updateWalkerLocation(
           currentPosition,
+        );
+      } else {
+        // ------------------------------------------------------
+        // If acceptance happened before the canonical GPS cache
+        // became available, request one fresh location.
+        // ------------------------------------------------------
+        unawaited(
+          _restoreLocationOnReopen(),
         );
       }
 
