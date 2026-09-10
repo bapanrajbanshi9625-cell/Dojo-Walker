@@ -3,14 +3,13 @@
 
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/services/cloudinary_service.dart';
 import '../models/chat_message.dart';
 import '../services/chat_service.dart';
 import '../services/voice_message_service.dart';
-import '../../../core/services/cloudinary_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({
@@ -67,8 +66,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _sendTextMessage() async {
-    final String text =
-        _messageController.text.trim();
+    final String text = _messageController.text.trim();
 
     if (text.isEmpty ||
         _sendingMessage ||
@@ -191,8 +189,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     try {
-      final XFile? selected =
-          await _imagePicker.pickImage(
+      final XFile? selected = await _imagePicker.pickImage(
         source: source,
         imageQuality: 85,
         maxWidth: 1600,
@@ -312,8 +309,7 @@ class _ChatScreenState extends State<ChatScreen> {
       await _chatService.sendVoiceMessage(
         receiverUid: widget.otherUid,
         mediaUrl: voiceUrl,
-        durationSeconds:
-            recording.durationSeconds,
+        durationSeconds: recording.durationSeconds,
       );
 
       try {
@@ -414,8 +410,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme =
-        Theme.of(context);
+    final ThemeData theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: _lightBackground,
@@ -566,8 +561,7 @@ class _ChatScreenState extends State<ChatScreen> {
         }
 
         final List<ChatMessage> messages =
-            snapshot.data ??
-                <ChatMessage>[];
+            snapshot.data ?? <ChatMessage>[];
 
         if (messages.isEmpty) {
           return _buildEmptyChat();
@@ -653,8 +647,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildMessageBubble(
     ChatMessage message,
   ) {
-    final bool isMine =
-        message.isMine(
+    final bool isMine = message.isMine(
       _chatService.currentUid,
     );
 
@@ -665,8 +658,7 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Container(
         constraints: BoxConstraints(
           maxWidth:
-              MediaQuery.sizeOf(context).width *
-                  0.78,
+              MediaQuery.sizeOf(context).width * 0.78,
         ),
         margin: const EdgeInsets.only(
           bottom: 10,
@@ -714,9 +706,7 @@ class _ChatScreenState extends State<ChatScreen> {
         vertical: 10,
       ),
       decoration: BoxDecoration(
-        color: isMine
-            ? _orange
-            : Colors.white,
+        color: isMine ? _orange : Colors.white,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(18),
           topRight: const Radius.circular(18),
@@ -738,8 +728,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ],
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: <Widget>[
           Align(
             alignment: Alignment.centerLeft,
@@ -757,9 +746,7 @@ class _ChatScreenState extends State<ChatScreen> {
           if (message.createdAt != null) ...[
             const SizedBox(height: 4),
             Text(
-              _formatTime(
-                message.createdAt!,
-              ),
+              _formatTime(message.createdAt!),
               style: TextStyle(
                 fontSize: 10,
                 color: isMine
@@ -790,16 +777,11 @@ class _ChatScreenState extends State<ChatScreen> {
     return Container(
       padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
-        color: isMine
-            ? _orange
-            : Colors.white,
-        borderRadius: BorderRadius.circular(
-          18,
-        ),
+        color: isMine ? _orange : Colors.white,
+        borderRadius: BorderRadius.circular(18),
       ),
       child: ClipRRect(
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
         child: Image.network(
           url,
           width: 230,
@@ -860,9 +842,7 @@ class _ChatScreenState extends State<ChatScreen> {
         vertical: 12,
       ),
       decoration: BoxDecoration(
-        color: isMine
-            ? _orange
-            : Colors.white,
+        color: isMine ? _orange : Colors.white,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(18),
           topRight: const Radius.circular(18),
@@ -905,9 +885,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           const SizedBox(width: 10),
           Text(
-            _formatDuration(
-              duration,
-            ),
+            _formatDuration(duration),
             style: TextStyle(
               fontWeight: FontWeight.w600,
               color: isMine
@@ -927,11 +905,8 @@ class _ChatScreenState extends State<ChatScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isMine
-            ? _orange
-            : Colors.white,
-        borderRadius:
-            BorderRadius.circular(16),
+        color: isMine ? _orange : Colors.white,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -968,8 +943,7 @@ class _ChatScreenState extends State<ChatScreen> {
           8,
         ),
         child: Row(
-          crossAxisAlignment:
-              CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: <Widget>[
             if (!_recordingVoice)
               IconButton(
@@ -987,8 +961,7 @@ class _ChatScreenState extends State<ChatScreen> {
               )
             else
               IconButton(
-                onPressed:
-                    _cancelVoiceRecording,
+                onPressed: _cancelVoiceRecording,
                 tooltip: 'Cancel recording',
                 icon: const Icon(
                   Icons.close_rounded,
@@ -999,33 +972,23 @@ class _ChatScreenState extends State<ChatScreen> {
               child: _recordingVoice
                   ? _buildRecordingIndicator()
                   : TextField(
-                      controller:
-                          _messageController,
+                      controller: _messageController,
                       minLines: 1,
                       maxLines: 5,
                       textInputAction:
                           TextInputAction.newline,
-                      decoration:
-                          InputDecoration(
-                        hintText:
-                            'Type a message...',
+                      decoration: InputDecoration(
+                        hintText: 'Type a message...',
                         filled: true,
                         fillColor:
-                            const Color(
-                          0xFFF4F4F4,
-                        ),
-                        border:
-                            OutlineInputBorder(
+                            const Color(0xFFF4F4F4),
+                        border: OutlineInputBorder(
                           borderRadius:
-                              BorderRadius.circular(
-                            24,
-                          ),
-                          borderSide:
-                              BorderSide.none,
+                              BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
                         ),
                         contentPadding:
-                            const EdgeInsets
-                                .symmetric(
+                            const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 11,
                         ),
@@ -1047,10 +1010,8 @@ class _ChatScreenState extends State<ChatScreen> {
               )
             else
               IconButton(
-                onPressed:
-                    _stopVoiceRecording,
-                tooltip:
-                    'Stop and send voice',
+                onPressed: _stopVoiceRecording,
+                tooltip: 'Stop and send voice',
                 icon: const Icon(
                   Icons.send_rounded,
                   color: _orange,
@@ -1058,8 +1019,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             if (!_recordingVoice)
               IconButton(
-                onPressed:
-                    _toggleVoiceRecording,
+                onPressed: _toggleVoiceRecording,
                 tooltip: 'Voice message',
                 icon: const Icon(
                   Icons.mic_none_rounded,
@@ -1075,14 +1035,12 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildRecordingIndicator() {
     return Container(
       height: 48,
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 16,
       ),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF1EC),
-        borderRadius:
-            BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: const Row(
         children: <Widget>[
@@ -1117,15 +1075,12 @@ class _ChatScreenState extends State<ChatScreen> {
     required double radius,
   }) {
     final String photo =
-        widget.contactPhotoUrl
-                ?.trim() ??
-            '';
+        widget.contactPhotoUrl?.trim() ?? '';
 
     if (photo.isEmpty) {
       return CircleAvatar(
         radius: radius,
-        backgroundColor:
-            _orange.withValues(
+        backgroundColor: _orange.withValues(
           alpha: 0.10,
         ),
         child: Icon(
@@ -1138,32 +1093,25 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return CircleAvatar(
       radius: radius,
-      backgroundColor:
-          _orange.withValues(
+      backgroundColor: _orange.withValues(
         alpha: 0.10,
       ),
-      backgroundImage:
-          NetworkImage(photo),
+      backgroundImage: NetworkImage(photo),
     );
   }
 
   String _formatTime(DateTime time) {
-    final int hour =
-        time.hour == 0
-            ? 12
-            : time.hour > 12
-                ? time.hour - 12
-                : time.hour;
+    final int hour = time.hour == 0
+        ? 12
+        : time.hour > 12
+            ? time.hour - 12
+            : time.hour;
 
     final String minute =
-        time.minute
-            .toString()
-            .padLeft(2, '0');
+        time.minute.toString().padLeft(2, '0');
 
     final String period =
-        time.hour >= 12
-            ? 'PM'
-            : 'AM';
+        time.hour >= 12 ? 'PM' : 'AM';
 
     return '$hour:$minute $period';
   }
@@ -1173,18 +1121,14 @@ class _ChatScreenState extends State<ChatScreen> {
       return '0:01';
     }
 
-    final int minutes =
-        seconds ~/ 60;
-
-    final int remaining =
-        seconds % 60;
+    final int minutes = seconds ~/ 60;
+    final int remaining = seconds % 60;
 
     return '$minutes:${remaining.toString().padLeft(2, '0')}';
   }
 }
 
-class _PhotoOptionTile
-    extends StatelessWidget {
+class _PhotoOptionTile extends StatelessWidget {
   const _PhotoOptionTile({
     required this.icon,
     required this.title,
@@ -1197,36 +1141,31 @@ class _PhotoOptionTile
   final String subtitle;
   final VoidCallback onTap;
 
-  static const Color _orange =
-      Color(0xFFFF6B35);
+  static const Color _orange = Color(0xFFFF6B35);
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: const Color(0xFFF8F8F8),
-      borderRadius:
-          BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
-        borderRadius:
-            BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding:
-              const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: <Widget>[
               Container(
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color:
-                      _orange.withValues(
+                  color: _orange.withValues(
                     alpha: 0.10,
                   ),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.camera_alt_rounded,
+                child: Icon(
+                  icon,
                   color: _orange,
                 ),
               ),
@@ -1238,20 +1177,16 @@ class _PhotoOptionTile
                   children: <Widget>[
                     Text(
                       title,
-                      style:
-                          const TextStyle(
-                        fontWeight:
-                            FontWeight.w700,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
                         fontSize: 15,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       subtitle,
-                      style:
-                          const TextStyle(
-                        color:
-                            Colors.black54,
+                      style: const TextStyle(
+                        color: Colors.black54,
                         fontSize: 12,
                       ),
                     ),
