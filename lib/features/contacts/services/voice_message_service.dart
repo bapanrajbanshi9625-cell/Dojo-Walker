@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:record/record.dart';
 
-import '../../profile_setup/services/cloudinary_service.dart';
+import '../../../core/services/cloudinary_service.dart';
 
 class VoiceRecordingResult {
   const VoiceRecordingResult({
