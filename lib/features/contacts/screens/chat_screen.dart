@@ -10,7 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/chat_message.dart';
 import '../services/chat_service.dart';
 import '../services/voice_message_service.dart';
-import '../../profile_setup/services/cloudinary_service.dart';
+import '../../../core/services/cloudinary_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({
