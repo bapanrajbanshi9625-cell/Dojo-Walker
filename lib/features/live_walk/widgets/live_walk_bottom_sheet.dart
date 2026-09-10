@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/app_colors.dart';
 import 'live_walk_complete_slider.dart';
 
 class LiveWalkBottomSheet extends StatelessWidget {
@@ -45,32 +44,6 @@ class LiveWalkBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      controller: null,
-      initialChildSize: 0.42,
-      minChildSize: 0.30,
-      maxChildSize: 0.72,
-      snap: true,
-      snapSizes: const <double>[
-        0.42,
-        0.72,
-      ],
-      builder: (
-        BuildContext context,
-        ScrollController sheetController,
-      ) {
-        return _buildSheet(
-          context,
-          sheetController,
-        );
-      },
-    );
-  }
-
-  Widget _buildSheet(
-    BuildContext context,
-    ScrollController sheetController,
-  ) {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -86,7 +59,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
         ],
       ),
       child: ListView(
-        controller: sheetController,
+        controller: scrollController,
         padding: const EdgeInsets.fromLTRB(
           18,
           10,
@@ -115,10 +88,6 @@ class LiveWalkBottomSheet extends StatelessWidget {
     );
   }
 
-  // ============================================================
-  // DRAG HANDLE
-  // ============================================================
-
   Widget _buildDragHandle() {
     return Center(
       child: Container(
@@ -131,10 +100,6 @@ class LiveWalkBottomSheet extends StatelessWidget {
       ),
     );
   }
-
-  // ============================================================
-  // OWNER + DOG HEADER
-  // ============================================================
 
   Widget _buildOwnerDogHeader() {
     return Row(
@@ -220,10 +185,6 @@ class LiveWalkBottomSheet extends StatelessWidget {
     );
   }
 
-  // ============================================================
-  // WALKING STATUS
-  // ============================================================
-
   Widget _buildLiveStatus() {
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -265,10 +226,6 @@ class LiveWalkBottomSheet extends StatelessWidget {
       ),
     );
   }
-
-  // ============================================================
-  // LIVE STATS
-  // ============================================================
 
   Widget _buildLiveStats() {
     return Row(
@@ -350,13 +307,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
     );
   }
 
-  // ============================================================
-  // PEE / POOP
-  // ============================================================
-
-  Widget _buildActivities(
-    BuildContext context,
-  ) {
+  Widget _buildActivities(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -437,9 +388,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: iconColor.withValues(
-                    alpha: 0.10,
-                  ),
+                  color: iconColor.withValues(alpha: 0.10),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -468,9 +417,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: iconColor.withValues(
-                    alpha: 0.10,
-                  ),
+                  color: iconColor.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -490,20 +437,13 @@ class LiveWalkBottomSheet extends StatelessWidget {
     );
   }
 
-  // ============================================================
-  // ACTIVITY CONFIRMATION
-  // ============================================================
-
   Future<void> _showActivityConfirmation(
     BuildContext context,
     String type,
   ) async {
-    final bool? confirmed =
-        await showDialog<bool>(
+    final bool? confirmed = await showDialog<bool>(
       context: context,
-      builder: (
-        BuildContext dialogContext,
-      ) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
@@ -524,12 +464,9 @@ class LiveWalkBottomSheet extends StatelessWidget {
           actions: <Widget>[
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext)
-                    .pop(false);
+                Navigator.of(dialogContext).pop(false);
               },
-              child: const Text(
-                'CANCEL',
-              ),
+              child: const Text('CANCEL'),
             ),
             FilledButton(
               style: FilledButton.styleFrom(
@@ -537,12 +474,9 @@ class LiveWalkBottomSheet extends StatelessWidget {
                 foregroundColor: Colors.white,
               ),
               onPressed: () {
-                Navigator.of(dialogContext)
-                    .pop(true);
+                Navigator.of(dialogContext).pop(true);
               },
-              child: const Text(
-                'CONFIRM',
-              ),
+              child: const Text('CONFIRM'),
             ),
           ],
         );
@@ -556,14 +490,9 @@ class LiveWalkBottomSheet extends StatelessWidget {
     try {
       await onActivityConfirmed(type);
     } catch (_) {
-      // The parent screen handles and displays
-      // the actual Firestore error.
+      // Parent screen handles the Firestore error.
     }
   }
-
-  // ============================================================
-  // CALL OWNER
-  // ============================================================
 
   Widget _buildCallOwnerButton() {
     return SizedBox(
@@ -597,19 +526,12 @@ class LiveWalkBottomSheet extends StatelessWidget {
     );
   }
 
-  // ============================================================
-  // COMPLETE SECTION
-  // ============================================================
-
   Widget _buildCompleteSection() {
     return LiveWalkCompleteSlider(
-      onComplete: onComplete,
+      enabled: !ending,
+      onCompleted: onComplete,
     );
   }
-
-  // ============================================================
-  // ENDING SECTION
-  // ============================================================
 
   Widget _buildEndingSection() {
     return Container(
