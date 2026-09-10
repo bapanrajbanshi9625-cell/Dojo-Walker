@@ -1267,6 +1267,18 @@ class _MainNavigationScreenState
     final String id =
         requestId.trim();
 
+    // ==========================================================
+    // OWNER LOCATION
+    //
+    // Prefer canonical ownerLocation GeoPoint.
+    // Keep all existing latitude/longitude fallbacks.
+    // ==========================================================
+
+    final GeoPoint? ownerLocation =
+        data['ownerLocation'] is GeoPoint
+            ? data['ownerLocation'] as GeoPoint
+            : null;
+
     return InstaWalkRequest(
       requestId: id,
 
@@ -1364,21 +1376,29 @@ class _MainNavigationScreenState
         ],
       ),
 
-      latitude: _readDouble(
-        data['latitude'] ??
-            data['lat'] ??
-            data['pickupLatitude'] ??
-            data['pickupLat'] ??
-            data['ownerLat'],
-      ),
+      // ========================================================
+      // FIX:
+      // Restore owner location from ownerLocation GeoPoint
+      // when the request is reopened from the Accepted strip.
+      // ========================================================
 
-      longitude: _readDouble(
-        data['longitude'] ??
-            data['lng'] ??
-            data['pickupLongitude'] ??
-            data['pickupLng'] ??
-            data['ownerLng'],
-      ),
+      latitude: ownerLocation?.latitude ??
+          _readDouble(
+            data['latitude'] ??
+                data['lat'] ??
+                data['pickupLatitude'] ??
+                data['pickupLat'] ??
+                data['ownerLat'],
+          ),
+
+      longitude: ownerLocation?.longitude ??
+          _readDouble(
+            data['longitude'] ??
+                data['lng'] ??
+                data['pickupLongitude'] ??
+                data['pickupLng'] ??
+                data['ownerLng'],
+          ),
 
       distanceKm:
           _readDouble(
