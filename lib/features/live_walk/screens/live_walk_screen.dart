@@ -152,7 +152,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 ),
                 borderRadius:
                     BorderRadius.circular(22),
-                boxShadow: const [
+                boxShadow: const <BoxShadow>[
                   BoxShadow(
                     color: Colors.black12,
                     blurRadius: 10,
@@ -170,13 +170,13 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 ),
               ),
             ),
-            actions: [
+            actions: <Widget>[
               Padding(
                 padding: const EdgeInsets.only(
                   right: 8,
                 ),
                 child: Row(
-                  children: [
+                  children: <Widget>[
                     _topActionButton(
                       icon: Icons.sos_rounded,
                       tooltip: 'SOS',
@@ -205,7 +205,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             ],
           ),
           body: Stack(
-            children: [
+            children: <Widget>[
               // ==================================================
               // FULL SCREEN LIVE MAP
               // ==================================================
@@ -228,14 +228,13 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                   minChildSize: .18,
                   maxChildSize: .72,
                   snap: true,
-                  snapSizes: const [
+                  snapSizes: const <double>[
                     .22,
                     .72,
                   ],
                   builder: (
                     BuildContext context,
-                    ScrollController
-                        scrollController,
+                    ScrollController scrollController,
                   ) {
                     return _buildBottomSheet(
                       scrollController,
@@ -300,78 +299,22 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             ) ??
             _controller.steps;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius:
-            BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 18,
-            offset: Offset(0, -5),
-          ),
-        ],
+    return LiveWalkBottomSheet(
+      scrollController: scrollController,
+      ending: ending,
+      ownerName: widget.ownerName,
+      dogName: widget.dogName,
+      dogBreed: widget.dogBreed,
+      distanceKm: distance,
+      steps: steps,
+      duration: _readDuration(
+        sessionData,
       ),
-      child: ListView(
-        controller: scrollController,
-        physics:
-            const BouncingScrollPhysics(),
-        padding:
-            const EdgeInsets.fromLTRB(
-          16,
-          10,
-          16,
-          28,
-        ),
-        children: [
-          Center(
-            child: Container(
-              width: 42,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.black12,
-                borderRadius:
-                    BorderRadius.circular(10),
-              ),
-            ),
-          ),
-
-          const SizedBox(
-            height: 14,
-          ),
-
-          LiveWalkBottomSheet(
-            ending: ending,
-            ownerName:
-                widget.ownerName,
-            dogName:
-                widget.dogName,
-            dogBreed:
-                widget.dogBreed,
-            distanceKm:
-                distance,
-            steps:
-                steps,
-            duration:
-                _readDuration(
-              sessionData,
-            ),
-            peeCount:
-                _controller.peeCount,
-            poopCount:
-                _controller.poopCount,
-            onCallOwner:
-                _callOwner,
-            onActivityConfirmed:
-                _recordDogActivity,
-            onComplete:
-                _confirmCompleteWalk,
-          ),
-        ],
-      ),
+      peeCount: _controller.peeCount,
+      poopCount: _controller.poopCount,
+      onCallOwner: _callOwner,
+      onActivityConfirmed: _recordDogActivity,
+      onComplete: _confirmCompleteWalk,
     );
   }
 
@@ -452,7 +395,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   }
 
   // ============================================================
-  // COMPLETE WALK
+  // COMPLETE WALK CONFIRMATION
   // ============================================================
 
   void _confirmCompleteWalk() {
@@ -499,7 +442,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
               height: 1.4,
             ),
           ),
-          actions: [
+          actions: <Widget>[
             TextButton(
               onPressed: () {
                 Navigator.of(
@@ -604,8 +547,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         resultSessionData,
       );
 
-      // Keep final activity counts in
-      // the returned session data too.
       resultSessionData['peeCount'] =
           _controller.peeCount;
 
@@ -618,39 +559,19 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         <String, dynamic>{
           'walkCompleted': true,
           'showReview': true,
-
-          'requestId':
-              widget.requestId,
-
-          'ownerUid':
-              widget.ownerUid,
-          'ownerName':
-              widget.ownerName,
-          'ownerPhone':
-              widget.ownerPhone,
-
-          'dogName':
-              widget.dogName,
-          'dogBreed':
-              widget.dogBreed,
-
-          'distanceKm':
-              distance,
-          'steps':
-              steps,
-          'duration':
-              duration,
-
-          'routePoints':
-              routePoints,
-
-          'sessionData':
-              resultSessionData,
-
-          'peeCount':
-              _controller.peeCount,
-          'poopCount':
-              _controller.poopCount,
+          'requestId': widget.requestId,
+          'ownerUid': widget.ownerUid,
+          'ownerName': widget.ownerName,
+          'ownerPhone': widget.ownerPhone,
+          'dogName': widget.dogName,
+          'dogBreed': widget.dogBreed,
+          'distanceKm': distance,
+          'steps': steps,
+          'duration': duration,
+          'routePoints': routePoints,
+          'sessionData': resultSessionData,
+          'peeCount': _controller.peeCount,
+          'poopCount': _controller.poopCount,
         },
       );
     } catch (error) {
@@ -728,7 +649,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             child: Column(
               mainAxisSize:
                   MainAxisSize.min,
-              children: [
+              children: <Widget>[
                 Container(
                   width: 42,
                   height: 5,
@@ -742,11 +663,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(
                   height: 18,
                 ),
-
                 const Icon(
                   Icons
                       .support_agent_rounded,
@@ -754,11 +673,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                       AppColors.primary,
                   size: 38,
                 ),
-
                 const SizedBox(
                   height: 10,
                 ),
-
                 const Text(
                   'Walk Support',
                   style: TextStyle(
@@ -769,11 +686,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                         FontWeight.w900,
                   ),
                 ),
-
                 const SizedBox(
                   height: 6,
                 ),
-
                 const Text(
                   'Need help during this walk?',
                   textAlign:
@@ -783,11 +698,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                     fontSize: 12,
                   ),
                 ),
-
                 const SizedBox(
                   height: 18,
                 ),
-
                 SizedBox(
                   width:
                       double.infinity,
@@ -1112,7 +1025,7 @@ class _SosSheet extends StatelessWidget {
         child: Column(
           mainAxisSize:
               MainAxisSize.min,
-          children: [
+          children: <Widget>[
             Container(
               width: 42,
               height: 5,
@@ -1126,22 +1039,18 @@ class _SosSheet extends StatelessWidget {
                 ),
               ),
             ),
-
             const SizedBox(
               height: 18,
             ),
-
             const Icon(
               Icons.sos_rounded,
               color:
                   AppColors.error,
               size: 48,
             ),
-
             const SizedBox(
               height: 10,
             ),
-
             const Text(
               'Emergency SOS',
               style: TextStyle(
@@ -1152,11 +1061,9 @@ class _SosSheet extends StatelessWidget {
                     FontWeight.w900,
               ),
             ),
-
             const SizedBox(
               height: 6,
             ),
-
             Text(
               cleanOwnerName.isEmpty
                   ? 'Emergency assistance'
@@ -1169,11 +1076,9 @@ class _SosSheet extends StatelessWidget {
                 fontSize: 12,
               ),
             ),
-
             const SizedBox(
               height: 18,
             ),
-
             SizedBox(
               width:
                   double.infinity,
