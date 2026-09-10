@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../screens/help_support_screen.dart';
 
 class LiveWalkAppBar extends StatelessWidget
     implements PreferredSizeWidget {
@@ -16,47 +17,45 @@ class LiveWalkAppBar extends StatelessWidget
   final VoidCallback onSupport;
 
   @override
-  Size get preferredSize =>
-      const Size.fromHeight(64);
+  Size get preferredSize => const Size.fromHeight(64);
 
   @override
   Widget build(BuildContext context) {
     return AppBar(
       automaticallyImplyLeading: false,
       toolbarHeight: 64,
-
       backgroundColor: AppColors.primary,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-
       centerTitle: false,
-
       titleSpacing: 16,
-
-      // ========================================================
-      // TITLE
-      // ========================================================
-
       title: Row(
         children: <Widget>[
           Container(
-            width: 38,
-            height: 38,
+            width: 40,
+            height: 40,
+            padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(
-                alpha: 0.14,
-              ),
+              color: Colors.white.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
-              Icons.directions_walk_rounded,
-              color: Colors.white,
-              size: 22,
+            child: Image.asset(
+              'assets/DOJO_WALKER.png',
+              fit: BoxFit.contain,
+              errorBuilder: (
+                BuildContext context,
+                Object error,
+                StackTrace? stackTrace,
+              ) {
+                return const Icon(
+                  Icons.pets_rounded,
+                  color: Colors.white,
+                  size: 24,
+                );
+              },
             ),
           ),
-
           const SizedBox(width: 11),
-
           const Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,33 +84,22 @@ class LiveWalkAppBar extends StatelessWidget
           ),
         ],
       ),
-
-      // ========================================================
-      // ACTIONS
-      // ========================================================
-
       actions: <Widget>[
-        // ------------------------------------------------------
-        // SUPPORT
-        // ------------------------------------------------------
-
         _HeaderAction(
           enabled: enabled,
-          tooltip: 'Support',
+          tooltip: 'Help & Support',
           icon: Icons.support_agent_rounded,
-          onPressed: onSupport,
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const HelpSupportScreen(),
+              ),
+            );
+          },
         ),
-
         const SizedBox(width: 4),
-
-        // ------------------------------------------------------
-        // SOS
-        // ------------------------------------------------------
-
         Padding(
-          padding: const EdgeInsets.only(
-            right: 12,
-          ),
+          padding: const EdgeInsets.only(right: 12),
           child: _SosAction(
             enabled: enabled,
             onPressed: onSos,
@@ -121,10 +109,6 @@ class LiveWalkAppBar extends StatelessWidget
     );
   }
 }
-
-// ============================================================
-// HEADER ACTION
-// ============================================================
 
 class _HeaderAction extends StatelessWidget {
   const _HeaderAction({
@@ -149,26 +133,18 @@ class _HeaderAction extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(
-            alpha: 0.12,
-          ),
+          color: Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(
           icon,
-          color: enabled
-              ? Colors.white
-              : Colors.white38,
+          color: enabled ? Colors.white : Colors.white38,
           size: 22,
         ),
       ),
     );
   }
 }
-
-// ============================================================
-// SOS ACTION
-// ============================================================
 
 class _SosAction extends StatelessWidget {
   const _SosAction({
@@ -188,13 +164,9 @@ class _SosAction extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         child: Container(
           height: 40,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: enabled
-                ? Colors.white
-                : Colors.white24,
+            color: enabled ? Colors.white : Colors.white24,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
