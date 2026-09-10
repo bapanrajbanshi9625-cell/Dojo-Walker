@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -296,8 +297,11 @@ class InstaWalkRequestService {
                     } catch (e) {
                       // Sound failure must NEVER
                       // break request stream.
-                      print(
+                      developer.log(
                         'InstaWalk request sound error: $e',
+                        name:
+                            'InstaWalkRequestService',
+                        error: e,
                       );
                     }
                   }
