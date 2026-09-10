@@ -22,13 +22,49 @@ class CloudinaryService {
     required File file,
     String? folder,
   }) async {
+    return _upload(
+      file: file,
+      resourceType: 'image',
+      folder: folder,
+      errorLabel: 'image',
+    );
+  }
+
+  // ============================================================
+  // UPLOAD VOICE
+  //
+  // Cloudinary handles audio through the video resource type.
+  // ============================================================
+
+  static Future<String> uploadVoice({
+    required File file,
+    String? folder,
+  }) async {
+    return _upload(
+      file: file,
+      resourceType: 'video',
+      folder: folder,
+      errorLabel: 'voice',
+    );
+  }
+
+  // ============================================================
+  // COMMON UPLOAD
+  // ============================================================
+
+  static Future<String> _upload({
+    required File file,
+    required String resourceType,
+    String? folder,
+    required String errorLabel,
+  }) async {
     // ----------------------------------------------------------
     // FILE CHECK
     // ----------------------------------------------------------
 
     if (!await file.exists()) {
       throw Exception(
-        'Selected image file was not found.',
+        'Selected $errorLabel file was not found.',
       );
     }
 
@@ -43,12 +79,22 @@ class CloudinaryService {
     }
 
     // ----------------------------------------------------------
+    // UPLOAD PRESET CHECK
+    // ----------------------------------------------------------
+
+    if (uploadPreset.trim().isEmpty) {
+      throw Exception(
+        'Cloudinary Upload Preset is not configured.',
+      );
+    }
+
+    // ----------------------------------------------------------
     // UPLOAD URL
     // ----------------------------------------------------------
 
     final Uri uri = Uri.parse(
       'https://api.cloudinary.com/v1_1/'
-      '$cloudName/image/upload',
+      '$cloudName/$resourceType/upload',
     );
 
     // ----------------------------------------------------------
@@ -77,7 +123,7 @@ class CloudinaryService {
     }
 
     // ----------------------------------------------------------
-    // IMAGE FILE
+    // FILE
     // ----------------------------------------------------------
 
     request.files.add(
@@ -106,7 +152,7 @@ class CloudinaryService {
     if (response.statusCode < 200 ||
         response.statusCode >= 300) {
       String message =
-          'Cloudinary image upload failed.';
+          'Cloudinary $errorLabel upload failed.';
 
       try {
         final dynamic decoded =
@@ -121,12 +167,12 @@ class CloudinaryService {
 
             if (cloudinaryMessage != null &&
                 cloudinaryMessage.trim().isNotEmpty) {
-              message = cloudinaryMessage;
+              message = cloudinaryMessage.trim();
             }
           }
         }
       } catch (_) {
-        // Keep default message.
+        // Keep default error message.
       }
 
       throw Exception(
@@ -157,7 +203,7 @@ class CloudinaryService {
     if (secureUrl == null ||
         secureUrl.trim().isEmpty) {
       throw Exception(
-        'Cloudinary did not return an image URL.',
+        'Cloudinary did not return a secure URL.',
       );
     }
 
