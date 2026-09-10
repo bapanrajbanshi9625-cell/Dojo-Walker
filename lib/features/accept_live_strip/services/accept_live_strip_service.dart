@@ -33,7 +33,11 @@ class AcceptLiveStripService {
   //     ↓
   // reached
   //     ↓
-  // liveWalkSessions
+  // Ready Strip
+  //     ↓
+  // LiveWalkStartScreen
+  //     ↓
+  // liveWalkSessions = ACTIVE / LIVE / STARTED
   //     ↓
   // Live Strip
   //     ↓
@@ -110,14 +114,8 @@ class AcceptLiveStripService {
 
     bool cancelled = false;
 
-    // ------------------------------------------------------------
-    // Once a request reaches the pickup point, this ID becomes
-    // the active live-walk identity.
-    //
-    // After this point we NEVER use another request to switch
-    // the strip back to Incoming.
-    // ------------------------------------------------------------
-
+    // Once REACHED is detected, this request ID remains the
+    // active walk identity for the rest of this walk.
     String reachedRequestId = '';
 
     void emit() {
@@ -147,12 +145,7 @@ class AcceptLiveStripService {
       ) {
         latestRequests = snapshot;
 
-        // ------------------------------------------------------
-        // Detect REACHED.
-        //
-        // Once detected, lock the request ID.
-        // ------------------------------------------------------
-
+        // Detect REACHED and lock its request ID.
         if (reachedRequestId.isEmpty) {
           final QueryDocumentSnapshot<
                   Map<String, dynamic>>?
@@ -194,13 +187,7 @@ class AcceptLiveStripService {
       ) {
         latestSessions = snapshot;
 
-        // ------------------------------------------------------
-        // A session may already exist when the strip starts
-        // listening.
-        //
-        // Therefore discover its request ID here as well.
-        // ------------------------------------------------------
-
+        // A session can already exist before this service starts.
         if (reachedRequestId.isEmpty) {
           final QueryDocumentSnapshot<
                   Map<String, dynamic>>?
@@ -274,13 +261,14 @@ class AcceptLiveStripService {
                     Map<String, dynamic>>>[];
 
     // ==========================================================
-    // LIVE PHASE
+    // REACHED / READY / LIVE PHASE
     //
-    // Once REACHED is known, only the matching live session
+    // Once REACHED is known, only the matching request/session
     // controls the strip.
     //
-    // This prevents Incoming Screen from returning after
-    // reaching the pickup point.
+    // IMPORTANT:
+    // REACHED does NOT hide the strip anymore.
+    // It becomes READY and opens LiveWalkStartScreen.
     // ==========================================================
 
     if (reachedRequestId.isNotEmpty) {
@@ -292,9 +280,39 @@ class AcceptLiveStripService {
         reachedRequestId,
       );
 
+      // --------------------------------------------------------
+      // If live session has not been created yet, keep the
+      // READY state from walk_request = REACHED.
+      // --------------------------------------------------------
+
       if (session == null) {
-        // Session may be created a moment after REACHED.
-        // Do not fall back to Incoming.
+        final QueryDocumentSnapshot<
+                Map<String, dynamic>>?
+            reachedRequest =
+            _findRequestForId(
+          requestDocs,
+          reachedRequestId,
+        );
+
+        if (reachedRequest != null) {
+          final Map<String, dynamic> data =
+              reachedRequest.data();
+
+          final String status =
+              _normaliseStatus(data['status']);
+
+          if (_isReachedRequestStatus(status)) {
+            return AcceptLiveStripData(
+              status: AcceptLiveStripStatus.ready,
+              requestId: reachedRequestId,
+            );
+          }
+
+          if (_isRequestEnded(status)) {
+            return const AcceptLiveStripData.hidden();
+          }
+        }
+
         return const AcceptLiveStripData.hidden();
       }
 
@@ -307,6 +325,21 @@ class AcceptLiveStripService {
 
       final String status =
           _normaliseStatus(data['status']);
+
+      // --------------------------------------------------------
+      // liveWalkSessions = READY
+      // --------------------------------------------------------
+
+      if (_isReadyStatus(status)) {
+        return AcceptLiveStripData(
+          status: AcceptLiveStripStatus.ready,
+          requestId: reachedRequestId,
+        );
+      }
+
+      // --------------------------------------------------------
+      // Active live walk
+      // --------------------------------------------------------
 
       if (_isLiveStatus(status)) {
         return AcceptLiveStripData(
@@ -347,12 +380,14 @@ class AcceptLiveStripService {
         _normaliseStatus(data['status']);
 
     // ----------------------------------------------------------
-    // If request is already reached, wait for its live session.
-    // Never show Incoming here.
+    // REACHED must become READY, not hidden.
     // ----------------------------------------------------------
 
-    if (_isReachedStatus(status)) {
-      return const AcceptLiveStripData.hidden();
+    if (_isReachedRequestStatus(status)) {
+      return AcceptLiveStripData(
+        status: AcceptLiveStripStatus.ready,
+        requestId: requestId,
+      );
     }
 
     // ----------------------------------------------------------
@@ -375,6 +410,36 @@ class AcceptLiveStripService {
     }
 
     return const AcceptLiveStripData.hidden();
+  }
+
+  // ============================================================
+  // FIND REQUEST BY ID
+  // ============================================================
+
+  QueryDocumentSnapshot<
+          Map<String, dynamic>>?
+      _findRequestForId(
+    List<QueryDocumentSnapshot<
+            Map<String, dynamic>>>
+        documents,
+    String requestId,
+  ) {
+    final String target =
+        requestId.trim();
+
+    if (!_isValidRequestId(target)) {
+      return null;
+    }
+
+    for (final QueryDocumentSnapshot<
+            Map<String, dynamic>>
+        document in documents) {
+      if (document.id.trim() == target) {
+        return document;
+      }
+    }
+
+    return null;
   }
 
   // ============================================================
@@ -402,7 +467,8 @@ class AcceptLiveStripService {
           document.data()['status'],
         );
 
-        return _isAcceptedStatus(status);
+        return _isAcceptedStatus(status) ||
+            _isReachedRequestStatus(status);
       },
     ).toList();
 
@@ -453,7 +519,7 @@ class AcceptLiveStripService {
           document.data()['status'],
         );
 
-        return _isReachedStatus(status);
+        return _isReachedRequestStatus(status);
       },
     ).toList();
 
@@ -514,7 +580,7 @@ class AcceptLiveStripService {
   }
 
   // ============================================================
-  // FIND EXISTING ACTIVE SESSION
+  // FIND EXISTING ACTIVE / READY SESSION
   // ============================================================
 
   QueryDocumentSnapshot<
@@ -546,7 +612,8 @@ class AcceptLiveStripService {
         );
 
         return _isLiveStatus(status) ||
-            _isReachedStatus(status);
+            _isReadyStatus(status) ||
+            _isReachedSessionStatus(status);
       },
     ).toList();
 
@@ -636,16 +703,47 @@ class AcceptLiveStripService {
   }
 
   // ============================================================
-  // REACHED STATUS
+  // REQUEST REACHED STATUS
+  //
+  // walk_request:
+  // REACHED -> READY strip
   // ============================================================
 
-  bool _isReachedStatus(
+  bool _isReachedRequestStatus(
+    String status,
+  ) {
+    switch (status) {
+      case 'REACHED':
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  // ============================================================
+  // SESSION READY STATUS
+  //
+  // liveWalkSessions:
+  // READY -> READY strip
+  // ============================================================
+
+  bool _isReadyStatus(
+    String status,
+  ) {
+    return status == 'READY';
+  }
+
+  // ============================================================
+  // OTHER REACHED/ARRIVED SESSION STATUS
+  // ============================================================
+
+  bool _isReachedSessionStatus(
     String status,
   ) {
     switch (status) {
       case 'REACHED':
       case 'ARRIVED':
-      case 'READY':
         return true;
 
       default:
