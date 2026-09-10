@@ -5,7 +5,6 @@ import 'incoming_walk_address.dart';
 import 'incoming_walk_call_chat.dart';
 import 'incoming_walk_dog_header.dart';
 import 'incoming_walk_reach_button.dart';
-import 'incoming_walk_stats.dart';
 
 class IncomingWalkBottomPanel extends StatelessWidget {
   const IncomingWalkBottomPanel({
@@ -88,10 +87,6 @@ class IncomingWalkBottomPanel extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                // ------------------------------------------------
-                // DRAG HANDLE
-                // ------------------------------------------------
-
                 Container(
                   width: 38,
                   height: 4,
@@ -103,10 +98,6 @@ class IncomingWalkBottomPanel extends StatelessWidget {
 
                 const SizedBox(height: 14),
 
-                // ------------------------------------------------
-                // DOG + OWNER
-                // ------------------------------------------------
-
                 IncomingWalkDogHeader(
                   dogName: dogName,
                   dogBreed: dogBreed,
@@ -115,24 +106,11 @@ class IncomingWalkBottomPanel extends StatelessWidget {
 
                 const SizedBox(height: 14),
 
-                // ------------------------------------------------
-                // WALK INFORMATION
-                //
-                // ETA IS INTENTIONALLY NOT SHOWN.
-                //
-                // Existing etaText is retained in the API so
-                // existing screen logic does not break.
-                // ------------------------------------------------
-
                 _WalkInfoCard(
                   distanceText: distanceText,
                 ),
 
                 const SizedBox(height: 12),
-
-                // ------------------------------------------------
-                // PICKUP LOCATION
-                // ------------------------------------------------
 
                 if (address.trim().isNotEmpty)
                   IncomingWalkAddress(
@@ -140,10 +118,6 @@ class IncomingWalkBottomPanel extends StatelessWidget {
                   ),
 
                 const SizedBox(height: 14),
-
-                // ------------------------------------------------
-                // ACTIONS
-                // ------------------------------------------------
 
                 if (accepted) ...[
                   IncomingWalkCallChat(
@@ -167,10 +141,6 @@ class IncomingWalkBottomPanel extends StatelessWidget {
                   ),
 
                 const SizedBox(height: 9),
-
-                // ------------------------------------------------
-                // STATUS
-                // ------------------------------------------------
 
                 _StatusMessage(
                   accepted: accepted,
@@ -227,8 +197,8 @@ class _WalkInfoCard extends StatelessWidget {
             height: 34,
             color: const Color(0xFFE1E4E8),
           ),
-          Expanded(
-            child: const _InfoItem(
+          const Expanded(
+            child: _InfoItem(
               icon: Icons.schedule_rounded,
               label: 'DURATION',
               value: '—',
