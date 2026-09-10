@@ -80,11 +80,9 @@ class LiveWalkSessionController extends ChangeNotifier {
   int _peeCount = 0;
   int _poopCount = 0;
 
-  Map<String, dynamic> _sessionData =
-      <String, dynamic>{};
+  Map<String, dynamic> _sessionData = <String, dynamic>{};
 
-  StreamSubscription<
-          DocumentSnapshot<Map<String, dynamic>>>?
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
       _sessionSubscription;
 
   // ============================================================
@@ -101,8 +99,7 @@ class LiveWalkSessionController extends ChangeNotifier {
 
   bool get completed => _walkCompleted;
 
-  bool get busy =>
-      _startingWalk || _endingWalk;
+  bool get busy => _startingWalk || _endingWalk;
 
   double get distanceKm => _distanceKm;
 
@@ -123,23 +120,17 @@ class LiveWalkSessionController extends ChangeNotifier {
   // SESSION TIMELINE
   // ============================================================
 
-  dynamic get createdAt =>
-      _sessionData['createdAt'];
+  dynamic get createdAt => _sessionData['createdAt'];
 
-  dynamic get acceptedAt =>
-      _sessionData['acceptedAt'];
+  dynamic get acceptedAt => _sessionData['acceptedAt'];
 
-  dynamic get reachedAt =>
-      _sessionData['reachedAt'];
+  dynamic get reachedAt => _sessionData['reachedAt'];
 
-  dynamic get startedAt =>
-      _sessionData['startedAt'];
+  dynamic get startedAt => _sessionData['startedAt'];
 
-  dynamic get completedAt =>
-      _sessionData['completedAt'];
+  dynamic get completedAt => _sessionData['completedAt'];
 
-  dynamic get endedAt =>
-      _sessionData['endedAt'];
+  dynamic get endedAt => _sessionData['endedAt'];
 
   // ============================================================
   // REACH STATE
@@ -211,8 +202,7 @@ class LiveWalkSessionController extends ChangeNotifier {
   // FIRESTORE SESSION REFERENCE
   // ============================================================
 
-  DocumentReference<Map<String, dynamic>>
-      get sessionRef {
+  DocumentReference<Map<String, dynamic>> get sessionRef {
     return _sessionService.sessionRef(
       requestId,
     );
@@ -222,8 +212,7 @@ class LiveWalkSessionController extends ChangeNotifier {
   // FIRESTORE SESSION STREAM
   // ============================================================
 
-  Stream<DocumentSnapshot<Map<String, dynamic>>>
-      get sessionStream {
+  Stream<DocumentSnapshot<Map<String, dynamic>>> get sessionStream {
     return sessionRef.snapshots();
   }
 
@@ -252,9 +241,7 @@ class LiveWalkSessionController extends ChangeNotifier {
       // FIRST SNAPSHOT
       // --------------------------------------------------------
 
-      final DocumentSnapshot<
-              Map<String, dynamic>>
-          snapshot =
+      final DocumentSnapshot<Map<String, dynamic>> snapshot =
           await sessionRef.get();
 
       if (_disposed) {
@@ -283,9 +270,7 @@ class LiveWalkSessionController extends ChangeNotifier {
       _sessionSubscription =
           sessionStream.listen(
         (
-          DocumentSnapshot<
-                  Map<String, dynamic>>
-              snapshot,
+          DocumentSnapshot<Map<String, dynamic>> snapshot,
         ) {
           if (_disposed ||
               !snapshot.exists) {
@@ -495,6 +480,124 @@ class LiveWalkSessionController extends ChangeNotifier {
     _distanceKm = distance;
 
     notifyListeners();
+  }
+
+  // ============================================================
+  // RECORD DOG ACTIVITY
+  // ============================================================
+  //
+  // Single source of truth:
+  //
+  // Controller
+  //      ↓
+  // Firestore atomic increment
+  //      ↓
+  // Background metrics
+  //
+  // No separate activity controller/service.
+  // ============================================================
+
+  Future<void> recordDogActivity({
+    required String type,
+  }) async {
+    if (_disposed ||
+        !_walkStarted ||
+        _endingWalk) {
+      return;
+    }
+
+    final String normalized =
+        type.trim().toLowerCase();
+
+    final String field;
+
+    if (normalized == 'pee') {
+      field = 'peeCount';
+    } else if (normalized == 'poop') {
+      field = 'poopCount';
+    } else {
+      throw ArgumentError.value(
+        type,
+        'type',
+        'Unsupported dog activity.',
+      );
+    }
+
+    final int previousCount =
+        field == 'peeCount'
+            ? _peeCount
+            : _poopCount;
+
+    final int nextCount =
+        previousCount + 1;
+
+    // ----------------------------------------------------------
+    // OPTIMISTIC LOCAL UPDATE
+    // ----------------------------------------------------------
+
+    if (field == 'peeCount') {
+      _peeCount = nextCount;
+    } else {
+      _poopCount = nextCount;
+    }
+
+    _sessionData =
+        <String, dynamic>{
+      ..._sessionData,
+      field: nextCount,
+    };
+
+    notifyListeners();
+
+    try {
+      // --------------------------------------------------------
+      // FIRESTORE ATOMIC INCREMENT
+      // --------------------------------------------------------
+
+      await sessionRef.update(
+        <String, dynamic>{
+          field: FieldValue.increment(1),
+        },
+      );
+
+      // --------------------------------------------------------
+      // BACKGROUND METRICS SYNC
+      // --------------------------------------------------------
+
+      try {
+        _backgroundService.updateActivities(
+          peeCount: _peeCount,
+          poopCount: _poopCount,
+        );
+      } catch (error) {
+        debugPrint(
+          'LiveWalk activity background update failed: '
+          '$error',
+        );
+      }
+    } catch (error) {
+      // --------------------------------------------------------
+      // ROLLBACK LOCAL STATE
+      // --------------------------------------------------------
+
+      if (!_disposed) {
+        if (field == 'peeCount') {
+          _peeCount = previousCount;
+        } else {
+          _poopCount = previousCount;
+        }
+
+        _sessionData =
+            <String, dynamic>{
+          ..._sessionData,
+          field: previousCount,
+        };
+
+        notifyListeners();
+      }
+
+      rethrow;
+    }
   }
 
   // ============================================================
@@ -992,8 +1095,7 @@ class LiveWalkSessionController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
 
-    final StreamSubscription<
-            DocumentSnapshot<Map<String, dynamic>>>?
+    final StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
         subscription =
         _sessionSubscription;
 
