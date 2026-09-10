@@ -16,10 +16,8 @@ class WalkerLocationService {
   Stream<Position> get locationStream => _locationController.stream;
 
   Position? _currentPosition;
-
   bool _tracking = false;
   bool _startingTracking = false;
-
   String? _lastError;
 
   Position? get currentPosition => _currentPosition;
@@ -189,6 +187,8 @@ class WalkerLocationService {
 
   // ==========================================================
   // GET CURRENT LOCATION
+  //
+  // Geolocator 12 uses desiredAccuracy here.
   // ==========================================================
 
   Future<Position?> getCurrentLocation({
@@ -207,11 +207,9 @@ class WalkerLocationService {
         'Walker Location: Requesting current GPS position...',
       );
 
-      final LocationSettings settings = _buildLocationSettings();
-
       final Position position =
           await Geolocator.getCurrentPosition(
-        locationSettings: settings,
+        desiredAccuracy: LocationAccuracy.high,
       ).timeout(timeout);
 
       _updatePosition(position);
@@ -274,12 +272,9 @@ class WalkerLocationService {
   // ==========================================================
   // START CONTINUOUS TRACKING
   //
-  // IMPORTANT:
-  // This remains the ONE canonical GPS service.
-  //
   // ACCEPT
   //   ↓
-  // startTracking()
+  // GPS ON
   //
   // REACHED
   //   ↓
@@ -291,7 +286,7 @@ class WalkerLocationService {
   //
   // COMPLETE
   //   ↓
-  // stopTracking()
+  // GPS OFF
   // ==========================================================
 
   Future<bool> startTracking() async {
@@ -331,10 +326,6 @@ class WalkerLocationService {
 
       debugPrint(
         'Walker Location: Starting continuous GPS...',
-      );
-
-      debugPrint(
-        'Walker Location: Android foreground tracking enabled.',
       );
 
       _positionSubscription =
@@ -412,7 +403,8 @@ class WalkerLocationService {
   // ==========================================================
   // STOP CONTINUOUS TRACKING
   //
-  // ONLY the final completion flow should call this.
+  // This only stops the canonical GPS service.
+  // LiveWalkBackgroundService remains separate.
   // ==========================================================
 
   Future<void> stopTracking() async {
@@ -425,7 +417,6 @@ class WalkerLocationService {
     }
 
     _positionSubscription = null;
-
     _tracking = false;
 
     debugPrint(
@@ -446,27 +437,29 @@ class WalkerLocationService {
   //
   // Android:
   // - High accuracy
-  // - 10 meter movement filter
-  // - 5 second requested interval
-  // - Foreground service notification
+  // - 10 meter distance filter
+  // - 5 second interval
+  // - Foreground notification
   // - Wake lock
+  // - WiFi lock
   //
-  // The foreground notification allows the location service
-  // to continue when the app moves to the background.
+  // The notification is managed by Geolocator's Android
+  // foreground location configuration.
   // ==========================================================
 
   LocationSettings _buildLocationSettings() {
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return const AndroidSettings(
+      return AndroidSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 10,
-        intervalDuration: Duration(seconds: 5),
+        intervalDuration: const Duration(seconds: 5),
         foregroundNotificationConfig:
-            ForegroundNotificationConfig(
+            const ForegroundNotificationConfig(
           notificationTitle: 'Dojo Walker',
           notificationText:
               'Live walk location tracking is active.',
-          notificationChannelName: 'Dojo Walker Live Tracking',
+          notificationChannelName:
+              'Dojo Walker Live Tracking',
           enableWakeLock: true,
           enableWifiLock: true,
           setOngoing: true,
