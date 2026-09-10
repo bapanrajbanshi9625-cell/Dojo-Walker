@@ -443,6 +443,23 @@ class _MainNavigationScreenState
           await _getWalkRequest(requestId);
     }
 
+    // ==========================================================
+    // QR READY FALLBACK
+    //
+    // QR walk can have READY state directly in
+    // liveWalkSessions/{requestId} without a
+    // walk_request/{requestId} document.
+    //
+    // Insta Walk behavior remains unchanged.
+    // ==========================================================
+
+    if ((walkData == null ||
+            walkData.isEmpty) &&
+        stripData.isReady) {
+      walkData =
+          await _findLiveSession(requestId);
+    }
+
     if (walkData == null ||
         walkData.isEmpty) {
       if (mounted) {
