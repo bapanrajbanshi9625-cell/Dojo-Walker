@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../contacts/screens/chat_sheet.dart';
+import '../controllers/live_walk_session_controller.dart';
 import '../widgets/live_walk_bottom_sheet.dart';
 import '../widgets/live_walk_map_layer.dart';
 
@@ -302,6 +302,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     return LiveWalkBottomSheet(
       scrollController: scrollController,
       ending: ending,
+      ownerUid: widget.ownerUid,
       ownerName: widget.ownerName,
       dogName: widget.dogName,
       dogBreed: widget.dogBreed,
