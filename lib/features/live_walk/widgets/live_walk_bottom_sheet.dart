@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../communication/screens/chat_sheet.dart';
 import 'live_walk_complete_slider.dart';
 
 class LiveWalkBottomSheet extends StatelessWidget {
@@ -18,6 +19,8 @@ class LiveWalkBottomSheet extends StatelessWidget {
     required this.onCallOwner,
     required this.onActivityConfirmed,
     required this.onComplete,
+    this.ownerPhotoUrl,
+    this.onVoiceInteraction,
   });
 
   final ScrollController scrollController;
@@ -26,6 +29,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
   final String ownerName;
   final String dogName;
   final String dogBreed;
+  final String? ownerPhotoUrl;
 
   final double distanceKm;
   final int steps;
@@ -37,6 +41,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
   final VoidCallback onCallOwner;
   final Future<void> Function(String type) onActivityConfirmed;
   final VoidCallback onComplete;
+  final VoidCallback? onVoiceInteraction;
 
   static const Color _orange = Color(0xFFFF6B35);
   static const Color _green = Color(0xFF22A06B);
@@ -76,9 +81,11 @@ class LiveWalkBottomSheet extends StatelessWidget {
             const SizedBox(height: 14),
             _buildLiveStats(),
             const SizedBox(height: 16),
-            _buildActivities(context),
+            _buildActivities(),
             const SizedBox(height: 18),
-            _buildCallOwnerButton(),
+            _buildCommunicationButtons(context),
+            const SizedBox(height: 12),
+            _buildVoiceInteractionButton(),
             const SizedBox(height: 18),
             _buildCompleteSection(),
           ] else
@@ -102,6 +109,9 @@ class LiveWalkBottomSheet extends StatelessWidget {
   }
 
   Widget _buildOwnerDogHeader() {
+    final bool hasPhoto =
+        ownerPhotoUrl != null && ownerPhotoUrl!.trim().isNotEmpty;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
@@ -111,12 +121,20 @@ class LiveWalkBottomSheet extends StatelessWidget {
           decoration: BoxDecoration(
             color: _orange.withValues(alpha: 0.10),
             shape: BoxShape.circle,
+            image: hasPhoto
+                ? DecorationImage(
+                    image: NetworkImage(ownerPhotoUrl!),
+                    fit: BoxFit.cover,
+                  )
+                : null,
           ),
-          child: const Icon(
-            Icons.person_rounded,
-            color: _orange,
-            size: 28,
-          ),
+          child: !hasPhoto
+              ? const Icon(
+                  Icons.person_rounded,
+                  color: _orange,
+                  size: 28,
+                )
+              : null,
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -124,9 +142,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                ownerName.trim().isEmpty
-                    ? 'Owner'
-                    : ownerName.trim(),
+                ownerName.trim().isEmpty ? 'Owner' : ownerName.trim(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -307,7 +323,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildActivities(BuildContext context) {
+  Widget _buildActivities() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -329,12 +345,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
                 title: 'PEE',
                 count: peeCount,
                 iconColor: _green,
-                onTap: () {
-                  _showActivityConfirmation(
-                    context,
-                    'Pee',
-                  );
-                },
+                onTap: () => onActivityConfirmed('Pee'),
               ),
             ),
             const SizedBox(width: 12),
@@ -344,12 +355,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
                 title: 'POOP',
                 count: poopCount,
                 iconColor: _red,
-                onTap: () {
-                  _showActivityConfirmation(
-                    context,
-                    'Poop',
-                  );
-                },
+                onTap: () => onActivityConfirmed('Poop'),
               ),
             ),
           ],
@@ -363,17 +369,23 @@ class LiveWalkBottomSheet extends StatelessWidget {
     required String title,
     required int count,
     required Color iconColor,
-    required VoidCallback onTap,
+    required Future<void> Function() onTap,
   }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: () async {
+          try {
+            await onTap();
+          } catch (_) {
+            // Parent controller handles the error.
+          }
+        },
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 13,
+            horizontal: 12,
+            vertical: 10,
           ),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -397,7 +409,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
                   size: 20,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 9),
               Expanded(
                 child: Text(
                   title,
@@ -410,15 +422,15 @@ class LiveWalkBottomSheet extends StatelessWidget {
               ),
               Container(
                 constraints: const BoxConstraints(
-                  minWidth: 30,
+                  minWidth: 28,
                 ),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
+                  horizontal: 7,
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
                   color: iconColor.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(9),
                 ),
                 child: Text(
                   count.toString(),
@@ -430,6 +442,20 @@ class LiveWalkBottomSheet extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(width: 6),
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: iconColor,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(
+                  Icons.add_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
             ],
           ),
         ),
@@ -437,86 +463,118 @@ class LiveWalkBottomSheet extends StatelessWidget {
     );
   }
 
-  Future<void> _showActivityConfirmation(
-    BuildContext context,
-    String type,
-  ) async {
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            '$type recorded?',
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          content: Text(
-            'Confirm that the dog ${type.toLowerCase()} during this walk.',
-            style: const TextStyle(
-              height: 1.4,
-              color: Color(0xFF555555),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(false);
-              },
-              child: const Text('CANCEL'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: _orange,
-                foregroundColor: Colors.white,
+  Widget _buildCommunicationButtons(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: SizedBox(
+            height: 50,
+            child: OutlinedButton.icon(
+              onPressed: onCallOwner,
+              icon: const Icon(
+                Icons.phone_rounded,
+                size: 19,
               ),
-              onPressed: () {
-                Navigator.of(dialogContext).pop(true);
-              },
-              child: const Text('CONFIRM'),
+              label: const Text(
+                'CALL OWNER',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _orange,
+                side: const BorderSide(
+                  color: _orange,
+                  width: 1.4,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
             ),
-          ],
-        );
-      },
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: SizedBox(
+            height: 50,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                ChatSheet.show(
+                  context,
+                  contactName: ownerName.trim().isEmpty
+                      ? 'Owner'
+                      : ownerName.trim(),
+                  contactPhotoUrl: ownerPhotoUrl,
+                  currentUserIsWalker: true,
+                );
+              },
+              icon: const Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: 19,
+              ),
+              label: const Text(
+                'CHAT',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _orange,
+                side: const BorderSide(
+                  color: _orange,
+                  width: 1.4,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
-
-    if (confirmed != true) {
-      return;
-    }
-
-    try {
-      await onActivityConfirmed(type);
-    } catch (_) {
-      // Parent screen handles the Firestore error.
-    }
   }
 
-  Widget _buildCallOwnerButton() {
+  Widget _buildVoiceInteractionButton() {
     return SizedBox(
       width: double.infinity,
       height: 52,
       child: OutlinedButton.icon(
-        onPressed: onCallOwner,
+        onPressed: onVoiceInteraction,
         icon: const Icon(
-          Icons.phone_rounded,
-          size: 20,
+          Icons.mic_rounded,
+          size: 21,
         ),
-        label: const Text(
-          'CALL OWNER',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.4,
-          ),
+        label: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Text(
+              'VOICE INTERACTION',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.3,
+              ),
+            ),
+            Text(
+              'Talk with the owner',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
         style: OutlinedButton.styleFrom(
           foregroundColor: _orange,
-          side: const BorderSide(
-            color: _orange,
-            width: 1.4,
+          side: BorderSide(
+            color: _orange.withValues(alpha: 0.65),
+            width: 1.3,
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
