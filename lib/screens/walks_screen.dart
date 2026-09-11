@@ -8,7 +8,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../features/insta_walk/models/insta_walk_request.dart';
-import '../features/insta_walk/screens/incoming_walk_request_screen.dart';
 import '../features/insta_walk/services/insta_walk_request_service.dart';
 import '../features/insta_walk/widgets/insta_walk_container.dart';
 import '../features/walker_home/containers/walker_home_header.dart';
