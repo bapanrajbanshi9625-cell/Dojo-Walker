@@ -12,7 +12,7 @@ import '../core/services/app_state_service.dart';
 import '../features/accept_live_strip/models/accept_live_strip_data.dart';
 import '../features/accept_live_strip/widgets/accept_live_strip.dart';
 import '../features/insta_walk/models/insta_walk_request.dart';
-import '../features/insta_walk/screens/incoming_walk_request_screen.dart';
+import '../features/incoming_walk/screens/incoming_walk_request_screen.dart';
 import '../features/live_walk/screens/live_walk_screen.dart';
 import '../features/live_walk/screens/live_walk_start_screen.dart';
 import '../features/live_walk/widgets/live_walk_review_bottom_sheet.dart';
