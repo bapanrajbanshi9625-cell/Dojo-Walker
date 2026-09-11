@@ -6,27 +6,49 @@ import 'package:geolocator/geolocator.dart';
 class WalkerLocationService {
   WalkerLocationService._();
 
-  static final instance = WalkerLocationService._();
+  static final WalkerLocationService instance =
+      WalkerLocationService._();
 
   StreamSubscription<Position>? _positionSubscription;
 
-  final StreamController<Position> _locationController =
+  StreamController<Position> _locationController =
       StreamController<Position>.broadcast();
 
-  Stream<Position> get locationStream => _locationController.stream;
+  Stream<Position> get locationStream =>
+      _locationController.stream;
 
   Position? _currentPosition;
+
   bool _tracking = false;
   bool _startingTracking = false;
+  bool _disposed = false;
+
   String? _lastError;
 
   Position? get currentPosition => _currentPosition;
 
   bool get isTracking => _tracking;
 
-  bool get hasCurrentLocation => _currentPosition != null;
+  bool get hasCurrentLocation =>
+      _currentPosition != null;
 
   String? get lastError => _lastError;
+
+  // ==========================================================
+  // ENSURE STREAM IS READY
+  //
+  // This service is a singleton.
+  // The stream must remain reusable after stopTracking().
+  // ==========================================================
+
+  void _ensureStreamController() {
+    if (_locationController.isClosed) {
+      _locationController =
+          StreamController<Position>.broadcast();
+    }
+
+    _disposed = false;
+  }
 
   // ==========================================================
   // GPS SERVICE STATUS
@@ -36,8 +58,14 @@ class WalkerLocationService {
     try {
       return await Geolocator.isLocationServiceEnabled();
     } catch (e) {
-      _setError('Unable to check GPS status: $e');
-      debugPrint('Walker Location GPS Check Error: $e');
+      _setError(
+        'Unable to check GPS status: $e',
+      );
+
+      debugPrint(
+        'Walker Location GPS Check Error: $e',
+      );
+
       return false;
     }
   }
@@ -50,8 +78,14 @@ class WalkerLocationService {
     try {
       return await Geolocator.checkPermission();
     } catch (e) {
-      _setError('Unable to check location permission: $e');
-      debugPrint('Walker Location Permission Check Error: $e');
+      _setError(
+        'Unable to check location permission: $e',
+      );
+
+      debugPrint(
+        'Walker Location Permission Check Error: $e',
+      );
+
       return LocationPermission.denied;
     }
   }
@@ -62,6 +96,7 @@ class WalkerLocationService {
 
   Future<bool> ensurePermission() async {
     _clearError();
+    _ensureStreamController();
 
     try {
       final bool serviceEnabled =
@@ -72,7 +107,10 @@ class WalkerLocationService {
           'Location services are disabled. Please turn on GPS.',
         );
 
-        debugPrint('Walker Location: GPS is disabled.');
+        debugPrint(
+          'Walker Location: GPS is disabled.',
+        );
+
         return false;
       }
 
@@ -84,14 +122,17 @@ class WalkerLocationService {
       );
 
       if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+        permission =
+            await Geolocator.requestPermission();
 
         debugPrint(
-          'Walker Location Permission After Request: $permission',
+          'Walker Location Permission After Request: '
+          '$permission',
         );
       }
 
-      if (permission == LocationPermission.deniedForever) {
+      if (permission ==
+          LocationPermission.deniedForever) {
         _setError(
           'Location permission is permanently denied. '
           'Please allow location permission from app settings.',
@@ -116,8 +157,10 @@ class WalkerLocationService {
         return false;
       }
 
-      if (permission == LocationPermission.whileInUse ||
-          permission == LocationPermission.always) {
+      if (permission ==
+              LocationPermission.whileInUse ||
+          permission ==
+              LocationPermission.always) {
         debugPrint(
           'Walker Location: Permission granted.',
         );
@@ -187,16 +230,16 @@ class WalkerLocationService {
 
   // ==========================================================
   // GET CURRENT LOCATION
-  //
-  // Geolocator 12 uses desiredAccuracy here.
   // ==========================================================
 
   Future<Position?> getCurrentLocation({
-    Duration timeout = const Duration(seconds: 15),
+    Duration timeout =
+        const Duration(seconds: 15),
   }) async {
     _clearError();
 
-    final bool allowed = await ensurePermission();
+    final bool allowed =
+        await ensurePermission();
 
     if (!allowed) {
       return null;
@@ -216,11 +259,13 @@ class WalkerLocationService {
 
       debugPrint(
         'Walker Location Acquired: '
-        '${position.latitude}, ${position.longitude}',
+        '${position.latitude}, '
+        '${position.longitude}',
       );
 
       debugPrint(
-        'Walker GPS Accuracy: ${position.accuracy}m',
+        'Walker GPS Accuracy: '
+        '${position.accuracy}m',
       );
 
       return position;
@@ -240,7 +285,8 @@ class WalkerLocationService {
       );
 
       debugPrint(
-        'Walker Location: GPS disabled while requesting position.',
+        'Walker Location: GPS disabled while '
+        'requesting position.',
       );
 
       return null;
@@ -250,7 +296,8 @@ class WalkerLocationService {
       );
 
       debugPrint(
-        'Walker Location: Permission denied while requesting position.',
+        'Walker Location: Permission denied while '
+        'requesting position.',
       );
 
       return null;
@@ -291,6 +338,7 @@ class WalkerLocationService {
 
   Future<bool> startTracking() async {
     _clearError();
+    _ensureStreamController();
 
     if (_tracking) {
       debugPrint(
@@ -311,7 +359,8 @@ class WalkerLocationService {
     _startingTracking = true;
 
     try {
-      final bool allowed = await ensurePermission();
+      final bool allowed =
+          await ensurePermission();
 
       if (!allowed) {
         return false;
@@ -328,11 +377,18 @@ class WalkerLocationService {
         'Walker Location: Starting continuous GPS...',
       );
 
-      _positionSubscription =
+      final Stream<Position> positionStream =
           Geolocator.getPositionStream(
         locationSettings: settings,
-      ).listen(
+      );
+
+      _positionSubscription =
+          positionStream.listen(
         (Position position) {
+          if (_disposed) {
+            return;
+          }
+
           _updatePosition(position);
 
           debugPrint(
@@ -369,8 +425,11 @@ class WalkerLocationService {
       );
 
       debugPrint(
-        'Walker Location: GPS disabled while starting tracking.',
+        'Walker Location: GPS disabled while '
+        'starting tracking.',
       );
+
+      await _cleanupTrackingSubscription();
 
       return false;
     } on PermissionDeniedException {
@@ -379,8 +438,11 @@ class WalkerLocationService {
       );
 
       debugPrint(
-        'Walker Location: Permission denied while starting tracking.',
+        'Walker Location: Permission denied while '
+        'starting tracking.',
       );
+
+      await _cleanupTrackingSubscription();
 
       return false;
     } catch (e, stackTrace) {
@@ -393,6 +455,8 @@ class WalkerLocationService {
       );
 
       debugPrint('$stackTrace');
+
+      await _cleanupTrackingSubscription();
 
       return false;
     } finally {
@@ -418,10 +482,24 @@ class WalkerLocationService {
 
     _positionSubscription = null;
     _tracking = false;
+    _startingTracking = false;
 
     debugPrint(
       'Walker Location: GPS tracking stopped.',
     );
+  }
+
+  Future<void> _cleanupTrackingSubscription() async {
+    try {
+      await _positionSubscription?.cancel();
+    } catch (e) {
+      debugPrint(
+        'Walker Location Cleanup Error: $e',
+      );
+    }
+
+    _positionSubscription = null;
+    _tracking = false;
   }
 
   // ==========================================================
@@ -434,25 +512,16 @@ class WalkerLocationService {
 
   // ==========================================================
   // LOCATION SETTINGS
-  //
-  // Android:
-  // - High accuracy
-  // - 10 meter distance filter
-  // - 5 second interval
-  // - Foreground notification
-  // - Wake lock
-  // - WiFi lock
-  //
-  // The notification is managed by Geolocator's Android
-  // foreground location configuration.
   // ==========================================================
 
   LocationSettings _buildLocationSettings() {
-    if (defaultTargetPlatform == TargetPlatform.android) {
+    if (defaultTargetPlatform ==
+        TargetPlatform.android) {
       return AndroidSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 10,
-        intervalDuration: const Duration(seconds: 5),
+        intervalDuration:
+            const Duration(seconds: 5),
         foregroundNotificationConfig:
             const ForegroundNotificationConfig(
           notificationTitle: 'Dojo Walker',
@@ -478,6 +547,10 @@ class WalkerLocationService {
   // ==========================================================
 
   void _updatePosition(Position position) {
+    if (_disposed) {
+      return;
+    }
+
     _currentPosition = position;
 
     if (!_locationController.isClosed) {
@@ -495,7 +568,8 @@ class WalkerLocationService {
     required double requestLatitude,
     required double requestLongitude,
   }) {
-    final double meters = Geolocator.distanceBetween(
+    final double meters =
+        Geolocator.distanceBetween(
       walkerLatitude,
       walkerLongitude,
       requestLatitude,
@@ -523,9 +597,18 @@ class WalkerLocationService {
 
   // ==========================================================
   // DISPOSE
+  //
+  // IMPORTANT:
+  // This singleton must NOT permanently close the stream
+  // during normal walk transitions.
+  //
+  // stopTracking() is the normal lifecycle operation.
+  // dispose() is kept only for final app/service shutdown.
   // ==========================================================
 
   Future<void> dispose() async {
+    _disposed = true;
+
     await stopTracking();
 
     if (!_locationController.isClosed) {
