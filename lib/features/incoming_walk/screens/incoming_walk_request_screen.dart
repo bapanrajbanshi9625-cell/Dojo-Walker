@@ -1,0 +1,539 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+
+import '../../insta_walk/models/insta_walk_request.dart';
+import '../services/insta_walk_accept_service.dart';
+import '../services/insta_walk_reject_service.dart';
+import '../widgets/incoming_walk_bottom_panel.dart';
+import '../widgets/incoming_walk_map.dart';
+import '../widgets/incoming_walk_top_bar.dart';
+
+class IncomingWalkRequestScreen extends StatefulWidget {
+  const IncomingWalkRequestScreen({
+    super.key,
+    required this.request,
+  });
+
+  final InstaWalkRequest request;
+
+  @override
+  State<IncomingWalkRequestScreen> createState() =>
+      _IncomingWalkRequestScreenState();
+}
+
+class _IncomingWalkRequestScreenState
+    extends State<IncomingWalkRequestScreen> {
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
+
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
+
+  final InstaWalkAcceptService _acceptService =
+      InstaWalkAcceptService.instance;
+
+  final InstaWalkRejectService _rejectService =
+      InstaWalkRejectService.instance;
+
+  StreamSubscription<
+      DocumentSnapshot<Map<String, dynamic>>>?
+      _requestSubscription;
+
+  bool _accepting = false;
+  bool _rejecting = false;
+  bool _requestUnavailable = false;
+  bool _leavingScreen = false;
+
+  // ============================================================
+  // OWNER DATA
+  // ============================================================
+
+  double? get _ownerLatitude {
+    return widget.request.latitude;
+  }
+
+  double? get _ownerLongitude {
+    return widget.request.longitude;
+  }
+
+  String get _ownerName {
+    final String value =
+        widget.request.ownerName.trim();
+
+    return value.isEmpty ? 'Owner' : value;
+  }
+
+  String get _ownerPhone {
+    return widget.request.ownerPhone.trim();
+  }
+
+  // ============================================================
+  // DOG DATA
+  // ============================================================
+
+  String get _dogName {
+    final String value =
+        widget.request.dogName.trim();
+
+    return value.isEmpty ? 'Your Pet' : value;
+  }
+
+  String get _dogBreed {
+    return widget.request.dogBreed.trim();
+  }
+
+  // ============================================================
+  // ADDRESS
+  // ============================================================
+
+  String get _address {
+    final String pickup =
+        widget.request.pickupAddress.trim();
+
+    if (pickup.isNotEmpty) {
+      return pickup;
+    }
+
+    return widget.request.address.trim();
+  }
+
+  // ============================================================
+  // REQUEST ID
+  // ============================================================
+
+  String get _requestId {
+    return widget.request.requestId.trim();
+  }
+
+  // ============================================================
+  // INIT
+  // ============================================================
+
+  @override
+  void initState() {
+    super.initState();
+    _startRequestMonitoring();
+  }
+
+  // ============================================================
+  // FIRESTORE REQUEST MONITOR
+  // ============================================================
+
+  void _startRequestMonitoring() {
+    final String requestId = _requestId;
+
+    if (requestId.isEmpty) {
+      debugPrint(
+        'IncomingWalkRequestScreen: request ID is empty.',
+      );
+      return;
+    }
+
+    final DocumentReference<Map<String, dynamic>> requestRef =
+        _firestore.collection('walk_request').doc(requestId);
+
+    _requestSubscription = requestRef.snapshots().listen(
+      (
+        DocumentSnapshot<Map<String, dynamic>> snapshot,
+      ) {
+        if (!mounted || _leavingScreen) {
+          return;
+        }
+
+        if (!snapshot.exists) {
+          _handleRequestUnavailable(
+            'This walk request is no longer available.',
+          );
+          return;
+        }
+
+        final Map<String, dynamic>? data =
+            snapshot.data();
+
+        if (data == null) {
+          return;
+        }
+
+        final String status =
+            data['status']
+                    ?.toString()
+                    .trim()
+                    .toLowerCase() ??
+                '';
+
+        if (status == 'searching') {
+          return;
+        }
+
+        // --------------------------------------------------------
+        // Incoming screen must NEVER become the accepted screen.
+        //
+        // Once accepted, this screen closes and the caller/flow
+        // responsible for accepted navigation handles Accept Walk.
+        // --------------------------------------------------------
+
+        if (status == 'accepted' ||
+            status == 'completed' ||
+            status == 'complete' ||
+            status == 'finished' ||
+            status == 'closed' ||
+            status == 'cancelled' ||
+            status == 'rejected') {
+          _handleRequestUnavailable(
+            'This walk request is no longer available.',
+          );
+          return;
+        }
+
+        if (status.isNotEmpty) {
+          _handleRequestUnavailable(
+            'This walk request is no longer available.',
+          );
+        }
+      },
+      onError: (Object error) {
+        debugPrint(
+          'Incoming walk monitor error: $error',
+        );
+      },
+      cancelOnError: false,
+    );
+  }
+
+  // ============================================================
+  // REQUEST UNAVAILABLE
+  // ============================================================
+
+  void _handleRequestUnavailable(
+    String message,
+  ) {
+    if (!mounted ||
+        _leavingScreen ||
+        _requestUnavailable) {
+      return;
+    }
+
+    _leavingScreen = true;
+
+    setState(() {
+      _requestUnavailable = true;
+    });
+
+    _showMessage(message);
+
+    Future<void>.delayed(
+      const Duration(milliseconds: 900),
+      () {
+        if (!mounted) {
+          return;
+        }
+
+        Navigator.of(context).pop();
+      },
+    );
+  }
+
+  // ============================================================
+  // ACCEPT WALK
+  // ============================================================
+
+  Future<void> _acceptWalk() async {
+    if (_accepting ||
+        _rejecting ||
+        _requestUnavailable ||
+        _leavingScreen) {
+      return;
+    }
+
+    final String requestId = _requestId;
+
+    if (requestId.isEmpty) {
+      _showMessage(
+        'Walk request ID is missing.',
+      );
+      return;
+    }
+
+    final User? currentUser =
+        _auth.currentUser;
+
+    if (currentUser == null) {
+      _showMessage(
+        'Walker authentication is unavailable.',
+      );
+      return;
+    }
+
+    setState(() {
+      _accepting = true;
+    });
+
+    try {
+      await _acceptService.acceptWalk(
+        requestId,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _leavingScreen = true;
+
+      // ----------------------------------------------------------
+      // IMPORTANT:
+      //
+      // Accepted state is now handled by accept_walk.
+      // This Incoming screen does not own GPS, route, reach,
+      // Call/Chat or Live Walk navigation anymore.
+      // ----------------------------------------------------------
+
+      Navigator.of(context).pop();
+    } catch (error) {
+      debugPrint(
+        'Accept walk error: $error',
+      );
+
+      if (mounted) {
+        _showMessage(
+          _cleanException(error),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _accepting = false;
+        });
+      }
+    }
+  }
+
+  // ============================================================
+  // REJECT WALK
+  // ============================================================
+
+  Future<void> _rejectWalk() async {
+    if (_accepting ||
+        _rejecting ||
+        _requestUnavailable ||
+        _leavingScreen) {
+      return;
+    }
+
+    final bool? confirm =
+        await showDialog<bool>(
+      context: context,
+      builder: (
+        BuildContext dialogContext,
+      ) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Reject Walk?',
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          content: const Text(
+            'You will not be able to accept this request again.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('CANCEL'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text(
+                'REJECT',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted || confirm != true) {
+      return;
+    }
+
+    final String requestId = _requestId;
+
+    if (requestId.isEmpty) {
+      _showMessage(
+        'Walk request ID is missing.',
+      );
+      return;
+    }
+
+    setState(() {
+      _rejecting = true;
+    });
+
+    try {
+      await _rejectService.rejectWalk(
+        requestId,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _leavingScreen = true;
+
+      Navigator.of(context).pop();
+    } catch (error) {
+      debugPrint(
+        'Reject walk error: $error',
+      );
+
+      if (mounted) {
+        _showMessage(
+          _cleanException(error),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _rejecting = false;
+        });
+      }
+    }
+  }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFE9EEF3),
+      body: Stack(
+        children: <Widget>[
+          Positioned.fill(
+            child: IncomingWalkMap(
+              walkerLocation: null,
+              ownerLocation: _ownerLocation,
+              routePoints: const [],
+            ),
+          ),
+
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IncomingWalkTopBar(
+              onBack: () {
+                if (_leavingScreen) {
+                  return;
+                }
+
+                Navigator.of(context).pop();
+              },
+            ),
+          ),
+
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: IncomingWalkBottomPanel(
+              dogName: _dogName,
+              dogBreed: _dogBreed,
+              ownerName: _ownerName,
+              ownerPhone: _ownerPhone,
+              distanceText: '—',
+              etaText:
+                  widget.request.durationMinutes > 0
+                      ? '${widget.request.durationMinutes} min'
+                      : '—',
+              paymentText: 'After acceptance',
+              address: _address,
+              onAccept: _acceptWalk,
+              onReject: _rejectWalk,
+              accepting: _accepting,
+              rejecting: _rejecting,
+            ),
+          ),
+
+          if (_requestUnavailable)
+            const Positioned.fill(
+              child: ColoredBox(
+                color: Colors.white70,
+                child: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // CLEAN ERROR
+  // ============================================================
+
+  String _cleanException(
+    Object error,
+  ) {
+    return error
+        .toString()
+        .replaceFirst(
+          'Exception: ',
+          '',
+        )
+        .trim();
+  }
+
+  // ============================================================
+  // MESSAGE
+  // ============================================================
+
+  void _showMessage(
+    String message,
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      );
+  }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
+
+  @override
+  void dispose() {
+    unawaited(
+      _requestSubscription?.cancel(),
+    );
+
+    super.dispose();
+  }
+}
