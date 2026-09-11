@@ -109,31 +109,19 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             snapshot.data?.data() ??
                 <String, dynamic>{};
 
+        // ======================================================
+        // KEEP LATEST FIRESTORE DATA FOR MAP / FINAL RESULT
+        //
+        // Controller already listens to the same session stream.
+        // Therefore we do NOT call updateFromSession() here.
+        // ======================================================
+
         if (firestoreData.isNotEmpty) {
           _lastSessionData =
               Map<String, dynamic>.from(
             firestoreData,
           );
-
-          WidgetsBinding.instance.addPostFrameCallback(
-            (_) {
-              if (!mounted) {
-                return;
-              }
-
-              _controller.updateFromSession(
-                firestoreData,
-              );
-            },
-          );
         }
-
-        // ======================================================
-        // MAP DATA
-        //
-        // Firestore remains useful for route/location data.
-        // Live metrics are taken directly from controller.
-        // ======================================================
 
         final Map<String, dynamic> sessionData =
             firestoreData.isNotEmpty
@@ -154,6 +142,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             onSupport: _openSupport,
           ),
           body: Stack(
+            clipBehavior: Clip.none,
             children: <Widget>[
               // ==================================================
               // FULL SCREEN LIVE MAP
@@ -167,6 +156,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
               // ==================================================
               // BOTTOM DRAGGABLE SHEET
+              //
+              // My Location button is attached to this sheet.
+              // Therefore it moves up/down together with the sheet.
               // ==================================================
 
               if (walkStarted || ending)
@@ -198,7 +190,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   }
 
   // ============================================================
-  // BOTTOM SHEET
+  // BOTTOM SHEET + MY LOCATION
   // ============================================================
 
   Widget _buildBottomSheet(
@@ -206,46 +198,77 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     Map<String, dynamic> sessionData,
     bool ending,
   ) {
-    // ==========================================================
-    // IMPORTANT:
-    //
-    // Do NOT use Firestore distance/steps here first.
-    //
-    // Controller contains the live local metric values.
-    // ==========================================================
-
     final double distance =
         _controller.totalDistanceKm;
 
     final int steps =
         _controller.steps;
 
-    // ==========================================================
-    // LIVE DURATION
-    //
-    // Controller ticker refreshes this every second.
-    // ==========================================================
-
     final String duration =
         _controller.formattedDuration;
 
-    return LiveWalkBottomSheet(
-      scrollController: scrollController,
-      ending: ending,
-      ownerUid: widget.ownerUid,
-      ownerName: widget.ownerName,
-      dogName: widget.dogName,
-      dogBreed: widget.dogBreed,
-      distanceKm: distance,
-      steps: steps,
-      duration: duration,
-      peeCount: _controller.peeCount,
-      poopCount: _controller.poopCount,
-      onCallOwner: _callOwner,
-      onActivityConfirmed: _recordDogActivity,
-      onComplete: _confirmCompleteWalk,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: <Widget>[
+        // ======================================================
+        // ACTUAL BOTTOM SHEET
+        // ======================================================
+
+        LiveWalkBottomSheet(
+          scrollController: scrollController,
+          ending: ending,
+          ownerUid: widget.ownerUid,
+          ownerName: widget.ownerName,
+          dogName: widget.dogName,
+          dogBreed: widget.dogBreed,
+          distanceKm: distance,
+          steps: steps,
+          duration: duration,
+          peeCount: _controller.peeCount,
+          poopCount: _controller.poopCount,
+          onCallOwner: _callOwner,
+          onActivityConfirmed: _recordDogActivity,
+          onComplete: _confirmCompleteWalk,
+        ),
+
+        // ======================================================
+        // MY LOCATION BUTTON
+        //
+        // This button belongs to the draggable sheet.
+        // When the sheet moves, this button moves with it.
+        // ======================================================
+
+        Positioned(
+          right: 14,
+          top: -62,
+          child: _MapLocationButton(
+            onPressed: () {
+              _centerMapOnMyLocation();
+            },
+          ),
+        ),
+      ],
     );
   }
+
+  // ============================================================
+  // MY LOCATION
+  //
+  // The map owns the actual map controller/location logic.
+  // We expose it through a small callback mechanism below.
+  // ============================================================
+
+  void _centerMapOnMyLocation() {
+    // The LiveWalkMap handles its own live GPS position.
+    //
+    // This method is intentionally kept here so the screen owns
+    // the button placement. The actual map movement is triggered
+    // through the map key.
+    _liveMapKey.currentState?.centerOnMyLocation();
+  }
+
+  final GlobalKey<LiveWalkMapState> _liveMapKey =
+      GlobalKey<LiveWalkMapState>();
 
   // ============================================================
   // CALL OWNER
@@ -428,13 +451,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       if (!mounted) {
         return;
       }
-
-      // ========================================================
-      // FINAL DATA MUST COME FROM CONTROLLER
-      //
-      // This prevents an old Firestore snapshot from replacing
-      // the final live values.
-      // ========================================================
 
       final Map<String, dynamic> resultSessionData =
           Map<String, dynamic>.from(
@@ -792,6 +808,43 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     _controller.dispose();
 
     super.dispose();
+  }
+}
+
+// ============================================================================
+// MY LOCATION BUTTON
+// ============================================================================
+
+class _MapLocationButton extends StatelessWidget {
+  const _MapLocationButton({
+    required this.onPressed,
+  });
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(
+    BuildContext context,
+  ) {
+    return Material(
+      color: Colors.white,
+      elevation: 5,
+      shadowColor: const Color(0x33000000),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onPressed,
+        child: const SizedBox(
+          width: 50,
+          height: 50,
+          child: Icon(
+            Icons.my_location_rounded,
+            color: Colors.blue,
+            size: 23,
+          ),
+        ),
+      ),
+    );
   }
 }
 
