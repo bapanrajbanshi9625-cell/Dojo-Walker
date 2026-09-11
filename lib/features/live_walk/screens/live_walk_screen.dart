@@ -42,6 +42,9 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   Map<String, dynamic> _lastSessionData =
       <String, dynamic>{};
 
+  final GlobalKey<LiveWalkMapState> _liveMapKey =
+      GlobalKey<LiveWalkMapState>();
+
   @override
   void initState() {
     super.initState();
@@ -150,6 +153,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
               Positioned.fill(
                 child: LiveWalkMap(
+                  key: _liveMapKey,
                   sessionData: sessionData,
                 ),
               ),
@@ -266,9 +270,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     // through the map key.
     _liveMapKey.currentState?.centerOnMyLocation();
   }
-
-  final GlobalKey<LiveWalkMapState> _liveMapKey =
-      GlobalKey<LiveWalkMapState>();
 
   // ============================================================
   // CALL OWNER
