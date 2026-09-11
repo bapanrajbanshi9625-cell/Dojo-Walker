@@ -19,6 +19,7 @@ import '../features/live_walk/widgets/live_walk_review_bottom_sheet.dart';
 import '../features/qr_walk/screens/qr_scanner_screen.dart';
 import 'menu_screen.dart';
 import 'walker_home_screen.dart';
+import 'walker_main_app_bar.dart';
 import 'walks_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -124,6 +125,13 @@ class _MainNavigationScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
+
+      // ==========================================================
+      // WALKER MAIN APP BAR
+      // ==========================================================
+
+      appBar: const WalkerMainAppBar(),
+
       body: _screens[_currentIndex],
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
@@ -445,18 +453,6 @@ class _MainNavigationScreenState
 
     // ==========================================================
     // READY / LIVE / ACCEPTED SESSION FALLBACK
-    //
-    // The canonical live session uses:
-    //
-    // liveWalkSessions/{requestId}
-    //
-    // This fallback protects all three strip states:
-    //
-    // ACCEPTED → IncomingWalkRequestScreen
-    // READY    → LiveWalkStartScreen
-    // LIVE     → LiveWalkScreen
-    //
-    // It is used only when walk_request data is unavailable.
     // ==========================================================
 
     if ((walkData == null ||
@@ -538,13 +534,6 @@ class _MainNavigationScreenState
 
     // ==========================================================
     // READY → LIVE WALK START SCREEN
-    //
-    // walk_request.status = REACHED
-    // OR
-    // liveWalkSessions.status = READY
-    //
-    // READY does not require an active live session.
-    // LiveWalkStartScreen handles the Start slider.
     // ==========================================================
 
     if (stripData.isReady) {
@@ -638,8 +627,6 @@ class _MainNavigationScreenState
 
     // ==========================================================
     // LIVE SESSION
-    //
-    // Same requestId.
     // ==========================================================
 
     Map<String, dynamic>? sessionData =
@@ -673,13 +660,9 @@ class _MainNavigationScreenState
       return;
     }
 
-    // ==========================================================
+    // ============================================================
     // OWNER
-    //
-    // Prefer walk request data.
-    // If some information exists only in the live session,
-    // use the session as fallback.
-    // ==========================================================
+    // ============================================================
 
     final String ownerUid =
         _firstNonEmpty(
@@ -1043,12 +1026,6 @@ class _MainNavigationScreenState
 
   // ============================================================
   // GET WALK REQUEST
-  //
-  // FIRST:
-  // walk_request/{requestId}
-  //
-  // FALLBACK:
-  // Find a document whose requestId field matches requestId.
   // ============================================================
 
   Future<Map<String, dynamic>?> _getWalkRequest(
@@ -1064,10 +1041,6 @@ class _MainNavigationScreenState
     try {
       final FirebaseFirestore firestore =
           FirebaseFirestore.instance;
-
-      // ========================================================
-      // FIRST: CANONICAL DOCUMENT ID
-      // ========================================================
 
       final DocumentSnapshot<
           Map<String, dynamic>> document =
@@ -1094,10 +1067,6 @@ class _MainNavigationScreenState
           };
         }
       }
-
-      // ========================================================
-      // FALLBACK: requestId FIELD
-      // ========================================================
 
       final QuerySnapshot<
           Map<String, dynamic>> querySnapshot =
@@ -1165,12 +1134,6 @@ class _MainNavigationScreenState
 
   // ============================================================
   // FIND LIVE SESSION
-  //
-  // EXACT DOCUMENT:
-  //
-  // liveWalkSessions/{requestId}
-  //
-  // NO separate walkId/sessionId.
   // ============================================================
 
   Future<Map<String, dynamic>?> _findLiveSession(
@@ -1266,13 +1229,6 @@ class _MainNavigationScreenState
   ) {
     final String id =
         requestId.trim();
-
-    // ==========================================================
-    // OWNER LOCATION
-    //
-    // Prefer canonical ownerLocation GeoPoint.
-    // Keep all existing latitude/longitude fallbacks.
-    // ==========================================================
 
     final GeoPoint? ownerLocation =
         data['ownerLocation'] is GeoPoint
@@ -1375,12 +1331,6 @@ class _MainNavigationScreenState
           data['pickupAddress'],
         ],
       ),
-
-      // ========================================================
-      // FIX:
-      // Restore owner location from ownerLocation GeoPoint
-      // when the request is reopened from the Accepted strip.
-      // ========================================================
 
       latitude: ownerLocation?.latitude ??
           _readDouble(
