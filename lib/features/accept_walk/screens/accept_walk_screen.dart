@@ -9,7 +9,7 @@ import 'package:latlong2/latlong.dart';
 import '../../../services/walker_location_service.dart';
 import '../../insta_walk/models/insta_walk_request.dart';
 import '../../live_walk/screens/live_walk_start_screen.dart';
-import '../services/insta_walk_reach_service.dart';
+import '../services/accept_walk_reach_service.dart';
 import '../services/walker_route_service.dart';
 import '../widgets/accept_walk_bottom_panel.dart';
 import '../widgets/accept_walk_map.dart';
@@ -42,8 +42,8 @@ class _AcceptWalkScreenState
   final WalkerRouteService _routeService =
       WalkerRouteService.instance;
 
-  final InstaWalkReachService _reachService =
-      InstaWalkReachService.instance;
+  final AcceptWalkReachService _reachService =
+      AcceptWalkReachService.instance;
 
   StreamSubscription<Position>? _locationSubscription;
 
@@ -761,19 +761,3 @@ class _AcceptWalkScreenState
   }
 
   // ============================================================
-  // DISPOSE
-  // ============================================================
-
-  @override
-  void dispose() {
-    unawaited(
-      _locationSubscription?.cancel(),
-    );
-
-    unawaited(
-      _requestSubscription?.cancel(),
-    );
-
-    super.dispose();
-  }
-}
