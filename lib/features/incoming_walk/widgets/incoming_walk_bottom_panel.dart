@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/dojo_walker_colors.dart';
 import 'incoming_walk_action_buttons.dart';
 import 'incoming_walk_address.dart';
-import 'incoming_walk_dog_header.dart';
+import 'incoming_walk_owner_dog_details.dart';
 
 class IncomingWalkBottomPanel extends StatelessWidget {
   const IncomingWalkBottomPanel({
@@ -77,7 +77,7 @@ class IncomingWalkBottomPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  IncomingWalkDogHeader(
+                  IncomingWalkOwnerDogDetails(
                     dogName: dogName,
                     dogBreed: dogBreed,
                     ownerName: ownerName,
