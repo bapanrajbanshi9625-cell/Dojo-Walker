@@ -146,7 +146,10 @@ class LiveWalkMapState extends State<LiveWalkMap> {
       );
     }
 
-    if (_mapReady) {
+    // IMPORTANT:
+    // Do not move the camera here on every GPS update.
+    // Initial camera is handled only once.
+    if (_mapReady && !_initialCameraSet) {
       _setInitialCameraIfPossible();
     }
 
@@ -176,16 +179,7 @@ class LiveWalkMapState extends State<LiveWalkMap> {
     );
 
     if (pickup != null) {
-      final bool changed = _locationsDifferent(
-        _pickupLocation,
-        pickup,
-      );
-
       _pickupLocation = pickup;
-
-      if (changed) {
-        _initialCameraSet = false;
-      }
     }
 
     final LatLng? current = _readFirstLocation(
@@ -222,7 +216,9 @@ class LiveWalkMapState extends State<LiveWalkMap> {
 
     _loadBackgroundCurrentLocation();
 
-    if (_mapReady) {
+    // Only set the initial camera if it has never been set.
+    // Never recenter because Firestore/GPS data changed.
+    if (_mapReady && !_initialCameraSet) {
       _setInitialCameraIfPossible();
     }
 
@@ -289,12 +285,11 @@ class LiveWalkMapState extends State<LiveWalkMap> {
 
     setState(() {});
 
-    if (_mapReady) {
-      if (!_initialCameraSet) {
-        _setInitialCameraIfPossible();
-      } else {
-        _moveMapToLocation(location);
-      }
+    // IMPORTANT:
+    // GPS updates move only the marker.
+    // The map camera must NOT follow automatically.
+    if (_mapReady && !_initialCameraSet) {
+      _setInitialCameraIfPossible();
     }
 
     if (!_completed) {
@@ -415,6 +410,7 @@ class LiveWalkMapState extends State<LiveWalkMap> {
           ..addAll(routed);
       });
 
+      // Route can trigger initial camera only once.
       if (_mapReady && !_initialCameraSet) {
         _setInitialCameraIfPossible();
       }
@@ -551,7 +547,7 @@ class LiveWalkMapState extends State<LiveWalkMap> {
   // ============================================================
 
   void _setInitialCameraIfPossible() {
-    if (!_mapReady) {
+    if (!_mapReady || _initialCameraSet) {
       return;
     }
 
@@ -565,10 +561,12 @@ class LiveWalkMapState extends State<LiveWalkMap> {
         _moveMapToLocation(
           _currentLocation!,
         );
+        _initialCameraSet = true;
       } else if (_pickupLocation != null) {
         _moveMapToLocation(
           _pickupLocation!,
         );
+        _initialCameraSet = true;
       }
 
       return;
@@ -598,9 +596,7 @@ class LiveWalkMapState extends State<LiveWalkMap> {
   // ============================================================
   // MY LOCATION
   //
-  // Called by LiveWalkScreen.
-  // The actual button now belongs to LiveWalkScreen so it can
-  // move together with the draggable bottom sheet.
+  // ONLY this method recenters the map after initial setup.
   // ============================================================
 
   void centerOnMyLocation() {
@@ -715,7 +711,8 @@ class LiveWalkMapState extends State<LiveWalkMap> {
 
           _setInitialCameraIfPossible();
 
-          if (_pickupLocation != null &&
+          if (!_initialCameraSet &&
+              _pickupLocation != null &&
               _currentLocation != null) {
             fitWalkRoute();
           }
@@ -1009,21 +1006,6 @@ class LiveWalkMapState extends State<LiveWalkMap> {
         (a.longitude - b.longitude).abs() < 0.000001;
   }
 
-  bool _locationsDifferent(
-    LatLng? a,
-    LatLng? b,
-  ) {
-    if (a == null && b == null) {
-      return false;
-    }
-
-    if (a == null || b == null) {
-      return true;
-    }
-
-    return !_sameLocation(a, b);
-  }
-
   // ============================================================
   // DISPOSE
   // ============================================================
@@ -1048,9 +1030,7 @@ class _PickupMarker extends StatelessWidget {
   const _PickupMarker();
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -1098,9 +1078,7 @@ class _WalkerLocationMarker extends StatelessWidget {
   const _WalkerLocationMarker();
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Stack(
       alignment: Alignment.center,
       children: <Widget>[
