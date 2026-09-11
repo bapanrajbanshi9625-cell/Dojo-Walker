@@ -1,4 +1,4 @@
-// File: lib/screens/walks_screen.dart
+ // File: lib/screens/walks_screen.dart
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import '../features/insta_walk/models/insta_walk_request.dart';
 import '../features/insta_walk/services/insta_walk_request_service.dart';
 import '../features/insta_walk/widgets/insta_walk_container.dart';
-import '../features/walker_home/containers/walker_home_header.dart';
 
 class WalksScreen extends StatefulWidget {
   const WalksScreen({
@@ -674,32 +673,24 @@ class _WalksScreenState extends State<WalksScreen>
     return Scaffold(
       backgroundColor:
           const Color(0xFFF5F6F8),
-      body: Column(
+      body: ListView(
+        padding: const EdgeInsets.only(
+          bottom: 30,
+        ),
         children: <Widget>[
-          const WalkerHomeHeader(),
-
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.only(
-                bottom: 30,
-              ),
-              children: <Widget>[
-                InstaWalkContainer(
-                  searching: _searching,
-                  loading: _loading,
-                  radarAnimation:
-                      _radarController,
-                  dotVisible: _dotVisible,
-                  dotX: _dotX,
-                  dotY: _dotY,
-                  requests: _requests,
-                  onSearchPressed:
-                      _searchButtonPressed,
-                  requestListBuilder:
-                      _buildRequests,
-                ),
-              ],
-            ),
+          InstaWalkContainer(
+            searching: _searching,
+            loading: _loading,
+            radarAnimation:
+                _radarController,
+            dotVisible: _dotVisible,
+            dotX: _dotX,
+            dotY: _dotY,
+            requests: _requests,
+            onSearchPressed:
+                _searchButtonPressed,
+            requestListBuilder:
+                _buildRequests,
           ),
         ],
       ),
