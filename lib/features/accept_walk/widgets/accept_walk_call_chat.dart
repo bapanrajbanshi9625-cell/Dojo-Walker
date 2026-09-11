@@ -13,32 +13,67 @@ class AcceptWalkCallChat extends StatelessWidget {
   final String ownerPhone;
   final VoidCallback onChat;
 
-  Future<void> _callOwner() async {
-    final phone = ownerPhone.trim();
+  Future<void> _callOwner(BuildContext context) async {
+    final String phone = ownerPhone.trim();
 
     if (phone.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Owner phone number is unavailable.'),
+          ),
+        );
       return;
     }
 
-    final uri = Uri(
+    final Uri uri = Uri(
       scheme: 'tel',
       path: phone,
     );
 
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+    final bool canLaunch = await canLaunchUrl(uri);
+
+    if (!canLaunch) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Unable to open phone dialer.'),
+          ),
+        );
+      return;
     }
+
+    await launchUrl(uri);
   }
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: [
+      children: <Widget>[
         Expanded(
           child: SizedBox(
             height: 46,
             child: ElevatedButton.icon(
-              onPressed: _callOwner,
+              onPressed: () {
+                _callOwner(context);
+              },
+              icon: const Icon(
+                Icons.call_rounded,
+                size: 19,
+              ),
+              label: const Text(
+                'CALL',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4,
+                ),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: DojoWalkerColors.primary,
                 foregroundColor: Colors.white,
@@ -47,43 +82,34 @@ class AcceptWalkCallChat extends StatelessWidget {
                   borderRadius: BorderRadius.circular(13),
                 ),
               ),
-              icon: const Icon(
-                Icons.call_rounded,
-                size: 19,
-              ),
-              label: const Text(
-                'Call',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
             ),
           ),
         ),
-        const SizedBox(width: 9),
+        const SizedBox(width: 10),
         Expanded(
           child: SizedBox(
             height: 46,
-            child: ElevatedButton.icon(
+            child: OutlinedButton.icon(
               onPressed: onChat,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: DojoWalkerColors.secondary,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(13),
-                ),
-              ),
               icon: const Icon(
                 Icons.chat_bubble_outline_rounded,
                 size: 19,
               ),
               label: const Text(
-                'Chat',
+                'CHAT',
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: DojoWalkerColors.primary,
+                side: BorderSide(
+                  color: DojoWalkerColors.primary,
+                  width: 1.3,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
                 ),
               ),
             ),
