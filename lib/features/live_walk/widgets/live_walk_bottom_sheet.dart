@@ -21,7 +21,6 @@ class LiveWalkBottomSheet extends StatelessWidget {
     required this.onActivityConfirmed,
     required this.onComplete,
     this.ownerPhotoUrl,
-    this.onVoiceInteraction,
   });
 
   final ScrollController scrollController;
@@ -43,7 +42,6 @@ class LiveWalkBottomSheet extends StatelessWidget {
   final VoidCallback onCallOwner;
   final Future<void> Function(String type) onActivityConfirmed;
   final VoidCallback onComplete;
-  final VoidCallback? onVoiceInteraction;
 
   static const Color _orange = Color(0xFFFF6B35);
   static const Color _green = Color(0xFF22A06B);
@@ -86,8 +84,6 @@ class LiveWalkBottomSheet extends StatelessWidget {
             _buildActivities(),
             const SizedBox(height: 18),
             _buildCommunicationButtons(context),
-            const SizedBox(height: 12),
-            _buildVoiceInteractionButton(),
             const SizedBox(height: 18),
             _buildCompleteSection(),
           ] else
@@ -545,50 +541,6 @@ class LiveWalkBottomSheet extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildVoiceInteractionButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: OutlinedButton.icon(
-        onPressed: onVoiceInteraction,
-        icon: const Icon(
-          Icons.mic_rounded,
-          size: 21,
-        ),
-        label: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'VOICE INTERACTION',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.3,
-              ),
-            ),
-            Text(
-              'Talk with the owner',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: _orange,
-          side: BorderSide(
-            color: _orange.withValues(alpha: 0.65),
-            width: 1.3,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-        ),
-      ),
     );
   }
 
