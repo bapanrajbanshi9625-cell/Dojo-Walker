@@ -18,6 +18,7 @@ class AcceptWalkBottomPanel extends StatelessWidget {
     required this.canReachOwner,
     required this.reaching,
     required this.onReach,
+    required this.onChat,
   });
 
   final String dogName;
@@ -29,7 +30,9 @@ class AcceptWalkBottomPanel extends StatelessWidget {
   final String address;
   final bool canReachOwner;
   final bool reaching;
+
   final VoidCallback onReach;
+  final VoidCallback onChat;
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +114,7 @@ class AcceptWalkBottomPanel extends StatelessWidget {
 
                 AcceptWalkCallChat(
                   ownerPhone: ownerPhone,
-                  onChat: () {},
+                  onChat: onChat,
                 ),
 
                 const SizedBox(height: 12),
