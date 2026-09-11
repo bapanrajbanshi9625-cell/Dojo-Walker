@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/dojo_walker_colors.dart';
 
-import '../features/walker_home/containers/walker_home_header.dart';
 import '../features/walker_home/containers/welcome_container.dart';
 import '../features/walker_home/containers/today_summary_container.dart';
 import '../features/walker_home/containers/past_walks_container.dart';
@@ -110,114 +109,93 @@ class _WalkerHomeScreenState extends State<WalkerHomeScreen> {
       backgroundColor: DojoWalkerColors.background,
 
       // ========================================================
-      // SAFE AREA
+      // HOME CONTENT
       // ========================================================
 
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            // ====================================================
-            // HEADER
-            // ====================================================
+        child: LayoutBuilder(
+          builder: (
+            BuildContext context,
+            BoxConstraints constraints,
+          ) {
+            return SingleChildScrollView(
+              physics:
+                  const AlwaysScrollableScrollPhysics(),
 
-            const WalkerHomeHeader(),
-
-            // ====================================================
-            // SCROLLABLE HOME CONTENT
-            // ====================================================
-
-            Expanded(
-              child: LayoutBuilder(
-                builder: (
-                  BuildContext context,
-                  BoxConstraints constraints,
-                ) {
-                  return SingleChildScrollView(
-                    physics:
-                        const AlwaysScrollableScrollPhysics(),
-
-                    padding: const EdgeInsets.fromLTRB(
-                      16,
-                      8,
-                      16,
-                      40,
-                    ),
-
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          // ======================================
-                          // WELCOME
-                          // ======================================
-
-                          const WelcomeContainer(),
-
-                          const SizedBox(height: 10),
-
-                          // ======================================
-                          // TODAY SUMMARY
-                          // ======================================
-
-                          TodaySummaryContainer(
-                            onDetails: ({
-                              required String title,
-                              required String description,
-                              required IconData icon,
-                            }) {
-                              _showDetails(
-                                title: title,
-                                description: description,
-                                icon: icon,
-                              );
-                            },
-                          ),
-
-                          const SizedBox(height: 14),
-
-                          // ======================================
-                          // PAST WALKS
-                          // ======================================
-
-                          PastWalksContainer(
-                            onDetails: ({
-                              required String title,
-                              required String description,
-                              required IconData icon,
-                            }) {
-                              _showDetails(
-                                title: title,
-                                description: description,
-                                icon: icon,
-                              );
-                            },
-
-                            // ------------------------------------
-                            // SEE MORE
-                            // ------------------------------------
-
-                            onSeeMore: _openPastWalks,
-                          ),
-
-                          // ======================================
-                          // BOTTOM SPACE
-                          // ======================================
-
-                          const SizedBox(height: 24),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                8,
+                16,
+                40,
               ),
-            ),
-          ],
+
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    // ==========================================
+                    // WELCOME
+                    // ==========================================
+
+                    const WelcomeContainer(),
+
+                    const SizedBox(height: 10),
+
+                    // ==========================================
+                    // TODAY SUMMARY
+                    // ==========================================
+
+                    TodaySummaryContainer(
+                      onDetails: ({
+                        required String title,
+                        required String description,
+                        required IconData icon,
+                      }) {
+                        _showDetails(
+                          title: title,
+                          description: description,
+                          icon: icon,
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // ==========================================
+                    // PAST WALKS
+                    // ==========================================
+
+                    PastWalksContainer(
+                      onDetails: ({
+                        required String title,
+                        required String description,
+                        required IconData icon,
+                      }) {
+                        _showDetails(
+                          title: title,
+                          description: description,
+                          icon: icon,
+                        );
+                      },
+                      onSeeMore: _openPastWalks,
+                    ),
+
+                    // ==========================================
+                    // BOTTOM SPACE
+                    // ==========================================
+
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
