@@ -5,7 +5,7 @@ import 'incoming_walk_action_buttons.dart';
 import 'incoming_walk_address.dart';
 import 'incoming_walk_owner_dog_details.dart';
 
-class IncomingWalkBottomPanel extends StatelessWidget {
+class IncomingWalkBottomPanel extends StatefulWidget {
   const IncomingWalkBottomPanel({
     super.key,
     required this.dogName,
@@ -38,7 +38,63 @@ class IncomingWalkBottomPanel extends StatelessWidget {
   final bool rejecting;
 
   @override
+  State<IncomingWalkBottomPanel> createState() =>
+      _IncomingWalkBottomPanelState();
+}
+
+class _IncomingWalkBottomPanelState
+    extends State<IncomingWalkBottomPanel> {
+  double _dragOffset = 0;
+
+  double _maxDragOffset = 0;
+
+  double _panelHeight = 0;
+
+  static const double _minimumVisibleHeight = 112;
+
+  void _updateDrag(DragUpdateDetails details) {
+    if (_panelHeight <= 0) {
+      return;
+    }
+
+    final double availableDrag =
+        _panelHeight - _minimumVisibleHeight;
+
+    if (availableDrag <= 0) {
+      return;
+    }
+
+    setState(() {
+      _maxDragOffset = availableDrag;
+
+      _dragOffset =
+          (_dragOffset + details.delta.dy).clamp(
+        0.0,
+        _maxDragOffset,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (
+        BuildContext context,
+        BoxConstraints constraints,
+      ) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onVerticalDragUpdate: _updateDrag,
+          child: Transform.translate(
+            offset: Offset(0, _dragOffset),
+            child: _buildPanel(),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPanel() {
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -58,78 +114,98 @@ class IncomingWalkBottomPanel extends StatelessWidget {
         ),
         child: SafeArea(
           top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 42,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+          child: LayoutBuilder(
+            builder: (
+              BuildContext context,
+              BoxConstraints constraints,
+            ) {
+              _panelHeight = constraints.maxHeight;
 
-                  IncomingWalkOwnerDogDetails(
-                    dogName: dogName,
-                    dogBreed: dogBreed,
-                    ownerName: ownerName,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  Row(
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  16,
+                  12,
+                  16,
+                  12,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: _InfoItem(
-                          icon: Icons.location_on_outlined,
-                          label: 'Distance',
-                          value: distanceText,
+                      Center(
+                        child: Container(
+                          width: 42,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius:
+                                BorderRadius.circular(20),
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _InfoItem(
-                          icon: Icons.access_time,
-                          label: 'Time',
-                          value: etaText,
-                        ),
+                      const SizedBox(height: 12),
+
+                      IncomingWalkOwnerDogDetails(
+                        dogName: widget.dogName,
+                        dogBreed: widget.dogBreed,
+                        ownerName: widget.ownerName,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _InfoItem(
-                          icon: Icons.payments_outlined,
-                          label: 'Payment',
-                          value: paymentText,
-                        ),
+
+                      const SizedBox(height: 12),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _InfoItem(
+                              icon:
+                                  Icons.location_on_outlined,
+                              label: 'Distance',
+                              value:
+                                  widget.distanceText,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _InfoItem(
+                              icon: Icons.access_time,
+                              label: 'Time',
+                              value: widget.etaText,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _InfoItem(
+                              icon:
+                                  Icons.payments_outlined,
+                              label: 'Payment',
+                              value:
+                                  widget.paymentText,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      IncomingWalkAddress(
+                        address: widget.address,
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      IncomingWalkActionButtons(
+                        onAccept: widget.onAccept,
+                        onReject: widget.onReject,
+                        accepting: widget.accepting,
+                        rejecting: widget.rejecting,
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 12),
-
-                  IncomingWalkAddress(
-                    address: address,
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  IncomingWalkActionButtons(
-                    onAccept: onAccept,
-                    onReject: onReject,
-                    accepting: accepting,
-                    rejecting: rejecting,
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -156,11 +232,14 @@ class _InfoItem extends StatelessWidget {
         vertical: 9,
       ),
       decoration: BoxDecoration(
-        color: DojoWalkerColors.primary.withValues(alpha: 0.06),
+        color: DojoWalkerColors.primary.withValues(
+          alpha: 0.06,
+        ),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           Icon(
             icon,
