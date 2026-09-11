@@ -102,6 +102,9 @@ class AcceptWalkAcceptService {
 
     // ==========================================================
     // WALKER ID
+    //
+    // Canonical fallback:
+    // Firebase Auth UID is the Walker ID.
     // ==========================================================
 
     String walkerId =
@@ -113,9 +116,7 @@ class AcceptWalkAcceptService {
     }
 
     if (walkerId.isEmpty) {
-      throw Exception(
-        'Walker ID not found in walkers collection.',
-      );
+      walkerId = walkerUid;
     }
 
     // ==========================================================
@@ -376,9 +377,32 @@ class AcceptWalkAcceptService {
           );
         }
 
-        // --------------------------------------------------------
+        // ========================================================
+        // INCOMING WALK CLAIM GUARD
+        //
+        // If this request was offered to a specific Walker,
+        // ONLY that Walker can accept it.
+        //
+        // QR Walks do not have incomingWalkerUid, so the existing
+        // QR accept flow remains allowed.
+        // ========================================================
+
+        final String incomingWalkerUid =
+            data['incomingWalkerUid']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        if (incomingWalkerUid.isNotEmpty &&
+            incomingWalkerUid != walkerUid) {
+          throw Exception(
+            'This walk is currently assigned to another walker.',
+          );
+        }
+
+        // ========================================================
         // CHECK REJECTION
-        // --------------------------------------------------------
+        // ========================================================
 
         final DocumentSnapshot<Map<String, dynamic>>
             rejectionSnapshot =
@@ -392,9 +416,9 @@ class AcceptWalkAcceptService {
           );
         }
 
-        // --------------------------------------------------------
+        // ========================================================
         // ACCEPT
-        // --------------------------------------------------------
+        // ========================================================
 
         transaction.update(
           walkRef,
