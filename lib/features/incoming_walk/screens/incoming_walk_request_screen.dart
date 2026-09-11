@@ -4,8 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../accept_walk/screens/accept_walk_screen.dart';
+import '../../accept_walk/services/insta_walk_accept_service.dart';
 import '../../insta_walk/models/insta_walk_request.dart';
-import '../services/insta_walk_accept_service.dart';
 import '../services/insta_walk_reject_service.dart';
 import '../widgets/incoming_walk_bottom_panel.dart';
 import '../widgets/incoming_walk_map.dart';
