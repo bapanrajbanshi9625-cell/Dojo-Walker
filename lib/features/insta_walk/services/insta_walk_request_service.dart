@@ -12,6 +12,7 @@ import '../models/insta_walk_request.dart';
 ///
 /// - Find searching Insta Walk requests
 /// - Hide requests rejected by current Walker
+/// - Claim one incoming request for one Walker at a time
 /// - Return available requests
 /// - Get a single walk request
 ///
@@ -26,15 +27,6 @@ import '../models/insta_walk_request.dart';
 /// - Complete
 /// - Accepted walk watching
 /// - Active walk document watching
-///
-/// INSTA WALK:
-///     Creates / searches for requests only.
-///
-/// INCOMING WALK:
-///     Receives and handles incoming requests.
-///
-/// ACCEPT WALK:
-///     Handles accepted walk flow.
 /// ============================================================
 
 class InstaWalkRequestService {
@@ -53,13 +45,11 @@ class InstaWalkRequestService {
   // COLLECTION
   // ============================================================
 
-  CollectionReference<Map<String, dynamic>>
-      get _walkRequests {
+  CollectionReference<Map<String, dynamic>> get _walkRequests {
     return _firestore.collection('walk_request');
   }
 
-  CollectionReference<Map<String, dynamic>>
-      get _walkers {
+  CollectionReference<Map<String, dynamic>> get _walkers {
     return _firestore.collection('walkers');
   }
 
@@ -97,8 +87,7 @@ class InstaWalkRequestService {
       return null;
     }
 
-    final DocumentSnapshot<
-            Map<String, dynamic>>
+    final DocumentSnapshot<Map<String, dynamic>>
         snapshot =
         await _walkers
             .doc(uid)
@@ -114,14 +103,7 @@ class InstaWalkRequestService {
   // ============================================================
   // CURRENT WALKER ID
   //
-  // IMPORTANT:
-  //
-  // Firebase Auth UID is the canonical Walker ID.
-  //
-  // If walkers/{uid}.walkerId exists, it is still supported
-  // for compatibility.
-  //
-  // Otherwise the Firebase Auth UID itself is returned.
+  // Firebase Auth UID is the canonical fallback.
   // ============================================================
 
   Future<String?> getCurrentWalkerId() async {
@@ -132,8 +114,7 @@ class InstaWalkRequestService {
       return null;
     }
 
-    final DocumentSnapshot<
-            Map<String, dynamic>>?
+    final DocumentSnapshot<Map<String, dynamic>>?
         snapshot =
         await _getCurrentWalkerDocument();
 
@@ -153,11 +134,6 @@ class InstaWalkRequestService {
         }
       }
     }
-
-    // ----------------------------------------------------------
-    // Canonical Walker identity:
-    // Firebase Auth UID
-    // ----------------------------------------------------------
 
     return uid;
   }
@@ -183,8 +159,7 @@ class InstaWalkRequestService {
       return false;
     }
 
-    final DocumentSnapshot<
-            Map<String, dynamic>>
+    final DocumentSnapshot<Map<String, dynamic>>
         snapshot =
         await _walkRequests
             .doc(id)
@@ -196,93 +171,258 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
-  // PENDING / SEARCHING REQUESTS
-  //
-  // Only:
-  //
-  //     status == searching
-  //
-  // A request rejected by current Walker is hidden.
-  //
-  // Only ONE available request is returned.
+  // CLAIM ONE INCOMING REQUEST
   //
   // IMPORTANT:
   //
-  // No sound is handled here.
+  // A searching request can be offered to ONLY ONE Walker.
+  //
+  // The claim is stored on the request as:
+  //
+  // incomingWalkerUid
+  // incomingClaimedAt
+  //
+  // This transaction makes the claim race-safe between
+  // multiple Walker devices.
+  //
+  // Returns:
+  //
+  // true  = this Walker owns the incoming offer
+  // false = another Walker owns it / request unavailable
+  // ============================================================
+
+  Future<bool> _claimIncomingRequest({
+    required String walkId,
+    required String walkerUid,
+  }) async {
+    final String id =
+        walkId.trim();
+
+    final String uid =
+        walkerUid.trim();
+
+    if (id.isEmpty ||
+        uid.isEmpty) {
+      return false;
+    }
+
+    final DocumentReference<Map<String, dynamic>>
+        walkRef =
+        _walkRequests.doc(id);
+
+    return _firestore.runTransaction<bool>(
+      (
+        Transaction transaction,
+      ) async {
+        final DocumentSnapshot<Map<String, dynamic>>
+            snapshot =
+            await transaction.get(
+          walkRef,
+        );
+
+        if (!snapshot.exists) {
+          return false;
+        }
+
+        final Map<String, dynamic>? data =
+            snapshot.data();
+
+        if (data == null) {
+          return false;
+        }
+
+        // --------------------------------------------------------
+        // ONLY SEARCHING REQUESTS CAN BE CLAIMED
+        // --------------------------------------------------------
+
+        final String status =
+            data['status']
+                    ?.toString()
+                    .trim()
+                    .toLowerCase() ??
+                '';
+
+        if (status != 'searching') {
+          return false;
+        }
+
+        // --------------------------------------------------------
+        // CURRENT CLAIM
+        // --------------------------------------------------------
+
+        final String incomingWalkerUid =
+            data['incomingWalkerUid']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        // --------------------------------------------------------
+        // ALREADY CLAIMED BY THIS WALKER
+        //
+        // Keep the existing claim.
+        // Do NOT write again.
+        // This prevents unnecessary snapshot loops.
+        // --------------------------------------------------------
+
+        if (incomingWalkerUid == uid) {
+          return true;
+        }
+
+        // --------------------------------------------------------
+        // CLAIMED BY ANOTHER WALKER
+        // --------------------------------------------------------
+
+        if (incomingWalkerUid.isNotEmpty &&
+            incomingWalkerUid != uid) {
+          return false;
+        }
+
+        // --------------------------------------------------------
+        // CLAIM REQUEST
+        // --------------------------------------------------------
+
+        transaction.update(
+          walkRef,
+          <String, dynamic>{
+            'incomingWalkerUid': uid,
+            'incomingClaimedAt':
+                FieldValue.serverTimestamp(),
+          },
+        );
+
+        return true;
+      },
+    );
+  }
+
+  // ============================================================
+  // PENDING / SEARCHING REQUESTS
+  //
+  // Auth-state aware:
+  //
+  // If Firebase Auth becomes available after app startup,
+  // the listener starts automatically.
+  //
+  // Only one Walker can claim a request at a time.
+  //
+  // Rejected requests are hidden for that Walker.
   // ============================================================
 
   Stream<List<InstaWalkRequest>>
       pendingRequestsStream() {
-    return Stream.fromFuture(
-      getCurrentWalkerId(),
-    ).asyncExpand(
+    return _auth
+        .authStateChanges()
+        .asyncExpand(
       (
-        String? walkerId,
+        User? user,
       ) {
-        if (walkerId == null ||
-            walkerId.trim().isEmpty) {
+        if (user == null) {
           return Stream.value(
             <InstaWalkRequest>[],
           );
         }
 
-        return _walkRequests
-            .where(
-              'status',
-              isEqualTo: 'searching',
-            )
-            .snapshots()
-            .asyncMap(
-              (
-                QuerySnapshot<
-                        Map<String, dynamic>>
-                    snapshot,
-              ) async {
-                final List<
-                        InstaWalkRequest>
-                    availableRequests =
-                    <InstaWalkRequest>[];
+        final String walkerUid =
+            user.uid.trim();
 
-                for (final QueryDocumentSnapshot<
-                        Map<String, dynamic>>
-                    doc in snapshot.docs) {
-                  final bool alreadyRejected =
-                      await _hasRejected(
-                    doc.id,
-                    walkerId,
-                  );
+        if (walkerUid.isEmpty) {
+          return Stream.value(
+            <InstaWalkRequest>[],
+          );
+        }
 
-                  if (alreadyRejected) {
-                    continue;
-                  }
+        return Stream.fromFuture(
+          getCurrentWalkerId(),
+        ).asyncExpand(
+          (
+            String? walkerId,
+          ) {
+            if (walkerId == null ||
+                walkerId.trim().isEmpty) {
+              return Stream.value(
+                <InstaWalkRequest>[],
+              );
+            }
 
-                  final InstaWalkRequest
-                      request =
-                      InstaWalkRequest
-                          .fromFirestore(
-                    doc,
-                  );
+            return _walkRequests
+                .where(
+                  'status',
+                  isEqualTo: 'searching',
+                )
+                .snapshots()
+                .asyncMap(
+                  (
+                    QuerySnapshot<
+                            Map<String, dynamic>>
+                        snapshot,
+                  ) async {
+                    final List<
+                            InstaWalkRequest>
+                        availableRequests =
+                        <InstaWalkRequest>[];
 
-                  availableRequests.add(
-                    request,
-                  );
-                }
+                    for (final QueryDocumentSnapshot<
+                            Map<String, dynamic>>
+                        doc in snapshot.docs) {
+                      // ------------------------------------------------
+                      // PRIVATE REJECTION CHECK
+                      // ------------------------------------------------
 
-                if (availableRequests
-                    .isEmpty) {
-                  return <InstaWalkRequest>[];
-                }
+                      final bool alreadyRejected =
+                          await _hasRejected(
+                        doc.id,
+                        walkerId,
+                      );
 
-                // ------------------------------------------------
-                // Existing behavior preserved:
-                // only ONE available request.
-                // ------------------------------------------------
+                      if (alreadyRejected) {
+                        continue;
+                      }
 
-                return <InstaWalkRequest>[
-                  availableRequests.first,
-                ];
-              },
-            );
+                      // ------------------------------------------------
+                      // CLAIM CHECK
+                      //
+                      // Only one Walker can successfully claim.
+                      // ------------------------------------------------
+
+                      final bool claimed =
+                          await _claimIncomingRequest(
+                        walkId: doc.id,
+                        walkerUid: walkerUid,
+                      );
+
+                      if (!claimed) {
+                        continue;
+                      }
+
+                      final InstaWalkRequest
+                          request =
+                          InstaWalkRequest
+                              .fromFirestore(
+                        doc,
+                      );
+
+                      availableRequests.add(
+                        request,
+                      );
+
+                      // ------------------------------------------------
+                      // ONLY ONE REQUEST PER WALKER
+                      // ------------------------------------------------
+
+                      break;
+                    }
+
+                    if (availableRequests.isEmpty) {
+                      return <InstaWalkRequest>[];
+                    }
+
+                    return <InstaWalkRequest>[
+                      availableRequests.first,
+                    ];
+                  },
+                );
+          },
+        );
       },
     );
   }
@@ -302,8 +442,7 @@ class InstaWalkRequestService {
       return null;
     }
 
-    final DocumentSnapshot<
-            Map<String, dynamic>>
+    final DocumentSnapshot<Map<String, dynamic>>
         snapshot =
         await _walkRequests
             .doc(id)
