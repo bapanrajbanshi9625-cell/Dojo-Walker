@@ -22,11 +22,6 @@ class IncomingWalkMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final points = <LatLng>[
-      ownerLocation,
-      if (walkerLocation != null) walkerLocation!,
-    ];
-
     final center = walkerLocation ?? ownerLocation;
 
     return FlutterMap(
@@ -42,7 +37,6 @@ class IncomingWalkMap extends StatelessWidget {
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.doojo.walker',
         ),
-
         if (routePoints.length >= 2)
           PolylineLayer(
             polylines: [
@@ -58,7 +52,6 @@ class IncomingWalkMap extends StatelessWidget {
               ),
             ],
           ),
-
         CircleLayer(
           circles: [
             CircleMarker(
@@ -72,7 +65,6 @@ class IncomingWalkMap extends StatelessWidget {
             ),
           ],
         ),
-
         MarkerLayer(
           markers: [
             Marker(
@@ -90,7 +82,6 @@ class IncomingWalkMap extends StatelessWidget {
               ),
           ],
         ),
-
         if (onMyLocationPressed != null)
           Positioned(
             right: 14,
@@ -155,7 +146,7 @@ class _WalkerMarker extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: DojoWalkerColors.secondary,
+        color: DojoWalkerColors.primary,
         border: Border.all(
           color: Colors.white,
           width: 3,
