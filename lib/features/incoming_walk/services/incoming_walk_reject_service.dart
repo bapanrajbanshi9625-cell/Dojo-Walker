@@ -1,6 +1,3 @@
-// File:
-// lib/features/incoming_walk/services/incoming_walk_reject_service.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -27,6 +24,9 @@ class IncomingWalkRejectService {
 
   // ============================================================
   // CURRENT WALKER ID
+  //
+  // Canonical fallback:
+  // Firebase Auth UID is the Walker ID.
   // ============================================================
 
   Future<String?> getCurrentWalkerId() async {
@@ -46,20 +46,25 @@ class IncomingWalkRejectService {
         await _firestore.collection('walkers').doc(uid).get();
 
     if (!snapshot.exists) {
-      return null;
+      return uid;
     }
 
     final Map<String, dynamic>? data = snapshot.data();
 
     if (data == null) {
-      return null;
+      return uid;
     }
 
-    final String walkerId =
+    String walkerId =
         data['walkerId']?.toString().trim() ?? '';
 
     if (walkerId.isEmpty) {
-      return null;
+      walkerId =
+          data['Walker ID']?.toString().trim() ?? '';
+    }
+
+    if (walkerId.isEmpty) {
+      walkerId = uid;
     }
 
     return walkerId;
@@ -72,9 +77,14 @@ class IncomingWalkRejectService {
   //
   // walk_request/{walkId}
   //
-  // Rejection:
+  // Private rejection:
   //
   // walk_request/{walkId}/rejections/{walkerId}
+  //
+  // Main status remains "searching".
+  //
+  // After rejection, the current incoming Walker claim is released
+  // so another eligible Walker can receive the request.
   // ============================================================
 
   Future<void> rejectWalk(
@@ -101,7 +111,7 @@ class IncomingWalkRejectService {
 
     if (walkerId == null || walkerId.trim().isEmpty) {
       throw Exception(
-        'Walker ID not found in walkers collection.',
+        'Walker ID not found.',
       );
     }
 
@@ -169,6 +179,25 @@ class IncomingWalkRejectService {
         }
 
         // --------------------------------------------------------
+        // INCOMING WALK CLAIM
+        // --------------------------------------------------------
+
+        final String incomingWalkerUid =
+            data['incomingWalkerUid']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        // If another Walker currently owns the incoming offer,
+        // this Walker must not be allowed to reject it.
+        if (incomingWalkerUid.isNotEmpty &&
+            incomingWalkerUid != walkerUid) {
+          throw Exception(
+            'This walk is assigned to another walker.',
+          );
+        }
+
+        // --------------------------------------------------------
         // CHECK DUPLICATE REJECTION
         // --------------------------------------------------------
 
@@ -185,7 +214,7 @@ class IncomingWalkRejectService {
         }
 
         // --------------------------------------------------------
-        // SAVE WALKER REJECTION
+        // SAVE PRIVATE WALKER REJECTION
         // --------------------------------------------------------
 
         transaction.set(
@@ -199,16 +228,30 @@ class IncomingWalkRejectService {
         );
 
         // --------------------------------------------------------
+        // RELEASE CURRENT INCOMING WALKER CLAIM
+        //
         // IMPORTANT:
         //
-        // Main walk_request document is NOT modified.
+        // Main request remains:
         //
-        // status remains:
+        // status = searching
         //
-        // searching
+        // Owner is NOT told that this specific Walker rejected.
         //
-        // Therefore another Walker can still receive it.
+        // The claim is simply released so another eligible Walker
+        // can receive the request.
         // --------------------------------------------------------
+
+        if (incomingWalkerUid == walkerUid) {
+          transaction.update(
+            walkRef,
+            <String, dynamic>{
+              'incomingWalkerUid': FieldValue.delete(),
+              'incomingClaimedAt': FieldValue.delete(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            },
+          );
+        }
       },
     );
 
