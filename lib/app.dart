@@ -45,9 +45,7 @@ class _DojoWalkerAppState extends State<DojoWalkerApp>
     _incomingRequestSubscription?.cancel();
 
     _incomingRequestSubscription =
-        InstaWalkRequestService.instance
-            .pendingRequestsStream()
-            .listen(
+        InstaWalkRequestService.instance.pendingRequestsStream().listen(
       _handleIncomingWalkRequests,
       onError: (Object error, StackTrace stackTrace) {
         debugPrint(
