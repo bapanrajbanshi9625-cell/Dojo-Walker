@@ -6,19 +6,28 @@ import 'package:firebase_auth/firebase_auth.dart';
 ///
 /// RESPONSIBILITIES:
 /// - Current Walker information
-/// - Watch single walk
-/// - Cancel search
-/// - Start walk
-/// - Complete walk
+/// - Watch a single walk request
+/// - Cancel an active search
+///
+/// NOT RESPONSIBLE FOR:
+/// - Accept
+/// - Reject
+/// - Reach
+/// - Start
+/// - Complete
+/// - Live Walk
+/// - GPS tracking
+/// - Route handling
+/// - Accepted walk watching
 ///
 /// REQUEST DISCOVERY:
 ///     InstaWalkRequestService
 ///
-/// ACCEPT:
-///     InstaWalkAcceptService
+/// INCOMING REQUEST:
+///     Incoming Walk
 ///
-/// REJECT:
-///     InstaWalkRejectService
+/// ACCEPTED WALK:
+///     Accept Walk
 /// ============================================================
 
 class InstaWalkService {
@@ -167,9 +176,10 @@ class InstaWalkService {
   }
 
   // ============================================================
-  // WATCH SINGLE WALK
+  // WATCH SINGLE WALK REQUEST
   //
-  // Used by ActiveWalkDetailsScreen.
+  // Used to monitor the current Insta Walk request
+  // while it is searching.
   // ============================================================
 
   Stream<DocumentSnapshot<Map<String, dynamic>>>
@@ -194,6 +204,8 @@ class InstaWalkService {
   // CANCEL SEARCH
   //
   // searching → cancelled
+  //
+  // Only the Walker who owns the request can cancel it.
   // ============================================================
 
   Future<void> cancelSearch(
@@ -287,277 +299,6 @@ class InstaWalkService {
           <String, dynamic>{
             'status': 'cancelled',
             'cancelledAt':
-                FieldValue.serverTimestamp(),
-            'updatedAt':
-                FieldValue.serverTimestamp(),
-          },
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // START WALK
-  //
-  // accepted → active
-  // ============================================================
-
-  Future<void> startWalk(
-    String walkId, {
-    String? liveWalkSessionId,
-  }) async {
-    final User? user =
-        _auth.currentUser;
-
-    if (user == null) {
-      throw Exception(
-        'Walker is not logged in.',
-      );
-    }
-
-    final String walkerUid =
-        user.uid.trim();
-
-    if (walkerUid.isEmpty) {
-      throw Exception(
-        'Walker UID is missing.',
-      );
-    }
-
-    final String? walkerId =
-        await getCurrentWalkerId();
-
-    if (walkerId == null ||
-        walkerId.trim().isEmpty) {
-      throw Exception(
-        'Walker ID not found.',
-      );
-    }
-
-    final String id =
-        walkId.trim();
-
-    if (id.isEmpty) {
-      throw Exception(
-        'Walk ID is missing.',
-      );
-    }
-
-    final DocumentReference<
-            Map<String, dynamic>>
-        walkRef =
-        _walkRequests.doc(id);
-
-    await _firestore.runTransaction(
-      (
-        Transaction transaction,
-      ) async {
-        final DocumentSnapshot<
-                Map<String, dynamic>>
-            snapshot =
-            await transaction.get(
-          walkRef,
-        );
-
-        if (!snapshot.exists) {
-          throw Exception(
-            'Walk request not found.',
-          );
-        }
-
-        final Map<String, dynamic>? data =
-            snapshot.data();
-
-        if (data == null) {
-          throw Exception(
-            'Walk request data is empty.',
-          );
-        }
-
-        final String status =
-            data['status']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        if (status != 'accepted') {
-          throw Exception(
-            'This walk is not ready to start.',
-          );
-        }
-
-        final String storedWalkerId =
-            data['walkerId']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        if (storedWalkerId.isNotEmpty &&
-            storedWalkerId != walkerId) {
-          throw Exception(
-            'This walk belongs to another walker.',
-          );
-        }
-
-        final String storedWalkerUid =
-            data['walkerUid']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        if (storedWalkerUid.isNotEmpty &&
-            storedWalkerUid != walkerUid) {
-          throw Exception(
-            'This walk belongs to another walker.',
-          );
-        }
-
-        final String sessionId =
-            liveWalkSessionId
-                        ?.trim()
-                        .isNotEmpty ==
-                    true
-                ? liveWalkSessionId!.trim()
-                : 'session-$id';
-
-        transaction.update(
-          walkRef,
-          <String, dynamic>{
-            'status': 'active',
-            'walkerId': walkerId,
-            'walkerUid': walkerUid,
-            'activeWalkId': id,
-            'liveWalkSessionId': sessionId,
-            'startedAt':
-                FieldValue.serverTimestamp(),
-            'updatedAt':
-                FieldValue.serverTimestamp(),
-          },
-        );
-      },
-    );
-  }
-
-  // ============================================================
-  // COMPLETE WALK
-  //
-  // active → completed
-  // ============================================================
-
-  Future<void> completeWalk(
-    String walkId,
-  ) async {
-    final User? user =
-        _auth.currentUser;
-
-    if (user == null) {
-      throw Exception(
-        'Walker is not logged in.',
-      );
-    }
-
-    final String walkerUid =
-        user.uid.trim();
-
-    if (walkerUid.isEmpty) {
-      throw Exception(
-        'Walker UID is missing.',
-      );
-    }
-
-    final String? walkerId =
-        await getCurrentWalkerId();
-
-    if (walkerId == null ||
-        walkerId.trim().isEmpty) {
-      throw Exception(
-        'Walker ID not found.',
-      );
-    }
-
-    final String id =
-        walkId.trim();
-
-    if (id.isEmpty) {
-      throw Exception(
-        'Walk ID is missing.',
-      );
-    }
-
-    final DocumentReference<
-            Map<String, dynamic>>
-        walkRef =
-        _walkRequests.doc(id);
-
-    await _firestore.runTransaction(
-      (
-        Transaction transaction,
-      ) async {
-        final DocumentSnapshot<
-                Map<String, dynamic>>
-            snapshot =
-            await transaction.get(
-          walkRef,
-        );
-
-        if (!snapshot.exists) {
-          throw Exception(
-            'Walk request not found.',
-          );
-        }
-
-        final Map<String, dynamic>? data =
-            snapshot.data();
-
-        if (data == null) {
-          throw Exception(
-            'Walk request data is empty.',
-          );
-        }
-
-        final String status =
-            data['status']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        if (status != 'active') {
-          throw Exception(
-            'This walk is not active.',
-          );
-        }
-
-        final String storedWalkerId =
-            data['walkerId']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        if (storedWalkerId.isNotEmpty &&
-            storedWalkerId != walkerId) {
-          throw Exception(
-            'This walk belongs to another walker.',
-          );
-        }
-
-        final String storedWalkerUid =
-            data['walkerUid']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        if (storedWalkerUid.isNotEmpty &&
-            storedWalkerUid != walkerUid) {
-          throw Exception(
-            'This walk belongs to another walker.',
-          );
-        }
-
-        transaction.update(
-          walkRef,
-          <String, dynamic>{
-            'status': 'completed',
-            'endedAt':
                 FieldValue.serverTimestamp(),
             'updatedAt':
                 FieldValue.serverTimestamp(),
