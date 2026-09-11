@@ -85,7 +85,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     setState(() {});
   }
 
-  Stream<DocumentSnapshot<Map<String, dynamic>>> get _sessionStream {
+  Stream<DocumentSnapshot<Map<String, dynamic>>>
+      get _sessionStream {
     return _controller.sessionStream;
   }
 
@@ -95,11 +96,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+    return StreamBuilder<
+        DocumentSnapshot<Map<String, dynamic>>>(
       stream: _sessionStream,
       builder: (
         BuildContext context,
-        AsyncSnapshot<DocumentSnapshot<Map<String, dynamic>>> snapshot,
+        AsyncSnapshot<
+                DocumentSnapshot<Map<String, dynamic>>>
+            snapshot,
       ) {
         final Map<String, dynamic> firestoreData =
             snapshot.data?.data() ??
@@ -111,16 +115,25 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             firestoreData,
           );
 
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) {
-              return;
-            }
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) {
+              if (!mounted) {
+                return;
+              }
 
-            _controller.updateFromSession(
-              firestoreData,
-            );
-          });
+              _controller.updateFromSession(
+                firestoreData,
+              );
+            },
+          );
         }
+
+        // ======================================================
+        // MAP DATA
+        //
+        // Firestore remains useful for route/location data.
+        // Live metrics are taken directly from controller.
+        // ======================================================
 
         final Map<String, dynamic> sessionData =
             firestoreData.isNotEmpty
@@ -193,17 +206,28 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     Map<String, dynamic> sessionData,
     bool ending,
   ) {
+    // ==========================================================
+    // IMPORTANT:
+    //
+    // Do NOT use Firestore distance/steps here first.
+    //
+    // Controller contains the live local metric values.
+    // ==========================================================
+
     final double distance =
-        _readDouble(
-              sessionData['distanceKm'],
-            ) ??
-            _controller.totalDistanceKm;
+        _controller.totalDistanceKm;
 
     final int steps =
-        _readInt(
-              sessionData['steps'],
-            ) ??
-            _controller.steps;
+        _controller.steps;
+
+    // ==========================================================
+    // LIVE DURATION
+    //
+    // Controller ticker refreshes this every second.
+    // ==========================================================
+
+    final String duration =
+        _controller.formattedDuration;
 
     return LiveWalkBottomSheet(
       scrollController: scrollController,
@@ -214,9 +238,7 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       dogBreed: widget.dogBreed,
       distanceKm: distance,
       steps: steps,
-      duration: _readDuration(
-        sessionData,
-      ),
+      duration: duration,
       peeCount: _controller.peeCount,
       poopCount: _controller.poopCount,
       onCallOwner: _callOwner,
@@ -407,8 +429,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         return;
       }
 
-      final Map<String, dynamic>
-          resultSessionData =
+      // ========================================================
+      // FINAL DATA MUST COME FROM CONTROLLER
+      //
+      // This prevents an old Firestore snapshot from replacing
+      // the final live values.
+      // ========================================================
+
+      final Map<String, dynamic> resultSessionData =
           Map<String, dynamic>.from(
         _controller.sessionData.isNotEmpty
             ? _controller.sessionData
@@ -416,26 +444,30 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       );
 
       final double distance =
-          _readDouble(
-                resultSessionData['distanceKm'],
-              ) ??
-              _controller.totalDistanceKm;
+          _controller.totalDistanceKm;
 
       final int steps =
-          _readInt(
-                resultSessionData['steps'],
-              ) ??
-              _controller.steps;
+          _controller.steps;
 
       final String duration =
-          _readDuration(
-        resultSessionData,
-      );
+          _controller.formattedDuration;
 
       final List<Offset> routePoints =
           _extractRoutePoints(
         resultSessionData,
       );
+
+      resultSessionData['distanceKm'] =
+          distance;
+
+      resultSessionData['steps'] =
+          steps;
+
+      resultSessionData['duration'] =
+          duration;
+
+      resultSessionData['durationSeconds'] =
+          _controller.durationSeconds;
 
       resultSessionData['peeCount'] =
           _controller.peeCount;
@@ -458,10 +490,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           'distanceKm': distance,
           'steps': steps,
           'duration': duration,
+          'durationSeconds':
+              _controller.durationSeconds,
           'routePoints': routePoints,
           'sessionData': resultSessionData,
-          'peeCount': _controller.peeCount,
-          'poopCount': _controller.poopCount,
+          'peeCount':
+              _controller.peeCount,
+          'poopCount':
+              _controller.poopCount,
         },
       );
     } catch (error) {
@@ -664,47 +700,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
   }
 
   // ============================================================
-  // DURATION
-  // ============================================================
-
-  String _readDuration(
-    Map<String, dynamic> data,
-  ) {
-    final dynamic value =
-        data['durationMinutes'] ??
-        data['duration'] ??
-        data['elapsedMinutes'];
-
-    if (value is num) {
-      final int minutes =
-          value.toInt();
-
-      if (minutes < 60) {
-        return '${minutes}m';
-      }
-
-      final int hours =
-          minutes ~/ 60;
-
-      final int remaining =
-          minutes % 60;
-
-      return '${hours}h ${remaining}m';
-    }
-
-    if (value != null) {
-      final String text =
-          value.toString().trim();
-
-      if (text.isNotEmpty) {
-        return text;
-      }
-    }
-
-    return '0m';
-  }
-
-  // ============================================================
   // DOUBLE
   // ============================================================
 
@@ -720,30 +715,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     }
 
     return double.tryParse(
-      value.toString().trim(),
-    );
-  }
-
-  // ============================================================
-  // INT
-  // ============================================================
-
-  int? _readInt(
-    dynamic value,
-  ) {
-    if (value == null) {
-      return null;
-    }
-
-    if (value is int) {
-      return value;
-    }
-
-    if (value is num) {
-      return value.toInt();
-    }
-
-    return int.tryParse(
       value.toString().trim(),
     );
   }
