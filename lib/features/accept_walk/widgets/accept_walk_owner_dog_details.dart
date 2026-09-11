@@ -83,7 +83,7 @@ class AcceptWalkOwnerDogDetails extends StatelessWidget {
                   const Icon(
                     Icons.verified_rounded,
                     size: 16,
-                    color: DojoWalkerColors.secondary,
+                    color: DojoWalkerColors.primary,
                   ),
                 ],
               ),
