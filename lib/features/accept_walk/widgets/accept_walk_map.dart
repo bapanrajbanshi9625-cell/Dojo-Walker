@@ -22,7 +22,8 @@ class AcceptWalkMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final center = walkerLocation ?? ownerLocation;
+    final LatLng center =
+        walkerLocation ?? ownerLocation;
 
     return FlutterMap(
       options: MapOptions(
@@ -32,15 +33,16 @@ class AcceptWalkMap extends StatelessWidget {
           flags: InteractiveFlag.all,
         ),
       ),
-      children: [
+      children: <Widget>[
         TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          urlTemplate:
+              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.doojo.walker',
         ),
 
         if (routePoints.length >= 2)
           PolylineLayer(
-            polylines: [
+            polylines: <Polyline>[
               Polyline(
                 points: routePoints,
                 strokeWidth: 8,
@@ -55,33 +57,34 @@ class AcceptWalkMap extends StatelessWidget {
           ),
 
         CircleLayer(
-          circles: [
+          circles: <CircleMarker>[
             CircleMarker(
               point: ownerLocation,
               radius: 100,
               useRadiusInMeter: true,
-              color: DojoWalkerColors.primary.withValues(alpha: 0.08),
-              borderColor:
-                  DojoWalkerColors.primary.withValues(alpha: 0.35),
+              color: DojoWalkerColors.primary
+                  .withValues(alpha: 0.08),
+              borderColor: DojoWalkerColors.primary
+                  .withValues(alpha: 0.35),
               borderStrokeWidth: 1.5,
             ),
           ],
         ),
 
         MarkerLayer(
-          markers: [
+          markers: <Marker>[
             Marker(
               point: ownerLocation,
               width: 46,
               height: 46,
-              child: _OwnerMarker(),
+              child: const _OwnerMarker(),
             ),
             if (walkerLocation != null)
               Marker(
                 point: walkerLocation!,
                 width: 46,
                 height: 46,
-                child: _WalkerMarker(),
+                child: const _WalkerMarker(),
               ),
           ],
         ),
@@ -118,6 +121,8 @@ class AcceptWalkMap extends StatelessWidget {
 }
 
 class _OwnerMarker extends StatelessWidget {
+  const _OwnerMarker();
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -128,7 +133,7 @@ class _OwnerMarker extends StatelessWidget {
           color: Colors.white,
           width: 3,
         ),
-        boxShadow: [
+        boxShadow: <BoxShadow>[
           BoxShadow(
             blurRadius: 7,
             color: Colors.black.withValues(alpha: 0.22),
@@ -145,17 +150,19 @@ class _OwnerMarker extends StatelessWidget {
 }
 
 class _WalkerMarker extends StatelessWidget {
+  const _WalkerMarker();
+
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: DojoWalkerColors.secondary,
+        color: DojoWalkerColors.primary,
         border: Border.all(
           color: Colors.white,
           width: 3,
         ),
-        boxShadow: [
+        boxShadow: <BoxShadow>[
           BoxShadow(
             blurRadius: 7,
             color: Colors.black.withValues(alpha: 0.22),
