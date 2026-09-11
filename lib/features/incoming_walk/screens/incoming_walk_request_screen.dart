@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../accept_walk/screens/accept_walk_screen.dart';
 import '../../accept_walk/services/insta_walk_accept_service.dart';
@@ -27,11 +28,9 @@ class IncomingWalkRequestScreen extends StatefulWidget {
 
 class _IncomingWalkRequestScreenState
     extends State<IncomingWalkRequestScreen> {
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final InstaWalkAcceptService _acceptService =
       InstaWalkAcceptService.instance;
@@ -39,18 +38,13 @@ class _IncomingWalkRequestScreenState
   final InstaWalkRejectService _rejectService =
       InstaWalkRejectService.instance;
 
-  StreamSubscription<
-      DocumentSnapshot<Map<String, dynamic>>>?
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
       _requestSubscription;
 
   bool _accepting = false;
   bool _rejecting = false;
   bool _requestUnavailable = false;
   bool _leavingScreen = false;
-
-  // ============================================================
-  // OWNER DATA
-  // ============================================================
 
   double? get _ownerLatitude {
     return widget.request.latitude;
@@ -60,10 +54,19 @@ class _IncomingWalkRequestScreenState
     return widget.request.longitude;
   }
 
-  String get _ownerName {
-    final String value =
-        widget.request.ownerName.trim();
+  LatLng? get _ownerLocation {
+    final double? latitude = _ownerLatitude;
+    final double? longitude = _ownerLongitude;
 
+    if (latitude == null || longitude == null) {
+      return null;
+    }
+
+    return LatLng(latitude, longitude);
+  }
+
+  String get _ownerName {
+    final String value = widget.request.ownerName.trim();
     return value.isEmpty ? 'Owner' : value;
   }
 
@@ -71,14 +74,8 @@ class _IncomingWalkRequestScreenState
     return widget.request.ownerPhone.trim();
   }
 
-  // ============================================================
-  // DOG DATA
-  // ============================================================
-
   String get _dogName {
-    final String value =
-        widget.request.dogName.trim();
-
+    final String value = widget.request.dogName.trim();
     return value.isEmpty ? 'Your Pet' : value;
   }
 
@@ -86,13 +83,8 @@ class _IncomingWalkRequestScreenState
     return widget.request.dogBreed.trim();
   }
 
-  // ============================================================
-  // ADDRESS
-  // ============================================================
-
   String get _address {
-    final String pickup =
-        widget.request.pickupAddress.trim();
+    final String pickup = widget.request.pickupAddress.trim();
 
     if (pickup.isNotEmpty) {
       return pickup;
@@ -101,27 +93,15 @@ class _IncomingWalkRequestScreenState
     return widget.request.address.trim();
   }
 
-  // ============================================================
-  // REQUEST ID
-  // ============================================================
-
   String get _requestId {
     return widget.request.requestId.trim();
   }
-
-  // ============================================================
-  // INIT
-  // ============================================================
 
   @override
   void initState() {
     super.initState();
     _startRequestMonitoring();
   }
-
-  // ============================================================
-  // FIRESTORE REQUEST MONITOR
-  // ============================================================
 
   void _startRequestMonitoring() {
     final String requestId = _requestId;
@@ -151,30 +131,18 @@ class _IncomingWalkRequestScreenState
           return;
         }
 
-        final Map<String, dynamic>? data =
-            snapshot.data();
+        final Map<String, dynamic>? data = snapshot.data();
 
         if (data == null) {
           return;
         }
 
         final String status =
-            data['status']
-                    ?.toString()
-                    .trim()
-                    .toLowerCase() ??
-                '';
+            data['status']?.toString().trim().toLowerCase() ?? '';
 
         if (status == 'searching') {
           return;
         }
-
-        // --------------------------------------------------------
-        // Incoming screen must NEVER become the accepted screen.
-        //
-        // Once accepted, this screen closes and the caller/flow
-        // responsible for accepted navigation handles Accept Walk.
-        // --------------------------------------------------------
 
         if (status == 'accepted' ||
             status == 'completed' ||
@@ -204,16 +172,10 @@ class _IncomingWalkRequestScreenState
     );
   }
 
-  // ============================================================
-  // REQUEST UNAVAILABLE
-  // ============================================================
-
   void _handleRequestUnavailable(
     String message,
   ) {
-    if (!mounted ||
-        _leavingScreen ||
-        _requestUnavailable) {
+    if (!mounted || _leavingScreen || _requestUnavailable) {
       return;
     }
 
@@ -237,10 +199,6 @@ class _IncomingWalkRequestScreenState
     );
   }
 
-  // ============================================================
-  // ACCEPT WALK
-  // ============================================================
-
   Future<void> _acceptWalk() async {
     if (_accepting ||
         _rejecting ||
@@ -258,8 +216,7 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    final User? currentUser =
-        _auth.currentUser;
+    final User? currentUser = _auth.currentUser;
 
     if (currentUser == null) {
       _showMessage(
@@ -273,9 +230,7 @@ class _IncomingWalkRequestScreenState
     });
 
     try {
-      await _acceptService.acceptWalk(
-        requestId,
-      );
+      await _acceptService.acceptWalk(requestId);
 
       if (!mounted) {
         return;
@@ -283,15 +238,13 @@ class _IncomingWalkRequestScreenState
 
       _leavingScreen = true;
 
-      // ----------------------------------------------------------
-      // IMPORTANT:
-      //
-      // Accepted state is now handled by accept_walk.
-      // This Incoming screen does not own GPS, route, reach,
-      // Call/Chat or Live Walk navigation anymore.
-      // ----------------------------------------------------------
-
-      Navigator.of(context).pop();
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => AcceptWalkScreen(
+            request: widget.request,
+          ),
+        ),
+      );
     } catch (error) {
       debugPrint(
         'Accept walk error: $error',
@@ -311,10 +264,6 @@ class _IncomingWalkRequestScreenState
     }
   }
 
-  // ============================================================
-  // REJECT WALK
-  // ============================================================
-
   Future<void> _rejectWalk() async {
     if (_accepting ||
         _rejecting ||
@@ -323,8 +272,7 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    final bool? confirm =
-        await showDialog<bool>(
+    final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (
         BuildContext dialogContext,
@@ -384,9 +332,7 @@ class _IncomingWalkRequestScreenState
     });
 
     try {
-      await _rejectService.rejectWalk(
-        requestId,
-      );
+      await _rejectService.rejectWalk(requestId);
 
       if (!mounted) {
         return;
@@ -414,10 +360,6 @@ class _IncomingWalkRequestScreenState
     }
   }
 
-  // ============================================================
-  // BUILD
-  // ============================================================
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -431,7 +373,6 @@ class _IncomingWalkRequestScreenState
               routePoints: const [],
             ),
           ),
-
           Positioned(
             top: 0,
             left: 0,
@@ -446,7 +387,6 @@ class _IncomingWalkRequestScreenState
               },
             ),
           ),
-
           Positioned(
             left: 0,
             right: 0,
@@ -469,7 +409,6 @@ class _IncomingWalkRequestScreenState
               rejecting: _rejecting,
             ),
           ),
-
           if (_requestUnavailable)
             const Positioned.fill(
               child: ColoredBox(
@@ -484,13 +423,7 @@ class _IncomingWalkRequestScreenState
     );
   }
 
-  // ============================================================
-  // CLEAN ERROR
-  // ============================================================
-
-  String _cleanException(
-    Object error,
-  ) {
+  String _cleanException(Object error) {
     return error
         .toString()
         .replaceFirst(
@@ -500,13 +433,7 @@ class _IncomingWalkRequestScreenState
         .trim();
   }
 
-  // ============================================================
-  // MESSAGE
-  // ============================================================
-
-  void _showMessage(
-    String message,
-  ) {
+  void _showMessage(String message) {
     if (!mounted) {
       return;
     }
@@ -524,10 +451,6 @@ class _IncomingWalkRequestScreenState
         ),
       );
   }
-
-  // ============================================================
-  // DISPOSE
-  // ============================================================
 
   @override
   void dispose() {
