@@ -428,79 +428,72 @@ class _IncomingWalkRequestScreenState
     final LatLng? ownerLocation =
         _ownerLocation;
 
-    return Scaffold(
-      backgroundColor:
-          const Color(0xFFE9EEF3),
-      body: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            child: ownerLocation != null
-                ? IncomingWalkMap(
-                    walkerLocation: null,
-                    ownerLocation: ownerLocation,
-                    routePoints: const [],
-                  )
-                : ColoredBox(
-                    color: DojoWalkerColors.primary
-                        .withValues(
-                      alpha: 0.04,
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (
+        bool didPop,
+        void result,
+      ) {},
+      child: Scaffold(
+        backgroundColor:
+            const Color(0xFFE9EEF3),
+        body: Stack(
+          children: <Widget>[
+            Positioned.fill(
+              child: ownerLocation != null
+                  ? IncomingWalkMap(
+                      walkerLocation: null,
+                      ownerLocation: ownerLocation,
+                      routePoints: const [],
+                    )
+                  : ColoredBox(
+                      color: DojoWalkerColors.primary
+                          .withValues(
+                        alpha: 0.04,
+                      ),
                     ),
-                  ),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: IncomingWalkTopBar(
-              onBack: () {
-                if (_leavingScreen) {
-                  return;
-                }
-
-                _leavingScreen = true;
-
-                unawaited(
-                  _stopRequestSound(),
-                );
-
-                Navigator.of(context).pop();
-              },
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: IncomingWalkBottomPanel(
-              dogName: _dogName,
-              dogBreed: _dogBreed,
-              ownerName: _ownerName,
-              ownerPhone: _ownerPhone,
-              distanceText: '—',
-              etaText:
-                  widget.request.durationMinutes > 0
-                      ? '${widget.request.durationMinutes} min'
-                      : '—',
-              paymentText:
-                  'After acceptance',
-              address: _address,
-              onAccept: _acceptWalk,
-              onReject: _rejectWalk,
-              accepting: _accepting,
-              rejecting: _rejecting,
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: const IncomingWalkTopBar(),
             ),
-          ),
-          if (_requestUnavailable)
-            const Positioned.fill(
-              child: ColoredBox(
-                color: Colors.white70,
-                child: Center(
-                  child:
-                      CircularProgressIndicator(),
-                ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: IncomingWalkBottomPanel(
+                dogName: _dogName,
+                dogBreed: _dogBreed,
+                ownerName: _ownerName,
+                ownerPhone: _ownerPhone,
+                distanceText: '—',
+                etaText:
+                    widget.request.durationMinutes > 0
+                        ? '${widget.request.durationMinutes} min'
+                        : '—',
+                paymentText:
+                    'After acceptance',
+                address: _address,
+                onAccept: _acceptWalk,
+                onReject: _rejectWalk,
+                accepting: _accepting,
+                rejecting: _rejecting,
               ),
             ),
-        ],
+            if (_requestUnavailable)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.white70,
+                  child: Center(
+                    child:
+                        CircularProgressIndicator(),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
