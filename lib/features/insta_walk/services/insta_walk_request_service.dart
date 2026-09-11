@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:developer' as developer;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/insta_walk_request.dart';
-import '../../walks/services/walk_request_sound_service.dart';
 
 /// ============================================================
 /// INSTA WALK REQUEST SERVICE
@@ -15,27 +13,28 @@ import '../../walks/services/walk_request_sound_service.dart';
 /// - Find searching Insta Walk requests
 /// - Hide requests rejected by current Walker
 /// - Return available requests
-/// - Play sound when a NEW request arrives
-/// - Get single walk request
-/// - Watch accepted walks
+/// - Get a single walk request
 ///
 /// NOT RESPONSIBLE FOR:
 ///
+/// - Sound
 /// - Accept
 /// - Reject
 /// - Cancel
+/// - Reach
 /// - Start
 /// - Complete
+/// - Accepted walk watching
 /// - Active walk document watching
 ///
-/// ACCEPT:
-///     InstaWalkAcceptService
+/// INSTA WALK:
+///     Creates / searches for requests only.
 ///
-/// REJECT:
-///     InstaWalkRejectService
+/// INCOMING WALK:
+///     Receives and handles incoming requests.
 ///
-/// WALK ACTIONS:
-///     InstaWalkService
+/// ACCEPT WALK:
+///     Handles accepted walk flow.
 /// ============================================================
 
 class InstaWalkRequestService {
@@ -49,9 +48,6 @@ class InstaWalkRequestService {
 
   final FirebaseAuth _auth =
       FirebaseAuth.instance;
-
-  final WalkRequestSoundService _soundService =
-      WalkRequestSoundService.instance;
 
   // ============================================================
   // COLLECTION
@@ -193,10 +189,9 @@ class InstaWalkRequestService {
   //
   // Only ONE available request is returned.
   //
-  // SOUND:
+  // IMPORTANT:
   //
-  //     NEW request -> play sound
-  //     Existing request on first load -> NO sound
+  // No sound is handled here.
   // ============================================================
 
   Stream<List<InstaWalkRequest>>
@@ -214,17 +209,6 @@ class InstaWalkRequestService {
           );
         }
 
-        // --------------------------------------------------------
-        // Keep track of currently visible request IDs.
-        //
-        // This is local to this stream subscription.
-        // --------------------------------------------------------
-
-        Set<String> previousRequestIds =
-            <String>{};
-
-        bool firstSnapshot = true;
-
         return _walkRequests
             .where(
               'status',
@@ -241,10 +225,6 @@ class InstaWalkRequestService {
                         InstaWalkRequest>
                     availableRequests =
                     <InstaWalkRequest>[];
-
-                final Set<String>
-                    currentRequestIds =
-                    <String>{};
 
                 for (final QueryDocumentSnapshot<
                         Map<String, dynamic>>
@@ -269,50 +249,7 @@ class InstaWalkRequestService {
                   availableRequests.add(
                     request,
                   );
-
-                  currentRequestIds.add(
-                    doc.id,
-                  );
                 }
-
-                // ------------------------------------------------
-                // NEW REQUEST SOUND
-                // ------------------------------------------------
-
-                if (!firstSnapshot) {
-                  final Set<String>
-                      newRequestIds =
-                      currentRequestIds
-                          .difference(
-                    previousRequestIds,
-                  );
-
-                  for (final String requestId
-                      in newRequestIds) {
-                    try {
-                      await _soundService
-                          .playForRequest(
-                        requestId,
-                      );
-                    } catch (e) {
-                      // Sound failure must NEVER
-                      // break request stream.
-                      developer.log(
-                        'InstaWalk request sound error: $e',
-                        name:
-                            'InstaWalkRequestService',
-                        error: e,
-                      );
-                    }
-                  }
-                }
-
-                // First snapshot is only the
-                // current state. Don't play sound.
-                firstSnapshot = false;
-
-                previousRequestIds =
-                    currentRequestIds;
 
                 if (availableRequests
                     .isEmpty) {
@@ -320,7 +257,6 @@ class InstaWalkRequestService {
                 }
 
                 // ------------------------------------------------
-                // IMPORTANT:
                 // Existing behavior preserved:
                 // only ONE available request.
                 // ------------------------------------------------
@@ -335,38 +271,7 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
-  // STOP SOUND FOR REQUEST
-  //
-  // Call this after ACCEPT / REJECT / CANCEL if needed.
-  // ============================================================
-
-  Future<void> stopRequestSound(
-    String requestId,
-  ) async {
-    final String id =
-        requestId.trim();
-
-    if (id.isEmpty) {
-      return;
-    }
-
-    await _soundService.stopRequest(
-      id,
-    );
-  }
-
-  // ============================================================
-  // STOP ALL REQUEST SOUNDS
-  // ============================================================
-
-  Future<void> stopAllRequestSounds() async {
-    await _soundService.stopAll();
-  }
-
-  // ============================================================
   // GET SINGLE WALK REQUEST
-  //
-  // Used after accepting a request.
   // ============================================================
 
   Future<InstaWalkRequest?>
@@ -394,69 +299,5 @@ class InstaWalkRequestService {
     return InstaWalkRequest.fromFirestore(
       snapshot,
     );
-  }
-
-  // ============================================================
-  // ACCEPTED WALKS
-  //
-  // Current Walker:
-  //
-  // walkerUid == FirebaseAuth UID
-  //
-  // status == accepted
-  // ============================================================
-
-  Stream<List<InstaWalkRequest>>
-      acceptedWalksStream() {
-    final User? user =
-        _auth.currentUser;
-
-    if (user == null) {
-      return Stream.value(
-        <InstaWalkRequest>[],
-      );
-    }
-
-    final String walkerUid =
-        user.uid.trim();
-
-    if (walkerUid.isEmpty) {
-      return Stream.value(
-        <InstaWalkRequest>[],
-      );
-    }
-
-    return _walkRequests
-        .where(
-          'walkerUid',
-          isEqualTo: walkerUid,
-        )
-        .where(
-          'status',
-          isEqualTo: 'accepted',
-        )
-        .snapshots()
-        .map(
-          (
-            QuerySnapshot<
-                    Map<String, dynamic>>
-                snapshot,
-          ) {
-            return snapshot.docs
-                .map(
-                  (
-                    QueryDocumentSnapshot<
-                            Map<String, dynamic>>
-                        doc,
-                  ) {
-                    return InstaWalkRequest
-                        .fromFirestore(
-                      doc,
-                    );
-                  },
-                )
-                .toList();
-          },
-        );
   }
 }
