@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../services/walker_location_service.dart';
+import '../../contacts/screens/chat_screen.dart';
 import '../../insta_walk/models/insta_walk_request.dart';
 import '../../live_walk/screens/live_walk_start_screen.dart';
 import '../services/accept_walk_reach_service.dart';
@@ -56,6 +57,7 @@ class _AcceptWalkScreenState
   bool _reaching = false;
   bool _requestUnavailable = false;
   bool _leavingScreen = false;
+  bool _openingChat = false;
 
   double _distanceMeters = 0;
 
@@ -424,10 +426,101 @@ class _AcceptWalkScreenState
       debugPrint(
         'Accept walk road route error: $error',
       );
-
-      // Keep previous valid road route.
     } finally {
       _routeLoading = false;
+    }
+  }
+
+  // ============================================================
+  // CHAT
+  // ============================================================
+
+  Future<void> _openOwnerChat() async {
+    if (_openingChat || _leavingScreen) {
+      return;
+    }
+
+    final String ownerUid = _ownerUid.trim();
+
+    if (ownerUid.isEmpty) {
+      _showMessage(
+        'Owner chat is unavailable.',
+      );
+      return;
+    }
+
+    setState(() {
+      _openingChat = true;
+    });
+
+    try {
+      String? ownerPhotoUrl;
+
+      final DocumentSnapshot<Map<String, dynamic>> ownerSnapshot =
+          await _firestore
+              .collection('owners')
+              .doc(ownerUid)
+              .get();
+
+      if (ownerSnapshot.exists) {
+        final Map<String, dynamic>? data =
+            ownerSnapshot.data();
+
+        if (data != null) {
+          final List<String> photoKeys = <String>[
+            'profileImageUrl',
+            'profilePhotoUrl',
+            'photoUrl',
+            'photoURL',
+            'profileImage',
+            'profilePhoto',
+            'imageUrl',
+          ];
+
+          for (final String key in photoKeys) {
+            final String value =
+                data[key]?.toString().trim() ?? '';
+
+            if (value.isNotEmpty) {
+              ownerPhotoUrl = value;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!mounted || _leavingScreen) {
+        return;
+      }
+
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (BuildContext context) {
+            return ChatScreen(
+              otherUid: ownerUid,
+              contactName: _ownerName,
+              contactPhotoUrl: ownerPhotoUrl,
+              currentUserIsWalker: true,
+            );
+          },
+        ),
+      );
+    } catch (error) {
+      debugPrint(
+        'Open owner chat error: $error',
+      );
+
+      if (mounted) {
+        _showMessage(
+          'Unable to open chat.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _openingChat = false;
+        });
+      }
     }
   }
 
@@ -705,6 +798,7 @@ class _AcceptWalkScreenState
               canReachOwner: _canReachOwner,
               reaching: _reaching,
               onReach: _reachOwner,
+              onChat: _openOwnerChat,
             ),
           ),
           if (_requestUnavailable)
