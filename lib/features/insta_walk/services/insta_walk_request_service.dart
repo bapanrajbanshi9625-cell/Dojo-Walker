@@ -113,36 +113,53 @@ class InstaWalkRequestService {
 
   // ============================================================
   // CURRENT WALKER ID
+  //
+  // IMPORTANT:
+  //
+  // Firebase Auth UID is the canonical Walker ID.
+  //
+  // If walkers/{uid}.walkerId exists, it is still supported
+  // for compatibility.
+  //
+  // Otherwise the Firebase Auth UID itself is returned.
   // ============================================================
 
   Future<String?> getCurrentWalkerId() async {
+    final String? uid =
+        currentWalkerUid;
+
+    if (uid == null) {
+      return null;
+    }
+
     final DocumentSnapshot<
             Map<String, dynamic>>?
         snapshot =
         await _getCurrentWalkerDocument();
 
-    if (snapshot == null) {
-      return null;
+    if (snapshot != null) {
+      final Map<String, dynamic>? data =
+          snapshot.data();
+
+      if (data != null) {
+        final String walkerId =
+            data['walkerId']
+                    ?.toString()
+                    .trim() ??
+                '';
+
+        if (walkerId.isNotEmpty) {
+          return walkerId;
+        }
+      }
     }
 
-    final Map<String, dynamic>? data =
-        snapshot.data();
+    // ----------------------------------------------------------
+    // Canonical Walker identity:
+    // Firebase Auth UID
+    // ----------------------------------------------------------
 
-    if (data == null) {
-      return null;
-    }
-
-    final String walkerId =
-        data['walkerId']
-                ?.toString()
-                .trim() ??
-            '';
-
-    if (walkerId.isEmpty) {
-      return null;
-    }
-
-    return walkerId;
+    return uid;
   }
 
   // ============================================================
