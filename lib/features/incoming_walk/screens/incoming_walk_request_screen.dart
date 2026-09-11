@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/theme/dojo_walker_colors.dart';
 import '../../accept_walk/screens/accept_walk_screen.dart';
 import '../../accept_walk/services/accept_walk_accept_service.dart';
 import '../../insta_walk/models/insta_walk_request.dart';
@@ -362,16 +363,24 @@ class _IncomingWalkRequestScreenState
 
   @override
   Widget build(BuildContext context) {
+    final LatLng? ownerLocation = _ownerLocation;
+
     return Scaffold(
       backgroundColor: const Color(0xFFE9EEF3),
       body: Stack(
         children: <Widget>[
           Positioned.fill(
-            child: IncomingWalkMap(
-              walkerLocation: null,
-              ownerLocation: _ownerLocation,
-              routePoints: const [],
-            ),
+            child: ownerLocation != null
+                ? IncomingWalkMap(
+                    walkerLocation: null,
+                    ownerLocation: ownerLocation,
+                    routePoints: const [],
+                  )
+                : ColoredBox(
+                    color: DojoWalkerColors.primary.withValues(
+                      alpha: 0.04,
+                    ),
+                  ),
           ),
           Positioned(
             top: 0,
