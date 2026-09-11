@@ -92,7 +92,7 @@ class LiveWalkAppBar extends StatelessWidget
           onPressed: () {
             Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => const HelpSupportScreen(),
+                builder: (_) => const WalkerHelpSupportScreen(),
               ),
             );
           },
