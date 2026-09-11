@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../services/walker_location_service.dart';
-import '../../walks/services/walk_request_sound_service.dart';
 
 /// ============================================================
 /// ACCEPT WALK ACCEPT SERVICE
@@ -437,21 +436,6 @@ class AcceptWalkAcceptService {
       // ignore: avoid_print
       print(
         'Unable to start walker location tracking: $e',
-      );
-    }
-
-    // ==========================================================
-    // STOP REQUEST SOUND
-    // ==========================================================
-
-    try {
-      await WalkRequestSoundService
-          .instance
-          .stopRequest(id);
-    } catch (e) {
-      // ignore: avoid_print
-      print(
-        'Unable to stop walk request sound: $e',
       );
     }
   }
