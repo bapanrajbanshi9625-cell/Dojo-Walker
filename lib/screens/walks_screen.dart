@@ -34,7 +34,7 @@ class _WalksScreenState extends State<WalksScreen>
       FirebaseAuth.instance;
 
   // ============================================================
-  // INSTA WALK SERVICE
+  // INSTA WALK REQUEST SERVICE
   // ============================================================
 
   final InstaWalkRequestService _requestService =
@@ -60,14 +60,6 @@ class _WalksScreenState extends State<WalksScreen>
 
   bool _searching = false;
   bool _loading = false;
-
-  // ============================================================
-  // FULL SCREEN REQUEST
-  // ============================================================
-
-  bool _openingIncomingRequest = false;
-
-  String? _shownRequestId;
 
   // ============================================================
   // REQUESTS
@@ -315,7 +307,6 @@ class _WalksScreenState extends State<WalksScreen>
         _searching = true;
         _loading = false;
         _requests.clear();
-        _shownRequestId = null;
       });
 
       _startRequestListener();
@@ -342,15 +333,16 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
   // REQUEST LISTENER
   //
-  // Firestore:
+  // Insta Walk is responsible only for discovering
+  // nearby searching requests.
   //
-  // walk_request
+  // Incoming Walk handles:
+  // - Full-screen request UI
+  // - Accept
+  // - Reject
+  // - Request sound
   //
-  // status:
-  // searching
-  //
-  // NEW REQUEST:
-  // full-screen incoming request opens automatically.
+  // No navigation is performed here.
   // ============================================================
 
   void _startRequestListener() {
@@ -387,19 +379,6 @@ class _WalksScreenState extends State<WalksScreen>
             ..clear()
             ..addAll(sortedRequests);
         });
-
-        // ------------------------------------------------------
-        // OPEN FULL-SCREEN INCOMING REQUEST
-        // ------------------------------------------------------
-
-        if (sortedRequests.isNotEmpty) {
-          final InstaWalkRequest request =
-              sortedRequests.first;
-
-          unawaited(
-            _openIncomingRequest(request),
-          );
-        }
       },
       onError: (Object error) {
         debugPrint(
@@ -413,68 +392,6 @@ class _WalksScreenState extends State<WalksScreen>
         }
       },
     );
-  }
-
-  // ============================================================
-  // OPEN FULL SCREEN REQUEST
-  // ============================================================
-
-  Future<void> _openIncomingRequest(
-    InstaWalkRequest request,
-  ) async {
-    if (!mounted) {
-      return;
-    }
-
-    if (_openingIncomingRequest) {
-      return;
-    }
-
-    if (_shownRequestId == request.id) {
-      return;
-    }
-
-    _openingIncomingRequest = true;
-    _shownRequestId = request.id;
-
-    // ----------------------------------------------------------
-    // Stop search while incoming request screen is open.
-    // ----------------------------------------------------------
-
-    try {
-      await _stopSearchState(
-        clearRequests: false,
-      );
-    } catch (e) {
-      debugPrint(
-        'Stop search before incoming screen error: $e',
-      );
-    }
-
-    if (!mounted) {
-      _openingIncomingRequest = false;
-      return;
-    }
-
-    try {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) {
-            return IncomingWalkRequestScreen(
-              request: request,
-            );
-          },
-          fullscreenDialog: true,
-        ),
-      );
-    } catch (e) {
-      debugPrint(
-        'Incoming request screen error: $e',
-      );
-    } finally {
-      _openingIncomingRequest = false;
-    }
   }
 
   // ============================================================
@@ -649,10 +566,9 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
   // REQUEST UI
   //
-  // Incoming requests are handled directly by
-  // IncomingWalkRequestScreen.
+  // Incoming requests are NOT opened from WalksScreen.
   //
-  // Old InstaWalkRequestCard has been deleted.
+  // The global Incoming Walk flow handles the request UI.
   // ============================================================
 
   Widget _buildRequests(
@@ -701,8 +617,6 @@ class _WalksScreenState extends State<WalksScreen>
       );
     }
 
-    // Request automatically opens in the
-    // full-screen IncomingWalkRequestScreen.
     return const SizedBox.shrink();
   }
 
