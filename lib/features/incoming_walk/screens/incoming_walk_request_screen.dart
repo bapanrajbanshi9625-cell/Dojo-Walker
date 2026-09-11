@@ -8,7 +8,7 @@ import 'package:latlong2/latlong.dart';
 import '../../accept_walk/screens/accept_walk_screen.dart';
 import '../../accept_walk/services/insta_walk_accept_service.dart';
 import '../../insta_walk/models/insta_walk_request.dart';
-import '../services/insta_walk_reject_service.dart';
+import '../services/incoming_walk_reject_service.dart';
 import '../widgets/incoming_walk_bottom_panel.dart';
 import '../widgets/incoming_walk_map.dart';
 import '../widgets/incoming_walk_top_bar.dart';
@@ -35,8 +35,8 @@ class _IncomingWalkRequestScreenState
   final InstaWalkAcceptService _acceptService =
       InstaWalkAcceptService.instance;
 
-  final InstaWalkRejectService _rejectService =
-      InstaWalkRejectService.instance;
+  final IncomingWalkRejectService _rejectService =
+      IncomingWalkRejectService.instance;
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
       _requestSubscription;
