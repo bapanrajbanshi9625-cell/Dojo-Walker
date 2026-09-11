@@ -10,6 +10,7 @@ import '../../accept_walk/screens/accept_walk_screen.dart';
 import '../../accept_walk/services/accept_walk_accept_service.dart';
 import '../../insta_walk/models/insta_walk_request.dart';
 import '../services/incoming_walk_reject_service.dart';
+import '../services/incoming_walk_sound_service.dart';
 import '../widgets/incoming_walk_bottom_panel.dart';
 import '../widgets/incoming_walk_map.dart';
 import '../widgets/incoming_walk_top_bar.dart';
@@ -29,15 +30,20 @@ class IncomingWalkRequestScreen extends StatefulWidget {
 
 class _IncomingWalkRequestScreenState
     extends State<IncomingWalkRequestScreen> {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore =
+      FirebaseFirestore.instance;
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
 
   final AcceptWalkAcceptService _acceptService =
       AcceptWalkAcceptService.instance;
 
   final IncomingWalkRejectService _rejectService =
       IncomingWalkRejectService.instance;
+
+  final IncomingWalkSoundService _soundService =
+      IncomingWalkSoundService.instance;
 
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
       _requestSubscription;
@@ -85,7 +91,8 @@ class _IncomingWalkRequestScreenState
   }
 
   String get _address {
-    final String pickup = widget.request.pickupAddress.trim();
+    final String pickup =
+        widget.request.pickupAddress.trim();
 
     if (pickup.isNotEmpty) {
       return pickup;
@@ -101,7 +108,41 @@ class _IncomingWalkRequestScreenState
   @override
   void initState() {
     super.initState();
+
     _startRequestMonitoring();
+    _startRequestSound();
+  }
+
+  Future<void> _startRequestSound() async {
+    final String requestId = _requestId;
+
+    if (requestId.isEmpty) {
+      return;
+    }
+
+    try {
+      await _soundService.playForRequest(requestId);
+    } catch (error) {
+      debugPrint(
+        'Incoming walk sound error: $error',
+      );
+    }
+  }
+
+  Future<void> _stopRequestSound() async {
+    final String requestId = _requestId;
+
+    if (requestId.isEmpty) {
+      return;
+    }
+
+    try {
+      await _soundService.stopRequest(requestId);
+    } catch (error) {
+      debugPrint(
+        'Incoming walk sound stop error: $error',
+      );
+    }
   }
 
   void _startRequestMonitoring() {
@@ -115,7 +156,9 @@ class _IncomingWalkRequestScreenState
     }
 
     final DocumentReference<Map<String, dynamic>> requestRef =
-        _firestore.collection('walk_request').doc(requestId);
+        _firestore
+            .collection('walk_request')
+            .doc(requestId);
 
     _requestSubscription = requestRef.snapshots().listen(
       (
@@ -132,14 +175,19 @@ class _IncomingWalkRequestScreenState
           return;
         }
 
-        final Map<String, dynamic>? data = snapshot.data();
+        final Map<String, dynamic>? data =
+            snapshot.data();
 
         if (data == null) {
           return;
         }
 
         final String status =
-            data['status']?.toString().trim().toLowerCase() ?? '';
+            data['status']
+                    ?.toString()
+                    .trim()
+                    .toLowerCase() ??
+                '';
 
         if (status == 'searching') {
           return;
@@ -176,11 +224,17 @@ class _IncomingWalkRequestScreenState
   void _handleRequestUnavailable(
     String message,
   ) {
-    if (!mounted || _leavingScreen || _requestUnavailable) {
+    if (!mounted ||
+        _leavingScreen ||
+        _requestUnavailable) {
       return;
     }
 
     _leavingScreen = true;
+
+    unawaited(
+      _stopRequestSound(),
+    );
 
     setState(() {
       _requestUnavailable = true;
@@ -217,7 +271,8 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    final User? currentUser = _auth.currentUser;
+    final User? currentUser =
+        _auth.currentUser;
 
     if (currentUser == null) {
       _showMessage(
@@ -232,6 +287,8 @@ class _IncomingWalkRequestScreenState
 
     try {
       await _acceptService.acceptWalk(requestId);
+
+      await _stopRequestSound();
 
       if (!mounted) {
         return;
@@ -273,7 +330,8 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    final bool? confirm = await showDialog<bool>(
+    final bool? confirm =
+        await showDialog<bool>(
       context: context,
       builder: (
         BuildContext dialogContext,
@@ -294,13 +352,15 @@ class _IncomingWalkRequestScreenState
           actions: <Widget>[
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(false);
+                Navigator.of(dialogContext)
+                    .pop(false);
               },
               child: const Text('CANCEL'),
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(true);
+                Navigator.of(dialogContext)
+                    .pop(true);
               },
               child: const Text(
                 'REJECT',
@@ -335,6 +395,8 @@ class _IncomingWalkRequestScreenState
     try {
       await _rejectService.rejectWalk(requestId);
 
+      await _stopRequestSound();
+
       if (!mounted) {
         return;
       }
@@ -363,10 +425,12 @@ class _IncomingWalkRequestScreenState
 
   @override
   Widget build(BuildContext context) {
-    final LatLng? ownerLocation = _ownerLocation;
+    final LatLng? ownerLocation =
+        _ownerLocation;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE9EEF3),
+      backgroundColor:
+          const Color(0xFFE9EEF3),
       body: Stack(
         children: <Widget>[
           Positioned.fill(
@@ -377,7 +441,8 @@ class _IncomingWalkRequestScreenState
                     routePoints: const [],
                   )
                 : ColoredBox(
-                    color: DojoWalkerColors.primary.withValues(
+                    color: DojoWalkerColors.primary
+                        .withValues(
                       alpha: 0.04,
                     ),
                   ),
@@ -391,6 +456,12 @@ class _IncomingWalkRequestScreenState
                 if (_leavingScreen) {
                   return;
                 }
+
+                _leavingScreen = true;
+
+                unawaited(
+                  _stopRequestSound(),
+                );
 
                 Navigator.of(context).pop();
               },
@@ -410,7 +481,8 @@ class _IncomingWalkRequestScreenState
                   widget.request.durationMinutes > 0
                       ? '${widget.request.durationMinutes} min'
                       : '—',
-              paymentText: 'After acceptance',
+              paymentText:
+                  'After acceptance',
               address: _address,
               onAccept: _acceptWalk,
               onReject: _rejectWalk,
@@ -423,7 +495,8 @@ class _IncomingWalkRequestScreenState
               child: ColoredBox(
                 color: Colors.white70,
                 child: Center(
-                  child: CircularProgressIndicator(),
+                  child:
+                      CircularProgressIndicator(),
                 ),
               ),
             ),
@@ -452,10 +525,12 @@ class _IncomingWalkRequestScreenState
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior: SnackBarBehavior.floating,
+          behavior:
+              SnackBarBehavior.floating,
           margin: const EdgeInsets.all(14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius:
+                BorderRadius.circular(14),
           ),
         ),
       );
@@ -463,6 +538,12 @@ class _IncomingWalkRequestScreenState
 
   @override
   void dispose() {
+    _leavingScreen = true;
+
+    unawaited(
+      _stopRequestSound(),
+    );
+
     unawaited(
       _requestSubscription?.cancel(),
     );
