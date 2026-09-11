@@ -32,9 +32,31 @@ class AcceptWalkCallChat extends StatelessWidget {
       path: phone,
     );
 
-    final bool canLaunch = await canLaunchUrl(uri);
+    try {
+      final bool canLaunch = await canLaunchUrl(uri);
 
-    if (!canLaunch) {
+      if (!canLaunch) {
+        if (!context.mounted) {
+          return;
+        }
+
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Unable to open phone dialer.'),
+            ),
+          );
+        return;
+      }
+
+      await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (error) {
+      debugPrint('Call owner error: $error');
+
       if (!context.mounted) {
         return;
       }
@@ -46,10 +68,7 @@ class AcceptWalkCallChat extends StatelessWidget {
             content: Text('Unable to open phone dialer.'),
           ),
         );
-      return;
     }
-
-    await launchUrl(uri);
   }
 
   @override
