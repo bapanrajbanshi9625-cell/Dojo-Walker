@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../accept_walk/screens/accept_walk_screen.dart';
-import '../../accept_walk/services/insta_walk_accept_service.dart';
+import '../../accept_walk/services/accept_walk_accept_service.dart';
 import '../../insta_walk/models/insta_walk_request.dart';
 import '../services/incoming_walk_reject_service.dart';
 import '../widgets/incoming_walk_bottom_panel.dart';
@@ -32,8 +32,8 @@ class _IncomingWalkRequestScreenState
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  final InstaWalkAcceptService _acceptService =
-      InstaWalkAcceptService.instance;
+  final AcceptWalkAcceptService _acceptService =
+      AcceptWalkAcceptService.instance;
 
   final IncomingWalkRejectService _rejectService =
       IncomingWalkRejectService.instance;
