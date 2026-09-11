@@ -1,4 +1,4 @@
- // File: lib/screens/walks_screen.dart
+// File: lib/screens/walks_screen.dart
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -8,7 +8,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../features/insta_walk/models/insta_walk_request.dart';
-import '../features/insta_walk/services/insta_walk_request_service.dart';
 import '../features/insta_walk/widgets/insta_walk_container.dart';
 
 class WalksScreen extends StatefulWidget {
@@ -33,20 +32,6 @@ class _WalksScreenState extends State<WalksScreen>
       FirebaseAuth.instance;
 
   // ============================================================
-  // INSTA WALK REQUEST SERVICE
-  // ============================================================
-
-  final InstaWalkRequestService _requestService =
-      InstaWalkRequestService.instance;
-
-  // ============================================================
-  // REQUEST SUBSCRIPTION
-  // ============================================================
-
-  StreamSubscription<List<InstaWalkRequest>>?
-      _requestSubscription;
-
-  // ============================================================
   // WALKER
   // ============================================================
 
@@ -62,6 +47,10 @@ class _WalksScreenState extends State<WalksScreen>
 
   // ============================================================
   // REQUESTS
+  //
+  // Kept for InstaWalkContainer compatibility.
+  //
+  // Incoming requests are handled globally by app.dart.
   // ============================================================
 
   final List<InstaWalkRequest> _requests =
@@ -188,7 +177,6 @@ class _WalksScreenState extends State<WalksScreen>
       });
 
       if (searching) {
-        _startRequestListener();
         _moveRadarDot();
       }
     } catch (e) {
@@ -248,6 +236,10 @@ class _WalksScreenState extends State<WalksScreen>
 
   // ============================================================
   // START SEARCH
+  //
+  // This only enables the Walker's search state.
+  //
+  // Incoming request detection is handled globally by app.dart.
   // ============================================================
 
   Future<void> _startSearch() async {
@@ -308,7 +300,6 @@ class _WalksScreenState extends State<WalksScreen>
         _requests.clear();
       });
 
-      _startRequestListener();
       _moveRadarDot();
     } catch (e) {
       debugPrint(
@@ -327,70 +318,6 @@ class _WalksScreenState extends State<WalksScreen>
         'Unable to start Insta Walk search.',
       );
     }
-  }
-
-  // ============================================================
-  // REQUEST LISTENER
-  //
-  // Insta Walk is responsible only for discovering
-  // nearby searching requests.
-  //
-  // Incoming Walk handles:
-  // - Full-screen request UI
-  // - Accept
-  // - Reject
-  // - Request sound
-  //
-  // No navigation is performed here.
-  // ============================================================
-
-  void _startRequestListener() {
-    _requestSubscription?.cancel();
-
-    _requestSubscription =
-        _requestService
-            .pendingRequestsStream()
-            .listen(
-      (
-        List<InstaWalkRequest> requests,
-      ) {
-        if (!mounted || !_searching) {
-          return;
-        }
-
-        final List<InstaWalkRequest>
-            sortedRequests =
-            List<InstaWalkRequest>.from(
-          requests,
-        )..sort(
-            (
-              InstaWalkRequest a,
-              InstaWalkRequest b,
-            ) {
-              return a.distanceKm.compareTo(
-                b.distanceKm,
-              );
-            },
-          );
-
-        setState(() {
-          _requests
-            ..clear()
-            ..addAll(sortedRequests);
-        });
-      },
-      onError: (Object error) {
-        debugPrint(
-          'Insta Walk listener error: $error',
-        );
-
-        if (mounted) {
-          _showMessage(
-            'Unable to receive walk requests.',
-          );
-        }
-      },
-    );
   }
 
   // ============================================================
@@ -421,10 +348,6 @@ class _WalksScreenState extends State<WalksScreen>
         },
         SetOptions(merge: true),
       );
-
-      await _requestSubscription?.cancel();
-
-      _requestSubscription = null;
 
       if (!mounted) {
         return;
@@ -565,9 +488,10 @@ class _WalksScreenState extends State<WalksScreen>
   // ============================================================
   // REQUEST UI
   //
-  // Incoming requests are NOT opened from WalksScreen.
+  // Kept for InstaWalkContainer compatibility.
   //
-  // The global Incoming Walk flow handles the request UI.
+  // Incoming request screen is NOT opened here.
+  // Global app.dart handles incoming requests.
   // ============================================================
 
   Widget _buildRequests(
@@ -649,10 +573,6 @@ class _WalksScreenState extends State<WalksScreen>
   void dispose() {
     WidgetsBinding.instance
         .removeObserver(this);
-
-    _requestSubscription?.cancel();
-
-    _requestSubscription = null;
 
     _dotTimer?.cancel();
     _dotGlowTimer?.cancel();
