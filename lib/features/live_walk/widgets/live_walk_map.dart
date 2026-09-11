@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -16,37 +17,30 @@ class LiveWalkMap extends StatefulWidget {
   final Map<String, dynamic> sessionData;
 
   @override
-  State<LiveWalkMap> createState() =>
-      _LiveWalkMapState();
+  State<LiveWalkMap> createState() => LiveWalkMapState();
 }
 
-class _LiveWalkMapState extends State<LiveWalkMap> {
-  final MapController _mapController =
-      MapController();
+class LiveWalkMapState extends State<LiveWalkMap> {
+  final MapController _mapController = MapController();
 
-  final LiveWalkBackgroundService
-      _backgroundService =
+  final LiveWalkBackgroundService _backgroundService =
       LiveWalkBackgroundService.instance;
 
-  final LiveWalkRoutingService
-      _routingService =
+  final LiveWalkRoutingService _routingService =
       LiveWalkRoutingService.instance;
 
-  StreamSubscription<dynamic>?
-      _locationSubscription;
+  StreamSubscription<dynamic>? _locationSubscription;
 
   LatLng? _currentLocation;
   LatLng? _pickupLocation;
 
-  final List<LatLng> _gpsPoints =
-      <LatLng>[];
-
-  final List<LatLng> _roadRoute =
-      <LatLng>[];
+  final List<LatLng> _gpsPoints = <LatLng>[];
+  final List<LatLng> _roadRoute = <LatLng>[];
 
   bool _mapReady = false;
   bool _routing = false;
   bool _completed = false;
+  bool _initialCameraSet = false;
 
   Timer? _routeTimer;
 
@@ -62,6 +56,8 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       onError: (_) {},
       cancelOnError: false,
     );
+
+    _loadBackgroundCurrentLocation();
   }
 
   // ============================================================
@@ -69,29 +65,31 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   // ============================================================
 
   void _loadInitialData() {
-    final LatLng? pickup =
-        _readLocation(
-      widget.sessionData['startLocation'],
+    _pickupLocation = _readFirstLocation(
+      <dynamic>[
+        widget.sessionData['startLocation'],
+        widget.sessionData['pickupLocation'],
+        widget.sessionData['ownerPickupLocation'],
+        widget.sessionData['ownerLocation'],
+        widget.sessionData['ownerCurrentLocation'],
+      ],
     );
 
-    final LatLng? current =
-        _readLocation(
-      widget.sessionData['currentLocation'],
+    _currentLocation = _readFirstLocation(
+      <dynamic>[
+        widget.sessionData['currentLocation'],
+        widget.sessionData['walkerLocation'],
+        widget.sessionData['walkerCurrentLocation'],
+        widget.sessionData['lastLocation'],
+      ],
     );
-
-    _pickupLocation = pickup;
-    _currentLocation = current;
 
     _loadRawGpsRoute(
       widget.sessionData['routeCoordinates'],
     );
 
     final String status =
-        widget.sessionData['status']
-                ?.toString()
-                .trim()
-                .toLowerCase() ??
-            '';
+        widget.sessionData['status']?.toString().trim().toLowerCase() ?? '';
 
     _completed =
         status == 'completed' ||
@@ -100,9 +98,61 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         status == 'finished' ||
         widget.sessionData['walkEnded'] == true;
 
+    _loadBackgroundCurrentLocation();
+
     unawaited(
       _rebuildRoadRoute(),
     );
+  }
+
+  // ============================================================
+  // BACKGROUND SERVICE CURRENT GPS
+  // ============================================================
+
+  void _loadBackgroundCurrentLocation() {
+    final dynamic position = _backgroundService.lastPosition;
+
+    if (position == null) {
+      return;
+    }
+
+    final double? latitude = _toDouble(position.latitude);
+    final double? longitude = _toDouble(position.longitude);
+
+    if (latitude == null || longitude == null) {
+      return;
+    }
+
+    if (!_validCoordinate(latitude, longitude)) {
+      return;
+    }
+
+    final LatLng location = LatLng(
+      latitude,
+      longitude,
+    );
+
+    _currentLocation = location;
+    _appendGpsPoint(location);
+
+    if (_pickupLocation == null) {
+      _pickupLocation = _readFirstLocation(
+        <dynamic>[
+          widget.sessionData['startLocation'],
+          widget.sessionData['pickupLocation'],
+          widget.sessionData['ownerPickupLocation'],
+          widget.sessionData['ownerLocation'],
+        ],
+      );
+    }
+
+    if (_mapReady) {
+      _setInitialCameraIfPossible();
+    }
+
+    if (!_completed) {
+      _scheduleRouting();
+    }
   }
 
   // ============================================================
@@ -115,22 +165,41 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   ) {
     super.didUpdateWidget(oldWidget);
 
-    final LatLng? pickup =
-        _readLocation(
-      widget.sessionData['startLocation'],
+    final LatLng? pickup = _readFirstLocation(
+      <dynamic>[
+        widget.sessionData['startLocation'],
+        widget.sessionData['pickupLocation'],
+        widget.sessionData['ownerPickupLocation'],
+        widget.sessionData['ownerLocation'],
+        widget.sessionData['ownerCurrentLocation'],
+      ],
     );
 
     if (pickup != null) {
+      final bool changed = _locationsDifferent(
+        _pickupLocation,
+        pickup,
+      );
+
       _pickupLocation = pickup;
+
+      if (changed) {
+        _initialCameraSet = false;
+      }
     }
 
-    final LatLng? current =
-        _readLocation(
-      widget.sessionData['currentLocation'],
+    final LatLng? current = _readFirstLocation(
+      <dynamic>[
+        widget.sessionData['currentLocation'],
+        widget.sessionData['walkerLocation'],
+        widget.sessionData['walkerCurrentLocation'],
+        widget.sessionData['lastLocation'],
+      ],
     );
 
     if (current != null) {
       _currentLocation = current;
+      _appendGpsPoint(current);
     }
 
     _loadRawGpsRoute(
@@ -138,11 +207,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
     );
 
     final String status =
-        widget.sessionData['status']
-                ?.toString()
-                .trim()
-                .toLowerCase() ??
-            '';
+        widget.sessionData['status']?.toString().trim().toLowerCase() ?? '';
 
     final bool completed =
         status == 'completed' ||
@@ -153,6 +218,12 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
 
     if (completed) {
       _completed = true;
+    }
+
+    _loadBackgroundCurrentLocation();
+
+    if (_mapReady) {
+      _setInitialCameraIfPossible();
     }
 
     unawaited(
@@ -171,8 +242,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       return;
     }
 
-    final List<LatLng> incoming =
-        _parseRoute(rawRoute);
+    final List<LatLng> incoming = _parseRoute(rawRoute);
 
     if (incoming.isEmpty) {
       return;
@@ -182,16 +252,8 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       _appendGpsPoint(point);
     }
 
-    if (_pickupLocation == null &&
-        _gpsPoints.isNotEmpty) {
-      _pickupLocation =
-          _gpsPoints.first;
-    }
-
-    if (_currentLocation == null &&
-        _gpsPoints.isNotEmpty) {
-      _currentLocation =
-          _gpsPoints.last;
+    if (_currentLocation == null && _gpsPoints.isNotEmpty) {
+      _currentLocation = _gpsPoints.last;
     }
   }
 
@@ -202,52 +264,38 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   void _handleLiveLocation(
     dynamic position,
   ) {
-    final double? latitude =
-        _toDouble(position.latitude);
+    final double? latitude = _toDouble(position.latitude);
+    final double? longitude = _toDouble(position.longitude);
 
-    final double? longitude =
-        _toDouble(position.longitude);
-
-    if (latitude == null ||
-        longitude == null) {
+    if (latitude == null || longitude == null) {
       return;
     }
 
-    if (!_validCoordinate(
-      latitude,
-      longitude,
-    )) {
+    if (!_validCoordinate(latitude, longitude)) {
       return;
     }
 
-    final LatLng location =
-        LatLng(
+    final LatLng location = LatLng(
       latitude,
       longitude,
     );
+
+    _currentLocation = location;
+    _appendGpsPoint(location);
 
     if (!mounted) {
       return;
     }
 
-    setState(() {
-      _currentLocation = location;
+    setState(() {});
 
-      _appendGpsPoint(
-        location,
-      );
-
-      if (_pickupLocation == null) {
-        _pickupLocation =
-            location;
+    if (_mapReady) {
+      if (!_initialCameraSet) {
+        _setInitialCameraIfPossible();
+      } else {
+        _moveMapToLocation(location);
       }
-    });
-
-    // Keep the live map following
-    // the actual walker GPS location.
-    _moveMapToLocation(
-      location,
-    );
+    }
 
     if (!_completed) {
       _scheduleRouting();
@@ -273,29 +321,24 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       return;
     }
 
-    final LatLng last =
-        _gpsPoints.last;
+    final LatLng last = _gpsPoints.last;
 
-    final double distance =
-        const Distance().as(
+    final double distance = const Distance().as(
       LengthUnit.Meter,
       last,
       point,
     );
 
-    // Ignore GPS noise.
     if (distance < 5) {
       return;
     }
 
-    // Ignore unrealistic GPS jumps.
     if (distance > 500) {
       return;
     }
 
     _gpsPoints.add(point);
 
-    // Keep memory bounded.
     if (_gpsPoints.length > 3000) {
       _gpsPoints.removeRange(
         0,
@@ -330,35 +373,39 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       return;
     }
 
-    if (_gpsPoints.length < 2) {
+    if (_currentLocation == null) {
       return;
     }
 
-    // Once completed, keep the final road route.
-    if (_completed &&
-        _roadRoute.isNotEmpty) {
+    if (_pickupLocation == null) {
+      return;
+    }
+
+    if (_completed && _roadRoute.isNotEmpty) {
       return;
     }
 
     _routing = true;
 
     try {
-      final List<LatLng> sourcePoints =
-          List<LatLng>.from(
-        _gpsPoints,
-      );
+      final List<LatLng> sourcePoints = <LatLng>[
+        _pickupLocation!,
+        ..._gpsPoints,
+        _currentLocation!,
+      ];
 
-      if (sourcePoints.length < 2) {
+      final List<LatLng> cleanPoints =
+          _removeNearbyDuplicatePoints(sourcePoints);
+
+      if (cleanPoints.length < 2) {
         return;
       }
 
-      final List<LatLng> routed =
-          await _buildRoadRoute(
-        sourcePoints,
+      final List<LatLng> routed = await _buildRoadRoute(
+        cleanPoints,
       );
 
-      if (!mounted ||
-          routed.isEmpty) {
+      if (!mounted || routed.isEmpty) {
         return;
       }
 
@@ -367,13 +414,17 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
           ..clear()
           ..addAll(routed);
       });
+
+      if (_mapReady && !_initialCameraSet) {
+        _setInitialCameraIfPossible();
+      }
     } finally {
       _routing = false;
     }
   }
 
   // ============================================================
-  // BUILD ROAD ROUTE THROUGH SAMPLED GPS POINTS
+  // BUILD ROAD ROUTE
   // ============================================================
 
   Future<List<LatLng>> _buildRoadRoute(
@@ -383,21 +434,15 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       return <LatLng>[];
     }
 
-    final List<LatLng> sampled =
-        <LatLng>[];
-
-    sampled.add(
+    final List<LatLng> sampled = <LatLng>[
       points.first,
-    );
+    ];
 
     const int maxRoutingPoints = 12;
 
-    final int step =
-        points.length <= maxRoutingPoints
-            ? 1
-            : (points.length /
-                    maxRoutingPoints)
-                .ceil();
+    final int step = points.length <= maxRoutingPoints
+        ? 1
+        : (points.length / maxRoutingPoints).ceil();
 
     for (
       int index = step;
@@ -409,7 +454,10 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       );
     }
 
-    if (sampled.last != points.last) {
+    if (!_sameLocation(
+      sampled.last,
+      points.last,
+    )) {
       sampled.add(
         points.last,
       );
@@ -419,8 +467,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       return <LatLng>[];
     }
 
-    final List<LatLng> result =
-        <LatLng>[];
+    final List<LatLng> result = <LatLng>[];
 
     for (
       int index = 0;
@@ -433,9 +480,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         end: sampled[index + 1],
       );
 
-      // IMPORTANT:
-      // Do not create a fake straight line when
-      // road routing fails.
+      // Never create a fake straight line.
       if (segment.isEmpty) {
         continue;
       }
@@ -445,6 +490,32 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
           result,
           point,
         );
+      }
+    }
+
+    return result;
+  }
+
+  // ============================================================
+  // REMOVE DUPLICATES
+  // ============================================================
+
+  List<LatLng> _removeNearbyDuplicatePoints(
+    List<LatLng> points,
+  ) {
+    final List<LatLng> result = <LatLng>[];
+
+    for (final LatLng point in points) {
+      if (result.isEmpty) {
+        result.add(point);
+        continue;
+      }
+
+      if (!_sameLocation(
+        result.last,
+        point,
+      )) {
+        result.add(point);
       }
     }
 
@@ -464,8 +535,7 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
       return;
     }
 
-    final double distance =
-        const Distance().as(
+    final double distance = const Distance().as(
       LengthUnit.Meter,
       target.last,
       point,
@@ -477,27 +547,75 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   }
 
   // ============================================================
-  // MY LOCATION
+  // INITIAL CAMERA
   // ============================================================
 
-  void centerOnMyLocation() {
-    final LatLng? location =
-        _currentLocation;
+  void _setInitialCameraIfPossible() {
+    if (!_mapReady) {
+      return;
+    }
 
-    if (location == null ||
-        !_mapReady) {
+    final List<LatLng> points = <LatLng>[
+      if (_pickupLocation != null) _pickupLocation!,
+      if (_currentLocation != null) _currentLocation!,
+    ];
+
+    if (points.length < 2) {
+      if (_currentLocation != null) {
+        _moveMapToLocation(
+          _currentLocation!,
+        );
+      } else if (_pickupLocation != null) {
+        _moveMapToLocation(
+          _pickupLocation!,
+        );
+      }
+
       return;
     }
 
     try {
-      final double currentZoom =
-          _mapController.camera.zoom;
+      final LatLngBounds bounds =
+          LatLngBounds.fromPoints(points);
+
+      _mapController.fitCamera(
+        CameraFit.bounds(
+          bounds: bounds,
+          padding: const EdgeInsets.fromLTRB(
+            70,
+            90,
+            70,
+            330,
+          ),
+          maxZoom: 17,
+        ),
+      );
+
+      _initialCameraSet = true;
+    } catch (_) {}
+  }
+
+  // ============================================================
+  // MY LOCATION
+  //
+  // Called by LiveWalkScreen.
+  // The actual button now belongs to LiveWalkScreen so it can
+  // move together with the draggable bottom sheet.
+  // ============================================================
+
+  void centerOnMyLocation() {
+    final LatLng? location = _currentLocation;
+
+    if (location == null || !_mapReady) {
+      return;
+    }
+
+    try {
+      final double currentZoom = _mapController.camera.zoom;
 
       _mapController.move(
         location,
-        currentZoom < 16
-            ? 17
-            : currentZoom,
+        currentZoom < 16 ? 17 : currentZoom,
       );
     } catch (_) {}
   }
@@ -507,39 +625,35 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   // ============================================================
 
   void fitWalkRoute() {
-    final List<LatLng> points =
-        <LatLng>[
-      if (_pickupLocation != null)
-        _pickupLocation!,
+    final List<LatLng> points = <LatLng>[
+      if (_pickupLocation != null) _pickupLocation!,
       ..._roadRoute,
-      if (_currentLocation != null)
-        _currentLocation!,
+      if (_currentLocation != null) _currentLocation!,
     ];
 
-    if (!_mapReady ||
-        points.length < 2) {
+    if (!_mapReady || points.length < 2) {
       centerOnMyLocation();
       return;
     }
 
     try {
       final LatLngBounds bounds =
-          LatLngBounds.fromPoints(
-        points,
-      );
+          LatLngBounds.fromPoints(points);
 
       _mapController.fitCamera(
         CameraFit.bounds(
           bounds: bounds,
           padding: const EdgeInsets.fromLTRB(
             55,
-            120,
+            100,
             55,
-            260,
+            330,
           ),
           maxZoom: 17,
         ),
       );
+
+      _initialCameraSet = true;
     } catch (_) {}
   }
 
@@ -557,7 +671,9 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
     try {
       _mapController.move(
         location,
-        _mapController.camera.zoom,
+        _mapController.camera.zoom < 16
+            ? 17
+            : _mapController.camera.zoom,
       );
     } catch (_) {}
   }
@@ -582,126 +698,111 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
                 )
         );
 
-    // ONLY actual road-routing geometry.
-    //
-    // We intentionally do NOT fall back to raw
-    // GPS points because that can create a fake
-    // straight line between two locations.
     final List<LatLng> route =
         List<LatLng>.unmodifiable(
       _roadRoute,
     );
 
-    return Stack(
-      fit: StackFit.expand,
+    return FlutterMap(
+      mapController: _mapController,
+      options: MapOptions(
+        initialCenter: center,
+        initialZoom: 17,
+        minZoom: 3,
+        maxZoom: 20,
+        onMapReady: () {
+          _mapReady = true;
+
+          _setInitialCameraIfPossible();
+
+          if (_pickupLocation != null &&
+              _currentLocation != null) {
+            fitWalkRoute();
+          }
+        },
+      ),
       children: <Widget>[
-        // ======================================================
-        // MAP
-        // ======================================================
+        // ========================================================
+        // OPEN STREET MAP
+        // ========================================================
 
-        FlutterMap(
-          mapController:
-              _mapController,
-          options: MapOptions(
-            initialCenter: center,
-            initialZoom: 17,
-            minZoom: 3,
-            maxZoom: 20,
-            onMapReady: () {
-              _mapReady = true;
-
-              if (_currentLocation != null) {
-                _moveMapToLocation(
-                  _currentLocation!,
-                );
-              }
-            },
-          ),
-          children: <Widget>[
-            // ==================================================
-            // OPEN STREET MAP
-            // ==================================================
-
-            TileLayer(
-              urlTemplate:
-                  'https://tile.openstreetmap.org/'
-                  '{z}/{x}/{y}.png',
-              userAgentPackageName:
-                  'com.doojowalker.app',
-            ),
-
-            // ==================================================
-            // REAL ROAD ROUTE
-            // ==================================================
-
-            if (route.length >= 2)
-              PolylineLayer(
-                polylines: <Polyline>[
-                  Polyline(
-                    points: route,
-                    strokeWidth: 5,
-                    color: Colors.blue,
-                    borderStrokeWidth: 2,
-                    borderColor: Colors.white,
-                  ),
-                ],
-              ),
-
-            // ==================================================
-            // OWNER / PICKUP LOCATION
-            // ==================================================
-
-            if (_pickupLocation != null)
-              MarkerLayer(
-                markers: <Marker>[
-                  Marker(
-                    point:
-                        _pickupLocation!,
-                    width: 42,
-                    height: 42,
-                    child:
-                        const _PickupMarker(),
-                  ),
-                ],
-              ),
-
-            // ==================================================
-            // REAL WALKER GPS LOCATION
-            // ==================================================
-
-            if (_currentLocation != null)
-              MarkerLayer(
-                markers: <Marker>[
-                  Marker(
-                    point:
-                        _currentLocation!,
-                    width: 52,
-                    height: 52,
-                    child:
-                        const _WalkerLocationMarker(),
-                  ),
-                ],
-              ),
-          ],
+        TileLayer(
+          urlTemplate:
+              'https://tile.openstreetmap.org/'
+              '{z}/{x}/{y}.png',
+          userAgentPackageName:
+              'com.doojowalker.app',
         ),
 
-        // ======================================================
-        // MY LOCATION BUTTON
-        //
-        // This is a real map control.
-        // It moves the map to the current GPS position.
-        // ======================================================
+        // ========================================================
+        // REAL ROAD ROUTE
+        // ========================================================
 
-        Positioned(
-          right: 14,
-          bottom: 24,
-          child: _MapLocationButton(
-            onPressed:
-                centerOnMyLocation,
+        if (route.length >= 2)
+          PolylineLayer(
+            polylines: <Polyline>[
+              Polyline(
+                points: route,
+                strokeWidth: 5,
+                color: Colors.blue,
+                borderStrokeWidth: 2,
+                borderColor: Colors.white,
+              ),
+            ],
           ),
-        ),
+
+        // ========================================================
+        // OWNER / PICKUP LOCATION
+        // ========================================================
+
+        if (_pickupLocation != null)
+          MarkerLayer(
+            markers: <Marker>[
+              Marker(
+                point: _pickupLocation!,
+                width: 54,
+                height: 64,
+                alignment: Alignment.topCenter,
+                child: const _PickupMarker(),
+              ),
+            ],
+          ),
+
+        // ========================================================
+        // REAL WALKER GPS LOCATION
+        // ========================================================
+
+        if (_currentLocation != null)
+          MarkerLayer(
+            markers: <Marker>[
+              Marker(
+                point: _currentLocation!,
+                width: 58,
+                height: 58,
+                child: const _WalkerLocationMarker(),
+              ),
+            ],
+          ),
       ],
     );
+  }
+
+  // ============================================================
+  // LOCATION READER
+  // ============================================================
+
+  LatLng? _readFirstLocation(
+    List<dynamic> values,
+  ) {
+    for (final dynamic value in values) {
+      final LatLng? location = _readLocation(value);
+
+      if (location != null) {
+        return location;
+      }
+    }
+
+    return null;
   }
 
   // ============================================================
@@ -711,36 +812,130 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   LatLng? _readLocation(
     dynamic value,
   ) {
-    if (value is! Map) {
+    if (value == null) {
       return null;
     }
 
-    final double? latitude =
-        _toDouble(
-      value['lat'] ??
-          value['latitude'],
-    );
+    if (value is GeoPoint) {
+      if (!_validCoordinate(
+        value.latitude,
+        value.longitude,
+      )) {
+        return null;
+      }
 
-    final double? longitude =
-        _toDouble(
-      value['lng'] ??
-          value['longitude'] ??
-          value['lon'],
-    );
+      return LatLng(
+        value.latitude,
+        value.longitude,
+      );
+    }
 
-    if (latitude == null ||
-        longitude == null ||
-        !_validCoordinate(
+    if (value is LatLng) {
+      if (!_validCoordinate(
+        value.latitude,
+        value.longitude,
+      )) {
+        return null;
+      }
+
+      return value;
+    }
+
+    if (value is Map) {
+      final double? latitude = _toDouble(
+        value['lat'] ??
+            value['latitude'] ??
+            value['latValue'],
+      );
+
+      final double? longitude = _toDouble(
+        value['lng'] ??
+            value['longitude'] ??
+            value['lon'] ??
+            value['long'] ??
+            value['lngValue'],
+      );
+
+      if (latitude != null &&
+          longitude != null &&
+          _validCoordinate(
+            latitude,
+            longitude,
+          )) {
+        return LatLng(
           latitude,
           longitude,
-        )) {
+        );
+      }
+
+      final LatLng? nestedLocation = _readLocation(
+        value['location'],
+      );
+
+      if (nestedLocation != null) {
+        return nestedLocation;
+      }
+
+      final LatLng? nestedCoordinates = _readCoordinates(
+        value['coordinates'],
+      );
+
+      if (nestedCoordinates != null) {
+        return nestedCoordinates;
+      }
+
       return null;
     }
 
-    return LatLng(
-      latitude,
-      longitude,
-    );
+    return _readCoordinates(value);
+  }
+
+  // ============================================================
+  // COORDINATES ARRAY
+  //
+  // GeoJSON order:
+  // [longitude, latitude]
+  // ============================================================
+
+  LatLng? _readCoordinates(
+    dynamic value,
+  ) {
+    if (value is! List || value.length < 2) {
+      return null;
+    }
+
+    final double? first = _toDouble(value[0]);
+    final double? second = _toDouble(value[1]);
+
+    if (first == null || second == null) {
+      return null;
+    }
+
+    // GeoJSON:
+    // [lng, lat]
+    if (_validCoordinate(
+      second,
+      first,
+    )) {
+      return LatLng(
+        second,
+        first,
+      );
+    }
+
+    // Also support:
+    // [lat, lng]
+    if (_validCoordinate(
+      first,
+      second,
+    )) {
+      return LatLng(
+        first,
+        second,
+      );
+    }
+
+    return null;
   }
 
   // ============================================================
@@ -750,46 +945,18 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
   List<LatLng> _parseRoute(
     dynamic rawRoute,
   ) {
-    final List<LatLng> result =
-        <LatLng>[];
+    final List<LatLng> result = <LatLng>[];
 
     if (rawRoute is! List) {
       return result;
     }
 
     for (final dynamic item in rawRoute) {
-      if (item is! Map) {
-        continue;
+      final LatLng? location = _readLocation(item);
+
+      if (location != null) {
+        result.add(location);
       }
-
-      final double? latitude =
-          _toDouble(
-        item['lat'] ??
-            item['latitude'],
-      );
-
-      final double? longitude =
-          _toDouble(
-        item['lng'] ??
-            item['longitude'] ??
-            item['lon'],
-      );
-
-      if (latitude == null ||
-          longitude == null ||
-          !_validCoordinate(
-            latitude,
-            longitude,
-          )) {
-        continue;
-      }
-
-      result.add(
-        LatLng(
-          latitude,
-          longitude,
-        ),
-      );
     }
 
     return result;
@@ -827,8 +994,34 @@ class _LiveWalkMapState extends State<LiveWalkMap> {
         latitude <= 90 &&
         longitude >= -180 &&
         longitude <= 180 &&
-        !(latitude == 0 &&
-            longitude == 0);
+        !(latitude == 0 && longitude == 0);
+  }
+
+  // ============================================================
+  // SAME LOCATION
+  // ============================================================
+
+  bool _sameLocation(
+    LatLng a,
+    LatLng b,
+  ) {
+    return (a.latitude - b.latitude).abs() < 0.000001 &&
+        (a.longitude - b.longitude).abs() < 0.000001;
+  }
+
+  bool _locationsDifferent(
+    LatLng? a,
+    LatLng? b,
+  ) {
+    if (a == null && b == null) {
+      return false;
+    }
+
+    if (a == null || b == null) {
+      return true;
+    }
+
+    return !_sameLocation(a, b);
   }
 
   // ============================================================
@@ -858,29 +1051,41 @@ class _PickupMarker extends StatelessWidget {
   Widget build(
     BuildContext context,
   ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.green,
-          width: 3,
-        ),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 7,
-            offset: Offset(0, 2),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.red,
+              width: 3,
+            ),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(
+                color: Color(0x44000000),
+                blurRadius: 8,
+                offset: Offset(0, 3),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: const Center(
-        child: Icon(
-          Icons.location_on_rounded,
-          color: Colors.green,
-          size: 21,
+          child: const Center(
+            child: Icon(
+              Icons.home_rounded,
+              color: Colors.red,
+              size: 22,
+            ),
+          ),
         ),
-      ),
+        const Icon(
+          Icons.arrow_drop_down_rounded,
+          color: Colors.red,
+          size: 20,
+        ),
+      ],
     );
   }
 }
@@ -889,8 +1094,7 @@ class _PickupMarker extends StatelessWidget {
 // WALKER GPS MARKER
 // ============================================================================
 
-class _WalkerLocationMarker
-    extends StatelessWidget {
+class _WalkerLocationMarker extends StatelessWidget {
   const _WalkerLocationMarker();
 
   @override
@@ -900,10 +1104,9 @@ class _WalkerLocationMarker
     return Stack(
       alignment: Alignment.center,
       children: <Widget>[
-        // Real-location accuracy area.
         Container(
-          width: 46,
-          height: 46,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
             color: Colors.blue.withValues(
               alpha: 0.18,
@@ -911,10 +1114,9 @@ class _WalkerLocationMarker
             shape: BoxShape.circle,
           ),
         ),
-
         Container(
-          width: 28,
-          height: 28,
+          width: 30,
+          height: 30,
           decoration: BoxDecoration(
             color: Colors.blue,
             shape: BoxShape.circle,
@@ -933,50 +1135,10 @@ class _WalkerLocationMarker
           child: const Icon(
             Icons.directions_walk_rounded,
             color: Colors.white,
-            size: 16,
+            size: 17,
           ),
         ),
       ],
-    );
-  }
-}
-
-// ============================================================================
-// MY LOCATION BUTTON
-// ============================================================================
-
-class _MapLocationButton
-    extends StatelessWidget {
-  const _MapLocationButton({
-    required this.onPressed,
-  });
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Material(
-      color: Colors.white,
-      elevation: 5,
-      shadowColor:
-          const Color(0x33000000),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder:
-            const CircleBorder(),
-        onTap: onPressed,
-        child: const SizedBox(
-          width: 50,
-          height: 50,
-          child: Icon(
-            Icons.my_location_rounded,
-            color: Colors.blue,
-            size: 23,
-          ),
-        ),
-      ),
     );
   }
 }
