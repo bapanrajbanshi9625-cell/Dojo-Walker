@@ -4,7 +4,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../walks/services/walk_request_sound_service.dart';
+import 'incoming_walk_sound_service.dart';
 
 class IncomingWalkRejectService {
   IncomingWalkRejectService._();
@@ -216,6 +216,6 @@ class IncomingWalkRejectService {
     // STOP SOUND ONLY AFTER FIRESTORE SUCCESS
     // ----------------------------------------------------------
 
-    await WalkRequestSoundService.instance.stopRequest(id);
+    await IncomingWalkSoundService.instance.stopRequest(id);
   }
 }
