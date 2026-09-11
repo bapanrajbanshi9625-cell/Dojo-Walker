@@ -5,10 +5,10 @@ import '../../../core/theme/dojo_walker_colors.dart';
 class IncomingWalkTopBar extends StatelessWidget {
   const IncomingWalkTopBar({
     super.key,
-    required this.onBack,
+    this.onMore,
   });
 
-  final VoidCallback onBack;
+  final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) {
@@ -16,84 +16,105 @@ class IncomingWalkTopBar extends StatelessWidget {
       bottom: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-        child: Row(
-          children: [
-            _TopBarButton(
-              icon: Icons.arrow_back_rounded,
-              onTap: onBack,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          height: 58,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                blurRadius: 12,
+                offset: const Offset(0, 3),
+                color: Colors.black.withValues(alpha: 0.10),
+              ),
+            ],
+          ),
+          child: Row(
+            children: <Widget>[
+              // ==================================================
+              // DOJO WALKER LOGO
+              // ==================================================
+              Container(
+                width: 40,
+                height: 40,
+                padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      blurRadius: 12,
-                      offset: const Offset(0, 3),
-                      color: Colors.black.withValues(alpha: 0.10),
-                    ),
-                  ],
+                  color: DojoWalkerColors.primary.withValues(
+                    alpha: 0.08,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: DojoWalkerColors.primary,
-                        shape: BoxShape.circle,
+                child: Image.asset(
+                  'assets/DOJO_WALKER.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (
+                    BuildContext context,
+                    Object error,
+                    StackTrace? stackTrace,
+                  ) {
+                    return const Icon(
+                      Icons.pets_rounded,
+                      color: DojoWalkerColors.primary,
+                      size: 23,
+                    );
+                  },
+                ),
+              ),
+
+              // ==================================================
+              // CENTER TITLE
+              // ==================================================
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const <Widget>[
+                    Text(
+                      'INSTA WALK NEW WALK REQUEST',
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.2,
+                        height: 1.1,
+                        color: Colors.black87,
                       ),
                     ),
-                    const SizedBox(width: 9),
-                    const Text(
-                      'INCOMING WALK',
+                    SizedBox(height: 3),
+                    Text(
+                      'New walk request',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.3,
-                        color: Colors.black87,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        height: 1.1,
+                        color: Colors.black54,
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
-class _TopBarButton extends StatelessWidget {
-  const _TopBarButton({
-    required this.icon,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      elevation: 4,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: const SizedBox(
-          width: 46,
-          height: 46,
-          child: Icon(
-            Icons.arrow_back_rounded,
-            color: DojoWalkerColors.primary,
-            size: 22,
+              // ==================================================
+              // THREE DOT MENU
+              // ==================================================
+              SizedBox(
+                width: 40,
+                height: 40,
+                child: IconButton(
+                  tooltip: 'More',
+                  onPressed: onMore,
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(
+                    Icons.more_vert_rounded,
+                    color: DojoWalkerColors.primary,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
