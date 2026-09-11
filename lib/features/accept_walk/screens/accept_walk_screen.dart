@@ -53,7 +53,6 @@ class _AcceptWalkScreenState
 
   Position? _walkerPosition;
 
-  bool _loadingLocation = true;
   bool _reaching = false;
   bool _requestUnavailable = false;
   bool _leavingScreen = false;
@@ -239,12 +238,6 @@ class _AcceptWalkScreenState
       return;
     }
 
-    if (mounted) {
-      setState(() {
-        _loadingLocation = true;
-      });
-    }
-
     final Position? freshPosition =
         await _locationService.refreshLocation();
 
@@ -256,10 +249,6 @@ class _AcceptWalkScreenState
       _updateWalkerLocation(
         freshPosition,
       );
-    } else {
-      setState(() {
-        _loadingLocation = false;
-      });
     }
   }
 
@@ -361,7 +350,6 @@ class _AcceptWalkScreenState
     setState(() {
       _walkerPosition = position;
       _distanceMeters = distance;
-      _loadingLocation = false;
     });
 
     _maybeRefreshRoute(position);
@@ -688,7 +676,6 @@ class _AcceptWalkScreenState
                     ),
                   ),
           ),
-
           Positioned(
             top: 0,
             left: 0,
@@ -703,7 +690,6 @@ class _AcceptWalkScreenState
               },
             ),
           ),
-
           Positioned(
             left: 0,
             right: 0,
@@ -721,7 +707,6 @@ class _AcceptWalkScreenState
               onReach: _reachOwner,
             ),
           ),
-
           if (_requestUnavailable)
             const Positioned.fill(
               child: ColoredBox(
