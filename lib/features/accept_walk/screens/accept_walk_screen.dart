@@ -88,7 +88,10 @@ class _AcceptWalkScreenState
       return null;
     }
 
-    return LatLng(latitude, longitude);
+    return LatLng(
+      latitude,
+      longitude,
+    );
   }
 
   String get _ownerUid {
@@ -272,7 +275,9 @@ class _AcceptWalkScreenState
     }
 
     final DocumentReference<Map<String, dynamic>> requestRef =
-        _firestore.collection('walk_request').doc(requestId);
+        _firestore
+            .collection('walk_request')
+            .doc(requestId);
 
     _requestSubscription =
         requestRef.snapshots().listen(
@@ -574,16 +579,14 @@ class _AcceptWalkScreenState
       await _requestSubscription?.cancel();
       _requestSubscription = null;
 
-      // --------------------------------------------------------
-      // Only this screen's listener is cancelled.
-      //
-      // WalkerLocationService remains ON.
-      // --------------------------------------------------------
-
       await _locationSubscription?.cancel();
       _locationSubscription = null;
 
       _leavingScreen = true;
+
+      if (!mounted) {
+        return;
+      }
 
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
@@ -660,16 +663,30 @@ class _AcceptWalkScreenState
 
   @override
   Widget build(BuildContext context) {
+    final LatLng? ownerLocation =
+        _ownerLocation;
+
+    final LatLng? walkerLocation =
+        _walkerLocation;
+
     return Scaffold(
       backgroundColor: const Color(0xFFE9EEF3),
       body: Stack(
         children: <Widget>[
           Positioned.fill(
-            child: AcceptWalkMap(
-              walkerLocation: _walkerLocation,
-              ownerLocation: _ownerLocation,
-              routePoints: _routePoints,
-            ),
+            child: ownerLocation != null &&
+                    walkerLocation != null
+                ? AcceptWalkMap(
+                    walkerLocation: walkerLocation,
+                    ownerLocation: ownerLocation,
+                    routePoints: _routePoints,
+                  )
+                : const ColoredBox(
+                    color: Color(0xFFE9EEF3),
+                    child: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
           ),
 
           Positioned(
@@ -761,3 +778,16 @@ class _AcceptWalkScreenState
   }
 
   // ============================================================
+  // DISPOSE
+  // ============================================================
+
+  @override
+  void dispose() {
+    _leavingScreen = true;
+
+    _locationSubscription?.cancel();
+    _requestSubscription?.cancel();
+
+    super.dispose();
+  }
+}
