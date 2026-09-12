@@ -11,6 +11,7 @@ import '../core/constants/app_colors.dart';
 import '../core/services/app_state_service.dart';
 import '../features/accept_live_strip/models/accept_live_strip_data.dart';
 import '../features/accept_live_strip/widgets/accept_live_strip.dart';
+import '../features/accept_walk/screens/accept_walk_screen.dart';
 import '../features/insta_walk/models/insta_walk_request.dart';
 import '../features/incoming_walk/screens/incoming_walk_request_screen.dart';
 import '../features/live_walk/screens/live_walk_screen.dart';
@@ -507,7 +508,7 @@ class _MainNavigationScreenState
     }
 
     // ==========================================================
-    // ACCEPTED → INCOMING / PICKUP SCREEN
+    // ACCEPTED → ACCEPT WALK / PICKUP SCREEN
     // ==========================================================
 
     if (stripData.isAccepted) {
@@ -518,7 +519,7 @@ class _MainNavigationScreenState
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) {
-            return IncomingWalkRequestScreen(
+            return AcceptWalkScreen(
               request: request,
             );
           },
