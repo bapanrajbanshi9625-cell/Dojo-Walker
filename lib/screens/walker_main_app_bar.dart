@@ -100,12 +100,36 @@ class WalkerMainAppBar extends StatelessWidget
                                 return;
                               }
 
+                              // Active walk हमेशा Online रहेगा.
                               if (availability.isActiveWalk) {
                                 _showActiveWalkMessage(context);
                                 return;
                               }
 
-                              await availability.toggleAvailability();
+                              // ==================================================
+                              // ONLINE -> OFFLINE
+                              // Confirmation required.
+                              // ==================================================
+
+                              if (availability.isOnline) {
+                                final bool? confirmed =
+                                    await _showOfflineConfirmation(context);
+
+                                if (!context.mounted ||
+                                    confirmed != true) {
+                                  return;
+                                }
+
+                                // Confirmation के बाद specifically Offline करें.
+                                await availability.goOffline();
+                              } else {
+                                // ==================================================
+                                // OFFLINE -> ONLINE
+                                // No confirmation.
+                                // ==================================================
+
+                                await availability.goOnline();
+                              }
 
                               if (!context.mounted) {
                                 return;
@@ -117,15 +141,16 @@ class WalkerMainAppBar extends StatelessWidget
                               if (error != null &&
                                   error.trim().isNotEmpty) {
                                 ScaffoldMessenger.of(context)
-                                  .hideCurrentSnackBar();
+                                    .hideCurrentSnackBar();
 
                                 ScaffoldMessenger.of(context)
-                                  .showSnackBar(
-                                SnackBar(
-                                  content: Text(error),
-                                  behavior:
-                                      SnackBarBehavior.floating,
-                                ),
+                                    .showSnackBar(
+                                  SnackBar(
+                                    content: Text(error),
+                                    behavior:
+                                        SnackBarBehavior.floating,
+                                  ),
+                                );
                               }
                             },
                           ),
@@ -198,6 +223,46 @@ class WalkerMainAppBar extends StatelessWidget
   }
 
   // ==============================================================
+  // OFFLINE CONFIRMATION
+  // ==============================================================
+
+  static Future<bool?> _showOfflineConfirmation(
+    BuildContext context,
+  ) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            'Go Offline?',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: const Text(
+            'You will stop receiving new walk requests and live location tracking.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text('Go Offline'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ==============================================================
   // ACTIVE WALK MESSAGE
   // ==============================================================
 
@@ -205,7 +270,7 @@ class WalkerMainAppBar extends StatelessWidget
     BuildContext context,
   ) {
     ScaffoldMessenger.of(context)
-      .hideCurrentSnackBar();
+        .hideCurrentSnackBar();
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
