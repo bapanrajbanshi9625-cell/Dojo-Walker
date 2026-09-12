@@ -252,13 +252,6 @@ class AcceptWalkAcceptService {
 
   // ============================================================
   // ACCEPT WALK
-  //
-  // IMPORTANT:
-  //
-  // This method does NOT turn GPS ON.
-  //
-  // Walker must already be ONLINE.
-  // GPS is owned by WalkerAvailabilityService.
   // ============================================================
 
   Future<void> acceptWalk(
@@ -266,9 +259,6 @@ class AcceptWalkAcceptService {
   ) async {
     // ==========================================================
     // ONLINE GUARD
-    //
-    // Accept is a walk action, so it is allowed only while
-    // the global availability state is ONLINE.
     // ==========================================================
 
     if (!_availabilityService.isOnline) {
@@ -279,9 +269,9 @@ class AcceptWalkAcceptService {
 
     if (!_availabilityService.canPerformWalkAction()) {
       throw Exception(
-        throw Exception(
-         _availabilityService.unavailableMessage,
-       );
+        _availabilityService.unavailableMessage ??
+            'Walk action is currently unavailable.',
+      );
     }
 
     final User? user = _currentUser;
@@ -410,12 +400,6 @@ class AcceptWalkAcceptService {
 
         // ========================================================
         // INCOMING WALK CLAIM GUARD
-        //
-        // If this request was offered to a specific Walker,
-        // ONLY that Walker can accept it.
-        //
-        // QR Walks do not have incomingWalkerUid, so the existing
-        // QR accept flow remains allowed.
         // ========================================================
 
         final String incomingWalkerUid =
@@ -472,12 +456,6 @@ class AcceptWalkAcceptService {
 
     // ==========================================================
     // MARK ACTIVE WALK
-    //
-    // GPS is already controlled globally by
-    // WalkerAvailabilityService.
-    //
-    // This only tells the availability system that a walk is
-    // active so the Offline toggle becomes locked.
     // ==========================================================
 
     _availabilityService.setActiveWalk(true);
@@ -485,12 +463,7 @@ class AcceptWalkAcceptService {
     // ==========================================================
     // START FIRESTORE LOCATION CONSUMER
     //
-    // IMPORTANT:
-    //
     // This does NOT start GPS.
-    //
-    // It only listens to the already-running canonical GPS
-    // stream owned by WalkerAvailabilityService.
     // ==========================================================
 
     try {
@@ -499,9 +472,7 @@ class AcceptWalkAcceptService {
       );
     } catch (e) {
       // Accept already succeeded.
-      //
-      // Firestore location-listener failure must not undo
-      // the accepted walk.
+      // Firestore listener failure must not undo acceptance.
 
       // ignore: avoid_print
       print(
@@ -526,21 +497,15 @@ class AcceptWalkAcceptService {
       return;
     }
 
-    // ----------------------------------------------------------
-    // CANCEL ONLY THIS SERVICE'S FIRESTORE LOCATION LISTENER
-    // ----------------------------------------------------------
-
     await _locationSubscription?.cancel();
 
     _locationSubscription = null;
 
     _trackingRequestId = id;
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // FIRST LOCATION
-    //
-    // Use the location already acquired by the global service.
-    // ----------------------------------------------------------
+    // ==========================================================
 
     final Position? currentPosition =
         _locationService.currentPosition;
@@ -552,11 +517,9 @@ class AcceptWalkAcceptService {
       );
     }
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // CONTINUOUS LOCATION
-    //
-    // WalkerLocationService owns the actual GPS stream.
-    // ----------------------------------------------------------
+    // ==========================================================
 
     _locationSubscription =
         _locationService.locationStream.listen(
@@ -600,10 +563,6 @@ class AcceptWalkAcceptService {
       return;
     }
 
-    // ----------------------------------------------------------
-    // Never write location while globally Offline.
-    // ----------------------------------------------------------
-
     if (!_availabilityService.isOnline) {
       return;
     }
@@ -627,8 +586,7 @@ class AcceptWalkAcceptService {
       );
     } catch (e) {
       // Firestore failure must NOT stop GPS.
-      //
-      // GPS lifecycle remains completely independent.
+      // GPS lifecycle remains independent.
 
       // ignore: avoid_print
       print(
@@ -639,11 +597,6 @@ class AcceptWalkAcceptService {
 
   // ============================================================
   // TRACKING STATUS
-  //
-  // This means this service is currently consuming location
-  // updates for a request.
-  //
-  // It does NOT mean this service owns GPS.
   // ============================================================
 
   bool get isTracking {
@@ -657,11 +610,8 @@ class AcceptWalkAcceptService {
   // ============================================================
   // INTERNAL LISTENER CLEANUP
   //
-  // IMPORTANT:
-  //
-  // This ONLY removes this service's listener.
-  //
-  // It NEVER stops WalkerLocationService.
+  // ONLY removes this service's listener.
+  // NEVER stops WalkerLocationService.
   // ============================================================
 
   Future<void> _cancelLocationListener() async {
@@ -672,10 +622,6 @@ class AcceptWalkAcceptService {
 
   // ============================================================
   // DISPOSE
-  //
-  // Do NOT use this for normal Reached/Live Walk navigation.
-  //
-  // GPS remains controlled by global availability.
   // ============================================================
 
   Future<void> dispose() async {
