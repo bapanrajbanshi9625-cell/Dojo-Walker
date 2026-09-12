@@ -269,7 +269,7 @@ class AcceptWalkAcceptService {
 
     if (!_availabilityService.canPerformWalkAction()) {
       throw Exception(
-        _availabilityService.unavailableMessage ??
+        _availabilityService.unavailableMessage,
       );
     }
 
