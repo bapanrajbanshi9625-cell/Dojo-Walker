@@ -22,21 +22,34 @@ class IncomingWalkMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final center = walkerLocation ?? ownerLocation;
+    final LatLng center =
+        walkerLocation ?? ownerLocation;
 
     return FlutterMap(
       options: MapOptions(
         initialCenter: center,
         initialZoom: 15.5,
+
+        // ----------------------------------------------------------
+        // MAP INTERACTION
+        // ----------------------------------------------------------
         interactionOptions: const InteractionOptions(
-          flags: InteractiveFlag.all,
+          flags:
+              InteractiveFlag.drag |
+              InteractiveFlag.pinchZoom |
+              InteractiveFlag.doubleTapZoom |
+              InteractiveFlag.flingAnimation |
+              InteractiveFlag.scrollWheelZoom,
         ),
       ),
       children: [
         TileLayer(
-          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.doojo.walker',
+          urlTemplate:
+              'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName:
+              'com.doojo.walker',
         ),
+
         if (routePoints.length >= 2)
           PolylineLayer(
             polylines: [
@@ -52,36 +65,45 @@ class IncomingWalkMap extends StatelessWidget {
               ),
             ],
           ),
+
         CircleLayer(
           circles: [
             CircleMarker(
               point: ownerLocation,
               radius: 100,
               useRadiusInMeter: true,
-              color: DojoWalkerColors.primary.withValues(alpha: 0.08),
+              color:
+                  DojoWalkerColors.primary.withValues(
+                alpha: 0.08,
+              ),
               borderColor:
-                  DojoWalkerColors.primary.withValues(alpha: 0.35),
+                  DojoWalkerColors.primary.withValues(
+                alpha: 0.35,
+              ),
               borderStrokeWidth: 1.5,
             ),
           ],
         ),
+
         MarkerLayer(
           markers: [
             Marker(
               point: ownerLocation,
               width: 46,
               height: 46,
-              child: _OwnerMarker(),
+              child: const _OwnerMarker(),
             ),
+
             if (walkerLocation != null)
               Marker(
                 point: walkerLocation!,
                 width: 46,
                 height: 46,
-                child: _WalkerMarker(),
+                child: const _WalkerMarker(),
               ),
           ],
         ),
+
         if (onMyLocationPressed != null)
           Positioned(
             right: 14,
@@ -94,14 +116,16 @@ class IncomingWalkMap extends StatelessWidget {
                 shape: const CircleBorder(),
                 child: InkWell(
                   onTap: onMyLocationPressed,
-                  customBorder: const CircleBorder(),
+                  customBorder:
+                      const CircleBorder(),
                   child: const SizedBox(
                     width: 46,
                     height: 46,
                     child: Icon(
                       Icons.my_location,
                       size: 22,
-                      color: DojoWalkerColors.primary,
+                      color:
+                          DojoWalkerColors.primary,
                     ),
                   ),
                 ),
@@ -114,6 +138,8 @@ class IncomingWalkMap extends StatelessWidget {
 }
 
 class _OwnerMarker extends StatelessWidget {
+  const _OwnerMarker();
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -127,7 +153,8 @@ class _OwnerMarker extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             blurRadius: 7,
-            color: Colors.black.withValues(alpha: 0.22),
+            color:
+                Colors.black.withValues(alpha: 0.22),
           ),
         ],
       ),
@@ -141,6 +168,8 @@ class _OwnerMarker extends StatelessWidget {
 }
 
 class _WalkerMarker extends StatelessWidget {
+  const _WalkerMarker();
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -154,7 +183,8 @@ class _WalkerMarker extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             blurRadius: 7,
-            color: Colors.black.withValues(alpha: 0.22),
+            color:
+                Colors.black.withValues(alpha: 0.22),
           ),
         ],
       ),
