@@ -51,38 +51,34 @@ class _AcceptWalkBottomPanelState
       return;
     }
 
-    final double availableDrag =
-        _panelHeight - _minimumVisibleHeight;
-
-    if (availableDrag <= 0) {
-      return;
-    }
+    final double maxDrag =
+        (_panelHeight - _minimumVisibleHeight)
+            .clamp(0.0, _panelHeight);
 
     setState(() {
       _dragOffset = (_dragOffset + details.delta.dy).clamp(
         0.0,
-        availableDrag,
+        maxDrag,
       );
     });
   }
 
   void _endDrag(DragEndDetails details) {
-    if (_dragOffset <= 0) {
+    if (_panelHeight <= 0) {
       return;
     }
 
-    if (_dragOffset < _panelHeight * 0.18) {
+    final double maxDrag =
+        (_panelHeight - _minimumVisibleHeight)
+            .clamp(0.0, _panelHeight);
+
+    if (_dragOffset > _panelHeight * 0.35) {
+      setState(() {
+        _dragOffset = maxDrag;
+      });
+    } else {
       setState(() {
         _dragOffset = 0;
-      });
-      return;
-    }
-
-    if (_dragOffset > _panelHeight * 0.65) {
-      setState(() {
-        _dragOffset =
-            (_panelHeight - _minimumVisibleHeight)
-                .clamp(0.0, _panelHeight);
       });
     }
   }
@@ -91,96 +87,110 @@ class _AcceptWalkBottomPanelState
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
-          return Transform.translate(
-            offset: Offset(0, _dragOffset),
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-                boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    blurRadius: 18,
-                    offset: Offset(0, -5),
-                    color: Color(0x22000000),
-                  ),
-                ],
+      child: Transform.translate(
+        offset: Offset(0, _dragOffset),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(24),
+            ),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                blurRadius: 18,
+                offset: Offset(0, -5),
+                color: Color(0x22000000),
               ),
-              child: SafeArea(
-                top: false,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onVerticalDragUpdate: _updateDrag,
-                  onVerticalDragEnd: _endDrag,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      16,
-                      12,
-                      16,
-                      14,
-                    ),
-                    child: Builder(
-                      builder: (BuildContext context) {
-                        WidgetsBinding.instance.addPostFrameCallback(
-                          (_) {
-                            if (!mounted) {
-                              return;
-                            }
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: NotificationListener<SizeChangedLayoutNotification>(
+              onNotification: (_) {
+                return false;
+              },
+              child: SizeChangedLayoutNotifier(
+                child: Builder(
+                  builder: (BuildContext context) {
+                    WidgetsBinding.instance.addPostFrameCallback(
+                      (_) {
+                        if (!mounted) {
+                          return;
+                        }
 
-                            final RenderBox? box =
-                                context.findRenderObject()
-                                    as RenderBox?;
+                        final RenderBox? box =
+                            context.findRenderObject()
+                                as RenderBox?;
 
-                            if (box == null ||
-                                !box.hasSize) {
-                              return;
-                            }
+                        if (box == null || !box.hasSize) {
+                          return;
+                        }
 
-                            final double height =
-                                box.size.height;
+                        final double height = box.size.height;
 
-                            if (_panelHeight != height) {
-                              setState(() {
-                                _panelHeight = height;
-                                _dragOffset =
-                                    _dragOffset.clamp(
-                                  0.0,
-                                  (height -
-                                          _minimumVisibleHeight)
-                                      .clamp(
-                                    0.0,
-                                    height,
-                                  ),
-                                );
-                              });
-                            }
-                          },
-                        );
+                        if (_panelHeight != height) {
+                          setState(() {
+                            _panelHeight = height;
 
-                        return Column(
+                            final double maxDrag =
+                                (height -
+                                        _minimumVisibleHeight)
+                                    .clamp(0.0, height);
+
+                            _dragOffset =
+                                _dragOffset.clamp(
+                              0.0,
+                              maxDrag,
+                            );
+                          });
+                        }
+                      },
+                    );
+
+                    return SingleChildScrollView(
+                      physics:
+                          const ClampingScrollPhysics(),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          16,
+                          12,
+                          16,
+                          14,
+                        ),
+                        child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment:
                               CrossAxisAlignment.stretch,
                           children: <Widget>[
-                            Center(
-                              child: Container(
-                                width: 42,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color:
-                                      const Color(0xFFD6D9DD),
-                                  borderRadius:
-                                      BorderRadius.circular(20),
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onVerticalDragUpdate:
+                                  _updateDrag,
+                              onVerticalDragEnd:
+                                  _endDrag,
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.only(
+                                  bottom: 12,
+                                ),
+                                child: Center(
+                                  child: Container(
+                                    width: 42,
+                                    height: 4,
+                                    decoration:
+                                        BoxDecoration(
+                                      color: const Color(
+                                        0xFFD6D9DD,
+                                      ),
+                                      borderRadius:
+                                          BorderRadius.circular(
+                                        20,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 12),
 
                             AcceptWalkOwnerDogDetails(
                               dogName: widget.dogName,
@@ -196,7 +206,8 @@ class _AcceptWalkBottomPanelState
                                   child: _InfoItem(
                                     icon:
                                         Icons.near_me_rounded,
-                                    label: widget.distanceText,
+                                    label:
+                                        widget.distanceText,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -204,7 +215,8 @@ class _AcceptWalkBottomPanelState
                                   child: _InfoItem(
                                     icon:
                                         Icons.schedule_rounded,
-                                    label: widget.timeText,
+                                    label:
+                                        widget.timeText,
                                   ),
                                 ),
                               ],
@@ -235,15 +247,15 @@ class _AcceptWalkBottomPanelState
                               onReach: widget.onReach,
                             ),
                           ],
-                        );
-                      },
-                    ),
-                  ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
