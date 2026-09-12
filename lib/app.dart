@@ -1,4 +1,5 @@
-// File location: lib/app.dart
+// File location:
+// lib/app.dart
 
 import 'dart:async';
 
@@ -8,7 +9,7 @@ import 'core/network/network_monitor.dart';
 import 'core/services/app_state_service.dart';
 import 'core/theme/dojo_walker.dart';
 import 'features/insta_walk/models/insta_walk_request.dart';
-import 'features/insta_walk/services/insta_walk_request_service.dart';
+import 'features/incoming_walk/services/insta_walk_request_service.dart';
 import 'features/incoming_walk/screens/incoming_walk_request_screen.dart';
 import 'screens/no_network_screen.dart';
 import 'screens/splash_screen.dart';
@@ -44,13 +45,22 @@ class _DojoWalkerAppState extends State<DojoWalkerApp>
     _startIncomingWalkMonitor();
   }
 
+  // ============================================================
+  // INCOMING WALK MONITOR
+  // ============================================================
+
   void _startIncomingWalkMonitor() {
     _incomingRequestSubscription?.cancel();
 
     _incomingRequestSubscription =
-        InstaWalkRequestService.instance.pendingRequestsStream().listen(
+        InstaWalkRequestService.instance
+            .pendingRequestsStream()
+            .listen(
       _handleIncomingWalkRequests,
-      onError: (Object error, StackTrace stackTrace) {
+      onError: (
+        Object error,
+        StackTrace stackTrace,
+      ) {
         debugPrint(
           'Global incoming walk monitor error: $error',
         );
@@ -61,6 +71,10 @@ class _DojoWalkerAppState extends State<DojoWalkerApp>
       },
     );
   }
+
+  // ============================================================
+  // HANDLE INCOMING REQUEST
+  // ============================================================
 
   void _handleIncomingWalkRequests(
     List<InstaWalkRequest> requests,
@@ -77,12 +91,17 @@ class _DojoWalkerAppState extends State<DojoWalkerApp>
       return;
     }
 
-    final InstaWalkRequest request = requests.first;
+    final InstaWalkRequest request =
+        requests.first;
 
     unawaited(
       _openIncomingWalkScreen(request),
     );
   }
+
+  // ============================================================
+  // OPEN INCOMING WALK SCREEN
+  // ============================================================
 
   Future<void> _openIncomingWalkScreen(
     InstaWalkRequest request,
@@ -137,6 +156,10 @@ class _DojoWalkerAppState extends State<DojoWalkerApp>
     }
   }
 
+  // ============================================================
+  // DISPOSE
+  // ============================================================
+
   @override
   void dispose() {
     _incomingRequestSubscription?.cancel();
@@ -145,6 +168,10 @@ class _DojoWalkerAppState extends State<DojoWalkerApp>
 
     super.dispose();
   }
+
+  // ============================================================
+  // APP LIFECYCLE
+  // ============================================================
 
   @override
   void didChangeAppLifecycleState(
@@ -158,6 +185,10 @@ class _DojoWalkerAppState extends State<DojoWalkerApp>
       _startIncomingWalkMonitor();
     }
   }
+
+  // ============================================================
+  // BUILD
+  // ============================================================
 
   @override
   Widget build(BuildContext context) {
@@ -181,28 +212,25 @@ class _DojoWalkerAppState extends State<DojoWalkerApp>
       title: 'Dojo Walker',
       debugShowCheckedModeBanner: false,
       theme: DojoWalkerTheme.light,
-
-      // ========================================================
-      // GLOBAL NAVIGATOR
-      //
-      // Incoming Walk can now open from the global request
-      // monitor even though this State is above MaterialApp.
-      // ========================================================
-
       navigatorKey: _navigatorKey,
-
       home: NetworkMonitor(
         child: startScreen,
       ),
     );
   }
 
+  // ============================================================
+  // NETWORK ERROR
+  // ============================================================
+
   bool _isNetworkError(String? error) {
-    if (error == null || error.trim().isEmpty) {
+    if (error == null ||
+        error.trim().isEmpty) {
       return false;
     }
 
-    final String text = error.toLowerCase();
+    final String text =
+        error.toLowerCase();
 
     return text.contains('no_network') ||
         text.contains('network') ||
@@ -231,13 +259,16 @@ class StartupErrorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DojoWalkerColors.background,
+      backgroundColor:
+          DojoWalkerColors.background,
       body: SafeArea(
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding:
+                const EdgeInsets.all(24),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
               children: [
                 const Icon(
                   Icons.error_outline_rounded,
@@ -249,8 +280,10 @@ class StartupErrorScreen extends StatelessWidget {
                   'Dojo Walker',
                   style: TextStyle(
                     fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: DojoWalkerColors.textPrimary,
+                    fontWeight:
+                        FontWeight.bold,
+                    color:
+                        DojoWalkerColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -258,16 +291,20 @@ class StartupErrorScreen extends StatelessWidget {
                   'App startup failed',
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: DojoWalkerColors.textPrimary,
+                    fontWeight:
+                        FontWeight.w600,
+                    color:
+                        DojoWalkerColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   error,
-                  textAlign: TextAlign.center,
+                  textAlign:
+                      TextAlign.center,
                   style: TextStyle(
-                    color: DojoWalkerColors.textSecondary,
+                    color:
+                        DojoWalkerColors.textSecondary,
                   ),
                 ),
               ],
