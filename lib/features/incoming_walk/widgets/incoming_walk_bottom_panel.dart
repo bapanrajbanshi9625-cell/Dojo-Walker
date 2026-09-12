@@ -46,163 +46,185 @@ class _IncomingWalkBottomPanelState
     extends State<IncomingWalkBottomPanel> {
   double _dragOffset = 0;
 
-  double _panelHeight = 0;
-
-  // Keep the panel header/handle visible at the bottom.
-  static const double _minimumVisibleHeight = 72;
+  static const double _headerHeight = 184;
+  static const double _collapsedContentHeight = 0;
 
   void _updateDrag(DragUpdateDetails details) {
-    if (_panelHeight <= 0) {
-      return;
-    }
-
-    final double availableDrag =
-        _panelHeight - _minimumVisibleHeight;
-
-    if (availableDrag <= 0) {
-      return;
-    }
-
     setState(() {
-      _dragOffset =
-          (_dragOffset + details.delta.dy).clamp(
+      _dragOffset = (_dragOffset + details.delta.dy).clamp(
         0.0,
-        availableDrag,
+        500.0,
       );
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onVerticalDragUpdate: _updateDrag,
-          child: Transform.translate(
-            offset: Offset(0, _dragOffset),
-            child: _buildPanel(),
-          ),
-        );
-      },
-    );
+  void _endDrag(DragEndDetails details) {
+    if (_dragOffset > 90) {
+      setState(() {
+        _dragOffset = 500.0;
+      });
+    } else {
+      setState(() {
+        _dragOffset = 0;
+      });
+    }
   }
 
-  Widget _buildPanel() {
+  @override
+  Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
       child: Container(
         width: double.infinity,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: const BorderRadius.vertical(
+          borderRadius: BorderRadius.vertical(
             top: Radius.circular(24),
           ),
-          boxShadow: [
+          boxShadow: <BoxShadow>[
             BoxShadow(
               blurRadius: 18,
-              offset: const Offset(0, -5),
-              color: Colors.black.withValues(alpha: 0.12),
+              offset: Offset(0, -5),
+              color: Color(0x1F000000),
             ),
           ],
         ),
         child: SafeArea(
           top: false,
-          child: LayoutBuilder(
-            builder: (
-              BuildContext context,
-              BoxConstraints constraints,
-            ) {
-              _panelHeight = constraints.maxHeight;
-
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  16,
-                  12,
-                  16,
-                  12,
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 42,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius:
-                                BorderRadius.circular(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              // ==================================================
+              // FIXED HEADER
+              // ==================================================
+              SizedBox(
+                height: _headerHeight,
+                child: Column(
+                  children: <Widget>[
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onVerticalDragUpdate: _updateDrag,
+                      onVerticalDragEnd: _endDrag,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          16,
+                          12,
+                          16,
+                          12,
+                        ),
+                        child: Center(
+                          child: Container(
+                            width: 42,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade300,
+                              borderRadius:
+                                  BorderRadius.circular(20),
+                            ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                    ),
 
-                      IncomingWalkOwnerDogDetails(
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
+                      child: IncomingWalkOwnerDogDetails(
                         dogName: widget.dogName,
                         dogBreed: widget.dogBreed,
                         ownerName: widget.ownerName,
                       ),
-
-                      const SizedBox(height: 12),
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _InfoItem(
-                              icon:
-                                  Icons.location_on_outlined,
-                              label: 'Distance',
-                              value:
-                                  widget.distanceText,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _InfoItem(
-                              icon: Icons.access_time,
-                              label: 'Time',
-                              value: widget.etaText,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _InfoItem(
-                              icon:
-                                  Icons.payments_outlined,
-                              label: 'Payment',
-                              value:
-                                  widget.paymentText,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      IncomingWalkAddress(
-                        address: widget.address,
-                      ),
-
-                      const SizedBox(height: 14),
-
-                      IncomingWalkActionButtons(
-                        onAccept: widget.onAccept,
-                        onReject: widget.onReject,
-                        accepting: widget.accepting,
-                        rejecting: widget.rejecting,
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              );
-            },
+              ),
+
+              // ==================================================
+              // SCROLLABLE / COLLAPSIBLE CONTENT
+              // ==================================================
+              ClipRect(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  height: (_dragOffset > 0)
+                      ? _collapsedContentHeight
+                      : null,
+                  child: _dragOffset > 0
+                      ? const SizedBox.shrink()
+                      : SingleChildScrollView(
+                          physics:
+                              const ClampingScrollPhysics(),
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(
+                              16,
+                              0,
+                              16,
+                              12,
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: <Widget>[
+                                const SizedBox(height: 12),
+
+                                Row(
+                                  children: <Widget>[
+                                    Expanded(
+                                      child: _InfoItem(
+                                        icon: Icons
+                                            .location_on_outlined,
+                                        label: 'Distance',
+                                        value:
+                                            widget.distanceText,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: _InfoItem(
+                                        icon: Icons
+                                            .access_time,
+                                        label: 'Time',
+                                        value:
+                                            widget.etaText,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: _InfoItem(
+                                        icon: Icons
+                                            .payments_outlined,
+                                        label: 'Payment',
+                                        value:
+                                            widget.paymentText,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                IncomingWalkAddress(
+                                  address: widget.address,
+                                ),
+
+                                const SizedBox(height: 14),
+
+                                IncomingWalkActionButtons(
+                                  onAccept: widget.onAccept,
+                                  onReject: widget.onReject,
+                                  accepting: widget.accepting,
+                                  rejecting: widget.rejecting,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -237,7 +259,7 @@ class _InfoItem extends StatelessWidget {
       child: Column(
         crossAxisAlignment:
             CrossAxisAlignment.start,
-        children: [
+        children: <Widget>[
           Icon(
             icon,
             size: 18,
