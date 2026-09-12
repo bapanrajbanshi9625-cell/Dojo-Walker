@@ -193,8 +193,28 @@ class _IncomingWalkRequestScreenState
           return;
         }
 
-        if (status == 'accepted' ||
-            status == 'completed' ||
+        // ----------------------------------------------------------
+        // ACCEPT FLOW GUARD
+        //
+        // When this Walker accepts the request, Firestore changes
+        // status from searching -> accepted.
+        //
+        // During that short transition the incoming screen monitor
+        // must NOT close this screen, otherwise AcceptWalkScreen
+        // cannot open.
+        // ----------------------------------------------------------
+        if (status == 'accepted') {
+          if (_accepting) {
+            return;
+          }
+
+          _handleRequestUnavailable(
+            'This walk request is no longer available.',
+          );
+          return;
+        }
+
+        if (status == 'completed' ||
             status == 'complete' ||
             status == 'finished' ||
             status == 'closed' ||
