@@ -46,11 +46,10 @@ class _IncomingWalkBottomPanelState
     extends State<IncomingWalkBottomPanel> {
   double _dragOffset = 0;
 
-  double _maxDragOffset = 0;
-
   double _panelHeight = 0;
 
-  static const double _minimumVisibleHeight = 112;
+  // Keep the panel header/handle visible at the bottom.
+  static const double _minimumVisibleHeight = 72;
 
   void _updateDrag(DragUpdateDetails details) {
     if (_panelHeight <= 0) {
@@ -65,12 +64,10 @@ class _IncomingWalkBottomPanelState
     }
 
     setState(() {
-      _maxDragOffset = availableDrag;
-
       _dragOffset =
           (_dragOffset + details.delta.dy).clamp(
         0.0,
-        _maxDragOffset,
+        availableDrag,
       );
     });
   }
