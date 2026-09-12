@@ -143,16 +143,6 @@ class AppStateService {
 
   // ============================================================
   // RECOVER CURRENT STATE
-  //
-  // Used after:
-  // - app startup
-  // - app resume
-  // - login
-  //
-  // We intentionally read ALL request documents for this walker
-  // and resolve the current active one locally.
-  // This avoids depending on a Firestore whereIn list that could
-  // miss another valid request status.
   // ============================================================
 
   Future<void> recoverCurrentState() async {
@@ -278,20 +268,6 @@ class AppStateService {
 
   // ============================================================
   // SELECT CURRENT REQUEST
-  //
-  // Only these request statuses are considered active:
-  //
-  // PENDING
-  // SEARCHING
-  // REQUESTED
-  // CREATED
-  // ACCEPTED
-  // ACTIVE
-  // REACHED
-  // STARTED
-  // LIVE
-  //
-  // Rejected/cancelled/completed/ended are ignored.
   // ============================================================
 
   QueryDocumentSnapshot<
@@ -393,11 +369,6 @@ class AppStateService {
 
   // ============================================================
   // RESOLVE LIVE SESSION
-  //
-  // First uses session ID stored in walk_request.
-  //
-  // If request does not contain session ID, searches
-  // liveWalkSessions using walkerUid + walkId.
   // ============================================================
 
   Future<void> _resolveSessionForCurrentWalk(
@@ -437,8 +408,6 @@ class AppStateService {
 
     // ==========================================================
     // NO SESSION ID YET
-    //
-    // Search liveWalkSessions for this walk.
     // ==========================================================
 
     if (walkId.isEmpty) {
@@ -631,8 +600,6 @@ class AppStateService {
 
   // ============================================================
   // WALK REQUEST MONITOR
-  //
-  // Kept for compatibility with existing callers.
   // ============================================================
 
   void startWalkRequestMonitor() {
@@ -643,9 +610,6 @@ class AppStateService {
 
   // ============================================================
   // SET ACTIVE WALK
-  //
-  // Compatibility API for existing code.
-  // No active_walk collection is used.
   // ============================================================
 
   Future<void> setActiveWalk({
@@ -679,9 +643,7 @@ class AppStateService {
               .get();
 
       if (snapshot.exists) {
-        final Map<String, dynamic>?
-            data =
-            snapshot.data();
+        final data = snapshot.data();
 
         if (data != null) {
           _activeWalkData =
@@ -744,8 +706,6 @@ class AppStateService {
 
   // ============================================================
   // CLEAR COMPLETED REQUEST
-  //
-  // Do not keep a completed session/request as active state.
   // ============================================================
 
   Future<void>
