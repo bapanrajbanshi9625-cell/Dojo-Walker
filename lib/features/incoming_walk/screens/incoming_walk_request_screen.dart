@@ -53,13 +53,9 @@ class _IncomingWalkRequestScreenState
   bool _requestUnavailable = false;
   bool _leavingScreen = false;
 
-  double? get _ownerLatitude {
-    return widget.request.latitude;
-  }
+  double? get _ownerLatitude => widget.request.latitude;
 
-  double? get _ownerLongitude {
-    return widget.request.longitude;
-  }
+  double? get _ownerLongitude => widget.request.longitude;
 
   LatLng? get _ownerLocation {
     final double? latitude = _ownerLatitude;
@@ -77,22 +73,17 @@ class _IncomingWalkRequestScreenState
     return value.isEmpty ? 'Owner' : value;
   }
 
-  String get _ownerPhone {
-    return widget.request.ownerPhone.trim();
-  }
+  String get _ownerPhone => widget.request.ownerPhone.trim();
 
   String get _dogName {
     final String value = widget.request.dogName.trim();
     return value.isEmpty ? 'Your Pet' : value;
   }
 
-  String get _dogBreed {
-    return widget.request.dogBreed.trim();
-  }
+  String get _dogBreed => widget.request.dogBreed.trim();
 
   String get _address {
-    final String pickup =
-        widget.request.pickupAddress.trim();
+    final String pickup = widget.request.pickupAddress.trim();
 
     if (pickup.isNotEmpty) {
       return pickup;
@@ -101,9 +92,7 @@ class _IncomingWalkRequestScreenState
     return widget.request.address.trim();
   }
 
-  String get _requestId {
-    return widget.request.requestId.trim();
-  }
+  String get _requestId => widget.request.requestId.trim();
 
   @override
   void initState() {
@@ -156,9 +145,7 @@ class _IncomingWalkRequestScreenState
     }
 
     final DocumentReference<Map<String, dynamic>> requestRef =
-        _firestore
-            .collection('walk_request')
-            .doc(requestId);
+        _firestore.collection('walk_request').doc(requestId);
 
     _requestSubscription = requestRef.snapshots().listen(
       (
@@ -175,49 +162,38 @@ class _IncomingWalkRequestScreenState
           return;
         }
 
-        final Map<String, dynamic>? data =
-            snapshot.data();
+        final Map<String, dynamic>? data = snapshot.data();
 
         if (data == null) {
           return;
         }
 
         final String status =
-            data['status']
-                    ?.toString()
-                    .trim()
-                    .toLowerCase() ??
-                '';
+            data['status']?.toString().trim().toLowerCase() ?? '';
 
+        // Request is still available.
         if (status == 'searching') {
           return;
         }
 
         // ----------------------------------------------------------
-        // ACCEPTED FLOW
+        // ACCEPTED
         //
-        // If this Walker accepted the request, keep this screen
-        // alive while the Accept service completes and navigation
-        // moves to AcceptWalkScreen.
-        //
-        // If another Walker accepted it, close this screen.
+        // This screen does NOT control GPS.
+        // AcceptWalkAcceptService / AvailabilityService handle
+        // the canonical GPS lifecycle.
         // ----------------------------------------------------------
         if (status == 'accepted') {
           final String acceptedByUid =
-              data['acceptedByUid']
-                      ?.toString()
-                      .trim() ??
-                  '';
+              data['acceptedByUid']?.toString().trim() ?? '';
 
           final String walkerUid =
-              data['walkerUid']
-                      ?.toString()
-                      .trim() ??
-                  '';
+              data['walkerUid']?.toString().trim() ?? '';
 
           final String currentUid =
               _auth.currentUser?.uid.trim() ?? '';
 
+          // Our own acceptance.
           if (_accepting ||
               (currentUid.isNotEmpty &&
                   (acceptedByUid == currentUid ||
@@ -225,12 +201,14 @@ class _IncomingWalkRequestScreenState
             return;
           }
 
+          // Another walker accepted it.
           _handleRequestUnavailable(
             'This walk request is no longer available.',
           );
           return;
         }
 
+        // Request is no longer actionable.
         if (status == 'completed' ||
             status == 'complete' ||
             status == 'finished' ||
@@ -258,9 +236,7 @@ class _IncomingWalkRequestScreenState
     );
   }
 
-  void _handleRequestUnavailable(
-    String message,
-  ) {
+  void _handleRequestUnavailable(String message) {
     if (!mounted ||
         _leavingScreen ||
         _requestUnavailable) {
@@ -269,9 +245,8 @@ class _IncomingWalkRequestScreenState
 
     _leavingScreen = true;
 
-    unawaited(
-      _stopRequestSound(),
-    );
+    unawaited(_stopRequestSound());
+    unawaited(_cancelRequestSubscription());
 
     setState(() {
       _requestUnavailable = true;
@@ -291,6 +266,17 @@ class _IncomingWalkRequestScreenState
     );
   }
 
+  Future<void> _cancelRequestSubscription() async {
+    final StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+        subscription = _requestSubscription;
+
+    _requestSubscription = null;
+
+    if (subscription != null) {
+      await subscription.cancel();
+    }
+  }
+
   Future<void> _acceptWalk() async {
     if (_accepting ||
         _rejecting ||
@@ -308,8 +294,7 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    final User? currentUser =
-        _auth.currentUser;
+    final User? currentUser = _auth.currentUser;
 
     if (currentUser == null) {
       _showMessage(
@@ -323,9 +308,13 @@ class _IncomingWalkRequestScreenState
     });
 
     try {
+      // IMPORTANT:
+      // Accept service owns acceptance.
+      // It may activate the canonical availability/GPS lifecycle.
       await _acceptService.acceptWalk(requestId);
 
       await _stopRequestSound();
+      await _cancelRequestSubscription();
 
       if (!mounted) {
         return;
@@ -334,7 +323,7 @@ class _IncomingWalkRequestScreenState
       _leavingScreen = true;
 
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
+        MaterialPageRoute<void>(
           builder: (_) => AcceptWalkScreen(
             request: widget.request,
           ),
@@ -351,7 +340,7 @@ class _IncomingWalkRequestScreenState
         );
       }
     } finally {
-      if (mounted) {
+      if (mounted && !_leavingScreen) {
         setState(() {
           _accepting = false;
         });
@@ -367,8 +356,7 @@ class _IncomingWalkRequestScreenState
       return;
     }
 
-    final bool? confirm =
-        await showDialog<bool>(
+    final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (
         BuildContext dialogContext,
@@ -389,15 +377,13 @@ class _IncomingWalkRequestScreenState
           actions: <Widget>[
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext)
-                    .pop(false);
+                Navigator.of(dialogContext).pop(false);
               },
               child: const Text('CANCEL'),
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext)
-                    .pop(true);
+                Navigator.of(dialogContext).pop(true);
               },
               child: const Text(
                 'REJECT',
@@ -433,6 +419,7 @@ class _IncomingWalkRequestScreenState
       await _rejectService.rejectWalk(requestId);
 
       await _stopRequestSound();
+      await _cancelRequestSubscription();
 
       if (!mounted) {
         return;
@@ -462,8 +449,7 @@ class _IncomingWalkRequestScreenState
 
   @override
   Widget build(BuildContext context) {
-    final LatLng? ownerLocation =
-        _ownerLocation;
+    final LatLng? ownerLocation = _ownerLocation;
 
     return PopScope<void>(
       canPop: false,
@@ -472,29 +458,30 @@ class _IncomingWalkRequestScreenState
         void result,
       ) {},
       child: Scaffold(
-        backgroundColor:
-            const Color(0xFFE9EEF3),
+        backgroundColor: const Color(0xFFE9EEF3),
         body: Stack(
           children: <Widget>[
             Positioned.fill(
               child: ownerLocation != null
                   ? IncomingWalkMap(
+                      // IMPORTANT:
+                      // Incoming screen does not start GPS and does
+                      // not consume walker live location.
                       walkerLocation: null,
                       ownerLocation: ownerLocation,
                       routePoints: const [],
                     )
                   : ColoredBox(
-                      color: DojoWalkerColors.primary
-                          .withValues(
+                      color: DojoWalkerColors.primary.withValues(
                         alpha: 0.04,
                       ),
                     ),
             ),
-            Positioned(
+            const Positioned(
               top: 0,
               left: 0,
               right: 0,
-              child: const IncomingWalkTopBar(),
+              child: IncomingWalkTopBar(),
             ),
             Positioned(
               left: 0,
@@ -510,8 +497,7 @@ class _IncomingWalkRequestScreenState
                     widget.request.durationMinutes > 0
                         ? '${widget.request.durationMinutes} min'
                         : '—',
-                paymentText:
-                    'After acceptance',
+                paymentText: 'After acceptance',
                 address: _address,
                 onAccept: _acceptWalk,
                 onReject: _rejectWalk,
@@ -524,8 +510,7 @@ class _IncomingWalkRequestScreenState
                 child: ColoredBox(
                   color: Colors.white70,
                   child: Center(
-                    child:
-                        CircularProgressIndicator(),
+                    child: CircularProgressIndicator(),
                   ),
                 ),
               ),
@@ -555,12 +540,10 @@ class _IncomingWalkRequestScreenState
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior:
-              SnackBarBehavior.floating,
+          behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(14),
           shape: RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
       );
@@ -570,13 +553,8 @@ class _IncomingWalkRequestScreenState
   void dispose() {
     _leavingScreen = true;
 
-    unawaited(
-      _stopRequestSound(),
-    );
-
-    unawaited(
-      _requestSubscription?.cancel(),
-    );
+    unawaited(_stopRequestSound());
+    unawaited(_cancelRequestSubscription());
 
     super.dispose();
   }
