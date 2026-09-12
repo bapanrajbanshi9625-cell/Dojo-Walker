@@ -1,6 +1,3 @@
-// File:
-// lib/features/qr_walk/services/qr_walk_service.dart
-
 import 'dart:async';
 import 'dart:convert';
 
@@ -70,8 +67,7 @@ class QrWalkService {
       _log('STEP 0 FAILED: Walk action unavailable');
 
       throw Exception(
-        _availabilityService.unavailableMessage ??
-            'Walk action is currently unavailable.',
+        _availabilityService.unavailableMessage,
       );
     }
 
@@ -559,7 +555,8 @@ class QrWalkService {
     // 20. PREPARE BATCH
     // ========================================================
 
-    final FieldValue serverTimestamp = FieldValue.serverTimestamp();
+    final FieldValue serverTimestamp =
+        FieldValue.serverTimestamp();
 
     final WriteBatch batch = _firestore.batch();
 
@@ -758,92 +755,6 @@ class QrWalkService {
     _log('========== QR WALK SUCCESS ==========');
 
     return result;
-  }
-
-  // ==========================================================
-  // GET CURRENT LOCATION
-  //
-  // IMPORTANT:
-  // This method DOES NOT request permission.
-  // It DOES NOT start tracking.
-  // It DOES NOT stop tracking.
-  //
-  // WalkerAvailabilityService / WalkerLocationService own
-  // the GPS lifecycle.
-  // ==========================================================
-
-  Future<Position?> _getVerifiedFreshLocation() async {
-    if (!_availabilityService.isOnline) {
-      _log('GPS read rejected: Walker is Offline');
-      return null;
-    }
-
-    Position? position = _locationService.currentPosition;
-
-    if (position == null) {
-      try {
-        position = await _locationService.getCurrentLocation();
-      } catch (error) {
-        _log('Canonical current location failed: $error');
-        return null;
-      }
-    }
-
-    if (position == null) {
-      return null;
-    }
-
-    final double latitude = position.latitude;
-    final double longitude = position.longitude;
-    final double accuracy = position.accuracy;
-
-    if (latitude == 0.0 && longitude == 0.0) {
-      _log('Rejected GPS: 0,0 location');
-      return null;
-    }
-
-    if (!latitude.isFinite ||
-        !longitude.isFinite ||
-        !accuracy.isFinite) {
-      _log('Rejected GPS: invalid coordinate values');
-      return null;
-    }
-
-    // Keep the existing accuracy validation.
-    if (accuracy > 50.0) {
-      _log(
-        'GPS accuracy is currently '
-        '${accuracy.toStringAsFixed(1)}m > 50m',
-      );
-
-      return null;
-    }
-
-    final DateTime timestamp = position.timestamp;
-    final Duration age = DateTime.now().difference(timestamp);
-
-    if (age.inSeconds.abs() > 30) {
-      _log(
-        'GPS location is stale: '
-        '${age.inSeconds.abs()}s > 30s',
-      );
-
-      return null;
-    }
-
-    if (!_availabilityService.isOnline) {
-      _log('GPS read rejected after validation: Walker is Offline');
-      return null;
-    }
-
-    _log(
-      'Verified canonical GPS: '
-      '$latitude, $longitude '
-      'accuracy=${accuracy.toStringAsFixed(1)}m '
-      'age=${age.inSeconds.abs()}s',
-    );
-
-    return position;
   }
 
   // ==========================================================
