@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../core/theme/dojo_walker_colors.dart';
 
-class AcceptWalkMap extends StatelessWidget {
+class AcceptWalkMap extends StatefulWidget {
   const AcceptWalkMap({
     super.key,
     required this.ownerLocation,
@@ -21,16 +21,50 @@ class AcceptWalkMap extends StatelessWidget {
   final VoidCallback? onMyLocationPressed;
 
   @override
+  State<AcceptWalkMap> createState() => _AcceptWalkMapState();
+}
+
+class _AcceptWalkMapState extends State<AcceptWalkMap> {
+  final MapController _mapController = MapController();
+
+  bool _mapReady = false;
+
+  void _goToMyLocation() {
+    final LatLng? walkerLocation = widget.walkerLocation;
+
+    if (!_mapReady || walkerLocation == null) {
+      widget.onMyLocationPressed?.call();
+      return;
+    }
+
+    _mapController.move(
+      walkerLocation,
+      16.5,
+    );
+
+    widget.onMyLocationPressed?.call();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final LatLng center =
-        walkerLocation ?? ownerLocation;
+        widget.walkerLocation ?? widget.ownerLocation;
 
     return FlutterMap(
+      mapController: _mapController,
       options: MapOptions(
         initialCenter: center,
         initialZoom: 15.5,
+        onMapReady: () {
+          _mapReady = true;
+        },
         interactionOptions: const InteractionOptions(
-          flags: InteractiveFlag.all,
+          flags:
+              InteractiveFlag.drag |
+              InteractiveFlag.pinchZoom |
+              InteractiveFlag.doubleTapZoom |
+              InteractiveFlag.flingAnimation |
+              InteractiveFlag.scrollWheelZoom,
         ),
       ),
       children: <Widget>[
@@ -40,16 +74,16 @@ class AcceptWalkMap extends StatelessWidget {
           userAgentPackageName: 'com.doojo.walker',
         ),
 
-        if (routePoints.length >= 2)
+        if (widget.routePoints.length >= 2)
           PolylineLayer(
             polylines: <Polyline>[
               Polyline(
-                points: routePoints,
+                points: widget.routePoints,
                 strokeWidth: 8,
                 color: Colors.white,
               ),
               Polyline(
-                points: routePoints,
+                points: widget.routePoints,
                 strokeWidth: 4.5,
                 color: DojoWalkerColors.primary,
               ),
@@ -59,7 +93,7 @@ class AcceptWalkMap extends StatelessWidget {
         CircleLayer(
           circles: <CircleMarker>[
             CircleMarker(
-              point: ownerLocation,
+              point: widget.ownerLocation,
               radius: 100,
               useRadiusInMeter: true,
               color: DojoWalkerColors.primary
@@ -74,14 +108,14 @@ class AcceptWalkMap extends StatelessWidget {
         MarkerLayer(
           markers: <Marker>[
             Marker(
-              point: ownerLocation,
+              point: widget.ownerLocation,
               width: 46,
               height: 46,
               child: const _OwnerMarker(),
             ),
-            if (walkerLocation != null)
+            if (widget.walkerLocation != null)
               Marker(
-                point: walkerLocation!,
+                point: widget.walkerLocation!,
                 width: 46,
                 height: 46,
                 child: const _WalkerMarker(),
@@ -89,10 +123,10 @@ class AcceptWalkMap extends StatelessWidget {
           ],
         ),
 
-        if (onMyLocationPressed != null)
+        if (widget.onMyLocationPressed != null)
           Positioned(
             right: 14,
-            bottom: bottomPanelHeight + 14,
+            bottom: widget.bottomPanelHeight + 14,
             child: SafeArea(
               top: false,
               child: Material(
@@ -100,7 +134,7 @@ class AcceptWalkMap extends StatelessWidget {
                 color: Colors.white,
                 shape: const CircleBorder(),
                 child: InkWell(
-                  onTap: onMyLocationPressed,
+                  onTap: _goToMyLocation,
                   customBorder: const CircleBorder(),
                   child: const SizedBox(
                     width: 46,
