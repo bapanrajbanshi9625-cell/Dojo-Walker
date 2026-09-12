@@ -1,3 +1,6 @@
+// File:
+// lib/features/live_walk/widgets/live_walk_map.dart
+
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -75,13 +78,8 @@ class LiveWalkMapState extends State<LiveWalkMap> {
       ],
     );
 
-    _currentLocation = _readFirstLocation(
-      <dynamic>[
-        widget.sessionData['currentLocation'],
-        widget.sessionData['walkerLocation'],
-        widget.sessionData['walkerCurrentLocation'],
-        widget.sessionData['lastLocation'],
-      ],
+    _currentLocation = _readCurrentLocation(
+      widget.sessionData,
     );
 
     _loadRawGpsRoute(
@@ -89,7 +87,8 @@ class LiveWalkMapState extends State<LiveWalkMap> {
     );
 
     final String status =
-        widget.sessionData['status']?.toString().trim().toLowerCase() ?? '';
+        widget.sessionData['status']?.toString().trim().toLowerCase() ??
+            '';
 
     _completed =
         status == 'completed' ||
@@ -146,15 +145,16 @@ class LiveWalkMapState extends State<LiveWalkMap> {
       );
     }
 
-    // IMPORTANT:
-    // Do not move the camera here on every GPS update.
-    // Initial camera is handled only once.
     if (_mapReady && !_initialCameraSet) {
       _setInitialCameraIfPossible();
     }
 
     if (!_completed) {
       _scheduleRouting();
+    }
+
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -168,7 +168,7 @@ class LiveWalkMapState extends State<LiveWalkMap> {
   ) {
     super.didUpdateWidget(oldWidget);
 
-    final LatLng? pickup = _readFirstLocation(
+    _pickupLocation = _readFirstLocation(
       <dynamic>[
         widget.sessionData['startLocation'],
         widget.sessionData['pickupLocation'],
@@ -178,17 +178,23 @@ class LiveWalkMapState extends State<LiveWalkMap> {
       ],
     );
 
-    if (pickup != null) {
-      _pickupLocation = pickup;
-    }
+    // ==========================================================
+    // IMPORTANT:
+    //
+    // Read current walker location from all supported fields.
+    //
+    // Priority:
+    //
+    // currentLocation
+    // walkerLocation
+    // walkerCurrentLocation
+    // lastLocation
+    // walkerLatitude + walkerLongitude
+    // currentLat + currentLng
+    // ==========================================================
 
-    final LatLng? current = _readFirstLocation(
-      <dynamic>[
-        widget.sessionData['currentLocation'],
-        widget.sessionData['walkerLocation'],
-        widget.sessionData['walkerCurrentLocation'],
-        widget.sessionData['lastLocation'],
-      ],
+    final LatLng? current = _readCurrentLocation(
+      widget.sessionData,
     );
 
     if (current != null) {
@@ -201,7 +207,8 @@ class LiveWalkMapState extends State<LiveWalkMap> {
     );
 
     final String status =
-        widget.sessionData['status']?.toString().trim().toLowerCase() ?? '';
+        widget.sessionData['status']?.toString().trim().toLowerCase() ??
+            '';
 
     final bool completed =
         status == 'completed' ||
@@ -212,19 +219,90 @@ class LiveWalkMapState extends State<LiveWalkMap> {
 
     if (completed) {
       _completed = true;
+      _routeTimer?.cancel();
+      _routeTimer = null;
     }
 
     _loadBackgroundCurrentLocation();
 
-    // Only set the initial camera if it has never been set.
-    // Never recenter because Firestore/GPS data changed.
     if (_mapReady && !_initialCameraSet) {
       _setInitialCameraIfPossible();
     }
 
-    unawaited(
-      _rebuildRoadRoute(),
+    if (!_completed) {
+      _scheduleRouting();
+    }
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  // ============================================================
+  // READ CURRENT WALKER LOCATION
+  // ============================================================
+
+  LatLng? _readCurrentLocation(
+    Map<String, dynamic> data,
+  ) {
+    final LatLng? nestedLocation = _readFirstLocation(
+      <dynamic>[
+        data['currentLocation'],
+        data['walkerLocation'],
+        data['walkerCurrentLocation'],
+        data['lastLocation'],
+      ],
     );
+
+    if (nestedLocation != null) {
+      return nestedLocation;
+    }
+
+    // ----------------------------------------------------------
+    // walkerLatitude / walkerLongitude
+    // ----------------------------------------------------------
+
+    final double? walkerLatitude =
+        _toDouble(data['walkerLatitude']);
+
+    final double? walkerLongitude =
+        _toDouble(data['walkerLongitude']);
+
+    if (walkerLatitude != null &&
+        walkerLongitude != null &&
+        _validCoordinate(
+          walkerLatitude,
+          walkerLongitude,
+        )) {
+      return LatLng(
+        walkerLatitude,
+        walkerLongitude,
+      );
+    }
+
+    // ----------------------------------------------------------
+    // currentLat / currentLng
+    // ----------------------------------------------------------
+
+    final double? currentLatitude =
+        _toDouble(data['currentLat']);
+
+    final double? currentLongitude =
+        _toDouble(data['currentLng']);
+
+    if (currentLatitude != null &&
+        currentLongitude != null &&
+        _validCoordinate(
+          currentLatitude,
+          currentLongitude,
+        )) {
+      return LatLng(
+        currentLatitude,
+        currentLongitude,
+      );
+    }
+
+    return null;
   }
 
   // ============================================================
@@ -238,7 +316,9 @@ class LiveWalkMapState extends State<LiveWalkMap> {
       return;
     }
 
-    final List<LatLng> incoming = _parseRoute(rawRoute);
+    final List<LatLng> incoming = _parseRoute(
+      rawRoute,
+    );
 
     if (incoming.isEmpty) {
       return;
@@ -248,26 +328,40 @@ class LiveWalkMapState extends State<LiveWalkMap> {
       _appendGpsPoint(point);
     }
 
-    if (_currentLocation == null && _gpsPoints.isNotEmpty) {
+    if (_currentLocation == null &&
+        _gpsPoints.isNotEmpty) {
       _currentLocation = _gpsPoints.last;
     }
   }
 
   // ============================================================
   // LIVE GPS LOCATION
+  //
+  // Background service emits the canonical
+  // WalkerLocationService position.
   // ============================================================
 
   void _handleLiveLocation(
     dynamic position,
   ) {
-    final double? latitude = _toDouble(position.latitude);
-    final double? longitude = _toDouble(position.longitude);
+    if (position == null) {
+      return;
+    }
+
+    final double? latitude =
+        _toDouble(position.latitude);
+
+    final double? longitude =
+        _toDouble(position.longitude);
 
     if (latitude == null || longitude == null) {
       return;
     }
 
-    if (!_validCoordinate(latitude, longitude)) {
+    if (!_validCoordinate(
+      latitude,
+      longitude,
+    )) {
       return;
     }
 
@@ -286,8 +380,11 @@ class LiveWalkMapState extends State<LiveWalkMap> {
     setState(() {});
 
     // IMPORTANT:
-    // GPS updates move only the marker.
-    // The map camera must NOT follow automatically.
+    //
+    // GPS moves marker only.
+    // Camera does NOT automatically follow walker.
+    //
+
     if (_mapReady && !_initialCameraSet) {
       _setInitialCameraIfPossible();
     }
@@ -324,10 +421,12 @@ class LiveWalkMapState extends State<LiveWalkMap> {
       point,
     );
 
+    // Ignore GPS noise.
     if (distance < 5) {
       return;
     }
 
+    // Ignore impossible jump.
     if (distance > 500) {
       return;
     }
@@ -347,14 +446,20 @@ class LiveWalkMapState extends State<LiveWalkMap> {
   // ============================================================
 
   void _scheduleRouting() {
+    if (_completed) {
+      return;
+    }
+
     _routeTimer?.cancel();
 
     _routeTimer = Timer(
       const Duration(seconds: 2),
       () {
-        unawaited(
-          _rebuildRoadRoute(),
-        );
+        if (!_completed) {
+          unawaited(
+            _rebuildRoadRoute(),
+          );
+        }
       },
     );
   }
@@ -390,13 +495,16 @@ class LiveWalkMapState extends State<LiveWalkMap> {
       ];
 
       final List<LatLng> cleanPoints =
-          _removeNearbyDuplicatePoints(sourcePoints);
+          _removeNearbyDuplicatePoints(
+        sourcePoints,
+      );
 
       if (cleanPoints.length < 2) {
         return;
       }
 
-      final List<LatLng> routed = await _buildRoadRoute(
+      final List<LatLng> routed =
+          await _buildRoadRoute(
         cleanPoints,
       );
 
@@ -410,7 +518,6 @@ class LiveWalkMapState extends State<LiveWalkMap> {
           ..addAll(routed);
       });
 
-      // Route can trigger initial camera only once.
       if (_mapReady && !_initialCameraSet) {
         _setInitialCameraIfPossible();
       }
@@ -561,11 +668,13 @@ class LiveWalkMapState extends State<LiveWalkMap> {
         _moveMapToLocation(
           _currentLocation!,
         );
+
         _initialCameraSet = true;
       } else if (_pickupLocation != null) {
         _moveMapToLocation(
           _pickupLocation!,
         );
+
         _initialCameraSet = true;
       }
 
@@ -594,24 +703,26 @@ class LiveWalkMapState extends State<LiveWalkMap> {
   }
 
   // ============================================================
-  // MY LOCATION
-  //
-  // ONLY this method recenters the map after initial setup.
+  // CENTER ON CURRENT WALKER
   // ============================================================
 
   void centerOnMyLocation() {
-    final LatLng? location = _currentLocation;
+    final LatLng? location =
+        _currentLocation;
 
     if (location == null || !_mapReady) {
       return;
     }
 
     try {
-      final double currentZoom = _mapController.camera.zoom;
+      final double currentZoom =
+          _mapController.camera.zoom;
 
       _mapController.move(
         location,
-        currentZoom < 16 ? 17 : currentZoom,
+        currentZoom < 16
+            ? 17
+            : currentZoom,
       );
     } catch (_) {}
   }
@@ -622,9 +733,11 @@ class LiveWalkMapState extends State<LiveWalkMap> {
 
   void fitWalkRoute() {
     final List<LatLng> points = <LatLng>[
-      if (_pickupLocation != null) _pickupLocation!,
+      if (_pickupLocation != null)
+        _pickupLocation!,
       ..._roadRoute,
-      if (_currentLocation != null) _currentLocation!,
+      if (_currentLocation != null)
+        _currentLocation!,
     ];
 
     if (!_mapReady || points.length < 2) {
@@ -654,7 +767,7 @@ class LiveWalkMapState extends State<LiveWalkMap> {
   }
 
   // ============================================================
-  // MOVE MAP TO REAL GPS LOCATION
+  // MOVE MAP TO LOCATION
   // ============================================================
 
   void _moveMapToLocation(
@@ -732,7 +845,7 @@ class LiveWalkMapState extends State<LiveWalkMap> {
         ),
 
         // ========================================================
-        // REAL ROAD ROUTE
+        // ROAD ROUTE
         // ========================================================
 
         if (route.length >= 2)
@@ -749,7 +862,7 @@ class LiveWalkMapState extends State<LiveWalkMap> {
           ),
 
         // ========================================================
-        // OWNER / PICKUP LOCATION
+        // OWNER / PICKUP MARKER
         // ========================================================
 
         if (_pickupLocation != null)
@@ -766,7 +879,7 @@ class LiveWalkMapState extends State<LiveWalkMap> {
           ),
 
         // ========================================================
-        // REAL WALKER GPS LOCATION
+        // REAL WALKER GPS MARKER
         // ========================================================
 
         if (_currentLocation != null)
@@ -792,7 +905,8 @@ class LiveWalkMapState extends State<LiveWalkMap> {
     List<dynamic> values,
   ) {
     for (final dynamic value in values) {
-      final LatLng? location = _readLocation(value);
+      final LatLng? location =
+          _readLocation(value);
 
       if (location != null) {
         return location;
@@ -865,7 +979,8 @@ class LiveWalkMapState extends State<LiveWalkMap> {
         );
       }
 
-      final LatLng? nestedLocation = _readLocation(
+      final LatLng? nestedLocation =
+          _readLocation(
         value['location'],
       );
 
@@ -873,7 +988,8 @@ class LiveWalkMapState extends State<LiveWalkMap> {
         return nestedLocation;
       }
 
-      final LatLng? nestedCoordinates = _readCoordinates(
+      final LatLng? nestedCoordinates =
+          _readCoordinates(
         value['coordinates'],
       );
 
@@ -890,21 +1006,28 @@ class LiveWalkMapState extends State<LiveWalkMap> {
   // ============================================================
   // COORDINATES ARRAY
   //
-  // GeoJSON order:
-  // [longitude, latitude]
+  // Supports:
+  //
+  // GeoJSON: [longitude, latitude]
+  // Normal:  [latitude, longitude]
   // ============================================================
 
   LatLng? _readCoordinates(
     dynamic value,
   ) {
-    if (value is! List || value.length < 2) {
+    if (value is! List ||
+        value.length < 2) {
       return null;
     }
 
-    final double? first = _toDouble(value[0]);
-    final double? second = _toDouble(value[1]);
+    final double? first =
+        _toDouble(value[0]);
 
-    if (first == null || second == null) {
+    final double? second =
+        _toDouble(value[1]);
+
+    if (first == null ||
+        second == null) {
       return null;
     }
 
@@ -920,7 +1043,7 @@ class LiveWalkMapState extends State<LiveWalkMap> {
       );
     }
 
-    // Also support:
+    // Normal:
     // [lat, lng]
     if (_validCoordinate(
       first,
@@ -942,14 +1065,16 @@ class LiveWalkMapState extends State<LiveWalkMap> {
   List<LatLng> _parseRoute(
     dynamic rawRoute,
   ) {
-    final List<LatLng> result = <LatLng>[];
+    final List<LatLng> result =
+        <LatLng>[];
 
     if (rawRoute is! List) {
       return result;
     }
 
     for (final dynamic item in rawRoute) {
-      final LatLng? location = _readLocation(item);
+      final LatLng? location =
+          _readLocation(item);
 
       if (location != null) {
         result.add(location);
@@ -991,7 +1116,8 @@ class LiveWalkMapState extends State<LiveWalkMap> {
         latitude <= 90 &&
         longitude >= -180 &&
         longitude <= 180 &&
-        !(latitude == 0 && longitude == 0);
+        !(latitude == 0 &&
+            longitude == 0);
   }
 
   // ============================================================
@@ -1002,21 +1128,31 @@ class LiveWalkMapState extends State<LiveWalkMap> {
     LatLng a,
     LatLng b,
   ) {
-    return (a.latitude - b.latitude).abs() < 0.000001 &&
-        (a.longitude - b.longitude).abs() < 0.000001;
+    return (a.latitude - b.latitude).abs() <
+            0.000001 &&
+        (a.longitude - b.longitude).abs() <
+            0.000001;
   }
 
   // ============================================================
   // DISPOSE
+  //
+  // IMPORTANT:
+  //
+  // This only removes this map's listener.
+  // It NEVER stops GPS.
   // ============================================================
 
   @override
   void dispose() {
     _routeTimer?.cancel();
+    _routeTimer = null;
 
     unawaited(
       _locationSubscription?.cancel(),
     );
+
+    _locationSubscription = null;
 
     super.dispose();
   }
@@ -1030,7 +1166,9 @@ class _PickupMarker extends StatelessWidget {
   const _PickupMarker();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -1078,7 +1216,9 @@ class _WalkerLocationMarker extends StatelessWidget {
   const _WalkerLocationMarker();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Stack(
       alignment: Alignment.center,
       children: <Widget>[
