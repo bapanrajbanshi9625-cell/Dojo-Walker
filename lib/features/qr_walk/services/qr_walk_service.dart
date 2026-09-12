@@ -9,15 +9,26 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../services/walker_availability_service.dart';
+import '../../../services/walker_location_service.dart';
+
 class QrWalkService {
   QrWalkService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
+    WalkerAvailabilityService? availabilityService,
+    WalkerLocationService? locationService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+        _auth = auth ?? FirebaseAuth.instance,
+        _availabilityService =
+            availabilityService ?? WalkerAvailabilityService.instance,
+        _locationService =
+            locationService ?? WalkerLocationService.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
+  final WalkerAvailabilityService _availabilityService;
+  final WalkerLocationService _locationService;
 
   // ==========================================================
   // COLLECTIONS
@@ -37,6 +48,34 @@ class QrWalkService {
     required String rawData,
   }) async {
     _log('========== QR WALK START ==========');
+
+    // ========================================================
+    // 0. ONLINE CHECK
+    //
+    // QR WALK IS AVAILABLE ONLY WHILE WALKER IS ONLINE.
+    //
+    // GPS lifecycle remains owned by
+    // WalkerAvailabilityService.
+    // ========================================================
+
+    if (!_availabilityService.isOnline) {
+      _log('STEP 0 FAILED: Walker is Offline');
+
+      throw Exception(
+        'You must be Online to scan and connect an Owner QR.',
+      );
+    }
+
+    if (!_availabilityService.canPerformWalkAction()) {
+      _log('STEP 0 FAILED: Walk action unavailable');
+
+      throw Exception(
+        _availabilityService.unavailableMessage ??
+            'Walk action is currently unavailable.',
+      );
+    }
+
+    _log('STEP 0 OK: Walker is Online');
 
     // ========================================================
     // 1. VALIDATE RAW QR
@@ -75,8 +114,7 @@ class QrWalkService {
     // 3. DECODE QR
     // ========================================================
 
-    final Map<String, dynamic> qrData =
-        _decodeQrPayload(cleanData);
+    final Map<String, dynamic> qrData = _decodeQrPayload(cleanData);
 
     _log('STEP 3 OK');
 
@@ -89,8 +127,7 @@ class QrWalkService {
       <String>['type'],
     );
 
-    if (qrType.isNotEmpty &&
-        qrType != 'dojo_owner_qr') {
+    if (qrType.isNotEmpty && qrType != 'dojo_owner_qr') {
       _log('STEP 4 FAILED: Invalid QR type');
 
       throw Exception(
@@ -191,8 +228,7 @@ class QrWalkService {
     }
 
     final Map<String, dynamic> connectionData =
-        connectionSnapshot.data() ??
-            <String, dynamic>{};
+        connectionSnapshot.data() ?? <String, dynamic>{};
 
     _log('STEP 8 OK');
 
@@ -330,8 +366,7 @@ class QrWalkService {
     // 14. CHECK EXISTING QR CONNECTION
     // ========================================================
 
-    final bool connected =
-        connectionData['connected'] == true;
+    final bool connected = connectionData['connected'] == true;
 
     final String existingWalkerUid = _readString(
       connectionData,
@@ -351,43 +386,78 @@ class QrWalkService {
     _log('STEP 14 OK');
 
     // ========================================================
-    // 15. GET FRESH WALKER GPS
+    // 15. GET CURRENT WALKER LOCATION
     //
-    // This location is captured at QR connection time.
-    // It becomes the fixed pickup location.
+    // IMPORTANT:
+    // QR DOES NOT START GPS.
+    //
+    // GPS is already controlled globally by
+    // WalkerAvailabilityService.
+    //
+    // We first use the canonical current position.
+    // If it is temporarily unavailable, ask the canonical
+    // location service for a current position.
     // ========================================================
 
-    _log('STEP 15: Requesting fresh GPS location...');
+    _log('STEP 15: Reading canonical Walker GPS...');
 
-    final Position? pickupPosition =
-        await _getVerifiedFreshLocation();
+    Position? pickupPosition = _locationService.currentPosition;
 
     if (pickupPosition == null) {
-      _log('STEP 15 FAILED: Verified fresh GPS unavailable');
+      _log(
+        'STEP 15: Canonical current position unavailable. '
+        'Requesting current position from location service.',
+      );
+
+      try {
+        pickupPosition = await _locationService.getCurrentLocation();
+      } catch (error) {
+        _log('STEP 15 FAILED: Current GPS unavailable');
+        _log('ERROR: $error');
+      }
+    }
+
+    if (pickupPosition == null) {
+      _log('STEP 15 FAILED: Current GPS unavailable');
 
       throw Exception(
-        'Unable to get a verified current location. '
-        'Please turn on GPS and try again.',
+        'Unable to get your current location. '
+        'Please make sure GPS is available and try again.',
       );
     }
 
-    final double pickupLatitude =
-        pickupPosition.latitude;
+    // Online must still be true after the asynchronous GPS read.
+    if (!_availabilityService.isOnline) {
+      _log('STEP 15 FAILED: Walker became Offline');
 
-    final double pickupLongitude =
-        pickupPosition.longitude;
+      throw Exception(
+        'Walker went Offline. Please stay Online to continue.',
+      );
+    }
 
-    final double pickupAccuracy =
-        pickupPosition.accuracy;
+    final double pickupLatitude = pickupPosition.latitude;
+    final double pickupLongitude = pickupPosition.longitude;
+    final double pickupAccuracy = pickupPosition.accuracy;
 
-    final Map<String, double> pickupLocation =
-        <String, double>{
+    if (!pickupLatitude.isFinite ||
+        !pickupLongitude.isFinite ||
+        !pickupAccuracy.isFinite ||
+        (pickupLatitude == 0.0 && pickupLongitude == 0.0)) {
+      _log('STEP 15 FAILED: Invalid GPS coordinates');
+
+      throw Exception(
+        'Unable to get a valid current location. '
+        'Please try again.',
+      );
+    }
+
+    final Map<String, double> pickupLocation = <String, double>{
       'lat': pickupLatitude,
       'lng': pickupLongitude,
     };
 
     _log(
-      'STEP 15 OK: Fresh pickup location '
+      'STEP 15 OK: Canonical pickup location '
       '$pickupLatitude, $pickupLongitude '
       '(accuracy ${pickupAccuracy.toStringAsFixed(1)}m)',
     );
@@ -396,8 +466,7 @@ class QrWalkService {
     // 16. WALKER ACCOUNT
     // ========================================================
 
-    DocumentSnapshot<Map<String, dynamic>>
-        walkerAccountSnapshot;
+    DocumentSnapshot<Map<String, dynamic>> walkerAccountSnapshot;
 
     try {
       walkerAccountSnapshot = await _firestore
@@ -490,8 +559,7 @@ class QrWalkService {
     // 20. PREPARE BATCH
     // ========================================================
 
-    final FieldValue serverTimestamp =
-        FieldValue.serverTimestamp();
+    final FieldValue serverTimestamp = FieldValue.serverTimestamp();
 
     final WriteBatch batch = _firestore.batch();
 
@@ -582,17 +650,9 @@ class QrWalkService {
         'dogBreed': dogBreed,
 
         // FIXED PICKUP LOCATION
-        //
-        // This is the fresh Walker GPS position captured
-        // at QR connection time.
-        //
         'pickupLocation': pickupLocation,
 
         // WALKER LIVE LOCATION
-        //
-        // This remains separate and will be updated later
-        // by the existing Walker GPS / Live Walk system.
-        //
         'currentLocation': <String, double>{
           'lat': 0.0,
           'lng': 0.0,
@@ -634,6 +694,13 @@ class QrWalkService {
     // ========================================================
 
     try {
+      // Final Online check immediately before Firestore write.
+      if (!_availabilityService.isOnline) {
+        throw Exception(
+          'Walker went Offline. Please stay Online to continue.',
+        );
+      }
+
       await batch.commit();
 
       _log('STEP 23 OK: Firestore batch committed');
@@ -647,11 +714,19 @@ class QrWalkService {
     }
 
     // ========================================================
-    // 24. RETURN LIVE WALK DATA
+    // 24. MARK ACTIVE WALK
+    //
+    // GPS remains ON because the global availability service
+    // owns the lifecycle.
     // ========================================================
 
-    final Map<String, dynamic> result =
-        <String, dynamic>{
+    _availabilityService.setActiveWalk(true);
+
+    // ========================================================
+    // 25. RETURN LIVE WALK DATA
+    // ========================================================
+
+    final Map<String, dynamic> result = <String, dynamic>{
       'ownerId': ownerId,
       'ownerUid': ownerUid,
       'ownerName': ownerName,
@@ -679,107 +754,96 @@ class QrWalkService {
       'existingSession': false,
     };
 
-    _log('STEP 24 OK');
+    _log('STEP 25 OK');
     _log('========== QR WALK SUCCESS ==========');
 
     return result;
   }
 
   // ==========================================================
-  // GET VERIFIED FRESH LOCATION
+  // GET CURRENT LOCATION
+  //
+  // IMPORTANT:
+  // This method DOES NOT request permission.
+  // It DOES NOT start tracking.
+  // It DOES NOT stop tracking.
+  //
+  // WalkerAvailabilityService / WalkerLocationService own
+  // the GPS lifecycle.
   // ==========================================================
 
   Future<Position?> _getVerifiedFreshLocation() async {
-    try {
-      final bool serviceEnabled =
-          await Geolocator.isLocationServiceEnabled();
-
-      if (!serviceEnabled) {
-        _log('GPS is disabled');
-        return null;
-      }
-
-      LocationPermission permission =
-          await Geolocator.checkPermission();
-
-      if (permission == LocationPermission.denied) {
-        permission =
-            await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        _log(
-          'GPS permission unavailable: $permission',
-        );
-        return null;
-      }
-
-      final Position position =
-          await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 20),
-      );
-
-      final double latitude = position.latitude;
-      final double longitude = position.longitude;
-      final double accuracy = position.accuracy;
-
-      if (latitude == 0.0 && longitude == 0.0) {
-        _log('Rejected GPS: 0,0 location');
-        return null;
-      }
-
-      if (!latitude.isFinite ||
-          !longitude.isFinite ||
-          !accuracy.isFinite) {
-        _log('Rejected GPS: invalid coordinate values');
-        return null;
-      }
-
-      // Reject an inaccurate GPS fix.
-      if (accuracy > 50.0) {
-        _log(
-          'Rejected GPS: accuracy '
-          '${accuracy.toStringAsFixed(1)}m > 50m',
-        );
-        return null;
-      }
-
-      final DateTime now = DateTime.now();
-      final Duration age =
-          now.difference(position.timestamp);
-
-      if (age.inSeconds.abs() > 30) {
-        _log(
-          'Rejected GPS: location age '
-          '${age.inSeconds.abs()}s > 30s',
-        );
-        return null;
-      }
-
-      _log(
-        'Verified fresh GPS: '
-        '$latitude, $longitude '
-        'accuracy=${accuracy.toStringAsFixed(1)}m '
-        'age=${age.inSeconds.abs()}s',
-      );
-
-      return position;
-    } on TimeoutException {
-      _log('Fresh GPS timeout');
-      return null;
-    } on LocationServiceDisabledException {
-      _log('GPS disabled while getting fresh location');
-      return null;
-    } on PermissionDeniedException {
-      _log('GPS permission denied while getting fresh location');
-      return null;
-    } catch (error, stackTrace) {
-      _log('Fresh GPS error: $error');
-      debugPrint('$stackTrace');
+    if (!_availabilityService.isOnline) {
+      _log('GPS read rejected: Walker is Offline');
       return null;
     }
+
+    Position? position = _locationService.currentPosition;
+
+    if (position == null) {
+      try {
+        position = await _locationService.getCurrentLocation();
+      } catch (error) {
+        _log('Canonical current location failed: $error');
+        return null;
+      }
+    }
+
+    if (position == null) {
+      return null;
+    }
+
+    final double latitude = position.latitude;
+    final double longitude = position.longitude;
+    final double accuracy = position.accuracy;
+
+    if (latitude == 0.0 && longitude == 0.0) {
+      _log('Rejected GPS: 0,0 location');
+      return null;
+    }
+
+    if (!latitude.isFinite ||
+        !longitude.isFinite ||
+        !accuracy.isFinite) {
+      _log('Rejected GPS: invalid coordinate values');
+      return null;
+    }
+
+    // Keep the existing accuracy validation.
+    if (accuracy > 50.0) {
+      _log(
+        'GPS accuracy is currently '
+        '${accuracy.toStringAsFixed(1)}m > 50m',
+      );
+
+      return null;
+    }
+
+    final DateTime timestamp = position.timestamp;
+    final Duration age = DateTime.now().difference(timestamp);
+
+    if (age.inSeconds.abs() > 30) {
+      _log(
+        'GPS location is stale: '
+        '${age.inSeconds.abs()}s > 30s',
+      );
+
+      return null;
+    }
+
+    if (!_availabilityService.isOnline) {
+      _log('GPS read rejected after validation: Walker is Offline');
+      return null;
+    }
+
+    _log(
+      'Verified canonical GPS: '
+      '$latitude, $longitude '
+      'accuracy=${accuracy.toStringAsFixed(1)}m '
+      'age=${age.inSeconds.abs()}s',
+    );
+
+    return position;
   }
 
   // ==========================================================
@@ -790,8 +854,7 @@ class QrWalkService {
     String rawData,
   ) {
     try {
-      final dynamic decoded =
-          jsonDecode(rawData);
+      final dynamic decoded = jsonDecode(rawData);
 
       if (decoded is Map) {
         return Map<String, dynamic>.from(decoded);
@@ -800,11 +863,9 @@ class QrWalkService {
       // Try URI format below.
     }
 
-    final Uri? uri =
-        Uri.tryParse(rawData);
+    final Uri? uri = Uri.tryParse(rawData);
 
-    if (uri != null &&
-        uri.queryParameters.isNotEmpty) {
+    if (uri != null && uri.queryParameters.isNotEmpty) {
       return <String, dynamic>{
         ...uri.queryParameters,
       };
@@ -830,8 +891,7 @@ class QrWalkService {
         continue;
       }
 
-      final String text =
-          value.toString().trim();
+      final String text = value.toString().trim();
 
       if (text.isNotEmpty) {
         return text;
@@ -849,8 +909,7 @@ class QrWalkService {
     List<String?> values,
   ) {
     for (final String? value in values) {
-      final String text =
-          value?.trim() ?? '';
+      final String text = value?.trim() ?? '';
 
       if (text.isNotEmpty) {
         return text;
@@ -879,8 +938,6 @@ class QrWalkService {
   // ==========================================================
 
   void _log(String message) {
-    debugPrint(
-      '[QR WALK] $message',
-    );
+    debugPrint('[QR WALK] $message');
   }
 }
