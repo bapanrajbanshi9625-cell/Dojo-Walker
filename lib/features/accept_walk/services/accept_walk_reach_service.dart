@@ -255,6 +255,7 @@ class AcceptWalkReachService {
     batch.update(
       requestRef,
       <String, dynamic>{
+        'status': 'reached',
         'reached': true,
         'reachedAt': now,
 
