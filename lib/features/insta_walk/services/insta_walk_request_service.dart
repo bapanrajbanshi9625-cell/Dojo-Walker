@@ -63,7 +63,7 @@ class InstaWalkRequestService {
       WalkerAvailabilityService.instance;
 
   // ============================================================
-  // COLLECTION
+  // COLLECTIONS
   // ============================================================
 
   CollectionReference<Map<String, dynamic>> get _walkRequests {
@@ -119,7 +119,9 @@ class InstaWalkRequestService {
   // ============================================================
   // CURRENT WALKER ID
   //
-  // Firebase Auth UID is the canonical fallback.
+  // Walker ID is read from walkers/{uid}.
+  //
+  // Firebase Auth UID remains the canonical UID used for claims.
   // ============================================================
 
   Future<String?> getCurrentWalkerId() async {
@@ -136,8 +138,13 @@ class InstaWalkRequestService {
       final Map<String, dynamic>? data = snapshot.data();
 
       if (data != null) {
-        final String walkerId =
+        String walkerId =
             data['walkerId']?.toString().trim() ?? '';
+
+        if (walkerId.isEmpty) {
+          walkerId =
+              data['Walker ID']?.toString().trim() ?? '';
+        }
 
         if (walkerId.isNotEmpty) {
           return walkerId;
@@ -149,62 +156,40 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
-  // CHECK REJECTION
-  //
-  // walk_request/{walkId}/rejections/{walkerId}
-  // ============================================================
-
-  Future<bool> _hasRejected(
-    String walkId,
-    String walkerId,
-  ) async {
-    final String id = walkId.trim();
-
-    final String wid = walkerId.trim();
-
-    if (id.isEmpty || wid.isEmpty) {
-      return false;
-    }
-
-    final DocumentSnapshot<Map<String, dynamic>> snapshot =
-        await _walkRequests
-            .doc(id)
-            .collection('rejections')
-            .doc(wid)
-            .get();
-
-    return snapshot.exists;
-  }
-
-  // ============================================================
   // CLAIM ONE INCOMING REQUEST
   //
   // IMPORTANT:
   //
   // A searching request can be offered to ONLY ONE Walker.
   //
-  // The claim is stored on the request as:
+  // The claim is stored on:
   //
-  // incomingWalkerUid
-  // incomingClaimedAt
+  // walk_request/{walkId}
   //
-  // This transaction makes the claim race-safe between
-  // multiple Walker devices.
+  //     incomingWalkerUid
+  //     incomingClaimedAt
+  //
+  // Rejection is checked INSIDE the same transaction.
+  //
+  // This prevents:
+  //
+  // reject -> claim race
+  //
+  // and keeps rejected requests hidden from that Walker.
   //
   // Returns:
   //
   // true  = this Walker owns the incoming offer
-  // false = another Walker owns it / request unavailable
+  // false = unavailable / rejected / another Walker owns it
   // ============================================================
 
   Future<bool> _claimIncomingRequest({
     required String walkId,
     required String walkerUid,
+    required String walkerId,
   }) async {
     // ------------------------------------------------------------
     // GLOBAL ONLINE GUARD
-    //
-    // Never claim a request while Offline.
     // ------------------------------------------------------------
 
     if (!_availabilityService.isOnline) {
@@ -212,41 +197,50 @@ class InstaWalkRequestService {
     }
 
     final String id = walkId.trim();
-
     final String uid = walkerUid.trim();
+    final String wid = walkerId.trim();
 
-    if (id.isEmpty || uid.isEmpty) {
+    if (id.isEmpty ||
+        uid.isEmpty ||
+        wid.isEmpty) {
       return false;
     }
 
     final DocumentReference<Map<String, dynamic>> walkRef =
         _walkRequests.doc(id);
 
+    final DocumentReference<Map<String, dynamic>> rejectionRef =
+        walkRef
+            .collection('rejections')
+            .doc(wid);
+
     return _firestore.runTransaction<bool>(
       (
         Transaction transaction,
       ) async {
         // --------------------------------------------------------
-        // CHECK AGAIN INSIDE THE OPERATION
-        //
-        // Availability may change while this transaction is
-        // being prepared.
+        // ONLINE CHECK
         // --------------------------------------------------------
 
         if (!_availabilityService.isOnline) {
           return false;
         }
 
-        final DocumentSnapshot<Map<String, dynamic>> snapshot =
+        // --------------------------------------------------------
+        // READ MAIN REQUEST
+        // --------------------------------------------------------
+
+        final DocumentSnapshot<Map<String, dynamic>> walkSnapshot =
             await transaction.get(
           walkRef,
         );
 
-        if (!snapshot.exists) {
+        if (!walkSnapshot.exists) {
           return false;
         }
 
-        final Map<String, dynamic>? data = snapshot.data();
+        final Map<String, dynamic>? data =
+            walkSnapshot.data();
 
         if (data == null) {
           return false;
@@ -264,6 +258,28 @@ class InstaWalkRequestService {
         }
 
         // --------------------------------------------------------
+        // READ REJECTION INSIDE SAME TRANSACTION
+        //
+        // This is important.
+        //
+        // IncomingWalkRejectService writes:
+        //
+        // rejections/{walkerId}
+        //
+        // A rejected Walker must never claim this request again.
+        // --------------------------------------------------------
+
+        final DocumentSnapshot<Map<String, dynamic>>
+            rejectionSnapshot =
+            await transaction.get(
+          rejectionRef,
+        );
+
+        if (rejectionSnapshot.exists) {
+          return false;
+        }
+
+        // --------------------------------------------------------
         // CURRENT CLAIM
         // --------------------------------------------------------
 
@@ -273,9 +289,8 @@ class InstaWalkRequestService {
         // --------------------------------------------------------
         // ALREADY CLAIMED BY THIS WALKER
         //
-        // Keep the existing claim.
-        // Do NOT write again.
-        // This prevents unnecessary snapshot loops.
+        // Keep existing claim.
+        // Do not write again.
         // --------------------------------------------------------
 
         if (incomingWalkerUid == uid) {
@@ -292,7 +307,7 @@ class InstaWalkRequestService {
         }
 
         // --------------------------------------------------------
-        // FINAL ONLINE CHECK BEFORE CLAIM
+        // FINAL ONLINE CHECK
         // --------------------------------------------------------
 
         if (!_availabilityService.isOnline) {
@@ -307,7 +322,10 @@ class InstaWalkRequestService {
           walkRef,
           <String, dynamic>{
             'incomingWalkerUid': uid,
-            'incomingClaimedAt': FieldValue.serverTimestamp(),
+            'incomingClaimedAt':
+                FieldValue.serverTimestamp(),
+            'updatedAt':
+                FieldValue.serverTimestamp(),
           },
         );
 
@@ -325,20 +343,14 @@ class InstaWalkRequestService {
   //     Listen for searching requests.
   //
   // OFFLINE:
-  //     No request discovery.
-  //     Existing request stream is cancelled.
+  //     Request discovery stops immediately.
   //
   // ONLINE AGAIN:
-  //     Request discovery starts again.
+  //     Discovery starts again.
   //
-  // Auth-state aware:
+  // Rejected requests are hidden.
   //
-  // If Firebase Auth becomes available after app startup,
-  // the listener starts automatically.
-  //
-  // Only one Walker can claim a request at a time.
-  //
-  // Rejected requests are hidden for that Walker.
+  // Only ONE request is returned to a Walker at a time.
   // ============================================================
 
   Stream<List<InstaWalkRequest>> pendingRequestsStream() {
@@ -396,7 +408,8 @@ class InstaWalkRequestService {
 
           await stopRequestListener();
 
-          if (disposed) {
+          if (disposed ||
+              currentGeneration != generation) {
             return;
           }
 
@@ -416,7 +429,8 @@ class InstaWalkRequestService {
             return;
           }
 
-          final String? walkerId = await getCurrentWalkerId();
+          final String? walkerId =
+              await getCurrentWalkerId();
 
           if (disposed ||
               currentGeneration != generation) {
@@ -433,6 +447,9 @@ class InstaWalkRequestService {
             emitEmpty();
             return;
           }
+
+          final String cleanWalkerId =
+              walkerId.trim();
 
           // ------------------------------------------------------
           // FIRESTORE SEARCHING LISTENER
@@ -472,47 +489,23 @@ class InstaWalkRequestService {
                   return;
                 }
 
-                // ----------------------------------------------
-                // GLOBAL ONLINE CHECK
-                // ----------------------------------------------
-
                 if (!_availabilityService.isOnline) {
                   emitEmpty();
                   return;
                 }
 
-                // ----------------------------------------------
-                // PRIVATE REJECTION CHECK
-                // ----------------------------------------------
-
-                final bool alreadyRejected =
-                    await _hasRejected(
-                  doc.id,
-                  walkerId,
-                );
-
-                if (disposed ||
-                    currentGeneration != generation) {
-                  return;
-                }
-
-                if (!_availabilityService.isOnline) {
-                  emitEmpty();
-                  return;
-                }
-
-                if (alreadyRejected) {
-                  continue;
-                }
-
-                // ----------------------------------------------
-                // CLAIM CHECK
-                // ----------------------------------------------
+                // ------------------------------------------------
+                // CLAIM
+                //
+                // Rejection is checked atomically inside this
+                // transaction.
+                // ------------------------------------------------
 
                 final bool claimed =
                     await _claimIncomingRequest(
                   walkId: doc.id,
                   walkerUid: walkerUid,
+                  walkerId: cleanWalkerId,
                 );
 
                 if (disposed ||
@@ -529,6 +522,10 @@ class InstaWalkRequestService {
                   continue;
                 }
 
+                // ------------------------------------------------
+                // BUILD REQUEST
+                // ------------------------------------------------
+
                 final InstaWalkRequest request =
                     InstaWalkRequest.fromFirestore(
                   doc,
@@ -538,9 +535,9 @@ class InstaWalkRequestService {
                   request,
                 );
 
-                // ----------------------------------------------
+                // ------------------------------------------------
                 // ONLY ONE REQUEST PER WALKER
-                // ----------------------------------------------
+                // ------------------------------------------------
 
                 break;
               }
@@ -583,7 +580,7 @@ class InstaWalkRequestService {
         // AVAILABILITY CHANGE
         //
         // Online  -> start discovery
-        // Offline -> immediately stop discovery
+        // Offline -> stop discovery immediately
         // --------------------------------------------------------
 
         void onAvailabilityChanged() {
@@ -602,7 +599,8 @@ class InstaWalkRequestService {
             return;
           }
 
-          final User? user = _auth.currentUser;
+          final User? user =
+              _auth.currentUser;
 
           if (user == null) {
             emitEmpty();
@@ -618,7 +616,8 @@ class InstaWalkRequestService {
         // AUTH CHANGE
         // --------------------------------------------------------
 
-        authSubscription = _auth.authStateChanges().listen(
+        authSubscription =
+            _auth.authStateChanges().listen(
           (User? user) {
             if (disposed) {
               return;
@@ -664,7 +663,8 @@ class InstaWalkRequestService {
         // INITIAL STATE
         // --------------------------------------------------------
 
-        final User? initialUser = _auth.currentUser;
+        final User? initialUser =
+            _auth.currentUser;
 
         if (initialUser == null) {
           emitEmpty();
