@@ -5,14 +5,19 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'walker_location_service.dart';
 
 class WalkerAvailabilityService extends ChangeNotifier {
-  WalkerAvailabilityService._();
+  WalkerAvailabilityService._() {
+    _restoreAvailabilityState();
+  }
 
   static final WalkerAvailabilityService instance =
       WalkerAvailabilityService._();
+
+  static const String _onlinePreferenceKey = 'walker_online';
 
   final WalkerLocationService _locationService =
       WalkerLocationService.instance;
@@ -20,6 +25,8 @@ class WalkerAvailabilityService extends ChangeNotifier {
   bool _isOnline = false;
   bool _isActiveWalk = false;
   bool _isChangingStatus = false;
+
+  bool _stateRestored = false;
 
   String? _error;
 
@@ -52,15 +59,203 @@ class WalkerAvailabilityService extends ChangeNotifier {
       _locationService.locationStream;
 
   // ============================================================
+  // RESTORE SAVED AVAILABILITY STATE
+  // ============================================================
+
+  Future<void> _restoreAvailabilityState() async {
+    if (_stateRestored) {
+      return;
+    }
+
+    try {
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+
+      final bool savedOnline =
+          prefs.getBool(_onlinePreferenceKey) ?? false;
+
+      _stateRestored = true;
+
+      // ----------------------------------------------------------
+      // User was manually Offline.
+      // Nothing to restore.
+      // ----------------------------------------------------------
+
+      if (!savedOnline) {
+        debugPrint(
+          'Walker Availability: Saved state = OFFLINE',
+        );
+
+        notifyListeners();
+        return;
+      }
+
+      // ----------------------------------------------------------
+      // User was Online before app/process restart.
+      // Restore Online + GPS.
+      // ----------------------------------------------------------
+
+      debugPrint(
+        'Walker Availability: Saved state = ONLINE. '
+        'Restoring availability...',
+      );
+
+      final bool restored =
+          await _restoreOnlineState();
+
+      if (!restored) {
+        debugPrint(
+          'Walker Availability: Could not restore GPS tracking '
+          'at startup. Online state will remain available for '
+          'a future retry.',
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint(
+        'Walker Availability Restore Error: $e',
+      );
+
+      debugPrint('$stackTrace');
+
+      _stateRestored = true;
+    }
+  }
+
+  Future<bool> _restoreOnlineState() async {
+    try {
+      // --------------------------------------------------------
+      // CHECK GPS SERVICE + PERMISSION
+      // --------------------------------------------------------
+
+      final bool permissionReady =
+          await _locationService.ensurePermission();
+
+      if (!permissionReady) {
+        _setError(
+          _locationService.lastError ??
+              'Location permission is required to restore Online status.',
+        );
+
+        return false;
+      }
+
+      // --------------------------------------------------------
+      // GET CURRENT LOCATION
+      // --------------------------------------------------------
+
+      final Position? position =
+          await _locationService.getCurrentLocation();
+
+      if (position == null) {
+        _setError(
+          _locationService.lastError ??
+              'Unable to restore your current location.',
+        );
+
+        return false;
+      }
+
+      // --------------------------------------------------------
+      // START GLOBAL TRACKING
+      // --------------------------------------------------------
+
+      final bool trackingStarted =
+          await _locationService.startTracking();
+
+      if (!trackingStarted) {
+        _setError(
+          _locationService.lastError ??
+              'Unable to restore location tracking.',
+        );
+
+        return false;
+      }
+
+      _isOnline = true;
+
+      _listenToGlobalLocation();
+
+      _clearError();
+
+      debugPrint(
+        'Walker Availability: ONLINE restored.',
+      );
+
+      debugPrint(
+        'Walker Availability: Restored location '
+        '${position.latitude}, ${position.longitude}',
+      );
+
+      notifyListeners();
+
+      return true;
+    } catch (e, stackTrace) {
+      _setError(
+        'Unable to restore Online status: $e',
+      );
+
+      debugPrint(
+        'Walker Availability Restore Online Error: $e',
+      );
+
+      debugPrint('$stackTrace');
+
+      return false;
+    }
+  }
+
+  Future<void> _ensureStateRestored() async {
+    if (_stateRestored) {
+      return;
+    }
+
+    await _restoreAvailabilityState();
+  }
+
+  // ============================================================
+  // SAVE AVAILABILITY STATE
+  // ============================================================
+
+  Future<void> _saveOnlineState(bool online) async {
+    try {
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+
+      await prefs.setBool(
+        _onlinePreferenceKey,
+        online,
+      );
+
+      debugPrint(
+        'Walker Availability: Saved state = '
+        '${online ? 'ONLINE' : 'OFFLINE'}',
+      );
+    } catch (e, stackTrace) {
+      debugPrint(
+        'Walker Availability Save State Error: $e',
+      );
+
+      debugPrint('$stackTrace');
+    }
+  }
+
+  // ============================================================
   // ONLINE
   // ============================================================
 
   Future<bool> goOnline() async {
+    await _ensureStateRestored();
+
     if (_isChangingStatus) {
       return false;
     }
 
-    if (_isOnline) {
+    // ----------------------------------------------------------
+    // Already Online + GPS tracking is active.
+    // ----------------------------------------------------------
+
+    if (_isOnline &&
+        _locationService.isTracking) {
       return true;
     }
 
@@ -81,6 +276,7 @@ class WalkerAvailabilityService extends ChangeNotifier {
           _locationService.lastError ??
               'Location permission is required to go online.',
         );
+
         return false;
       }
 
@@ -96,6 +292,7 @@ class WalkerAvailabilityService extends ChangeNotifier {
           _locationService.lastError ??
               'Unable to get your current location.',
         );
+
         return false;
       }
 
@@ -111,12 +308,19 @@ class WalkerAvailabilityService extends ChangeNotifier {
           _locationService.lastError ??
               'Unable to start location tracking.',
         );
+
         return false;
       }
 
       _isOnline = true;
 
       _listenToGlobalLocation();
+
+      // --------------------------------------------------------
+      // Persist Online state.
+      // --------------------------------------------------------
+
+      await _saveOnlineState(true);
 
       debugPrint(
         'Walker Availability: ONLINE',
@@ -151,6 +355,8 @@ class WalkerAvailabilityService extends ChangeNotifier {
   // ============================================================
 
   Future<bool> goOffline() async {
+    await _ensureStateRestored();
+
     if (_isChangingStatus) {
       return false;
     }
@@ -175,6 +381,12 @@ class WalkerAvailabilityService extends ChangeNotifier {
     }
 
     if (!_isOnline) {
+      // --------------------------------------------------------
+      // Explicit user Offline action must remain persisted.
+      // --------------------------------------------------------
+
+      await _saveOnlineState(false);
+
       return true;
     }
 
@@ -186,6 +398,12 @@ class WalkerAvailabilityService extends ChangeNotifier {
       await _stopGlobalLocation();
 
       _isOnline = false;
+
+      // --------------------------------------------------------
+      // Persist manual Offline state.
+      // --------------------------------------------------------
+
+      await _saveOnlineState(false);
 
       debugPrint(
         'Walker Availability: OFFLINE',
@@ -215,6 +433,8 @@ class WalkerAvailabilityService extends ChangeNotifier {
   // ============================================================
 
   Future<bool> toggleAvailability() async {
+    await _ensureStateRestored();
+
     if (_isOnline) {
       return goOffline();
     }
@@ -230,6 +450,8 @@ class WalkerAvailabilityService extends ChangeNotifier {
   ///
   /// Active walk always requires the walker to remain Online.
   Future<void> setActiveWalk(bool active) async {
+    await _ensureStateRestored();
+
     _isActiveWalk = active;
 
     debugPrint(
@@ -255,7 +477,10 @@ class WalkerAvailabilityService extends ChangeNotifier {
   // ============================================================
 
   Future<bool> ensureOnlineForWalk() async {
-    if (_isOnline && _locationService.isTracking) {
+    await _ensureStateRestored();
+
+    if (_isOnline &&
+        _locationService.isTracking) {
       return true;
     }
 
@@ -372,6 +597,8 @@ class WalkerAvailabilityService extends ChangeNotifier {
   // ============================================================
 
   Future<Position?> refreshCurrentLocation() async {
+    await _ensureStateRestored();
+
     if (!_isOnline) {
       _setError(
         'Go Online before refreshing your location.',
@@ -430,8 +657,21 @@ class WalkerAvailabilityService extends ChangeNotifier {
 
     await _locationService.stopTracking();
 
-    _isOnline = false;
-    _isActiveWalk = false;
+    // ----------------------------------------------------------
+    // IMPORTANT:
+    //
+    // Do NOT change _isOnline to false here.
+    // Do NOT save Offline here.
+    //
+    // The persisted state represents the walker's last explicit
+    // availability choice. App shutdown must not convert Online
+    // into Offline.
+    // ----------------------------------------------------------
+
+    debugPrint(
+      'Walker Availability: Service cleanup completed. '
+      'Persisted availability state was preserved.',
+    );
 
     notifyListeners();
   }
