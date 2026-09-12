@@ -10,6 +10,16 @@ import '../../../services/walker_location_service.dart';
 /// ============================================================
 /// ACCEPT WALK ACCEPT SERVICE
 ///
+/// RESPONSIBILITIES:
+///
+/// - Validate current Walker
+/// - Validate canonical Walk ID
+/// - Verify incoming Walker ownership
+/// - Accept the searching walk request
+/// - Mark the walk as active
+/// - Consume the canonical Walker location stream
+/// - Write latest Walker location to Firestore
+///
 /// GPS ARCHITECTURE:
 ///
 ///   ONLINE   → WalkerAvailabilityService controls GPS
@@ -23,10 +33,14 @@ import '../../../services/walker_location_service.dart';
 /// This service NEVER starts or stops GPS.
 ///
 /// GPS lifecycle is owned only by:
+///
 ///   WalkerAvailabilityService
 ///
-/// This service only consumes the canonical location stream
-/// and writes the latest walker location to Firestore.
+/// This service only consumes:
+///
+///   WalkerLocationService.instance.locationStream
+///
+/// and writes the latest Walker location to Firestore.
 /// ============================================================
 
 class AcceptWalkAcceptService {
@@ -101,7 +115,8 @@ class AcceptWalkAcceptService {
       );
     }
 
-    final Map<String, dynamic>? data = snapshot.data();
+    final Map<String, dynamic>? data =
+        snapshot.data();
 
     if (data == null) {
       throw Exception(
@@ -281,7 +296,8 @@ class AcceptWalkAcceptService {
       );
     }
 
-    final String walkerUid = user.uid.trim();
+    final String walkerUid =
+        user.uid.trim();
 
     if (walkerUid.isEmpty) {
       throw Exception(
@@ -289,7 +305,8 @@ class AcceptWalkAcceptService {
       );
     }
 
-    final String id = requestId.trim();
+    final String id =
+        requestId.trim();
 
     if (id.isEmpty) {
       throw Exception(
@@ -364,7 +381,12 @@ class AcceptWalkAcceptService {
       (
         Transaction transaction,
       ) async {
-        final DocumentSnapshot<Map<String, dynamic>> walkSnapshot =
+        // --------------------------------------------------------
+        // READ MAIN REQUEST
+        // --------------------------------------------------------
+
+        final DocumentSnapshot<Map<String, dynamic>>
+            walkSnapshot =
             await transaction.get(
           walkRef,
         );
@@ -384,6 +406,10 @@ class AcceptWalkAcceptService {
           );
         }
 
+        // --------------------------------------------------------
+        // STATUS
+        // --------------------------------------------------------
+
         final String status =
             data['status']
                     ?.toString()
@@ -397,9 +423,16 @@ class AcceptWalkAcceptService {
           );
         }
 
-        // ========================================================
-        // INCOMING WALK CLAIM GUARD
-        // ========================================================
+        // --------------------------------------------------------
+        // INCOMING WALK CLAIM
+        //
+        // ACCEPT MUST BELONG TO THE WALKER WHO RECEIVED
+        // THE INCOMING OFFER.
+        //
+        // Empty claim is NOT accepted here.
+        // This prevents another online Walker from directly
+        // accepting an unclaimed request.
+        // --------------------------------------------------------
 
         final String incomingWalkerUid =
             data['incomingWalkerUid']
@@ -407,16 +440,25 @@ class AcceptWalkAcceptService {
                     .trim() ??
                 '';
 
-        if (incomingWalkerUid.isNotEmpty &&
-            incomingWalkerUid != walkerUid) {
+        if (incomingWalkerUid.isEmpty) {
+          throw Exception(
+            'This walk is not currently assigned to you.',
+          );
+        }
+
+        if (incomingWalkerUid != walkerUid) {
           throw Exception(
             'This walk is currently assigned to another walker.',
           );
         }
 
-        // ========================================================
+        // --------------------------------------------------------
         // CHECK REJECTION
-        // ========================================================
+        //
+        // Rejection and acceptance both use:
+        //
+        // rejections/{walkerId}
+        // --------------------------------------------------------
 
         final DocumentSnapshot<Map<String, dynamic>>
             rejectionSnapshot =
@@ -430,9 +472,9 @@ class AcceptWalkAcceptService {
           );
         }
 
-        // ========================================================
+        // --------------------------------------------------------
         // ACCEPT
-        // ========================================================
+        // --------------------------------------------------------
 
         transaction.update(
           walkRef,
@@ -443,11 +485,14 @@ class AcceptWalkAcceptService {
             'walkerUid': walkerUid,
             'walkerName': walkerName,
             'walkerPhone': walkerPhone,
-            'walkerProfileImage': walkerProfileImage,
+            'walkerProfileImage':
+                walkerProfileImage,
             'acceptedBy': walkerId,
             'acceptedByUid': walkerUid,
-            'acceptedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
+            'acceptedAt':
+                FieldValue.serverTimestamp(),
+            'updatedAt':
+                FieldValue.serverTimestamp(),
           },
         );
       },
@@ -455,6 +500,9 @@ class AcceptWalkAcceptService {
 
     // ==========================================================
     // MARK ACTIVE WALK
+    //
+    // This changes availability state only.
+    // It does NOT directly start GPS.
     // ==========================================================
 
     _availabilityService.setActiveWalk(true);
@@ -471,7 +519,7 @@ class AcceptWalkAcceptService {
       );
     } catch (e) {
       // Accept already succeeded.
-      // Firestore listener failure must not undo acceptance.
+      // Location listener failure must not undo acceptance.
 
       // ignore: avoid_print
       print(
@@ -490,11 +538,16 @@ class AcceptWalkAcceptService {
   Future<void> _listenToLocationUpdates({
     required String requestId,
   }) async {
-    final String id = requestId.trim();
+    final String id =
+        requestId.trim();
 
     if (id.isEmpty) {
       return;
     }
+
+    // ----------------------------------------------------------
+    // Cancel previous listener owned by this service.
+    // ----------------------------------------------------------
 
     await _locationSubscription?.cancel();
 
@@ -522,7 +575,9 @@ class AcceptWalkAcceptService {
 
     _locationSubscription =
         _locationService.locationStream.listen(
-      (Position position) {
+      (
+        Position position,
+      ) {
         if (!_availabilityService.isOnline) {
           return;
         }
@@ -552,15 +607,24 @@ class AcceptWalkAcceptService {
     required String requestId,
     required Position position,
   }) async {
-    final String id = requestId.trim();
+    final String id =
+        requestId.trim();
 
     if (id.isEmpty) {
       return;
     }
 
+    // ----------------------------------------------------------
+    // Ignore updates belonging to an old walk.
+    // ----------------------------------------------------------
+
     if (_trackingRequestId != id) {
       return;
     }
+
+    // ----------------------------------------------------------
+    // Never write location while Offline.
+    // ----------------------------------------------------------
 
     if (!_availabilityService.isOnline) {
       return;
@@ -575,8 +639,10 @@ class AcceptWalkAcceptService {
             position.latitude,
             position.longitude,
           ),
-          'walkerHeading': position.heading,
-          'walkerSpeed': position.speed,
+          'walkerHeading':
+              position.heading,
+          'walkerSpeed':
+              position.speed,
           'locationUpdatedAt':
               FieldValue.serverTimestamp(),
           'updatedAt':
@@ -584,8 +650,10 @@ class AcceptWalkAcceptService {
         },
       );
     } catch (e) {
-      // Firestore failure must NOT stop GPS.
-      // GPS lifecycle remains independent.
+      // Firestore failure must NEVER stop GPS.
+      //
+      // GPS lifecycle remains owned by
+      // WalkerAvailabilityService.
 
       // ignore: avoid_print
       print(
@@ -610,6 +678,7 @@ class AcceptWalkAcceptService {
   // INTERNAL LISTENER CLEANUP
   //
   // ONLY removes this service's listener.
+  //
   // NEVER stops WalkerLocationService.
   // ============================================================
 
