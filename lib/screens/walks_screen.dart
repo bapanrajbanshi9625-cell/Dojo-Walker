@@ -264,8 +264,7 @@ class _WalksScreenState extends State<WalksScreen>
 
     if (!availability.canPerformWalkAction()) {
       _showMessage(
-        availability.unavailableMessage ??
-            'Insta Walk is not available right now.',
+        availability.unavailableMessage,
       );
       return;
     }
@@ -308,8 +307,7 @@ class _WalksScreenState extends State<WalksScreen>
 
     if (!availability.canPerformWalkAction()) {
       _showMessage(
-        availability.unavailableMessage ??
-            'Insta Walk is not available right now.',
+        availability.unavailableMessage,
       );
       return;
     }
@@ -343,8 +341,7 @@ class _WalksScreenState extends State<WalksScreen>
           });
 
           _showMessage(
-            availability.unavailableMessage ??
-                'Insta Walk is not available right now.',
+            availability.unavailableMessage,
           );
         }
         return;
