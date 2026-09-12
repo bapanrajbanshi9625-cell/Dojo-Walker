@@ -11,7 +11,7 @@ import 'walker_location_service.dart';
 
 class WalkerAvailabilityService extends ChangeNotifier {
   WalkerAvailabilityService._() {
-    _restoreAvailabilityState();
+    _restoreFuture = _restoreAvailabilityState();
   }
 
   static final WalkerAvailabilityService instance =
@@ -22,10 +22,11 @@ class WalkerAvailabilityService extends ChangeNotifier {
   final WalkerLocationService _locationService =
       WalkerLocationService.instance;
 
+  late final Future<void> _restoreFuture;
+
   bool _isOnline = false;
   bool _isActiveWalk = false;
   bool _isChangingStatus = false;
-
   bool _stateRestored = false;
 
   String? _error;
@@ -58,6 +59,14 @@ class WalkerAvailabilityService extends ChangeNotifier {
   Stream<Position> get locationStream =>
       _locationService.locationStream;
 
+  /// Wait until the initial saved availability state has been
+  /// restored.
+  ///
+  /// Request discovery uses this before checking isOnline so that
+  /// startup timing cannot make an already-Online Walker appear
+  /// Offline temporarily.
+  Future<void> get ready => _restoreFuture;
+
   // ============================================================
   // RESTORE SAVED AVAILABILITY STATE
   // ============================================================
@@ -74,14 +83,14 @@ class WalkerAvailabilityService extends ChangeNotifier {
       final bool savedOnline =
           prefs.getBool(_onlinePreferenceKey) ?? false;
 
-      _stateRestored = true;
-
       // ----------------------------------------------------------
-      // User was manually Offline.
-      // Nothing to restore.
+      // User explicitly chose Offline.
       // ----------------------------------------------------------
 
       if (!savedOnline) {
+        _isOnline = false;
+        _stateRestored = true;
+
         debugPrint(
           'Walker Availability: Saved state = OFFLINE',
         );
@@ -106,18 +115,20 @@ class WalkerAvailabilityService extends ChangeNotifier {
       if (!restored) {
         debugPrint(
           'Walker Availability: Could not restore GPS tracking '
-          'at startup. Online state will remain available for '
-          'a future retry.',
+          'at startup. Walker remains Offline until Online is '
+          'successfully established.',
         );
       }
+
+      _stateRestored = true;
     } catch (e, stackTrace) {
+      _stateRestored = true;
+
       debugPrint(
         'Walker Availability Restore Error: $e',
       );
 
       debugPrint('$stackTrace');
-
-      _stateRestored = true;
     }
   }
 
@@ -205,11 +216,7 @@ class WalkerAvailabilityService extends ChangeNotifier {
   }
 
   Future<void> _ensureStateRestored() async {
-    if (_stateRestored) {
-      return;
-    }
-
-    await _restoreAvailabilityState();
+    await _restoreFuture;
   }
 
   // ============================================================
@@ -250,10 +257,6 @@ class WalkerAvailabilityService extends ChangeNotifier {
       return false;
     }
 
-    // ----------------------------------------------------------
-    // Already Online + GPS tracking is active.
-    // ----------------------------------------------------------
-
     if (_isOnline &&
         _locationService.isTracking) {
       return true;
@@ -264,10 +267,6 @@ class WalkerAvailabilityService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // --------------------------------------------------------
-      // CHECK GPS SERVICE + PERMISSION
-      // --------------------------------------------------------
-
       final bool permissionReady =
           await _locationService.ensurePermission();
 
@@ -280,10 +279,6 @@ class WalkerAvailabilityService extends ChangeNotifier {
         return false;
       }
 
-      // --------------------------------------------------------
-      // GET IMMEDIATE CURRENT LOCATION
-      // --------------------------------------------------------
-
       final Position? position =
           await _locationService.getCurrentLocation();
 
@@ -295,10 +290,6 @@ class WalkerAvailabilityService extends ChangeNotifier {
 
         return false;
       }
-
-      // --------------------------------------------------------
-      // START GLOBAL CONTINUOUS TRACKING
-      // --------------------------------------------------------
 
       final bool trackingStarted =
           await _locationService.startTracking();
@@ -315,10 +306,6 @@ class WalkerAvailabilityService extends ChangeNotifier {
       _isOnline = true;
 
       _listenToGlobalLocation();
-
-      // --------------------------------------------------------
-      // Persist Online state.
-      // --------------------------------------------------------
 
       await _saveOnlineState(true);
 
@@ -361,10 +348,6 @@ class WalkerAvailabilityService extends ChangeNotifier {
       return false;
     }
 
-    // ----------------------------------------------------------
-    // ACTIVE WALK LOCK
-    // ----------------------------------------------------------
-
     if (_isActiveWalk) {
       _setError(
         'You cannot go offline during an active walk.',
@@ -381,12 +364,7 @@ class WalkerAvailabilityService extends ChangeNotifier {
     }
 
     if (!_isOnline) {
-      // --------------------------------------------------------
-      // Explicit user Offline action must remain persisted.
-      // --------------------------------------------------------
-
       await _saveOnlineState(false);
-
       return true;
     }
 
@@ -398,10 +376,6 @@ class WalkerAvailabilityService extends ChangeNotifier {
       await _stopGlobalLocation();
 
       _isOnline = false;
-
-      // --------------------------------------------------------
-      // Persist manual Offline state.
-      // --------------------------------------------------------
 
       await _saveOnlineState(false);
 
@@ -446,9 +420,6 @@ class WalkerAvailabilityService extends ChangeNotifier {
   // ACTIVE WALK CONTROL
   // ============================================================
 
-  /// Call this when a walk becomes active.
-  ///
-  /// Active walk always requires the walker to remain Online.
   Future<void> setActiveWalk(bool active) async {
     await _ensureStateRestored();
 
@@ -657,16 +628,8 @@ class WalkerAvailabilityService extends ChangeNotifier {
 
     await _locationService.stopTracking();
 
-    // ----------------------------------------------------------
     // IMPORTANT:
-    //
-    // Do NOT change _isOnline to false here.
-    // Do NOT save Offline here.
-    //
-    // The persisted state represents the walker's last explicit
-    // availability choice. App shutdown must not convert Online
-    // into Offline.
-    // ----------------------------------------------------------
+    // Do not change persisted availability to Offline here.
 
     debugPrint(
       'Walker Availability: Service cleanup completed. '
