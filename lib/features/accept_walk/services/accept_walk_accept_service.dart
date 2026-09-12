@@ -279,9 +279,9 @@ class AcceptWalkAcceptService {
 
     if (!_availabilityService.canPerformWalkAction()) {
       throw Exception(
-        _availabilityService.unavailableMessage ??
-            'Walk action is currently unavailable.',
-      );
+        throw Exception(
+         _availabilityService.unavailableMessage,
+       );
     }
 
     final User? user = _currentUser;
