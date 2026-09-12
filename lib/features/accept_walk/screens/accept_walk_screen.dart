@@ -25,31 +25,25 @@ class AcceptWalkScreen extends StatefulWidget {
   final InstaWalkRequest request;
 
   @override
-  State<AcceptWalkScreen> createState() =>
-      _AcceptWalkScreenState();
+  State<AcceptWalkScreen> createState() => _AcceptWalkScreenState();
 }
 
-class _AcceptWalkScreenState
-    extends State<AcceptWalkScreen> {
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final WalkerLocationService _locationService =
       WalkerLocationService.instance;
 
-  final WalkerRouteService _routeService =
-      WalkerRouteService.instance;
+  final WalkerRouteService _routeService = WalkerRouteService.instance;
 
   final AcceptWalkReachService _reachService =
       AcceptWalkReachService.instance;
 
   StreamSubscription<Position>? _locationSubscription;
 
-  StreamSubscription<
-      DocumentSnapshot<Map<String, dynamic>>>?
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
       _requestSubscription;
 
   Position? _walkerPosition;
@@ -96,15 +90,13 @@ class _AcceptWalkScreenState
   }
 
   String get _ownerUid {
-    final String authUid =
-        widget.request.ownerAuthUid.trim();
+    final String authUid = widget.request.ownerAuthUid.trim();
 
     if (authUid.isNotEmpty) {
       return authUid;
     }
 
-    final String uid =
-        widget.request.ownerUid.trim();
+    final String uid = widget.request.ownerUid.trim();
 
     if (uid.isNotEmpty) {
       return uid;
@@ -114,8 +106,7 @@ class _AcceptWalkScreenState
   }
 
   String get _ownerName {
-    final String value =
-        widget.request.ownerName.trim();
+    final String value = widget.request.ownerName.trim();
 
     return value.isEmpty ? 'Owner' : value;
   }
@@ -133,8 +124,7 @@ class _AcceptWalkScreenState
   }
 
   String get _walkerId {
-    final String requestWalkerId =
-        widget.request.walkerId.trim();
+    final String requestWalkerId = widget.request.walkerId.trim();
 
     if (requestWalkerId.isNotEmpty) {
       return requestWalkerId;
@@ -148,8 +138,7 @@ class _AcceptWalkScreenState
   // ============================================================
 
   String get _dogName {
-    final String value =
-        widget.request.dogName.trim();
+    final String value = widget.request.dogName.trim();
 
     return value.isEmpty ? 'Your Pet' : value;
   }
@@ -163,8 +152,7 @@ class _AcceptWalkScreenState
   // ============================================================
 
   String get _address {
-    final String pickup =
-        widget.request.pickupAddress.trim();
+    final String pickup = widget.request.pickupAddress.trim();
 
     if (pickup.isNotEmpty) {
       return pickup;
@@ -204,8 +192,7 @@ class _AcceptWalkScreenState
   void _listenToCanonicalLocation() {
     _locationSubscription?.cancel();
 
-    _locationSubscription =
-        _locationService.locationStream.listen(
+    _locationSubscription = _locationService.locationStream.listen(
       _updateWalkerLocation,
       onError: (Object error) {
         debugPrint(
@@ -266,12 +253,9 @@ class _AcceptWalkScreenState
     }
 
     final DocumentReference<Map<String, dynamic>> requestRef =
-        _firestore
-            .collection('walk_request')
-            .doc(requestId);
+        _firestore.collection('walk_request').doc(requestId);
 
-    _requestSubscription =
-        requestRef.snapshots().listen(
+    _requestSubscription = requestRef.snapshots().listen(
       (
         DocumentSnapshot<Map<String, dynamic>> snapshot,
       ) {
@@ -286,19 +270,14 @@ class _AcceptWalkScreenState
           return;
         }
 
-        final Map<String, dynamic>? data =
-            snapshot.data();
+        final Map<String, dynamic>? data = snapshot.data();
 
         if (data == null) {
           return;
         }
 
         final String status =
-            data['status']
-                    ?.toString()
-                    .trim()
-                    .toLowerCase() ??
-                '';
+            data['status']?.toString().trim().toLowerCase() ?? '';
 
         if (status == 'accepted') {
           return;
@@ -335,8 +314,7 @@ class _AcceptWalkScreenState
 
     double distance = 0;
 
-    if (ownerLatitude != null &&
-        ownerLongitude != null) {
+    if (ownerLatitude != null && ownerLongitude != null) {
       distance = Geolocator.distanceBetween(
         position.latitude,
         position.longitude,
@@ -367,8 +345,7 @@ class _AcceptWalkScreenState
     final double? ownerLatitude = _ownerLatitude;
     final double? ownerLongitude = _ownerLongitude;
 
-    if (ownerLatitude == null ||
-        ownerLongitude == null) {
+    if (ownerLatitude == null || ownerLongitude == null) {
       return;
     }
 
@@ -389,8 +366,7 @@ class _AcceptWalkScreenState
     }
 
     if (previousStart != null) {
-      final double moved =
-          Geolocator.distanceBetween(
+      final double moved = Geolocator.distanceBetween(
         previousStart.latitude,
         previousStart.longitude,
         newStart.latitude,
@@ -406,8 +382,7 @@ class _AcceptWalkScreenState
     _routeLoading = true;
 
     try {
-      final List<LatLng> route =
-          await _routeService.getRoute(
+      final List<LatLng> route = await _routeService.getRoute(
         start: newStart,
         destination: destination,
       );
@@ -418,8 +393,7 @@ class _AcceptWalkScreenState
 
       if (route.length >= 2) {
         setState(() {
-          _routePoints =
-              List<LatLng>.unmodifiable(route);
+          _routePoints = List<LatLng>.unmodifiable(route);
         });
       }
     } catch (error) {
@@ -457,14 +431,10 @@ class _AcceptWalkScreenState
       String? ownerPhotoUrl;
 
       final DocumentSnapshot<Map<String, dynamic>> ownerSnapshot =
-          await _firestore
-              .collection('owners')
-              .doc(ownerUid)
-              .get();
+          await _firestore.collection('owners').doc(ownerUid).get();
 
       if (ownerSnapshot.exists) {
-        final Map<String, dynamic>? data =
-            ownerSnapshot.data();
+        final Map<String, dynamic>? data = ownerSnapshot.data();
 
         if (data != null) {
           final List<String> photoKeys = <String>[
@@ -546,8 +516,7 @@ class _AcceptWalkScreenState
   // ============================================================
 
   String get _distanceText {
-    if (_walkerPosition == null ||
-        _ownerLocation == null) {
+    if (_walkerPosition == null || _ownerLocation == null) {
       return '—';
     }
 
@@ -570,13 +539,10 @@ class _AcceptWalkScreenState
     const double walkingSpeedKmH = 5;
 
     final double minutes =
-        (_distanceMeters / 1000) /
-            walkingSpeedKmH *
-            60;
+        (_distanceMeters / 1000) / walkingSpeedKmH * 60;
 
     if (minutes < 1) {
-      final int seconds =
-          (minutes * 60).ceil();
+      final int seconds = (minutes * 60).ceil();
 
       return '${seconds.clamp(1, 59)} sec';
     }
@@ -612,8 +578,7 @@ class _AcceptWalkScreenState
       return;
     }
 
-    final User? currentUser =
-        _auth.currentUser;
+    final User? currentUser = _auth.currentUser;
 
     if (currentUser == null) {
       _showMessage(
@@ -622,8 +587,7 @@ class _AcceptWalkScreenState
       return;
     }
 
-    final String walkerUid =
-        currentUser.uid.trim();
+    final String walkerUid = currentUser.uid.trim();
 
     if (walkerUid.isEmpty) {
       _showMessage(
@@ -632,8 +596,7 @@ class _AcceptWalkScreenState
       return;
     }
 
-    final String walkerId =
-        _walkerId;
+    final String walkerId = _walkerId;
 
     if (walkerId.isEmpty) {
       _showMessage(
@@ -678,10 +641,9 @@ class _AcceptWalkScreenState
               requestId: requestId,
               dogName: _dogName,
               dogBreed: _dogBreed,
-              ownerPhone:
-                  _ownerPhone.isEmpty
-                      ? null
-                      : _ownerPhone,
+              ownerPhone: _ownerPhone.isEmpty
+                  ? null
+                  : _ownerPhone,
             );
           },
         ),
@@ -712,9 +674,7 @@ class _AcceptWalkScreenState
   void _handleUnavailable(
     String message,
   ) {
-    if (!mounted ||
-        _leavingScreen ||
-        _requestUnavailable) {
+    if (!mounted || _leavingScreen || _requestUnavailable) {
       return;
     }
 
@@ -739,78 +699,97 @@ class _AcceptWalkScreenState
   }
 
   // ============================================================
+  // BACK BLOCK
+  // ============================================================
+
+  void _handleBackAttempt() {
+    if (_leavingScreen || _requestUnavailable) {
+      return;
+    }
+
+    _showMessage(
+      'Please reach the owner to continue the live walk.',
+    );
+  }
+
+  // ============================================================
   // BUILD
   // ============================================================
 
   @override
   Widget build(BuildContext context) {
-    final LatLng? ownerLocation =
-        _ownerLocation;
+    final LatLng? ownerLocation = _ownerLocation;
 
-    final LatLng? walkerLocation =
-        _walkerLocation;
+    final LatLng? walkerLocation = _walkerLocation;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFE9EEF3),
-      body: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            child: ownerLocation != null &&
-                    walkerLocation != null
-                ? AcceptWalkMap(
-                    walkerLocation: walkerLocation,
-                    ownerLocation: ownerLocation,
-                    routePoints: _routePoints,
-                  )
-                : const ColoredBox(
-                    color: Color(0xFFE9EEF3),
-                    child: Center(
-                      child: CircularProgressIndicator(),
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (
+        bool didPop,
+        void result,
+      ) {
+        if (didPop) {
+          return;
+        }
+
+        _handleBackAttempt();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFE9EEF3),
+        body: Stack(
+          children: <Widget>[
+            Positioned.fill(
+              child: ownerLocation != null &&
+                      walkerLocation != null
+                  ? AcceptWalkMap(
+                      walkerLocation: walkerLocation,
+                      ownerLocation: ownerLocation,
+                      routePoints: _routePoints,
+                    )
+                  : const ColoredBox(
+                      color: Color(0xFFE9EEF3),
+                      child: Center(
+                        child: CircularProgressIndicator(),
+                      ),
                     ),
-                  ),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: AcceptWalkTopBar(
-              onBack: () {
-                if (_leavingScreen) {
-                  return;
-                }
-
-                Navigator.of(context).pop();
-              },
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: AcceptWalkBottomPanel(
-              dogName: _dogName,
-              dogBreed: _dogBreed,
-              ownerName: _ownerName,
-              ownerPhone: _ownerPhone,
-              distanceText: _distanceText,
-              timeText: _timeText,
-              address: _address,
-              canReachOwner: _canReachOwner,
-              reaching: _reaching,
-              onReach: _reachOwner,
-              onChat: _openOwnerChat,
-            ),
-          ),
-          if (_requestUnavailable)
-            const Positioned.fill(
-              child: ColoredBox(
-                color: Colors.white70,
-                child: Center(
-                  child: CircularProgressIndicator(),
-                ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: AcceptWalkTopBar(
+                onBack: _handleBackAttempt,
               ),
             ),
-        ],
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AcceptWalkBottomPanel(
+                dogName: _dogName,
+                dogBreed: _dogBreed,
+                ownerName: _ownerName,
+                ownerPhone: _ownerPhone,
+                distanceText: _distanceText,
+                timeText: _timeText,
+                address: _address,
+                canReachOwner: _canReachOwner,
+                reaching: _reaching,
+                onReach: _reachOwner,
+                onChat: _openOwnerChat,
+              ),
+            ),
+            if (_requestUnavailable)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.white70,
+                  child: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
