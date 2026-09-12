@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/services/live_walk_session_service.dart';
-import '../../../services/walker_location_service.dart';
+import '../../../services/walker_availability_service.dart';
 import '../services/live_walk_background_service.dart';
 
 class LiveWalkSessionController extends ChangeNotifier {
@@ -47,13 +47,18 @@ class LiveWalkSessionController extends ChangeNotifier {
   final LiveWalkSessionService _sessionService =
       LiveWalkSessionService.instance;
 
-  /// GPS lifecycle:
+  /// Global availability service owns GPS lifecycle.
   ///
-  /// ACCEPT  -> ON
-  /// START   -> untouched
-  /// COMPLETE -> OFF
-  final WalkerLocationService _locationService =
-      WalkerLocationService.instance;
+  /// ACCEPT  -> availability remains Online
+  /// START   -> GPS untouched
+  /// REACHED -> GPS untouched
+  /// LIVE    -> GPS untouched
+  /// COMPLETE -> active walk released + global Offline
+  ///
+  /// This controller NEVER calls startTracking/stopTracking
+  /// directly on WalkerLocationService.
+  final WalkerAvailabilityService _availabilityService =
+      WalkerAvailabilityService.instance;
 
   // ============================================================
   // STATE
@@ -138,7 +143,8 @@ class LiveWalkSessionController extends ChangeNotifier {
   // ============================================================
 
   DateTime? get liveStartedAt {
-    final dynamic value = _sessionData['startedAt'];
+    final dynamic value =
+        _sessionData['startedAt'];
 
     if (value is Timestamp) {
       return value.toDate();
@@ -156,14 +162,17 @@ class LiveWalkSessionController extends ChangeNotifier {
   }
 
   int get durationSeconds {
-    final DateTime? start = liveStartedAt;
+    final DateTime? start =
+        liveStartedAt;
 
     if (start == null) {
       return 0;
     }
 
     final int seconds =
-        DateTime.now().difference(start).inSeconds;
+        DateTime.now()
+            .difference(start)
+            .inSeconds;
 
     return seconds < 0 ? 0 : seconds;
   }
@@ -173,10 +182,14 @@ class LiveWalkSessionController extends ChangeNotifier {
   }
 
   String get formattedDuration {
-    final int totalSeconds = durationSeconds;
+    final int totalSeconds =
+        durationSeconds;
 
-    final int minutes = totalSeconds ~/ 60;
-    final int seconds = totalSeconds % 60;
+    final int minutes =
+        totalSeconds ~/ 60;
+
+    final int seconds =
+        totalSeconds % 60;
 
     return '${minutes.toString().padLeft(2, '0')}:'
         '${seconds.toString().padLeft(2, '0')}';
@@ -204,7 +217,9 @@ class LiveWalkSessionController extends ChangeNotifier {
     }
 
     final String status =
-        (_sessionData['status']?.toString() ?? '')
+        (_sessionData['status']
+                    ?.toString() ??
+                '')
             .trim()
             .toLowerCase();
 
@@ -215,6 +230,9 @@ class LiveWalkSessionController extends ChangeNotifier {
 
   // ============================================================
   // GPS READY
+  //
+  // This only reads session data.
+  // It does NOT control GPS.
   // ============================================================
 
   bool get gpsReady {
@@ -227,12 +245,14 @@ class LiveWalkSessionController extends ChangeNotifier {
     }
 
     if (location is Map) {
-      final double? lat = _readDouble(
+      final double? lat =
+          _readDouble(
         location['lat'] ??
             location['latitude'],
       );
 
-      final double? lng = _readDouble(
+      final double? lng =
+          _readDouble(
         location['lng'] ??
             location['longitude'] ??
             location['lon'],
@@ -456,10 +476,6 @@ class LiveWalkSessionController extends ChangeNotifier {
 
     // ----------------------------------------------------------
     // DISTANCE
-    //
-    // IMPORTANT:
-    // Never move a live local metric backwards because
-    // Firestore may still contain an older snapshot.
     // ----------------------------------------------------------
 
     final double? firestoreDistance =
@@ -638,8 +654,6 @@ class LiveWalkSessionController extends ChangeNotifier {
       'completedAt=${data['completedAt']}',
     );
 
-    // Avoid unused local warning and preserve previous
-    // session state comparison for future extensions.
     if (previousData.isEmpty &&
         _sessionData.isNotEmpty) {
       // Initial session state received.
@@ -679,10 +693,6 @@ class LiveWalkSessionController extends ChangeNotifier {
 
   // ============================================================
   // RECORD DOG ACTIVITY
-  //
-  // ONE TAP = ONE ATOMIC INCREMENT.
-  //
-  // Pee and Poop are completely independent.
   // ============================================================
 
   Future<void> recordDogActivity({
@@ -732,26 +742,11 @@ class LiveWalkSessionController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // --------------------------------------------------------
-      // FIRESTORE ATOMIC INCREMENT
-      //
-      // No absolute write afterwards.
-      // This prevents stale-value overwrite.
-      // --------------------------------------------------------
-
       await sessionRef.update(
         <String, dynamic>{
           field: FieldValue.increment(1),
         },
       );
-
-      // --------------------------------------------------------
-      // BACKGROUND LOCAL METRICS
-      //
-      // These are local counters only.
-      // Background service must not overwrite Firestore
-      // with an older absolute activity value.
-      // --------------------------------------------------------
 
       try {
         _backgroundService.updateActivities(
@@ -765,10 +760,6 @@ class LiveWalkSessionController extends ChangeNotifier {
         );
       }
     } catch (error) {
-      // --------------------------------------------------------
-      // ROLLBACK
-      // --------------------------------------------------------
-
       if (!_disposed) {
         if (field == 'peeCount') {
           if (_peeCount > 0) {
@@ -891,6 +882,23 @@ class LiveWalkSessionController extends ChangeNotifier {
       );
     }
 
+    // ----------------------------------------------------------
+    // GLOBAL ONLINE GUARD
+    // ----------------------------------------------------------
+
+    if (!_availabilityService.isOnline) {
+      throw Exception(
+        'You must be Online to start the walk.',
+      );
+    }
+
+    if (!_availabilityService.canPerformWalkAction()) {
+      throw Exception(
+        _availabilityService.unavailableMessage ??
+            'Walk action is currently unavailable.',
+      );
+    }
+
     _startingWalk = true;
 
     notifyListeners();
@@ -922,7 +930,8 @@ class LiveWalkSessionController extends ChangeNotifier {
       // STEP 2
       // START METRICS
       //
-      // DOES NOT START GPS.
+      // IMPORTANT:
+      // This does NOT start GPS.
       // --------------------------------------------------------
 
       final bool metricsStarted =
@@ -993,27 +1002,7 @@ class LiveWalkSessionController extends ChangeNotifier {
       );
 
       debugPrint(
-        'Duration=started',
-      );
-
-      debugPrint(
-        'Distance=started',
-      );
-
-      debugPrint(
-        'Steps=started',
-      );
-
-      debugPrint(
-        'Pee=started',
-      );
-
-      debugPrint(
-        'Poop=started',
-      );
-
-      debugPrint(
-        'GPS=already running from Accept',
+        'GPS=controlled globally by availability',
       );
 
       debugPrint(
@@ -1039,7 +1028,8 @@ class LiveWalkSessionController extends ChangeNotifier {
   // ============================================================
   // END / COMPLETE WALK
   //
-  // GPS OFF ONLY HERE.
+  // GPS lifecycle is delegated to the global availability
+  // service.
   // ============================================================
 
   Future<void> endWalk() async {
@@ -1086,21 +1076,44 @@ class LiveWalkSessionController extends ChangeNotifier {
 
       // --------------------------------------------------------
       // STEP 2
-      // STOP METRICS
+      // STOP WALK METRICS
       //
-      // DOES NOT STOP GPS.
+      // IMPORTANT:
+      // Background metrics service is separate from GPS.
       // --------------------------------------------------------
 
       await _backgroundService.stop();
 
       // --------------------------------------------------------
       // STEP 3
-      // GPS OFF
+      // RELEASE ACTIVE WALK
       //
-      // ONLY HERE.
+      // This unlocks the global Online/Offline control.
       // --------------------------------------------------------
 
-      await _locationService.stopTracking();
+      _availabilityService.setActiveWalk(false);
+
+      // --------------------------------------------------------
+      // STEP 4
+      // GLOBAL OFFLINE
+      //
+      // WalkerAvailabilityService owns the actual GPS stop.
+      //
+      // No direct WalkerLocationService.stopTracking().
+      // --------------------------------------------------------
+
+      try {
+        await _availabilityService.goOffline();
+      } catch (error) {
+        // The Firestore walk is already completed.
+        //
+        // Do not undo completion because availability/GPS
+        // cleanup failed.
+        debugPrint(
+          'Unable to switch Walker Offline after completion: '
+          '$error',
+        );
+      }
 
       if (_disposed) {
         return;
@@ -1109,7 +1122,7 @@ class LiveWalkSessionController extends ChangeNotifier {
       _stopUiTicker();
 
       // --------------------------------------------------------
-      // STEP 4
+      // STEP 5
       // COMPLETED
       // --------------------------------------------------------
 
@@ -1162,7 +1175,11 @@ class LiveWalkSessionController extends ChangeNotifier {
       );
 
       debugPrint(
-        'GPS=OFF',
+        'GPS=delegated to global availability',
+      );
+
+      debugPrint(
+        'Availability=Offline',
       );
 
       debugPrint(
@@ -1339,11 +1356,13 @@ class LiveWalkSessionController extends ChangeNotifier {
 
     // IMPORTANT:
     //
-    // GPS MUST NOT be stopped here.
+    // No GPS stop here.
     //
-    // Accept  -> GPS ON
-    // Complete -> GPS OFF
+    // Controller disposal/navigation must never accidentally
+    // kill global GPS tracking during an active walk.
     //
+    // GPS is controlled by WalkerAvailabilityService only.
+
     super.dispose();
   }
 }
