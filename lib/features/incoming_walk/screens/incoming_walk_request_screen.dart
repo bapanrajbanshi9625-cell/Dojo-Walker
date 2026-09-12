@@ -194,17 +194,34 @@ class _IncomingWalkRequestScreenState
         }
 
         // ----------------------------------------------------------
-        // ACCEPT FLOW GUARD
+        // ACCEPTED FLOW
         //
-        // When this Walker accepts the request, Firestore changes
-        // status from searching -> accepted.
+        // If this Walker accepted the request, keep this screen
+        // alive while the Accept service completes and navigation
+        // moves to AcceptWalkScreen.
         //
-        // During that short transition the incoming screen monitor
-        // must NOT close this screen, otherwise AcceptWalkScreen
-        // cannot open.
+        // If another Walker accepted it, close this screen.
         // ----------------------------------------------------------
         if (status == 'accepted') {
-          if (_accepting) {
+          final String acceptedByUid =
+              data['acceptedByUid']
+                      ?.toString()
+                      .trim() ??
+                  '';
+
+          final String walkerUid =
+              data['walkerUid']
+                      ?.toString()
+                      .trim() ??
+                  '';
+
+          final String currentUid =
+              _auth.currentUser?.uid.trim() ?? '';
+
+          if (_accepting ||
+              (currentUid.isNotEmpty &&
+                  (acceptedByUid == currentUid ||
+                      walkerUid == currentUid))) {
             return;
           }
 
