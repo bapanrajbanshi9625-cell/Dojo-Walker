@@ -125,13 +125,7 @@ class _MainNavigationScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-
-      // ==========================================================
-      // WALKER MAIN APP BAR
-      // ==========================================================
-
       appBar: const WalkerMainAppBar(),
-
       body: _screens[_currentIndex],
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
@@ -407,7 +401,7 @@ class _MainNavigationScreenState
   // liveWalkSessions/DW000001
   // walk_history/DW000001
   //
-  // NO separate walkId/sessionId.
+  // requestId is the canonical ID.
   // ============================================================
 
   Future<void> _openCurrentWalk(
@@ -802,13 +796,17 @@ class _MainNavigationScreenState
 
   // ============================================================
   // OPEN WALK REVIEW
+  //
+  // CANONICAL ID:
+  // requestId only.
+  //
+  // No walkId fallback.
   // ============================================================
 
   Future<void> _openWalkReview(
     Map<String, dynamic> result,
   ) async {
-    if (_openingReview ||
-        !mounted) {
+    if (_openingReview || !mounted) {
       return;
     }
 
@@ -821,24 +819,35 @@ class _MainNavigationScreenState
         });
       }
 
-      final String walkId =
+      // ==========================================================
+      // CANONICAL REQUEST ID
+      // ==========================================================
+
+      final String requestId =
           _readString(
-        result['requestId'] ??
-            result['walkId'],
+        result['requestId'],
       );
 
-      if (!_isValidRequestId(walkId)) {
+      if (!_isValidRequestId(requestId)) {
         _showMessage(
-          'Review could not be opened: Walk ID is missing.',
+          'Review could not be opened: Request ID is missing.',
         );
 
         return;
       }
 
+      // ==========================================================
+      // OWNER
+      // ==========================================================
+
       final String ownerUid =
           _readString(
         result['ownerUid'],
       );
+
+      // ==========================================================
+      // DOG
+      // ==========================================================
 
       final String dogName =
           _firstNonEmpty(
@@ -848,11 +857,19 @@ class _MainNavigationScreenState
         ],
       );
 
+      // ==========================================================
+      // DISTANCE
+      // ==========================================================
+
       final double distanceKm =
           _readDouble(
                 result['distanceKm'],
               ) ??
               0.0;
+
+      // ==========================================================
+      // DURATION
+      // ==========================================================
 
       final String duration =
           _readString(
@@ -863,10 +880,18 @@ class _MainNavigationScreenState
                 result['duration'],
               );
 
+      // ==========================================================
+      // STEPS
+      // ==========================================================
+
       final int steps =
           _readInt(
         result['steps'],
       );
+
+      // ==========================================================
+      // ROUTE POINTS
+      // ==========================================================
 
       final List<Offset> routePoints =
           _readRoutePoints(
@@ -883,39 +908,32 @@ class _MainNavigationScreenState
         return;
       }
 
+      // ==========================================================
+      // REVIEW BOTTOM SHEET
+      // ==========================================================
+
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
-        backgroundColor:
-            Colors.transparent,
-        barrierColor:
-            Colors.black54,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black54,
         builder: (_) {
           return LiveWalkReviewBottomSheet(
-            routePoints:
-                routePoints,
-            distanceKm:
-                distanceKm,
-            duration:
-                duration,
-            steps:
-                steps,
-            walkId:
-                walkId,
-            ownerUid:
-                ownerUid,
-            dogName:
-                dogName,
-            onBackToHome:
-                _returnToHome,
+            routePoints: routePoints,
+            distanceKm: distanceKm,
+            duration: duration,
+            steps: steps,
+            requestId: requestId,
+            ownerUid: ownerUid,
+            dogName: dogName,
+            onBackToHome: _returnToHome,
           );
         },
       );
 
       if (mounted) {
-        await AppStateService.instance
-            .refresh();
+        await AppStateService.instance.refresh();
       }
     } finally {
       _openingReview = false;
