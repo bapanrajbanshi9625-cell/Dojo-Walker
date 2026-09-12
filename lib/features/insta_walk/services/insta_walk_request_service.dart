@@ -2,7 +2,7 @@
 // lib/features/insta_walk/services/insta_walk_request_service.dart
 
 import 'dart:async';
-
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
