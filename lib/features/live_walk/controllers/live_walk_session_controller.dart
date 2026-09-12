@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../core/services/live_walk_session_service.dart';
 import '../../../services/walker_availability_service.dart';
@@ -76,12 +77,17 @@ class LiveWalkSessionController extends ChangeNotifier {
   int _peeCount = 0;
   int _poopCount = 0;
 
+  Position? _currentPosition;
+
   Map<String, dynamic> _sessionData =
       <String, dynamic>{};
 
   StreamSubscription<
           DocumentSnapshot<Map<String, dynamic>>>?
       _sessionSubscription;
+
+  StreamSubscription<Position>?
+      _locationSubscription;
 
   Timer? _uiTicker;
 
@@ -110,6 +116,12 @@ class LiveWalkSessionController extends ChangeNotifier {
   int get peeCount => _peeCount;
 
   int get poopCount => _poopCount;
+
+  Position? get currentPosition =>
+      _currentPosition;
+
+  bool get hasCurrentPosition =>
+      _currentPosition != null;
 
   Map<String, dynamic> get sessionData =>
       Map<String, dynamic>.unmodifiable(
@@ -304,6 +316,10 @@ class LiveWalkSessionController extends ChangeNotifier {
       );
 
       await _sessionSubscription?.cancel();
+      await _locationSubscription?.cancel();
+
+      _sessionSubscription = null;
+      _locationSubscription = null;
 
       if (_disposed) {
         return;
@@ -331,6 +347,16 @@ class LiveWalkSessionController extends ChangeNotifier {
           updateFromSession(data);
         }
       }
+
+      // --------------------------------------------------------
+      // START LISTENING TO GLOBAL GPS STREAM
+      //
+      // IMPORTANT:
+      // This only listens.
+      // It does NOT start or stop GPS.
+      // --------------------------------------------------------
+
+      _listenToWalkerLocation();
 
       _sessionSubscription =
           sessionStream.listen(
@@ -372,6 +398,154 @@ class LiveWalkSessionController extends ChangeNotifier {
       debugPrint(
         'LiveWalkSessionController.initialize: '
         '$error',
+      );
+    }
+  }
+
+  // ============================================================
+  // GLOBAL WALKER LOCATION LISTENER
+  //
+  // WalkerLocationService is the canonical GPS source.
+  //
+  // This controller only consumes its stream.
+  // ============================================================
+
+  void _listenToWalkerLocation() {
+    if (_disposed) {
+      return;
+    }
+
+    _locationSubscription?.cancel();
+
+    _locationSubscription =
+        _availabilityService.locationStream.listen(
+      (Position position) {
+        if (_disposed) {
+          return;
+        }
+
+        if (!_availabilityService.isOnline) {
+          return;
+        }
+
+        final double latitude =
+            position.latitude;
+
+        final double longitude =
+            position.longitude;
+
+        final double accuracy =
+            position.accuracy;
+
+        if (!latitude.isFinite ||
+            !longitude.isFinite ||
+            !accuracy.isFinite) {
+          return;
+        }
+
+        if (latitude == 0.0 &&
+            longitude == 0.0) {
+          return;
+        }
+
+        _currentPosition = position;
+
+        // ------------------------------------------------------
+        // UPDATE LOCAL SESSION DATA
+        //
+        // This makes the Live Walk UI react immediately to
+        // every new GPS position.
+        // ------------------------------------------------------
+
+        _sessionData =
+            <String, dynamic>{
+          ..._sessionData,
+          'currentLocation': GeoPoint(
+            latitude,
+            longitude,
+          ),
+          'walkerLatitude': latitude,
+          'walkerLongitude': longitude,
+          'locationAccuracy': accuracy,
+          'locationUpdatedAt':
+              Timestamp.now(),
+        };
+
+        debugPrint(
+          'LiveWalk GPS UI Update: '
+          'requestId=$requestId '
+          'lat=$latitude '
+          'lng=$longitude '
+          'accuracy=${accuracy}m',
+        );
+
+        // ------------------------------------------------------
+        // FIRESTORE SYNC
+        //
+        // Latest walker position is written to the canonical
+        // liveWalkSessions document so the owner/admin live
+        // map can also receive the moving position.
+        //
+        // GPS itself is NOT controlled here.
+        // ------------------------------------------------------
+
+        unawaited(
+          _syncCurrentLocationToFirestore(
+            position,
+          ),
+        );
+
+        notifyListeners();
+      },
+      onError: (Object error) {
+        if (_disposed) {
+          return;
+        }
+
+        debugPrint(
+          'LiveWalk GPS location stream error: $error',
+        );
+      },
+      cancelOnError: false,
+    );
+  }
+
+  // ============================================================
+  // FIRESTORE CURRENT LOCATION
+  // ============================================================
+
+  Future<void> _syncCurrentLocationToFirestore(
+    Position position,
+  ) async {
+    if (_disposed) {
+      return;
+    }
+
+    try {
+      await sessionRef.update(
+        <String, dynamic>{
+          'currentLocation': GeoPoint(
+            position.latitude,
+            position.longitude,
+          ),
+          'walkerLatitude':
+              position.latitude,
+          'walkerLongitude':
+              position.longitude,
+          'locationAccuracy':
+              position.accuracy,
+          'locationUpdatedAt':
+              FieldValue.serverTimestamp(),
+        },
+      );
+    } catch (error) {
+      if (_disposed) {
+        return;
+      }
+
+      debugPrint(
+        'LiveWalk current location Firestore sync '
+        'failed: $error',
       );
     }
   }
@@ -473,6 +647,19 @@ class LiveWalkSessionController extends ChangeNotifier {
 
     _sessionData =
         Map<String, dynamic>.from(data);
+
+    // ----------------------------------------------------------
+    // RESTORE CURRENT LOCATION
+    // ----------------------------------------------------------
+
+    final dynamic firestoreLocation =
+        data['currentLocation'];
+
+    if (firestoreLocation is GeoPoint) {
+      _currentPosition = _positionFromGeoPoint(
+        firestoreLocation,
+      );
+    }
 
     // ----------------------------------------------------------
     // DISTANCE
@@ -660,6 +847,30 @@ class LiveWalkSessionController extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  // ============================================================
+  // POSITION FROM GEOPOINT
+  //
+  // Used only to restore a Firestore location into the
+  // controller's local Position state.
+  // ============================================================
+
+  Position _positionFromGeoPoint(
+    GeoPoint point,
+  ) {
+    return Position(
+      latitude: point.latitude,
+      longitude: point.longitude,
+      timestamp: DateTime.now(),
+      accuracy: 0,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );
   }
 
   // ============================================================
@@ -986,6 +1197,18 @@ class LiveWalkSessionController extends ChangeNotifier {
         'poopCount': _poopCount,
       };
 
+      // Keep the latest GPS position available immediately.
+      if (_currentPosition != null) {
+        _sessionData =
+            <String, dynamic>{
+          ..._sessionData,
+          'currentLocation': GeoPoint(
+            _currentPosition!.latitude,
+            _currentPosition!.longitude,
+          ),
+        };
+      }
+
       _startUiTicker();
 
       debugPrint(
@@ -1090,7 +1313,7 @@ class LiveWalkSessionController extends ChangeNotifier {
       // This unlocks the global Online/Offline control.
       // --------------------------------------------------------
 
-      _availabilityService.setActiveWalk(false);
+      await _availabilityService.setActiveWalk(false);
 
       // --------------------------------------------------------
       // STEP 4
@@ -1104,10 +1327,6 @@ class LiveWalkSessionController extends ChangeNotifier {
       try {
         await _availabilityService.goOffline();
       } catch (error) {
-        // The Firestore walk is already completed.
-        //
-        // Do not undo completion because availability/GPS
-        // cleanup failed.
         debugPrint(
           'Unable to switch Walker Offline after completion: '
           '$error',
@@ -1280,6 +1499,8 @@ class LiveWalkSessionController extends ChangeNotifier {
     _peeCount = 0;
     _poopCount = 0;
 
+    _currentPosition = null;
+
     _sessionData =
         <String, dynamic>{};
 
@@ -1342,14 +1563,26 @@ class LiveWalkSessionController extends ChangeNotifier {
 
     final StreamSubscription<
             DocumentSnapshot<Map<String, dynamic>>>?
-        subscription =
+        sessionSubscription =
         _sessionSubscription;
 
     _sessionSubscription = null;
 
-    if (subscription != null) {
+    if (sessionSubscription != null) {
       unawaited(
-        subscription.cancel(),
+        sessionSubscription.cancel(),
+      );
+    }
+
+    final StreamSubscription<Position>?
+        locationSubscription =
+        _locationSubscription;
+
+    _locationSubscription = null;
+
+    if (locationSubscription != null) {
+      unawaited(
+        locationSubscription.cancel(),
       );
     }
 
