@@ -32,6 +32,7 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
   LatLng? _lastCameraLocation;
 
   static const double _followZoom = 16.5;
+  static const double _initialZoom = 15.5;
   static const double _minimumCameraMoveMeters = 5;
 
   // ============================================================
@@ -44,22 +45,19 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
   ) {
     super.didUpdateWidget(oldWidget);
 
-    final LatLng? newWalkerLocation =
-        widget.walkerLocation;
+    final LatLng? newLocation = widget.walkerLocation;
+    final LatLng? oldLocation = oldWidget.walkerLocation;
 
-    final LatLng? oldWalkerLocation =
-        oldWidget.walkerLocation;
-
-    if (newWalkerLocation == null) {
+    if (newLocation == null) {
       return;
     }
 
-    if (oldWalkerLocation == null ||
+    if (oldLocation == null ||
         _hasMovedEnough(
-          oldWalkerLocation,
-          newWalkerLocation,
+          oldLocation,
+          newLocation,
         )) {
-      _followWalker(newWalkerLocation);
+      _followWalker(newLocation);
     }
   }
 
@@ -70,8 +68,7 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
   void _handleMapReady() {
     _mapReady = true;
 
-    final LatLng? walkerLocation =
-        widget.walkerLocation;
+    final LatLng? walkerLocation = widget.walkerLocation;
 
     if (walkerLocation != null) {
       _followWalker(
@@ -118,8 +115,7 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
     LatLng from,
     LatLng to,
   ) {
-    final double distance =
-        const Distance().as(
+    final double distance = const Distance().as(
       LengthUnit.Meter,
       from,
       to,
@@ -133,20 +129,21 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
   // ============================================================
 
   void _goToMyLocation() {
-    final LatLng? walkerLocation =
-        widget.walkerLocation;
+    final LatLng? walkerLocation = widget.walkerLocation;
 
-    if (!_mapReady || walkerLocation == null) {
+    if (!_mapReady) {
       widget.onMyLocationPressed?.call();
       return;
     }
 
-    _lastCameraLocation = walkerLocation;
+    if (walkerLocation != null) {
+      _lastCameraLocation = walkerLocation;
 
-    _mapController.move(
-      walkerLocation,
-      _followZoom,
-    );
+      _mapController.move(
+        walkerLocation,
+        _followZoom,
+      );
+    }
 
     widget.onMyLocationPressed?.call();
   }
@@ -158,17 +155,15 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
   @override
   Widget build(BuildContext context) {
     final LatLng center =
-        widget.walkerLocation ??
-        widget.ownerLocation;
+        widget.walkerLocation ?? widget.ownerLocation;
 
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
         initialCenter: center,
-        initialZoom: 15.5,
+        initialZoom: _initialZoom,
         onMapReady: _handleMapReady,
-        interactionOptions:
-            const InteractionOptions(
+        interactionOptions: const InteractionOptions(
           flags:
               InteractiveFlag.drag |
               InteractiveFlag.pinchZoom |
@@ -178,11 +173,14 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
         ),
       ),
       children: <Widget>[
+        // ========================================================
+        // OPENSTREETMAP
+        // ========================================================
+
         TileLayer(
           urlTemplate:
               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName:
-              'com.doojo.walker',
+          userAgentPackageName: 'com.doojo.walker',
         ),
 
         // ========================================================
@@ -215,10 +213,12 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
               point: widget.ownerLocation,
               radius: 100,
               useRadiusInMeter: true,
-              color: DojoWalkerColors.primary
-                  .withValues(alpha: 0.08),
-              borderColor: DojoWalkerColors.primary
-                  .withValues(alpha: 0.35),
+              color: DojoWalkerColors.primary.withValues(
+                alpha: 0.08,
+              ),
+              borderColor: DojoWalkerColors.primary.withValues(
+                alpha: 0.35,
+              ),
               borderStrokeWidth: 1.5,
             ),
           ],
@@ -236,7 +236,6 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
               height: 46,
               child: const _OwnerMarker(),
             ),
-
             if (widget.walkerLocation != null)
               Marker(
                 point: widget.walkerLocation!,
@@ -254,8 +253,7 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
         if (widget.onMyLocationPressed != null)
           Positioned(
             right: 14,
-            bottom:
-                widget.bottomPanelHeight + 14,
+            bottom: widget.bottomPanelHeight + 14,
             child: SafeArea(
               top: false,
               child: Material(
@@ -264,16 +262,14 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
                 shape: const CircleBorder(),
                 child: InkWell(
                   onTap: _goToMyLocation,
-                  customBorder:
-                      const CircleBorder(),
+                  customBorder: const CircleBorder(),
                   child: const SizedBox(
                     width: 46,
                     height: 46,
                     child: Icon(
                       Icons.my_location,
                       size: 22,
-                      color:
-                          DojoWalkerColors.primary,
+                      color: DojoWalkerColors.primary,
                     ),
                   ),
                 ),
@@ -305,8 +301,9 @@ class _OwnerMarker extends StatelessWidget {
         boxShadow: <BoxShadow>[
           BoxShadow(
             blurRadius: 7,
-            color: Colors.black
-                .withValues(alpha: 0.22),
+            color: Colors.black.withValues(
+              alpha: 0.22,
+            ),
           ),
         ],
       ),
@@ -339,8 +336,9 @@ class _WalkerMarker extends StatelessWidget {
         boxShadow: <BoxShadow>[
           BoxShadow(
             blurRadius: 7,
-            color: Colors.black
-                .withValues(alpha: 0.22),
+            color: Colors.black.withValues(
+              alpha: 0.22,
+            ),
           ),
         ],
       ),
