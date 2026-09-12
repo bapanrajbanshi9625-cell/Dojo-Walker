@@ -10,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/theme/dojo_walker_colors.dart';
+import '../../../services/walker_availability_service.dart';
 import '../../../services/walker_location_service.dart';
 
 class InstaWalkMapRadar extends StatefulWidget {
@@ -35,16 +36,19 @@ class _InstaWalkMapRadarState
   final WalkerLocationService _locationService =
       WalkerLocationService.instance;
 
+  final WalkerAvailabilityService _availabilityService =
+      WalkerAvailabilityService.instance;
+
   StreamSubscription<Position>? _locationSubscription;
 
   Position? _position;
 
   bool _mapReady = false;
   bool _hasInitialCenter = false;
-  bool _locationLoading = true;
+  bool _locationLoading = false;
   bool _locationError = false;
 
-  String _locationMessage = 'Getting current location...';
+  String _locationMessage = 'Go Online to use your location.';
 
   late final AnimationController _radarController;
 
@@ -61,7 +65,22 @@ class _InstaWalkMapRadarState
       _radarController.repeat();
     }
 
-    unawaited(_initializeLocation());
+    _availabilityService.addListener(
+      _onAvailabilityChanged,
+    );
+
+    _locationSubscription =
+        _locationService.locationStream.listen(
+      _onLocationUpdate,
+      onError: (Object error) {
+        debugPrint(
+          'Insta Walk GPS stream error: $error',
+        );
+      },
+      cancelOnError: false,
+    );
+
+    _initializeFromGlobalLocation();
   }
 
   @override
@@ -91,156 +110,122 @@ class _InstaWalkMapRadarState
   }
 
   // ============================================================
-  // LOCATION INITIALIZATION
+  // GLOBAL AVAILABILITY
   // ============================================================
 
-  Future<void> _initializeLocation() async {
+  void _onAvailabilityChanged() {
     if (!mounted) {
+      return;
+    }
+
+    final bool isOnline =
+        _availabilityService.isOnline;
+
+    if (!isOnline) {
+      setState(() {
+        _locationLoading = false;
+        _locationError = false;
+        _locationMessage =
+            'Go Online to use your location.';
+      });
+
+      return;
+    }
+
+    // GPS is controlled globally.
+    // This widget only consumes the location already
+    // provided by WalkerLocationService.
+    final Position? current =
+        _locationService.currentPosition;
+
+    if (current != null &&
+        _isValidPosition(current)) {
+      _setPosition(
+        current,
+        centerMap: !_hasInitialCenter,
+      );
+
       return;
     }
 
     setState(() {
       _locationLoading = true;
       _locationError = false;
-      _locationMessage = 'Checking GPS...';
+      _locationMessage =
+          'Getting current location...';
     });
+  }
 
-    final Position? cached =
-        _locationService.currentPosition;
+  // ============================================================
+  // INITIAL GLOBAL LOCATION
+  // ============================================================
 
-    if (cached != null && _isValidPosition(cached)) {
-      _setPosition(
-        cached,
-        centerMap: true,
-      );
-    }
-
-    bool permissionAllowed = false;
-
-    try {
-      permissionAllowed =
-          await _locationService.ensurePermission();
-    } catch (error) {
-      debugPrint(
-        'Insta Walk permission error: $error',
-      );
-    }
-
-    if (!permissionAllowed) {
-      if (!mounted) {
-        return;
-      }
-
-      final bool gpsEnabled =
-          await Geolocator.isLocationServiceEnabled();
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _locationLoading = false;
-        _locationError = true;
-        _locationMessage = gpsEnabled
-            ? 'Location permission required.'
-            : 'GPS is OFF. Turn on Location.';
-      });
-
-      return;
-    }
-
-    try {
-      final Position? current =
-          await _locationService.getCurrentLocation();
-
-      if (current != null &&
-          _isValidPosition(current)) {
-        _setPosition(
-          current,
-          centerMap: true,
-        );
-      }
-    } catch (error) {
-      debugPrint(
-        'Insta Walk current location error: $error',
-      );
-    }
-
-    bool trackingStarted = false;
-
-    try {
-      trackingStarted =
-          await _locationService.startTracking();
-    } catch (error) {
-      debugPrint(
-        'Insta Walk tracking error: $error',
-      );
-    }
-
-    if (!trackingStarted) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _locationLoading = false;
-
-        if (_position != null) {
-          _locationError = false;
-          _locationMessage = widget.searching
-              ? 'Searching • 3.5 km'
-              : 'Current Location';
-        } else {
-          _locationError = true;
-          _locationMessage =
-              'Unable to start GPS tracking.';
-        }
-      });
-
-      return;
-    }
-
-    await _locationSubscription?.cancel();
-
-    _locationSubscription =
-        _locationService.locationStream.listen(
-      (Position position) {
-        if (!mounted ||
-            !_isValidPosition(position)) {
-          return;
-        }
-
-        _setPosition(
-          position,
-          centerMap: false,
-        );
-      },
-      onError: (Object error) {
-        debugPrint(
-          'Insta Walk GPS stream error: $error',
-        );
-      },
-      cancelOnError: false,
-    );
-
+  void _initializeFromGlobalLocation() {
     if (!mounted) {
       return;
     }
 
-    setState(() {
-      _locationLoading = false;
+    // IMPORTANT:
+    // Do NOT request permission.
+    // Do NOT start GPS.
+    // Do NOT stop GPS.
+    //
+    // AvailabilityService is the only owner of GPS lifecycle.
 
-      if (_position != null) {
+    if (!_availabilityService.isOnline) {
+      setState(() {
+        _locationLoading = false;
         _locationError = false;
-        _locationMessage = widget.searching
-            ? 'Searching • 3.5 km'
-            : 'Current Location';
-      } else {
-        _locationError = true;
         _locationMessage =
-            'Waiting for GPS signal...';
-      }
+            'Go Online to use your location.';
+      });
+
+      return;
+    }
+
+    final Position? current =
+        _locationService.currentPosition;
+
+    if (current != null &&
+        _isValidPosition(current)) {
+      _setPosition(
+        current,
+        centerMap: true,
+      );
+
+      return;
+    }
+
+    setState(() {
+      _locationLoading = true;
+      _locationError = false;
+      _locationMessage =
+          'Getting current location...';
     });
+  }
+
+  // ============================================================
+  // LOCATION STREAM
+  // ============================================================
+
+  void _onLocationUpdate(Position position) {
+    if (!mounted) {
+      return;
+    }
+
+    // Never consume GPS for an offline walker.
+    if (!_availabilityService.isOnline) {
+      return;
+    }
+
+    if (!_isValidPosition(position)) {
+      return;
+    }
+
+    _setPosition(
+      position,
+      centerMap: false,
+    );
   }
 
   // ============================================================
@@ -335,11 +320,23 @@ class _InstaWalkMapRadarState
   }
 
   // ============================================================
-  // REFRESH LOCATION
+  // REFRESH GLOBAL LOCATION
   // ============================================================
 
   Future<void> _refreshLocation() async {
     if (!mounted) {
+      return;
+    }
+
+    // Offline means this widget must not request GPS.
+    if (!_availabilityService.isOnline) {
+      setState(() {
+        _locationLoading = false;
+        _locationError = false;
+        _locationMessage =
+            'Go Online to use your location.';
+      });
+
       return;
     }
 
@@ -351,36 +348,25 @@ class _InstaWalkMapRadarState
     });
 
     try {
-      final bool allowed =
-          await _locationService.ensurePermission();
-
-      if (!allowed) {
-        if (!mounted) {
-          return;
-        }
-
-        final bool gpsEnabled =
-            await Geolocator.isLocationServiceEnabled();
-
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          _locationLoading = false;
-          _locationError = true;
-          _locationMessage = gpsEnabled
-              ? 'Location permission required.'
-              : 'GPS is OFF. Turn on Location.';
-        });
-
-        return;
-      }
-
+      // IMPORTANT:
+      // We only ask the canonical location service for the
+      // current position. We do NOT call ensurePermission()
+      // and we do NOT call startTracking().
       final Position? position =
           await _locationService.getCurrentLocation();
 
       if (!mounted) {
+        return;
+      }
+
+      if (!_availabilityService.isOnline) {
+        setState(() {
+          _locationLoading = false;
+          _locationError = false;
+          _locationMessage =
+              'Go Online to use your location.';
+        });
+
         return;
       }
 
@@ -642,7 +628,8 @@ class _InstaWalkMapRadarState
 
   Widget _buildStatus() {
     final bool hasLocation =
-        _position != null;
+        _position != null &&
+        _availabilityService.isOnline;
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -682,7 +669,9 @@ class _InstaWalkMapRadarState
                 ? widget.searching
                     ? 'SEARCHING • 3.5 KM'
                     : 'CURRENT LOCATION'
-                : _locationMessage,
+                : _availabilityService.isOnline
+                    ? _locationMessage
+                    : 'OFFLINE',
             style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w900,
@@ -700,21 +689,27 @@ class _InstaWalkMapRadarState
   // ============================================================
 
   Widget _buildLocationButton() {
+    final bool enabled =
+        _availabilityService.isOnline;
+
     return Material(
       color: DojoWalkerColors.transparent,
       child: InkWell(
         borderRadius:
             BorderRadius.circular(15),
-        onTap: () {
-          unawaited(
-            _refreshLocation(),
-          );
-        },
+        onTap: enabled
+            ? () {
+                unawaited(
+                  _refreshLocation(),
+                );
+              }
+            : null,
         child: Container(
           width: 46,
           height: 46,
           decoration: BoxDecoration(
-            color: DojoWalkerColors.white.withValues(
+            color:
+                DojoWalkerColors.white.withValues(
               alpha: 0.97,
             ),
             borderRadius:
@@ -727,10 +722,12 @@ class _InstaWalkMapRadarState
               ),
             ],
           ),
-          child: const Icon(
+          child: Icon(
             Icons.my_location_rounded,
             size: 22,
-            color: DojoWalkerColors.info,
+            color: enabled
+                ? DojoWalkerColors.info
+                : DojoWalkerColors.grey,
           ),
         ),
       ),
@@ -742,6 +739,9 @@ class _InstaWalkMapRadarState
   // ============================================================
 
   Widget _buildLocationOverlay() {
+    final bool isOnline =
+        _availabilityService.isOnline;
+
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: 28,
@@ -760,8 +760,10 @@ class _InstaWalkMapRadarState
               ),
             )
           else
-            const Icon(
-              Icons.location_off_rounded,
+            Icon(
+              isOnline
+                  ? Icons.location_off_rounded
+                  : Icons.cloud_off_rounded,
               size: 32,
               color: DojoWalkerColors.info,
             ),
@@ -769,7 +771,9 @@ class _InstaWalkMapRadarState
           const SizedBox(height: 11),
 
           Text(
-            _locationMessage,
+            isOnline
+                ? _locationMessage
+                : 'Go Online to use your location.',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 12,
@@ -778,14 +782,15 @@ class _InstaWalkMapRadarState
             ),
           ),
 
-          if (_locationError) ...[
+          if (_locationError &&
+              isOnline) ...[
             const SizedBox(height: 11),
             SizedBox(
               height: 38,
               child: ElevatedButton.icon(
                 onPressed: () {
                   unawaited(
-                    _initializeLocation(),
+                    _refreshLocation(),
                   );
                 },
                 icon: const Icon(
@@ -829,11 +834,20 @@ class _InstaWalkMapRadarState
 
   @override
   void dispose() {
+    _availabilityService.removeListener(
+      _onAvailabilityChanged,
+    );
+
     unawaited(
       _locationSubscription?.cancel(),
     );
 
     _radarController.dispose();
+
+    // IMPORTANT:
+    // Never stop WalkerLocationService here.
+    // GPS lifecycle belongs only to
+    // WalkerAvailabilityService.
 
     super.dispose();
   }
