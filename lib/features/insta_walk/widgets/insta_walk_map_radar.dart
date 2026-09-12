@@ -727,7 +727,7 @@ class _InstaWalkMapRadarState
             size: 22,
             color: enabled
                 ? DojoWalkerColors.info
-                : DojoWalkerColors.grey,
+                : DojoWalkerColors.textSecondary
           ),
         ),
       ),
