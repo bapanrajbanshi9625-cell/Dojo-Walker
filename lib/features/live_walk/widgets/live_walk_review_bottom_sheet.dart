@@ -11,7 +11,7 @@ class LiveWalkReviewBottomSheet extends StatefulWidget {
     required this.distanceKm,
     required this.duration,
     required this.steps,
-    required this.walkId,
+    required this.requestId,
     required this.ownerUid,
     required this.dogName,
     required this.onBackToHome,
@@ -22,7 +22,10 @@ class LiveWalkReviewBottomSheet extends StatefulWidget {
   final String duration;
   final int steps;
 
-  final String walkId;
+  // Canonical walk/session ID.
+  // No separate walkId is used.
+  final String requestId;
+
   final String ownerUid;
   final String dogName;
 
@@ -84,33 +87,19 @@ class _LiveWalkReviewBottomSheetState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               _buildHandle(),
-
               const SizedBox(height: 18),
-
               _buildSuccessHeader(),
-
               const SizedBox(height: 20),
-
               _buildSummaryCard(),
-
               const SizedBox(height: 22),
-
               _buildRatingSection(),
-
               const SizedBox(height: 22),
-
               _buildNoteSection(),
-
               const SizedBox(height: 16),
-
               _buildSubmitButton(),
-
               const SizedBox(height: 8),
-
               _buildSkipButton(),
-
               const SizedBox(height: 3),
-
               const Text(
                 'You can skip the review and return to Home.',
                 textAlign: TextAlign.center,
@@ -174,9 +163,7 @@ class _LiveWalkReviewBottomSheetState
             size: 42,
           ),
         ),
-
         const SizedBox(height: 12),
-
         const Text(
           'Walk Completed!',
           textAlign: TextAlign.center,
@@ -187,9 +174,7 @@ class _LiveWalkReviewBottomSheetState
             letterSpacing: -0.3,
           ),
         ),
-
         const SizedBox(height: 5),
-
         Text(
           dogName.isEmpty
               ? 'Great job! Your walk has been completed.'
@@ -240,9 +225,7 @@ class _LiveWalkReviewBottomSheetState
               label: 'Distance',
             ),
           ),
-
           _verticalDivider(),
-
           Expanded(
             child: _summaryItem(
               icon: Icons.timer_outlined,
@@ -250,9 +233,7 @@ class _LiveWalkReviewBottomSheetState
               label: 'Duration',
             ),
           ),
-
           _verticalDivider(),
-
           Expanded(
             child: _summaryItem(
               icon: Icons.directions_walk_rounded,
@@ -295,9 +276,7 @@ class _LiveWalkReviewBottomSheetState
             size: 20,
           ),
         ),
-
         const SizedBox(height: 7),
-
         Text(
           value,
           maxLines: 1,
@@ -309,9 +288,7 @@ class _LiveWalkReviewBottomSheetState
             fontWeight: FontWeight.w900,
           ),
         ),
-
         const SizedBox(height: 2),
-
         Text(
           label,
           style: TextStyle(
@@ -348,9 +325,7 @@ class _LiveWalkReviewBottomSheetState
             fontWeight: FontWeight.w900,
           ),
         ),
-
         const SizedBox(height: 5),
-
         Text(
           'Your feedback helps us improve the experience.',
           textAlign: TextAlign.center,
@@ -360,9 +335,7 @@ class _LiveWalkReviewBottomSheetState
             fontWeight: FontWeight.w600,
           ),
         ),
-
         const SizedBox(height: 12),
-
         _buildRating(),
       ],
     );
@@ -447,9 +420,7 @@ class _LiveWalkReviewBottomSheetState
             fontWeight: FontWeight.w900,
           ),
         ),
-
         const SizedBox(height: 8),
-
         _buildNoteField(),
       ],
     );
@@ -460,56 +431,56 @@ class _LiveWalkReviewBottomSheetState
   // ============================================================
 
   Widget _buildNoteField() {
-  return TextField(
-    controller: _noteController,
-    maxLines: 4,
-    maxLength: 500,
-    textInputAction: TextInputAction.newline,
-    enabled: !_saving,
-    decoration: InputDecoration(
-      hintText: 'Add a note about the walk...',
-      hintStyle: TextStyle(
-        color: Colors.black.withValues(alpha: 0.35),
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
-      ),
-      filled: true,
-      fillColor: Colors.white,
-      counterStyle: const TextStyle(
-        color: Colors.black38,
-        fontSize: 10,
-      ),
-      contentPadding: const EdgeInsets.all(15),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(
-          color: AppColors.border,
+    return TextField(
+      controller: _noteController,
+      maxLines: 4,
+      maxLength: 500,
+      textInputAction: TextInputAction.newline,
+      enabled: !_saving,
+      decoration: InputDecoration(
+        hintText: 'Add a note about the walk...',
+        hintStyle: TextStyle(
+          color: Colors.black.withValues(alpha: 0.35),
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
         ),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(
-          color: AppColors.border,
+        filled: true,
+        fillColor: Colors.white,
+        counterStyle: const TextStyle(
+          color: Colors.black38,
+          fontSize: 10,
         ),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(
-          color: AppColors.primary,
-          width: 1.4,
+        contentPadding: const EdgeInsets.all(15),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(
+            color: AppColors.border,
+          ),
         ),
-      ),
-      disabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(
-          color: AppColors.border.withValues(
-            alpha: 0.6,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(
+            color: AppColors.border,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(
+            color: AppColors.primary,
+            width: 1.4,
+          ),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: AppColors.border.withValues(
+              alpha: 0.6,
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   // ============================================================
   // SUBMIT BUTTON
@@ -520,9 +491,7 @@ class _LiveWalkReviewBottomSheetState
       height: 56,
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: _saving
-            ? null
-            : _submitReview,
+        onPressed: _saving ? null : _submitReview,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
@@ -587,9 +556,7 @@ class _LiveWalkReviewBottomSheetState
       height: 48,
       width: double.infinity,
       child: TextButton(
-        onPressed: _saving
-            ? null
-            : _skipReview,
+        onPressed: _saving ? null : _skipReview,
         style: TextButton.styleFrom(
           foregroundColor: AppColors.secondary,
           shape: RoundedRectangleBorder(
@@ -679,9 +646,6 @@ class _LiveWalkReviewBottomSheetState
 
   // ============================================================
   // CLOSE SHEET + RETURN HOME
-  //
-  // The bottom sheet closes itself.
-  // Parent owns the actual Home/MainNavigation navigation.
   // ============================================================
 
   Future<void> _returnHome() async {
@@ -691,7 +655,6 @@ class _LiveWalkReviewBottomSheetState
 
     _navigatingHome = true;
 
-    // Callback ko State dispose hone se pehle capture karo.
     final VoidCallback onBackToHome =
         widget.onBackToHome;
 
@@ -699,10 +662,8 @@ class _LiveWalkReviewBottomSheetState
       return;
     }
 
-    // Sirf bottom sheet close karo.
     Navigator.of(context).pop();
 
-    // Sheet close hone ke baad parent callback.
     WidgetsBinding.instance.addPostFrameCallback(
       (_) {
         onBackToHome();
@@ -715,12 +676,12 @@ class _LiveWalkReviewBottomSheetState
   // ============================================================
 
   Future<void> _saveReview() async {
-    final String walkId =
-        widget.walkId.trim();
+    final String requestId =
+        widget.requestId.trim();
 
-    if (walkId.isEmpty) {
+    if (requestId.isEmpty) {
       throw Exception(
-        'Walk ID is missing.',
+        'Request ID is missing.',
       );
     }
 
@@ -753,39 +714,51 @@ class _LiveWalkReviewBottomSheetState
 
     final Map<String, dynamic> reviewData =
         <String, dynamic>{
-      'walkId': walkId,
+      // Canonical ID.
+      'requestId': requestId,
+
+      // Compatibility alias only.
+      // Same value as requestId.
+      'sessionId': requestId,
+
       'walkerUid': walkerUid,
+
       if (ownerUid.isNotEmpty)
         'ownerUid': ownerUid,
+
       'rating': _rating,
       'note': note,
       'reviewSubmitted': true,
       'reviewedAt': now,
     };
 
+    // Canonical review document:
+    // walkerReviews/{requestId}
     final DocumentReference<
         Map<String, dynamic>> walkerReviewRef =
         _firestore
             .collection('walkerReviews')
-            .doc(walkId);
+            .doc(requestId);
 
+    // Canonical history document:
+    // walk_history/{requestId}
     final DocumentReference<
         Map<String, dynamic>> historyRef =
         _firestore
             .collection('walk_history')
-            .doc(walkId);
+            .doc(requestId);
 
     final WriteBatch batch =
         _firestore.batch();
 
-    // Walker review.
+    // Save walker review.
     batch.set(
       walkerReviewRef,
       reviewData,
       SetOptions(merge: true),
     );
 
-    // Walk history mein review attach.
+    // Attach review to walk history.
     batch.set(
       historyRef,
       <String, dynamic>{
@@ -796,7 +769,7 @@ class _LiveWalkReviewBottomSheetState
       SetOptions(merge: true),
     );
 
-    // Dono writes atomically commit honge.
+    // Both writes are atomic.
     await batch.commit();
   }
 
