@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'accept_walk_address.dart';
 import 'accept_walk_call_chat.dart';
@@ -83,6 +84,43 @@ class _AcceptWalkBottomPanelState
     }
   }
 
+  Future<void> _openMap() async {
+    final String address = widget.address.trim();
+
+    if (address.isEmpty) {
+      return;
+    }
+
+    final Uri googleMapsUri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}',
+    );
+
+    try {
+      final bool opened = await launchUrl(
+        googleMapsUri,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to open Google Maps'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to open Google Maps'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -105,7 +143,8 @@ class _AcceptWalkBottomPanelState
           ),
           child: SafeArea(
             top: false,
-            child: NotificationListener<SizeChangedLayoutNotification>(
+            child: NotificationListener<
+                SizeChangedLayoutNotification>(
               onNotification: (_) {
                 return false;
               },
@@ -230,6 +269,54 @@ class _AcceptWalkBottomPanelState
                                 address: widget.address,
                               ),
                             ],
+
+                            const SizedBox(height: 12),
+
+                            // MAP BUTTON
+                            SizedBox(
+                              height: 46,
+                              child: OutlinedButton.icon(
+                                onPressed:
+                                    widget.address
+                                            .trim()
+                                            .isEmpty
+                                        ? null
+                                        : _openMap,
+                                icon: const Icon(
+                                  Icons.map_rounded,
+                                  size: 20,
+                                ),
+                                label: const Text(
+                                  'Map',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor:
+                                      const Color(0xFFE86100),
+                                  disabledForegroundColor:
+                                      const Color(0xFFBDBDBD),
+                                  side: BorderSide(
+                                    color: widget.address
+                                            .trim()
+                                            .isEmpty
+                                        ? const Color(
+                                            0xFFE0E0E0,
+                                          )
+                                        : const Color(
+                                            0xFFE86100,
+                                          ),
+                                  ),
+                                  shape:
+                                      RoundedRectangleBorder(
+                                    borderRadius:
+                                        BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
 
                             const SizedBox(height: 12),
 
