@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../features/insta_walk/models/insta_walk_request.dart';
 import '../features/insta_walk/widgets/insta_walk_container.dart';
+import '../services/walker_availability_service.dart';
 
 class WalksScreen extends StatefulWidget {
   const WalksScreen({
@@ -247,6 +248,28 @@ class _WalksScreenState extends State<WalksScreen>
       return;
     }
 
+    // ----------------------------------------------------------
+    // GLOBAL AVAILABILITY GUARD
+    // ----------------------------------------------------------
+
+    final WalkerAvailabilityService availability =
+        WalkerAvailabilityService.instance;
+
+    if (!availability.isOnline) {
+      _showMessage(
+        'You are Offline. Go Online to search for Insta Walk requests.',
+      );
+      return;
+    }
+
+    if (!availability.canPerformWalkAction()) {
+      _showMessage(
+        availability.unavailableMessage ??
+            'Insta Walk is not available right now.',
+      );
+      return;
+    }
+
     final User? user = _auth.currentUser;
 
     if (user == null) {
@@ -270,11 +293,63 @@ class _WalksScreenState extends State<WalksScreen>
       return;
     }
 
+    // ----------------------------------------------------------
+    // CHECK AGAIN AFTER ASYNC WALKER ID LOAD
+    //
+    // Availability could have changed while awaiting Firestore.
+    // ----------------------------------------------------------
+
+    if (!availability.isOnline) {
+      _showMessage(
+        'You are Offline. Go Online to search for Insta Walk requests.',
+      );
+      return;
+    }
+
+    if (!availability.canPerformWalkAction()) {
+      _showMessage(
+        availability.unavailableMessage ??
+            'Insta Walk is not available right now.',
+      );
+      return;
+    }
+
     setState(() {
       _loading = true;
     });
 
     try {
+      // --------------------------------------------------------
+      // FINAL ONLINE CHECK BEFORE FIRESTORE WRITE
+      // --------------------------------------------------------
+
+      if (!availability.isOnline) {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+          });
+
+          _showMessage(
+            'You are Offline. Go Online to search for Insta Walk requests.',
+          );
+        }
+        return;
+      }
+
+      if (!availability.canPerformWalkAction()) {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+          });
+
+          _showMessage(
+            availability.unavailableMessage ??
+                'Insta Walk is not available right now.',
+          );
+        }
+        return;
+      }
+
       await _firestore
           .collection('users')
           .doc(user.uid)
