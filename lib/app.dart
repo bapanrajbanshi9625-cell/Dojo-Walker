@@ -27,6 +27,9 @@ class DojoWalkerApp extends StatefulWidget {
 
 class _DojoWalkerAppState extends State<DojoWalkerApp>
     with WidgetsBindingObserver {
+  final GlobalKey<NavigatorState> _navigatorKey =
+      GlobalKey<NavigatorState>();
+
   StreamSubscription<List<InstaWalkRequest>>?
       _incomingRequestSubscription;
 
@@ -76,7 +79,9 @@ class _DojoWalkerAppState extends State<DojoWalkerApp>
 
     final InstaWalkRequest request = requests.first;
 
-    _openIncomingWalkScreen(request);
+    unawaited(
+      _openIncomingWalkScreen(request),
+    );
   }
 
   Future<void> _openIncomingWalkScreen(
@@ -96,8 +101,18 @@ class _DojoWalkerAppState extends State<DojoWalkerApp>
         return;
       }
 
-      final NavigatorState navigator =
-          Navigator.of(context, rootNavigator: true);
+      final NavigatorState? navigator =
+          _navigatorKey.currentState;
+
+      if (navigator == null) {
+        debugPrint(
+          'Unable to open incoming walk screen: '
+          'Navigator is not ready.',
+        );
+
+        _incomingScreenOpen = false;
+        return;
+      }
 
       await navigator.push(
         MaterialPageRoute<void>(
@@ -166,6 +181,16 @@ class _DojoWalkerAppState extends State<DojoWalkerApp>
       title: 'Dojo Walker',
       debugShowCheckedModeBanner: false,
       theme: DojoWalkerTheme.light,
+
+      // ========================================================
+      // GLOBAL NAVIGATOR
+      //
+      // Incoming Walk can now open from the global request
+      // monitor even though this State is above MaterialApp.
+      // ========================================================
+
+      navigatorKey: _navigatorKey,
+
       home: NetworkMonitor(
         child: startScreen,
       ),
