@@ -1,3 +1,6 @@
+// File:
+// lib/features/live_walk/services/live_walk_firestore_service.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
@@ -6,30 +9,26 @@ class LiveWalkFirestoreService {
   LiveWalkFirestoreService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-  })  : _firestore =
-            firestore ?? FirebaseFirestore.instance,
-        _auth =
-            auth ?? FirebaseAuth.instance;
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _auth = auth ?? FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
 
-  CollectionReference<Map<String, dynamic>>
-      get _sessions =>
-          _firestore.collection(
-            'liveWalkSessions',
-          );
+  // ============================================================
+  // COLLECTIONS
+  // ============================================================
 
-  CollectionReference<Map<String, dynamic>>
-      get _walkRequests =>
-          _firestore.collection(
-            'walk_request',
-          );
+  CollectionReference<Map<String, dynamic>> get _sessions =>
+      _firestore.collection('liveWalkSessions');
+
+  CollectionReference<Map<String, dynamic>> get _walkRequests =>
+      _firestore.collection('walk_request');
 
   // ============================================================
   // REQUEST ID VALIDATION
   //
-  // Canonical ID:
+  // Canonical Walk ID:
   //
   // DW000001
   // DW000002
@@ -42,20 +41,12 @@ class LiveWalkFirestoreService {
   // walk_history/{requestId}
   // ============================================================
 
-  bool _isValidRequestId(
-    String requestId,
-  ) {
-    return RegExp(
-      r'^DW\d{6}$',
-    ).hasMatch(
-      requestId.trim(),
-    );
+  bool _isValidRequestId(String requestId) {
+    return RegExp(r'^DW\d{6}$').hasMatch(requestId.trim());
   }
 
   // ============================================================
-  // GET SESSION
-  //
-  // Firestore:
+  // GET LIVE SESSION
   //
   // liveWalkSessions/{requestId}
   // ============================================================
@@ -63,42 +54,29 @@ class LiveWalkFirestoreService {
   Future<Map<String, dynamic>?> getSession(
     String requestId,
   ) async {
-    final String cleanRequestId =
-        requestId.trim();
+    final String cleanRequestId = requestId.trim();
 
-    if (cleanRequestId.isEmpty) {
+    if (cleanRequestId.isEmpty ||
+        !_isValidRequestId(cleanRequestId)) {
       return null;
     }
 
-    if (!_isValidRequestId(
-      cleanRequestId,
-    )) {
-      return null;
-    }
-
-    final DocumentSnapshot<Map<String, dynamic>>
-        snapshot =
-        await _sessions
-            .doc(cleanRequestId)
-            .get();
+    final DocumentSnapshot<Map<String, dynamic>> snapshot =
+        await _sessions.doc(cleanRequestId).get();
 
     if (!snapshot.exists) {
       return null;
     }
 
     final Map<String, dynamic> data =
-        snapshot.data() ??
-            <String, dynamic>{};
+        snapshot.data() ?? <String, dynamic>{};
 
     // ==========================================================
-    // VERIFY REQUEST ID
+    // VERIFY STORED REQUEST ID
     // ==========================================================
 
     final String storedRequestId =
-        data['requestId']
-                ?.toString()
-                .trim() ??
-            '';
+        data['requestId']?.toString().trim() ?? '';
 
     if (storedRequestId.isNotEmpty &&
         storedRequestId != cleanRequestId) {
@@ -109,15 +87,24 @@ class LiveWalkFirestoreService {
   }
 
   // ============================================================
-  // WRITE LOCATION
+  // WRITE LIVE LOCATION
   //
-  // Canonical ID:
+  // IMPORTANT:
   //
-  // requestId
+  // This method ONLY writes live-walk data.
   //
-  // sessionId = requestId
+  // It NEVER:
+  // - starts GPS
+  // - stops GPS
+  // - requests permission
+  // - changes Walker availability
   //
-  // No separate walkId.
+  // GPS lifecycle is owned by WalkerLocationService /
+  // WalkerAvailabilityService.
+  //
+  // Canonical document:
+  //
+  // liveWalkSessions/{requestId}
   // ============================================================
 
   Future<void> writeLocation({
@@ -131,36 +118,91 @@ class LiveWalkFirestoreService {
     required int poopCount,
     required DateTime? startedAt,
   }) async {
-    final User? user =
-        _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
       return;
     }
 
-    final String cleanRequestId =
-        requestId.trim();
+    final String cleanRequestId = requestId.trim();
+    final String cleanSessionId = sessionId.trim();
 
-    if (cleanRequestId.isEmpty) {
+    // ==========================================================
+    // VALIDATION
+    // ==========================================================
+
+    if (cleanRequestId.isEmpty ||
+        !_isValidRequestId(cleanRequestId)) {
       return;
     }
 
-    if (!_isValidRequestId(
-      cleanRequestId,
+    // Canonical architecture:
+    //
+    // sessionId == requestId
+    //
+    if (cleanSessionId.isNotEmpty &&
+        cleanSessionId != cleanRequestId) {
+      return;
+    }
+
+    // ==========================================================
+    // VALID COORDINATES
+    // ==========================================================
+
+    if (!_validCoordinate(
+      position.latitude,
+      position.longitude,
     )) {
       return;
     }
 
-    final Map<String, double>
-        startLocation =
+    // ==========================================================
+    // START LOCATION
+    // ==========================================================
+
+    final Map<String, double> startLocation =
         route.isNotEmpty
-            ? route.first
+            ? <String, double>{
+                'lat': route.first['lat'] ?? position.latitude,
+                'lng': route.first['lng'] ?? position.longitude,
+              }
             : <String, double>{
-                'lat':
-                    position.latitude,
-                'lng':
-                    position.longitude,
+                'lat': position.latitude,
+                'lng': position.longitude,
               };
+
+    // ==========================================================
+    // SAFE VALUES
+    // ==========================================================
+
+    final double safeDistanceKm =
+        distanceKm.isFinite && distanceKm >= 0
+            ? distanceKm
+            : 0.0;
+
+    final int safeSteps = steps < 0 ? 0 : steps;
+
+    final int safePeeCount =
+        peeCount < 0 ? 0 : peeCount;
+
+    final int safePoopCount =
+        poopCount < 0 ? 0 : poopCount;
+
+    // ==========================================================
+    // LOCATION DATA
+    //
+    // IMPORTANT:
+    //
+    // Do NOT overwrite status/start flags here.
+    //
+    // startWalk() controls:
+    // status
+    // walkStarted
+    // trackingStarted
+    //
+    // completeWalk() controls:
+    // completed/ended state
+    // ==========================================================
 
     final Map<String, dynamic> data =
         <String, dynamic>{
@@ -168,166 +210,130 @@ class LiveWalkFirestoreService {
       // WALKER
       // --------------------------------------------------------
 
-      'walkerUid':
-          user.uid,
+      'walkerUid': user.uid,
 
       // --------------------------------------------------------
-      // IDENTIFIERS
+      // CANONICAL IDENTIFIERS
       // --------------------------------------------------------
 
-      'requestId':
-          cleanRequestId,
-
-      'sessionId':
-          cleanRequestId,
+      'requestId': cleanRequestId,
+      'sessionId': cleanRequestId,
 
       // --------------------------------------------------------
       // CURRENT LOCATION
+      //
+      // These fields are intentionally kept together so that
+      // Owner/Admin/Live Map screens can use the same location.
       // --------------------------------------------------------
 
-      'currentLocation':
-          <String, dynamic>{
-        'lat':
-            position.latitude,
-        'lng':
-            position.longitude,
+      'currentLocation': <String, dynamic>{
+        'lat': position.latitude,
+        'lng': position.longitude,
       },
 
-      'currentLat':
-          position.latitude,
+      'currentLat': position.latitude,
+      'currentLng': position.longitude,
 
-      'currentLng':
-          position.longitude,
+      // Explicit walker location compatibility fields.
+      //
+      // These are important for screens that listen specifically
+      // for walkerLatitude / walkerLongitude.
+      'walkerLatitude': position.latitude,
+      'walkerLongitude': position.longitude,
 
       // --------------------------------------------------------
-      // START LOCATION / ROUTE
+      // GPS DETAILS
       // --------------------------------------------------------
 
-      'startLocation':
-          startLocation,
+      'gpsAccuracy': position.accuracy,
+      'gpsHeading': position.heading,
+      'gpsSpeed': position.speed,
 
-      'routeCoordinates':
-          route,
+      'gpsUpdatedAt': FieldValue.serverTimestamp(),
 
-      'routePointCount':
-          route.length,
+      // --------------------------------------------------------
+      // START LOCATION
+      // --------------------------------------------------------
+
+      'startLocation': startLocation,
+
+      // --------------------------------------------------------
+      // ROUTE
+      // --------------------------------------------------------
+
+      'routeCoordinates': route,
+      'routePointCount': route.length,
 
       // --------------------------------------------------------
       // DISTANCE
       // --------------------------------------------------------
 
-      'distanceKm':
-          distanceKm,
-
-      'distanceMeters':
-          distanceKm * 1000.0,
+      'distanceKm': safeDistanceKm,
+      'distanceMeters': safeDistanceKm * 1000.0,
 
       // --------------------------------------------------------
-      // STATS
+      // WALK METRICS
       // --------------------------------------------------------
 
-      'steps':
-          steps,
-
-      'peeCount':
-          peeCount,
-
-      'poopCount':
-          poopCount,
+      'steps': safeSteps,
+      'peeCount': safePeeCount,
+      'poopCount': safePoopCount,
 
       // --------------------------------------------------------
-      // TIME
+      // START TIME
+      //
+      // Do not replace an existing startedAt with null.
+      // If supplied, preserve the original walk start time.
       // --------------------------------------------------------
 
-      'startedAt':
-          startedAt == null
-              ? FieldValue
-                  .serverTimestamp()
-              : Timestamp.fromDate(
-                  startedAt,
-                ),
+      if (startedAt != null)
+        'startedAt': Timestamp.fromDate(startedAt),
 
       // --------------------------------------------------------
-      // GPS
+      // UPDATED TIME
       // --------------------------------------------------------
 
-      'gpsAccuracy':
-          position.accuracy,
-
-      'gpsHeading':
-          position.heading,
-
-      'gpsSpeed':
-          position.speed,
-
-      'gpsUpdatedAt':
-          FieldValue
-              .serverTimestamp(),
-
-      'updatedAt':
-          FieldValue
-              .serverTimestamp(),
-
-      // --------------------------------------------------------
-      // STATUS
-      // --------------------------------------------------------
-
-      'status':
-          'active',
-
-      'walkStarted':
-          true,
-
-      'walkEnded':
-          false,
-
-      'trackingStarted':
-          true,
-
-      'trackingEnded':
-          false,
+      'updatedAt': FieldValue.serverTimestamp(),
     };
 
     // ==========================================================
-    // WRITE TO CANONICAL LIVE SESSION
+    // WRITE
     //
-    // liveWalkSessions/{requestId}
+    // merge:true is essential.
+    //
+    // It preserves:
+    // - owner data
+    // - walker name
+    // - walker phone
+    // - dog data
+    // - acceptedAt
+    // - reachedAt
+    // - other live-session metadata
+    // - status controlled by LiveWalkSessionService
     // ==========================================================
 
-    await _sessions
-        .doc(cleanRequestId)
-        .set(
-          data,
-          SetOptions(
-            merge: true,
-          ),
-        );
+    await _sessions.doc(cleanRequestId).set(
+      data,
+      SetOptions(merge: true),
+    );
   }
 
   // ============================================================
   // COMPLETE WALK
   //
-  // IMPORTANT:
-  //
-  // One Walk = One Request = One Live Session
-  //
-  // requestId is the canonical ID.
-  //
-  // This updates BOTH:
+  // Canonical flow:
   //
   // liveWalkSessions/{requestId}
+  //          +
   // walk_request/{requestId}
   //
-  // Final request status:
-  //
-  // accepted -> completed
+  // Both are committed atomically.
   // ============================================================
 
   Future<void> completeWalk({
     required String requestId,
   }) async {
-    final User? user =
-        _auth.currentUser;
+    final User? user = _auth.currentUser;
 
     if (user == null) {
       throw StateError(
@@ -335,8 +341,7 @@ class LiveWalkFirestoreService {
       );
     }
 
-    final String cleanRequestId =
-        requestId.trim();
+    final String cleanRequestId = requestId.trim();
 
     if (cleanRequestId.isEmpty) {
       throw ArgumentError(
@@ -344,100 +349,129 @@ class LiveWalkFirestoreService {
       );
     }
 
-    if (!_isValidRequestId(
-      cleanRequestId,
-    )) {
+    if (!_isValidRequestId(cleanRequestId)) {
       throw ArgumentError(
         'Invalid requestId: $cleanRequestId',
       );
     }
 
     // ==========================================================
-    // ATOMIC BATCH
-    //
-    // Both documents are updated together.
+    // VERIFY LIVE SESSION
     // ==========================================================
 
-    final WriteBatch batch =
-        _firestore.batch();
+    final DocumentReference<Map<String, dynamic>> sessionRef =
+        _sessions.doc(cleanRequestId);
 
-    // ----------------------------------------------------------
+    final DocumentSnapshot<Map<String, dynamic>> sessionSnapshot =
+        await sessionRef.get();
+
+    if (!sessionSnapshot.exists) {
+      throw StateError(
+        'Live walk session not found: $cleanRequestId',
+      );
+    }
+
+    final Map<String, dynamic> sessionData =
+        sessionSnapshot.data() ?? <String, dynamic>{};
+
+    // ==========================================================
+    // VERIFY WALKER OWNERSHIP
+    // ==========================================================
+
+    final String sessionWalkerUid =
+        sessionData['walkerUid']?.toString().trim() ?? '';
+
+    if (sessionWalkerUid.isNotEmpty &&
+        sessionWalkerUid != user.uid) {
+      throw StateError(
+        'This live walk belongs to another walker.',
+      );
+    }
+
+    // ==========================================================
+    // VERIFY REQUEST ID
+    // ==========================================================
+
+    final String storedRequestId =
+        sessionData['requestId']?.toString().trim() ?? '';
+
+    if (storedRequestId.isNotEmpty &&
+        storedRequestId != cleanRequestId) {
+      throw StateError(
+        'Live session requestId does not match.',
+      );
+    }
+
+    // ==========================================================
+    // WALK REQUEST REFERENCE
+    // ==========================================================
+
+    final DocumentReference<Map<String, dynamic>> requestRef =
+        _walkRequests.doc(cleanRequestId);
+
+    final DocumentSnapshot<Map<String, dynamic>> requestSnapshot =
+        await requestRef.get();
+
+    if (!requestSnapshot.exists) {
+      throw StateError(
+        'Walk request not found: $cleanRequestId',
+      );
+    }
+
+    final Map<String, dynamic> requestData =
+        requestSnapshot.data() ?? <String, dynamic>{};
+
+    final String requestWalkerUid =
+        requestData['walkerUid']?.toString().trim() ?? '';
+
+    if (requestWalkerUid.isNotEmpty &&
+        requestWalkerUid != user.uid) {
+      throw StateError(
+        'This walk request belongs to another walker.',
+      );
+    }
+
+    // ==========================================================
+    // ATOMIC BATCH
+    // ==========================================================
+
+    final WriteBatch batch = _firestore.batch();
+
+    // ==========================================================
     // LIVE SESSION
-    // ----------------------------------------------------------
-
-    final DocumentReference<Map<String, dynamic>>
-        sessionRef =
-        _sessions.doc(
-      cleanRequestId,
-    );
+    // ==========================================================
 
     batch.set(
       sessionRef,
       <String, dynamic>{
-        'requestId':
-            cleanRequestId,
+        'requestId': cleanRequestId,
+        'sessionId': cleanRequestId,
 
-        'sessionId':
-            cleanRequestId,
+        'walkerUid': user.uid,
 
-        'walkerUid':
-            user.uid,
+        'status': 'completed',
 
-        'status':
-            'completed',
+        'walkEnded': true,
+        'trackingEnded': true,
 
-        'walkEnded':
-            true,
-
-        'trackingEnded':
-            true,
-
-        'completedAt':
-            FieldValue
-                .serverTimestamp(),
-
-        'endedAt':
-            FieldValue
-                .serverTimestamp(),
-
-        'updatedAt':
-            FieldValue
-                .serverTimestamp(),
+        'completedAt': FieldValue.serverTimestamp(),
+        'endedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       },
-      SetOptions(
-        merge: true,
-      ),
+      SetOptions(merge: true),
     );
 
-    // ----------------------------------------------------------
+    // ==========================================================
     // WALK REQUEST
-    //
-    // THIS IS THE IMPORTANT FIX.
-    //
-    // walk_request/{requestId}
-    //
-    // accepted -> completed
-    // ----------------------------------------------------------
-
-    final DocumentReference<Map<String, dynamic>>
-        requestRef =
-        _walkRequests.doc(
-      cleanRequestId,
-    );
+    // ==========================================================
 
     batch.update(
       requestRef,
       <String, dynamic>{
-        'status':
-            'completed',
+        'status': 'completed',
 
-        'completedAt':
-            FieldValue
-                .serverTimestamp(),
-
-        'updatedAt':
-            FieldValue
-                .serverTimestamp(),
+        'completedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       },
     );
 
@@ -446,5 +480,20 @@ class LiveWalkFirestoreService {
     // ==========================================================
 
     await batch.commit();
+  }
+
+  // ============================================================
+  // COORDINATE VALIDATION
+  // ============================================================
+
+  bool _validCoordinate(
+    double lat,
+    double lng,
+  ) {
+    return lat >= -90 &&
+        lat <= 90 &&
+        lng >= -180 &&
+        lng <= 180 &&
+        !(lat == 0 && lng == 0);
   }
 }
