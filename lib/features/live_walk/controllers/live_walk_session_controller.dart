@@ -894,8 +894,7 @@ class LiveWalkSessionController extends ChangeNotifier {
 
     if (!_availabilityService.canPerformWalkAction()) {
       throw Exception(
-        _availabilityService.unavailableMessage ??
-            'Walk action is currently unavailable.',
+        _availabilityService.unavailableMessage,
       );
     }
 
