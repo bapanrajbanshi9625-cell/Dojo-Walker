@@ -659,7 +659,7 @@ class InstaWalkRequestService {
                 final bool alreadyRejected =
                     await _hasRejected(
                   doc.id,
-                  walkerId!,
+                  walkerId,
                 );
 
                 if (disposed ||
