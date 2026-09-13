@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_walker_colors.dart';
-
 class InstaWalkSearchPanel extends StatefulWidget {
   const InstaWalkSearchPanel({
     super.key,
