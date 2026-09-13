@@ -1,3 +1,6 @@
+// File:
+// lib/features/accept_walk/widgets/accept_walk_map.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -30,6 +33,15 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
   bool _mapReady = false;
 
   LatLng? _lastCameraLocation;
+
+  // ------------------------------------------------------------
+  // Automatic walker-follow state.
+  //
+  // When the user manually pans/zooms the map, automatic follow
+  // stops so the user's zoom level is preserved.
+  // ------------------------------------------------------------
+
+  bool _userInteracting = false;
 
   static const double _followZoom = 16.5;
   static const double _initialZoom = 15.5;
@@ -79,6 +91,31 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
   }
 
   // ============================================================
+  // MAP INTERACTION
+  // ============================================================
+
+  void _handleMapEvent(
+    MapEvent event,
+  ) {
+    // ----------------------------------------------------------
+    // User interaction events.
+    //
+    // Do not permanently disable GPS. Only stop automatic camera
+    // following. GPS/location stream continues normally.
+    // ----------------------------------------------------------
+
+    if (event is MapEventMoveStart) {
+      _userInteracting = true;
+      return;
+    }
+
+    if (event is MapEventFlingAnimation) {
+      _userInteracting = true;
+      return;
+    }
+  }
+
+  // ============================================================
   // FOLLOW WALKER
   // ============================================================
 
@@ -87,6 +124,15 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
     bool force = false,
   }) {
     if (!_mapReady) {
+      return;
+    }
+
+    // ----------------------------------------------------------
+    // If user is manually moving/zooming the map, do not reset
+    // their camera position or zoom level on every GPS update.
+    // ----------------------------------------------------------
+
+    if (_userInteracting && !force) {
       return;
     }
 
@@ -129,7 +175,8 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
   // ============================================================
 
   void _goToMyLocation() {
-    final LatLng? walkerLocation = widget.walkerLocation;
+    final LatLng? walkerLocation =
+        widget.walkerLocation;
 
     if (!_mapReady) {
       widget.onMyLocationPressed?.call();
@@ -137,6 +184,12 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
     }
 
     if (walkerLocation != null) {
+      // --------------------------------------------------------
+      // Explicit user request to return to walker location.
+      // This also re-enables automatic following.
+      // --------------------------------------------------------
+
+      _userInteracting = false;
       _lastCameraLocation = walkerLocation;
 
       _mapController.move(
@@ -155,15 +208,35 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
   @override
   Widget build(BuildContext context) {
     final LatLng center =
-        widget.walkerLocation ?? widget.ownerLocation;
+        widget.walkerLocation ??
+        widget.ownerLocation;
 
     return FlutterMap(
       mapController: _mapController,
       options: MapOptions(
         initialCenter: center,
         initialZoom: _initialZoom,
+
         onMapReady: _handleMapReady,
-        interactionOptions: const InteractionOptions(
+
+        // ------------------------------------------------------
+        // MAP EVENTS
+        // ------------------------------------------------------
+
+        onMapEvent: _handleMapEvent,
+
+        // ------------------------------------------------------
+        // FULL MAP INTERACTION
+        //
+        // drag       -> move map
+        // pinchZoom  -> two-finger zoom
+        // doubleTap  -> zoom
+        // fling      -> natural map movement
+        // scrollWheel -> desktop/web support
+        // ------------------------------------------------------
+
+        interactionOptions:
+            const InteractionOptions(
           flags:
               InteractiveFlag.drag |
               InteractiveFlag.pinchZoom |
@@ -172,6 +245,7 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
               InteractiveFlag.scrollWheelZoom,
         ),
       ),
+
       children: <Widget>[
         // ========================================================
         // OPENSTREETMAP
@@ -180,7 +254,8 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
         TileLayer(
           urlTemplate:
               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.doojo.walker',
+          userAgentPackageName:
+              'com.doojo.walker',
         ),
 
         // ========================================================
@@ -198,7 +273,8 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
               Polyline(
                 points: widget.routePoints,
                 strokeWidth: 4.5,
-                color: DojoWalkerColors.primary,
+                color:
+                    DojoWalkerColors.primary,
               ),
             ],
           ),
@@ -213,10 +289,14 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
               point: widget.ownerLocation,
               radius: 100,
               useRadiusInMeter: true,
-              color: DojoWalkerColors.primary.withValues(
+              color:
+                  DojoWalkerColors.primary
+                      .withValues(
                 alpha: 0.08,
               ),
-              borderColor: DojoWalkerColors.primary.withValues(
+              borderColor:
+                  DojoWalkerColors.primary
+                      .withValues(
                 alpha: 0.35,
               ),
               borderStrokeWidth: 1.5,
@@ -236,9 +316,11 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
               height: 46,
               child: const _OwnerMarker(),
             ),
+
             if (widget.walkerLocation != null)
               Marker(
-                point: widget.walkerLocation!,
+                point:
+                    widget.walkerLocation!,
                 width: 46,
                 height: 46,
                 child: const _WalkerMarker(),
@@ -253,23 +335,27 @@ class _AcceptWalkMapState extends State<AcceptWalkMap> {
         if (widget.onMyLocationPressed != null)
           Positioned(
             right: 14,
-            bottom: widget.bottomPanelHeight + 14,
+            bottom:
+                widget.bottomPanelHeight + 14,
             child: SafeArea(
               top: false,
               child: Material(
                 elevation: 5,
                 color: Colors.white,
-                shape: const CircleBorder(),
+                shape:
+                    const CircleBorder(),
                 child: InkWell(
                   onTap: _goToMyLocation,
-                  customBorder: const CircleBorder(),
+                  customBorder:
+                      const CircleBorder(),
                   child: const SizedBox(
                     width: 46,
                     height: 46,
                     child: Icon(
                       Icons.my_location,
                       size: 22,
-                      color: DojoWalkerColors.primary,
+                      color:
+                          DojoWalkerColors.primary,
                     ),
                   ),
                 ),
