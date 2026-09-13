@@ -1,46 +1,16 @@
+// File:
+// lib/features/incoming_walk/services/insta_walk_request_service.dart
+
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:geolocator/geolocator.dart';
 
 import '../../../services/walker_availability_service.dart';
 import '../../../services/walker_location_service.dart';
-import '../../insta_walk/models/insta_walk_request.dart';
-
-/// ============================================================
-/// INCOMING WALK REQUEST SERVICE
-///
-/// Responsibilities:
-///
-/// - Discover searching Insta Walk requests
-/// - Only discover when:
-///     ONLINE
-///     + INSTA WALK selected
-///     + INSTA SEARCH ON
-///     + no active walk
-/// - Only discover requests within 3.5 km
-/// - Claim one request for one Walker
-/// - Give each claimed request a 3-minute offer window
-/// - Automatically timeout the offer after 3 minutes
-/// - Permanently skip requests timed out by this Walker
-/// - Permanently skip requests rejected by this Walker
-/// - Release the request so another Walker can receive it
-///
-/// GPS lifecycle:
-///
-///     WalkerAvailabilityService
-///
-/// owns GPS.
-///
-/// This service NEVER starts or stops GPS.
-///
-/// Location source:
-///
-///     WalkerLocationService.instance
-///
-/// ============================================================
+import '../models/insta_walk_request.dart';
 
 class InstaWalkRequestService {
   InstaWalkRequestService._();
@@ -48,11 +18,8 @@ class InstaWalkRequestService {
   static final InstaWalkRequestService instance =
       InstaWalkRequestService._();
 
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
-
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final WalkerAvailabilityService _availabilityService =
       WalkerAvailabilityService.instance;
@@ -60,1322 +27,701 @@ class InstaWalkRequestService {
   final WalkerLocationService _locationService =
       WalkerLocationService.instance;
 
-  // ============================================================
-  // CONFIGURATION
-  // ============================================================
+  static const double _searchRadiusKm = 3.5;
+  static const Duration _offerDuration = Duration(minutes: 3);
 
-  static const double _maxSearchRadiusKm = 3.5;
+  StreamSubscription<User?>? _authSubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+      _requestSubscription;
 
-  static const Duration _offerDuration =
-      Duration(minutes: 3);
+  StreamController<List<InstaWalkRequest>>? _controller;
 
-  // ============================================================
-  // ACTIVE OFFER TIMERS
-  //
-  // One timer per request currently claimed by this Walker.
-  // ============================================================
+  Timer? _refreshTimer;
 
-  final Map<String, Timer> _offerTimers =
-      <String, Timer>{};
+  bool _disposed = false;
+  bool _availabilityListenerAttached = false;
 
-  // ============================================================
-  // COLLECTIONS
-  // ============================================================
+  int _listenerGeneration = 0;
 
-  CollectionReference<Map<String, dynamic>> get _walkRequests {
-    return _firestore.collection('walk_request');
+  Future<void> _restartQueue = Future<void>.value();
+
+  Stream<List<InstaWalkRequest>> pendingRequestsStream() {
+    _controller ??= StreamController<List<InstaWalkRequest>>.broadcast(
+      onListen: _handleControllerListen,
+      onCancel: _handleControllerCancel,
+    );
+
+    return _controller!.stream;
   }
 
-  CollectionReference<Map<String, dynamic>> get _walkers {
-    return _firestore.collection('walkers');
+  void _handleControllerListen() {
+    if (_disposed) return;
+
+    _attachAvailabilityListener();
+
+    _authSubscription ??= _auth.authStateChanges().listen((_) {
+      _scheduleListenerRefresh('auth_changed');
+    });
+
+    _scheduleListenerRefresh('stream_listened');
   }
 
-  // ============================================================
-  // CURRENT USER
-  // ============================================================
+  Future<void> _handleControllerCancel() async {
+    await _stopRequestListener();
 
-  User? get currentUser {
-    return _auth.currentUser;
+    await _authSubscription?.cancel();
+    _authSubscription = null;
+
+    _detachAvailabilityListener();
+
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
   }
 
-  String? get currentWalkerUid {
-    final User? user = _auth.currentUser;
+  void _attachAvailabilityListener() {
+    if (_availabilityListenerAttached) return;
 
-    final String uid =
-        user?.uid.trim() ?? '';
+    _availabilityListenerAttached = true;
+    _availabilityService.addListener(_onAvailabilityChanged);
+  }
 
-    if (uid.isEmpty) {
-      return null;
+  void _detachAvailabilityListener() {
+    if (!_availabilityListenerAttached) return;
+
+    _availabilityListenerAttached = false;
+    _availabilityService.removeListener(_onAvailabilityChanged);
+  }
+
+  void _onAvailabilityChanged() {
+    if (_disposed) return;
+
+    _scheduleListenerRefresh('availability_changed');
+  }
+
+  void _scheduleListenerRefresh(String reason) {
+    if (_disposed || _controller == null || _controller!.isClosed) {
+      return;
     }
 
-    return uid;
+    final int generation = ++_listenerGeneration;
+
+    _restartQueue = _restartQueue.then((_) async {
+      if (_disposed) return;
+
+      await _syncRequestListener(
+        generation: generation,
+        reason: reason,
+      );
+    }).catchError((Object error, StackTrace stackTrace) {
+      debugPrint(
+        '[InstaWalkRequestService] listener restart error: '
+        '$error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+    });
   }
 
-  // ============================================================
-  // CURRENT WALKER DOCUMENT
-  // ============================================================
+  Future<void> _syncRequestListener({
+    required int generation,
+    required String reason,
+  }) async {
+    if (_disposed) return;
 
-  Future<DocumentSnapshot<Map<String, dynamic>>?>
-      _getCurrentWalkerDocument() async {
-    final String? uid =
-        currentWalkerUid;
+    debugPrint(
+      '[InstaWalkRequestService] SYNC '
+      'reason=$reason '
+      'generation=$generation '
+      'online=${_availabilityService.isOnline} '
+      'insta=${_availabilityService.isInstaWalkSelected} '
+      'searching=${_availabilityService.isInstaWalkSearching} '
+      'activeWalk=${_availabilityService.isActiveWalk} '
+      'gps=${_locationService.isTracking}',
+    );
 
-    if (uid == null) {
-      return null;
+    await _stopRequestListener();
+
+    if (_disposed) return;
+
+    if (generation != _listenerGeneration) {
+      debugPrint(
+        '[InstaWalkRequestService] STALE SYNC '
+        'generation=$generation '
+        'latest=$_listenerGeneration',
+      );
+      return;
     }
 
-    final DocumentSnapshot<Map<String, dynamic>>
-        snapshot =
-        await _walkers.doc(uid).get();
+    if (!_canReceiveInstaWalkRequests()) {
+      debugPrint(
+        '[InstaWalkRequestService] FIRESTORE LISTENER OFF '
+        'because receive conditions are not satisfied.',
+      );
 
-    if (!snapshot.exists) {
-      return null;
+      _emitEmpty();
+      return;
     }
 
-    return snapshot;
-  }
+    final String? walkerId = await _getWalkerId();
 
-  // ============================================================
-  // CURRENT WALKER ID
-  // ============================================================
+    if (_disposed) return;
 
-  Future<String?> getCurrentWalkerId() async {
-    final String? uid =
-        currentWalkerUid;
-
-    if (uid == null) {
-      return null;
+    if (generation != _listenerGeneration) {
+      debugPrint(
+        '[InstaWalkRequestService] STALE AFTER WALKER ID '
+        'generation=$generation '
+        'latest=$_listenerGeneration',
+      );
+      return;
     }
 
-    final DocumentSnapshot<Map<String, dynamic>>?
-        snapshot =
-        await _getCurrentWalkerDocument();
+    if (walkerId == null || walkerId.trim().isEmpty) {
+      debugPrint(
+        '[InstaWalkRequestService] WALKER ID NOT FOUND. '
+        'Firestore listener not started.',
+      );
 
-    if (snapshot != null) {
-      final Map<String, dynamic>? data =
-          snapshot.data();
+      _emitEmpty();
+      return;
+    }
 
-      if (data != null) {
-        String walkerId =
-            data['walkerId']
-                    ?.toString()
-                    .trim() ??
-                '';
+    debugPrint(
+      '[InstaWalkRequestService] FIRESTORE LISTENER STARTING '
+      'walkerId=$walkerId',
+    );
 
-        if (walkerId.isEmpty) {
-          walkerId =
-              data['Walker ID']
-                      ?.toString()
-                      .trim() ??
-                  '';
+    final Query<Map<String, dynamic>> query = _firestore
+        .collection('walk_request')
+        .where('status', isEqualTo: 'searching');
+
+    _requestSubscription = query.snapshots().listen(
+      (snapshot) {
+        unawaited(
+          _processSnapshot(
+            snapshot,
+            walkerId,
+            generation,
+          ),
+        );
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint(
+          '[InstaWalkRequestService] FIRESTORE LISTENER ERROR: $error',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+
+        if (!_disposed &&
+            _canReceiveInstaWalkRequests() &&
+            generation == _listenerGeneration) {
+          _scheduleListenerRefresh('firestore_error');
         }
+      },
+      cancelOnError: false,
+    );
 
-        if (walkerId.isNotEmpty) {
-          return walkerId;
+    debugPrint(
+      '[InstaWalkRequestService] FIRESTORE LISTENER ACTIVE '
+      'walkerId=$walkerId',
+    );
+  }
+
+  Future<void> _processSnapshot(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+    String walkerId,
+    int generation,
+  ) async {
+    if (_disposed) return;
+
+    if (generation != _listenerGeneration) {
+      return;
+    }
+
+    if (!_canReceiveInstaWalkRequests()) {
+      _emitEmpty();
+      return;
+    }
+
+    debugPrint(
+      '[InstaWalkRequestService] REQUEST SNAPSHOT '
+      'count=${snapshot.docs.length}',
+    );
+
+    if (snapshot.docs.isEmpty) {
+      _emitEmpty();
+      return;
+    }
+
+    final List<InstaWalkRequest> validRequests = <InstaWalkRequest>[];
+
+    for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+        in snapshot.docs) {
+      if (_disposed) return;
+
+      if (generation != _listenerGeneration) {
+        return;
+      }
+
+      try {
+        final InstaWalkRequest? request =
+            await _processSingleRequest(doc, walkerId);
+
+        if (request != null) {
+          validRequests.add(request);
         }
+      } catch (error, stackTrace) {
+        debugPrint(
+          '[InstaWalkRequestService] REQUEST PROCESS ERROR '
+          'id=${doc.id}: $error',
+        );
+        debugPrintStack(stackTrace: stackTrace);
       }
     }
 
-    return uid;
-  }
+    if (_disposed) return;
 
-  // ============================================================
-  // AVAILABILITY GUARD
-  // ============================================================
-
-  bool _canReceiveInstaWalkRequests() {
-    return _availabilityService.isOnline &&
-        _availabilityService.isInstaWalkSelected &&
-        _availabilityService.isInstaWalkSearching &&
-        !_availabilityService.isActiveWalk &&
-        _locationService.isTracking;
-  }
-
-  // ============================================================
-  // WALKER POSITION
-  // ============================================================
-
-  Position? get _currentWalkerPosition {
-    return _locationService.currentPosition;
-  }
-
-  // ============================================================
-  // OWNER LOCATION
-  // ============================================================
-
-  GeoPoint? _getOwnerLocation(
-    Map<String, dynamic> data,
-  ) {
-    final dynamic ownerLocation =
-        data['ownerLocation'];
-
-    if (ownerLocation is GeoPoint) {
-      return ownerLocation;
+    if (generation != _listenerGeneration) {
+      return;
     }
 
-    final double? latitude =
-        _toDouble(
-      data['latitude'] ??
-          data['lat'] ??
-          data['pickupLatitude'],
+    validRequests.sort(
+      (InstaWalkRequest a, InstaWalkRequest b) {
+        final DateTime aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final DateTime bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+        return aTime.compareTo(bTime);
+      },
     );
 
-    final double? longitude =
-        _toDouble(
-      data['longitude'] ??
-          data['lng'] ??
-          data['pickupLongitude'],
+    debugPrint(
+      '[InstaWalkRequestService] VALID REQUESTS '
+      'count=${validRequests.length}',
     );
 
-    if (latitude == null ||
-        longitude == null) {
+    if (validRequests.isNotEmpty) {
+      debugPrint(
+        '[InstaWalkRequestService] REQUEST READY '
+        'id=${validRequests.first.requestId}',
+      );
+    }
+
+    _emit(validRequests);
+  }
+
+  Future<InstaWalkRequest?> _processSingleRequest(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+    String walkerId,
+  ) async {
+    final Map<String, dynamic> data = doc.data();
+
+    final String requestId = doc.id;
+
+    final String status =
+        (data['status'] ?? '').toString().trim().toLowerCase();
+
+    if (status != 'searching') {
       return null;
     }
 
-    return GeoPoint(
-      latitude,
-      longitude,
-    );
-  }
+    final String? existingClaimWalkerUid =
+        _cleanString(data['incomingWalkerUid']);
 
-  // ============================================================
-  // DISTANCE
-  // ============================================================
+    final String currentUid = _auth.currentUser?.uid ?? '';
 
-  double _distanceKm({
-    required Position walkerPosition,
-    required GeoPoint ownerLocation,
-  }) {
-    final double distanceMeters =
-        Geolocator.distanceBetween(
-      walkerPosition.latitude,
-      walkerPosition.longitude,
+    if (existingClaimWalkerUid != null &&
+        existingClaimWalkerUid.isNotEmpty &&
+        existingClaimWalkerUid != currentUid) {
+      debugPrint(
+        '[InstaWalkRequestService] REQUEST ALREADY CLAIMED '
+        'id=$requestId',
+      );
+      return null;
+    }
+
+    final DocumentReference<Map<String, dynamic>> requestRef =
+        _firestore.collection('walk_request').doc(requestId);
+
+    final DocumentReference<Map<String, dynamic>> rejectionRef =
+        requestRef.collection('rejections').doc(walkerId);
+
+    final DocumentSnapshot<Map<String, dynamic>> rejectionSnapshot =
+        await rejectionRef.get();
+
+    if (rejectionSnapshot.exists) {
+      debugPrint(
+        '[InstaWalkRequestService] REQUEST REJECTED BEFORE '
+        'id=$requestId',
+      );
+      return null;
+    }
+
+    final GeoPoint? ownerLocation = _readGeoPoint(data['ownerLocation']);
+
+    if (ownerLocation == null) {
+      debugPrint(
+        '[InstaWalkRequestService] OWNER LOCATION MISSING '
+        'id=$requestId',
+      );
+      return null;
+    }
+
+    final GeoPoint? walkerLocation = _locationService.currentPosition != null
+        ? GeoPoint(
+            _locationService.currentPosition!.latitude,
+            _locationService.currentPosition!.longitude,
+          )
+        : null;
+
+    if (walkerLocation == null) {
+      debugPrint(
+        '[InstaWalkRequestService] WALKER LOCATION MISSING '
+        'id=$requestId',
+      );
+      return null;
+    }
+
+    final double distanceKm = _distanceInKm(
+      walkerLocation.latitude,
+      walkerLocation.longitude,
       ownerLocation.latitude,
       ownerLocation.longitude,
     );
 
-    return distanceMeters / 1000.0;
-  }
-
-  // ============================================================
-  // WITHIN SEARCH RADIUS
-  // ============================================================
-
-  bool _isWithinSearchRadius(
-    Map<String, dynamic> data,
-  ) {
-    final Position? walkerPosition =
-        _currentWalkerPosition;
-
-    if (walkerPosition == null) {
-      return false;
-    }
-
-    final GeoPoint? ownerLocation =
-        _getOwnerLocation(data);
-
-    if (ownerLocation == null) {
-      return false;
-    }
-
-    final double distanceKm =
-        _distanceKm(
-      walkerPosition: walkerPosition,
-      ownerLocation: ownerLocation,
+    debugPrint(
+      '[InstaWalkRequestService] DISTANCE '
+      'id=$requestId '
+      'distance=${distanceKm.toStringAsFixed(2)}km '
+      'radius=$_searchRadiusKm km',
     );
+
+    if (distanceKm > _searchRadiusKm) {
+      return null;
+    }
+
+    final bool claimed = await _claimRequest(
+      requestRef: requestRef,
+      walkerId: walkerId,
+      walkerUid: currentUid,
+    );
+
+    if (!claimed) {
+      debugPrint(
+        '[InstaWalkRequestService] CLAIM FAILED '
+        'id=$requestId',
+      );
+      return null;
+    }
 
     debugPrint(
-      'Insta Walk distance: '
-      '${distanceKm.toStringAsFixed(2)} km',
+      '[InstaWalkRequestService] CLAIM SUCCESS '
+      'id=$requestId',
     );
 
-    return distanceKm <=
-        _maxSearchRadiusKm;
+    _scheduleClaimTimeout(
+      requestId: requestId,
+      walkerId: walkerId,
+      walkerUid: currentUid,
+    );
+
+    return InstaWalkRequest.fromFirestore(
+      doc,
+    );
   }
 
-  // ============================================================
-  // TIMESTAMP
-  // ============================================================
+  Future<bool> _claimRequest({
+    required DocumentReference<Map<String, dynamic>> requestRef,
+    required String walkerId,
+    required String walkerUid,
+  }) async {
+    try {
+      return await _firestore.runTransaction<bool>(
+        (transaction) async {
+          final DocumentSnapshot<Map<String, dynamic>> snapshot =
+              await transaction.get(requestRef);
 
-  DateTime? _timestampToDateTime(
-    dynamic value,
-  ) {
-    if (value is Timestamp) {
-      return value.toDate();
+          if (!snapshot.exists) {
+            return false;
+          }
+
+          final Map<String, dynamic> data =
+              snapshot.data() ?? <String, dynamic>{};
+
+          final String status =
+              (data['status'] ?? '').toString().trim().toLowerCase();
+
+          if (status != 'searching') {
+            return false;
+          }
+
+          final String? existingUid =
+              _cleanString(data['incomingWalkerUid']);
+
+          if (existingUid != null &&
+              existingUid.isNotEmpty &&
+              existingUid != walkerUid) {
+            return false;
+          }
+
+          transaction.update(
+            requestRef,
+            <String, dynamic>{
+              'incomingWalkerUid': walkerUid,
+              'incomingWalkerId': walkerId,
+              'incomingClaimedAt': FieldValue.serverTimestamp(),
+            },
+          );
+
+          return true;
+        },
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[InstaWalkRequestService] CLAIM TRANSACTION ERROR: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      return false;
+    }
+  }
+
+  void _scheduleClaimTimeout({
+    required String requestId,
+    required String walkerId,
+    required String walkerUid,
+  }) {
+    Timer(
+      _offerDuration,
+      () async {
+        if (_disposed) return;
+
+        try {
+          final DocumentReference<Map<String, dynamic>> requestRef =
+              _firestore.collection('walk_request').doc(requestId);
+
+          final DocumentReference<Map<String, dynamic>> rejectionRef =
+              requestRef.collection('rejections').doc(walkerId);
+
+          await _firestore.runTransaction<void>(
+            (transaction) async {
+              final DocumentSnapshot<Map<String, dynamic>> snapshot =
+                  await transaction.get(requestRef);
+
+              if (!snapshot.exists) return;
+
+              final Map<String, dynamic> data =
+                  snapshot.data() ?? <String, dynamic>{};
+
+              final String? claimedUid =
+                  _cleanString(data['incomingWalkerUid']);
+
+              if (claimedUid != walkerUid) {
+                return;
+              }
+
+              final String status =
+                  (data['status'] ?? '').toString().trim().toLowerCase();
+
+              if (status != 'searching') {
+                return;
+              }
+
+              transaction.set(
+                rejectionRef,
+                <String, dynamic>{
+                  'walkerId': walkerId,
+                  'walkerUid': walkerUid,
+                  'createdAt': FieldValue.serverTimestamp(),
+                },
+              );
+
+              transaction.update(
+                requestRef,
+                <String, dynamic>{
+                  'incomingWalkerUid': null,
+                  'incomingWalkerId': null,
+                  'incomingClaimedAt': null,
+                },
+              );
+            },
+          );
+
+          debugPrint(
+            '[InstaWalkRequestService] CLAIM TIMEOUT '
+            'id=$requestId',
+          );
+        } catch (error, stackTrace) {
+          debugPrint(
+            '[InstaWalkRequestService] CLAIM TIMEOUT ERROR '
+            'id=$requestId: $error',
+          );
+          debugPrintStack(stackTrace: stackTrace);
+        }
+      },
+    );
+  }
+
+  bool _canReceiveInstaWalkRequests() {
+    final bool online = _availabilityService.isOnline;
+    final bool insta = _availabilityService.isInstaWalkSelected;
+    final bool searching = _availabilityService.isInstaWalkSearching;
+    final bool activeWalk = _availabilityService.isActiveWalk;
+    final bool gps = _locationService.isTracking;
+
+    final bool result =
+        online &&
+        insta &&
+        searching &&
+        !activeWalk &&
+        gps;
+
+    return result;
+  }
+
+  Future<String?> _getWalkerId() async {
+    final User? user = _auth.currentUser;
+
+    if (user == null) {
+      debugPrint(
+        '[InstaWalkRequestService] AUTH USER NOT FOUND',
+      );
+      return null;
     }
 
-    if (value is DateTime) {
+    try {
+      final DocumentSnapshot<Map<String, dynamic>> snapshot =
+          await _firestore.collection('walkers').doc(user.uid).get();
+
+      if (!snapshot.exists) {
+        debugPrint(
+          '[InstaWalkRequestService] WALKER DOCUMENT NOT FOUND',
+        );
+        return user.uid;
+      }
+
+      final Map<String, dynamic> data =
+          snapshot.data() ?? <String, dynamic>{};
+
+      final String? walkerId =
+          _cleanString(data['walkerId']) ??
+          _cleanString(data['uid']) ??
+          _cleanString(data['id']);
+
+      return walkerId ?? user.uid;
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[InstaWalkRequestService] WALKER ID ERROR: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+
+      return user.uid;
+    }
+  }
+
+  Future<void> _stopRequestListener() async {
+    await _requestSubscription?.cancel();
+    _requestSubscription = null;
+  }
+
+  void _emit(List<InstaWalkRequest> requests) {
+    if (_disposed || _controller == null || _controller!.isClosed) {
+      return;
+    }
+
+    _controller!.add(requests);
+  }
+
+  void _emitEmpty() {
+    _emit(<InstaWalkRequest>[]);
+  }
+
+  GeoPoint? _readGeoPoint(dynamic value) {
+    if (value is GeoPoint) {
       return value;
+    }
+
+    if (value is Map) {
+      final dynamic latitude = value['latitude'];
+      final dynamic longitude = value['longitude'];
+
+      final double? lat = _toDouble(latitude);
+      final double? lng = _toDouble(longitude);
+
+      if (lat != null && lng != null) {
+        return GeoPoint(lat, lng);
+      }
     }
 
     return null;
   }
 
-  DateTime? _getOfferStartedAt(
-    Map<String, dynamic> data,
+  double _distanceInKm(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
   ) {
-    return _timestampToDateTime(
-      data['incomingClaimedAt'],
-    );
+    const double earthRadiusKm = 6371.0;
+
+    final double dLat = _degreesToRadians(lat2 - lat1);
+    final double dLon = _degreesToRadians(lon2 - lon1);
+
+    final double a =
+        math.pow(math.sin(dLat / 2), 2).toDouble() +
+        math.cos(_degreesToRadians(lat1)) *
+            math.cos(_degreesToRadians(lat2)) *
+            math.pow(math.sin(dLon / 2), 2).toDouble();
+
+    final double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+
+    return earthRadiusKm * c;
   }
 
-  // ============================================================
-  // OFFER EXPIRED
-  // ============================================================
-
-  bool _isOfferExpired(
-    Map<String, dynamic> data,
-  ) {
-    final DateTime? claimedAt =
-        _getOfferStartedAt(data);
-
-    if (claimedAt == null) {
-      return false;
-    }
-
-    return DateTime.now()
-            .difference(claimedAt) >=
-        _offerDuration;
+  double _degreesToRadians(double degrees) {
+    return degrees * math.pi / 180.0;
   }
 
-  // ============================================================
-  // SCHEDULE OFFER TIMEOUT
-  //
-  // Starts/restarts the local 3-minute timer based on the
-  // actual incomingClaimedAt timestamp.
-  //
-  // Firestore transaction remains authoritative.
-  // ============================================================
-
-  void _scheduleOfferTimeout({
-    required String walkId,
-    required String walkerId,
-    required String walkerUid,
-    DateTime? claimedAt,
-  }) {
-    final String id =
-        walkId.trim();
-
-    final String wid =
-        walkerId.trim();
-
-    final String uid =
-        walkerUid.trim();
-
-    if (id.isEmpty ||
-        wid.isEmpty ||
-        uid.isEmpty) {
-      return;
-    }
-
-    // Cancel any old timer for this request.
-    _offerTimers[id]?.cancel();
-
-    final DateTime now =
-        DateTime.now();
-
-    Duration remaining;
-
-    if (claimedAt == null) {
-      remaining =
-          _offerDuration;
-    } else {
-      final Duration elapsed =
-          now.difference(claimedAt);
-
-      if (elapsed >= _offerDuration) {
-        remaining =
-            Duration.zero;
-      } else {
-        remaining =
-            _offerDuration - elapsed;
-      }
-    }
-
-    _offerTimers[id] = Timer(
-      remaining,
-      () async {
-        _offerTimers.remove(id);
-
-        await _markTimeout(
-          walkId: id,
-          walkerId: wid,
-          walkerUid: uid,
-        );
-      },
-    );
-
-    debugPrint(
-      'Insta Walk offer timer started: '
-      '$id | '
-      '${remaining.inSeconds}s remaining',
-    );
-  }
-
-  // ============================================================
-  // CANCEL OFFER TIMER
-  // ============================================================
-
-  void _cancelOfferTimer(
-    String walkId,
-  ) {
-    final String id =
-        walkId.trim();
-
-    if (id.isEmpty) {
-      return;
-    }
-
-    _offerTimers[id]?.cancel();
-    _offerTimers.remove(id);
-  }
-
-  // ============================================================
-  // MARK TIMEOUT
-  //
-  // Existing structure:
-  //
-  // walk_request/{requestId}/rejections/{walkerId}
-  //
-  // is reused.
-  //
-  // Timeout means:
-  //
-  // This particular Walker must NEVER receive
-  // this request again.
-  // ============================================================
-
-  Future<void> _markTimeout({
-    required String walkId,
-    required String walkerId,
-    required String walkerUid,
-  }) async {
-    final String id =
-        walkId.trim();
-
-    final String wid =
-        walkerId.trim();
-
-    final String uid =
-        walkerUid.trim();
-
-    if (id.isEmpty ||
-        wid.isEmpty ||
-        uid.isEmpty) {
-      return;
-    }
-
-    final DocumentReference<Map<String, dynamic>>
-        walkRef =
-        _walkRequests.doc(id);
-
-    final DocumentReference<Map<String, dynamic>>
-        rejectionRef =
-        walkRef
-            .collection('rejections')
-            .doc(wid);
-
-    try {
-      await _firestore.runTransaction(
-        (
-          Transaction transaction,
-        ) async {
-          final DocumentSnapshot<Map<String, dynamic>>
-              walkSnapshot =
-              await transaction.get(
-            walkRef,
-          );
-
-          if (!walkSnapshot.exists) {
-            return;
-          }
-
-          final Map<String, dynamic>? data =
-              walkSnapshot.data();
-
-          if (data == null) {
-            return;
-          }
-
-          final String incomingWalkerUid =
-              data['incomingWalkerUid']
-                      ?.toString()
-                      .trim() ??
-                  '';
-
-          // ------------------------------------------------------
-          // Only the Walker who currently owns the offer can
-          // timeout that offer.
-          // ------------------------------------------------------
-
-          if (incomingWalkerUid != uid) {
-            return;
-          }
-
-          final String status =
-              data['status']
-                      ?.toString()
-                      .trim()
-                      .toLowerCase() ??
-                  '';
-
-          // ------------------------------------------------------
-          // If already accepted/reached/completed/cancelled,
-          // never mark timeout.
-          // ------------------------------------------------------
-
-          if (status != 'searching') {
-            return;
-          }
-
-          final DateTime? claimedAt =
-              _getOfferStartedAt(data);
-
-          if (claimedAt == null) {
-            return;
-          }
-
-          if (DateTime.now()
-                  .difference(claimedAt) <
-              _offerDuration) {
-            return;
-          }
-
-          final DocumentSnapshot<Map<String, dynamic>>
-              rejectionSnapshot =
-              await transaction.get(
-            rejectionRef,
-          );
-
-          if (!rejectionSnapshot.exists) {
-            transaction.set(
-              rejectionRef,
-              <String, dynamic>{
-                'walkerId': wid,
-                'walkerUid': uid,
-                'type': 'timeout',
-                'expiredAt':
-                    FieldValue.serverTimestamp(),
-                'updatedAt':
-                    FieldValue.serverTimestamp(),
-              },
-            );
-          }
-
-          transaction.update(
-            walkRef,
-            <String, dynamic>{
-              'incomingWalkerUid':
-                  FieldValue.delete(),
-              'incomingWalkerId':
-                  FieldValue.delete(),
-              'incomingClaimedAt':
-                  FieldValue.delete(),
-              'updatedAt':
-                  FieldValue.serverTimestamp(),
-            },
-          );
-        },
-      );
-
-      debugPrint(
-        'Insta Walk offer timed out: '
-        '$id for Walker $wid',
-      );
-    } catch (e, stackTrace) {
-      debugPrint(
-        'Unable to mark Insta Walk timeout: $e',
-      );
-
-      debugPrintStack(
-        stackTrace: stackTrace,
-      );
-    }
-  }
-
-  // ============================================================
-  // CLAIM INCOMING REQUEST
-  // ============================================================
-
-  Future<bool> _claimIncomingRequest({
-    required String walkId,
-    required String walkerUid,
-    required String walkerId,
-  }) async {
-    if (!_canReceiveInstaWalkRequests()) {
-      return false;
-    }
-
-    final String id =
-        walkId.trim();
-
-    final String uid =
-        walkerUid.trim();
-
-    final String wid =
-        walkerId.trim();
-
-    if (id.isEmpty ||
-        uid.isEmpty ||
-        wid.isEmpty) {
-      return false;
-    }
-
-    final Position? walkerPosition =
-        _currentWalkerPosition;
-
-    if (walkerPosition == null) {
-      return false;
-    }
-
-    final DocumentReference<Map<String, dynamic>>
-        walkRef =
-        _walkRequests.doc(id);
-
-    final DocumentReference<Map<String, dynamic>>
-        rejectionRef =
-        walkRef
-            .collection('rejections')
-            .doc(wid);
-
-    return _firestore.runTransaction<bool>(
-      (
-        Transaction transaction,
-      ) async {
-        if (!_canReceiveInstaWalkRequests()) {
-          return false;
-        }
-
-        final DocumentSnapshot<Map<String, dynamic>>
-            walkSnapshot =
-            await transaction.get(
-          walkRef,
-        );
-
-        if (!walkSnapshot.exists) {
-          return false;
-        }
-
-        final Map<String, dynamic>? data =
-            walkSnapshot.data();
-
-        if (data == null) {
-          return false;
-        }
-
-        final String status =
-            data['status']
-                    ?.toString()
-                    .trim()
-                    .toLowerCase() ??
-                '';
-
-        if (status != 'searching') {
-          return false;
-        }
-
-        // --------------------------------------------------------
-        // Walker-specific permanent skip
-        // --------------------------------------------------------
-
-        final DocumentSnapshot<Map<String, dynamic>>
-            rejectionSnapshot =
-            await transaction.get(
-          rejectionRef,
-        );
-
-        if (rejectionSnapshot.exists) {
-          return false;
-        }
-
-        // --------------------------------------------------------
-        // Owner location
-        // --------------------------------------------------------
-
-        final GeoPoint? ownerLocation =
-            _getOwnerLocation(data);
-
-        if (ownerLocation == null) {
-          debugPrint(
-            'Insta Walk $id skipped: '
-            'Owner location missing.',
-          );
-
-          return false;
-        }
-
-        // --------------------------------------------------------
-        // 3.5 KM distance check
-        // --------------------------------------------------------
-
-        final double distanceKm =
-            _distanceKm(
-          walkerPosition: walkerPosition,
-          ownerLocation: ownerLocation,
-        );
-
-        if (distanceKm >
-            _maxSearchRadiusKm) {
-          return false;
-        }
-
-        // --------------------------------------------------------
-        // Existing incoming claim
-        // --------------------------------------------------------
-
-        final String incomingWalkerUid =
-            data['incomingWalkerUid']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        if (incomingWalkerUid == uid) {
-          // ------------------------------------------------------
-          // Same Walker already owns this offer.
-          // ------------------------------------------------------
-
-          if (_isOfferExpired(data)) {
-            return false;
-          }
-
-          return true;
-        }
-
-        if (incomingWalkerUid.isNotEmpty &&
-            incomingWalkerUid != uid) {
-          // Another Walker currently owns this offer.
-          return false;
-        }
-
-        // --------------------------------------------------------
-        // Fresh claim
-        // --------------------------------------------------------
-
-        transaction.update(
-          walkRef,
-          <String, dynamic>{
-            'incomingWalkerUid':
-                uid,
-            'incomingWalkerId':
-                wid,
-            'incomingClaimedAt':
-                FieldValue.serverTimestamp(),
-            'updatedAt':
-                FieldValue.serverTimestamp(),
-          },
-        );
-
-        return true;
-      },
-    );
-  }
-
-  // ============================================================
-  // PENDING REQUEST STREAM
-  // ============================================================
-
-  Stream<List<InstaWalkRequest>>
-      pendingRequestsStream() {
-    return Stream.multi(
-      (
-        MultiStreamController<
-                List<InstaWalkRequest>>
-            controller,
-      ) {
-        StreamSubscription<User?>?
-            authSubscription;
-
-        StreamSubscription<
-                QuerySnapshot<
-                    Map<String, dynamic>>>?
-            requestSubscription;
-
-        bool disposed = false;
-        bool startingListener = false;
-        int generation = 0;
-
-        // --------------------------------------------------------
-        // STOP FIRESTORE LISTENER
-        // --------------------------------------------------------
-
-        Future<void> stopRequestListener() async {
-          final StreamSubscription<
-                  QuerySnapshot<
-                      Map<String, dynamic>>>?
-              subscription =
-              requestSubscription;
-
-          requestSubscription = null;
-
-          if (subscription != null) {
-            await subscription.cancel();
-          }
-        }
-
-        // --------------------------------------------------------
-        // EMPTY
-        // --------------------------------------------------------
-
-        void emitEmpty() {
-          if (disposed) {
-            return;
-          }
-
-          controller.add(
-            <InstaWalkRequest>[],
-          );
-        }
-
-        // --------------------------------------------------------
-        // START FIRESTORE LISTENER
-        // --------------------------------------------------------
-
-        Future<void> startRequestListener(
-          User user,
-        ) async {
-          if (disposed ||
-              startingListener) {
-            return;
-          }
-
-          startingListener = true;
-
-          final int currentGeneration =
-              ++generation;
-
-          try {
-            await stopRequestListener();
-
-            if (disposed ||
-                currentGeneration !=
-                    generation) {
-              return;
-            }
-
-            // ----------------------------------------------------
-            // Wait for availability restoration.
-            // ----------------------------------------------------
-
-            await _availabilityService.ready;
-
-            if (disposed ||
-                currentGeneration !=
-                    generation) {
-              return;
-            }
-
-            if (!_canReceiveInstaWalkRequests()) {
-              emitEmpty();
-              return;
-            }
-
-            final String walkerUid =
-                user.uid.trim();
-
-            if (walkerUid.isEmpty) {
-              emitEmpty();
-              return;
-            }
-
-            final String? walkerId =
-                await getCurrentWalkerId();
-
-            if (disposed ||
-                currentGeneration !=
-                    generation) {
-              return;
-            }
-
-            if (!_canReceiveInstaWalkRequests()) {
-              emitEmpty();
-              return;
-            }
-
-            if (walkerId == null ||
-                walkerId.trim().isEmpty) {
-              emitEmpty();
-              return;
-            }
-
-            final String cleanWalkerId =
-                walkerId.trim();
-
-            // ----------------------------------------------------
-            // SEARCHING REQUESTS
-            // ----------------------------------------------------
-
-            requestSubscription =
-                _walkRequests
-                    .where(
-                      'status',
-                      isEqualTo:
-                          'searching',
-                    )
-                    .snapshots()
-                    .listen(
-                  (
-                    QuerySnapshot<
-                            Map<String, dynamic>>
-                        snapshot,
-                  ) async {
-                    if (disposed ||
-                        currentGeneration !=
-                            generation) {
-                      return;
-                    }
-
-                    if (!_canReceiveInstaWalkRequests()) {
-                      emitEmpty();
-                      return;
-                    }
-
-                    final List<
-                            InstaWalkRequest>
-                        availableRequests =
-                        <InstaWalkRequest>[];
-
-                    for (
-                      final QueryDocumentSnapshot<
-                              Map<String, dynamic>>
-                          doc
-                          in snapshot.docs
-                    ) {
-                      if (disposed ||
-                          currentGeneration !=
-                              generation) {
-                        return;
-                      }
-
-                      if (!_canReceiveInstaWalkRequests()) {
-                        emitEmpty();
-                        return;
-                      }
-
-                      final Map<String, dynamic>
-                          data =
-                          doc.data();
-
-                      // ------------------------------------------------
-                      // Existing claim by this Walker
-                      // ------------------------------------------------
-
-                      final String incomingWalkerUid =
-                          data['incomingWalkerUid']
-                                  ?.toString()
-                                  .trim() ??
-                              '';
-
-                      if (incomingWalkerUid ==
-                          walkerUid) {
-                        final DateTime? claimedAt =
-                            _getOfferStartedAt(
-                          data,
-                        );
-
-                        // ------------------------------------------------
-                        // Already expired
-                        // ------------------------------------------------
-
-                        if (_isOfferExpired(
-                          data,
-                        )) {
-                          await _markTimeout(
-                            walkId: doc.id,
-                            walkerId:
-                                cleanWalkerId,
-                            walkerUid:
-                                walkerUid,
-                          );
-
-                          _cancelOfferTimer(
-                            doc.id,
-                          );
-
-                          continue;
-                        }
-
-                        // ------------------------------------------------
-                        // Restore timer from Firestore timestamp.
-                        // ------------------------------------------------
-
-                        _scheduleOfferTimeout(
-                          walkId: doc.id,
-                          walkerId:
-                              cleanWalkerId,
-                          walkerUid:
-                              walkerUid,
-                          claimedAt:
-                              claimedAt,
-                        );
-                      }
-
-                      // ------------------------------------------------
-                      // Distance filter
-                      // ------------------------------------------------
-
-                      if (!_isWithinSearchRadius(
-                        data,
-                      )) {
-                        continue;
-                      }
-
-                      // ------------------------------------------------
-                      // Claim
-                      // ------------------------------------------------
-
-                      final bool claimed =
-                          await _claimIncomingRequest(
-                        walkId: doc.id,
-                        walkerUid:
-                            walkerUid,
-                        walkerId:
-                            cleanWalkerId,
-                      );
-
-                      if (disposed ||
-                          currentGeneration !=
-                              generation) {
-                        return;
-                      }
-
-                      if (!_canReceiveInstaWalkRequests()) {
-                        emitEmpty();
-                        return;
-                      }
-
-                      if (!claimed) {
-                        continue;
-                      }
-
-                      // ------------------------------------------------
-                      // Read server timestamp written by Firestore.
-                      // ------------------------------------------------
-
-                      final DocumentSnapshot<
-                              Map<String, dynamic>>
-                          latestSnapshot =
-                          await _walkRequests
-                              .doc(doc.id)
-                              .get();
-
-                      if (disposed ||
-                          currentGeneration !=
-                              generation) {
-                        return;
-                      }
-
-                      if (!_canReceiveInstaWalkRequests()) {
-                        emitEmpty();
-                        return;
-                      }
-
-                      if (!latestSnapshot.exists) {
-                        continue;
-                      }
-
-                      final Map<String, dynamic>?
-                          latestData =
-                          latestSnapshot.data();
-
-                      if (latestData == null) {
-                        continue;
-                      }
-
-                      final String latestStatus =
-                          latestData['status']
-                                  ?.toString()
-                                  .trim()
-                                  .toLowerCase() ??
-                              '';
-
-                      final String latestWalkerUid =
-                          latestData[
-                                      'incomingWalkerUid']
-                                  ?.toString()
-                                  .trim() ??
-                              '';
-
-                      if (latestStatus !=
-                              'searching' ||
-                          latestWalkerUid !=
-                              walkerUid) {
-                        continue;
-                      }
-
-                      // ------------------------------------------------
-                      // Start exact remaining timer using the
-                      // server timestamp if available.
-                      // ------------------------------------------------
-
-                      final DateTime? latestClaimedAt =
-                          _getOfferStartedAt(
-                        latestData,
-                      );
-
-                      _scheduleOfferTimeout(
-                        walkId: doc.id,
-                        walkerId:
-                            cleanWalkerId,
-                        walkerUid:
-                            walkerUid,
-                        claimedAt:
-                            latestClaimedAt,
-                      );
-
-                      availableRequests.add(
-                        InstaWalkRequest.fromFirestore(
-                          latestSnapshot,
-                        ),
-                      );
-
-                      // One request at a time.
-                      break;
-                    }
-
-                    if (disposed ||
-                        currentGeneration !=
-                            generation) {
-                      return;
-                    }
-
-                    if (!_canReceiveInstaWalkRequests()) {
-                      emitEmpty();
-                      return;
-                    }
-
-                    if (availableRequests
-                        .isEmpty) {
-                      emitEmpty();
-                      return;
-                    }
-
-                    controller.add(
-                      <InstaWalkRequest>[
-                        availableRequests.first,
-                      ],
-                    );
-                  },
-                  onError: (
-                    Object error,
-                    StackTrace stackTrace,
-                  ) {
-                    if (disposed ||
-                        currentGeneration !=
-                            generation) {
-                      return;
-                    }
-
-                    debugPrint(
-                      'Incoming Walk Firestore stream error: '
-                      '$error',
-                    );
-
-                    debugPrintStack(
-                      stackTrace: stackTrace,
-                    );
-                  },
-                );
-          } finally {
-            startingListener = false;
-          }
-        }
-
-        // --------------------------------------------------------
-        // AVAILABILITY CHANGE
-        // --------------------------------------------------------
-
-        void onAvailabilityChanged() {
-          if (disposed) {
-            return;
-          }
-
-          final User? user =
-              _auth.currentUser;
-
-          if (!_canReceiveInstaWalkRequests()) {
-            generation++;
-
-            unawaited(
-              stopRequestListener(),
-            );
-
-            emitEmpty();
-            return;
-          }
-
-          if (user == null) {
-            generation++;
-
-            unawaited(
-              stopRequestListener(),
-            );
-
-            emitEmpty();
-            return;
-          }
-
-          unawaited(
-            startRequestListener(user),
-          );
-        }
-
-        // --------------------------------------------------------
-        // AUTH CHANGE
-        // --------------------------------------------------------
-
-        authSubscription =
-            _auth.authStateChanges().listen(
-          (User? user) {
-            if (disposed) {
-              return;
-            }
-
-            generation++;
-
-            unawaited(
-              stopRequestListener(),
-            );
-
-            if (user == null) {
-              emitEmpty();
-              return;
-            }
-
-            unawaited(
-              startRequestListener(user),
-            );
-          },
-        );
-
-        // --------------------------------------------------------
-        // AVAILABILITY LISTENER
-        // --------------------------------------------------------
-
-        _availabilityService.addListener(
-          onAvailabilityChanged,
-        );
-
-        // --------------------------------------------------------
-        // INITIAL START
-        // --------------------------------------------------------
-
-        unawaited(
-          () async {
-            await _availabilityService.ready;
-
-            if (disposed) {
-              return;
-            }
-
-            final User? user =
-                _auth.currentUser;
-
-            if (user == null) {
-              emitEmpty();
-              return;
-            }
-
-            if (!_canReceiveInstaWalkRequests()) {
-              emitEmpty();
-              return;
-            }
-
-            await startRequestListener(user);
-          }(),
-        );
-
-        // --------------------------------------------------------
-        // CLEANUP
-        // --------------------------------------------------------
-
-        controller.onCancel = () async {
-          if (disposed) {
-            return;
-          }
-
-          disposed = true;
-          generation++;
-
-          // Cancel every active 3-minute offer timer.
-          for (final Timer timer
-              in _offerTimers.values) {
-            timer.cancel();
-          }
-
-          _offerTimers.clear();
-
-          _availabilityService
-              .removeListener(
-            onAvailabilityChanged,
-          );
-
-          await authSubscription?.cancel();
-
-          await stopRequestListener();
-        };
-      },
-      isBroadcast: true,
-    );
-  }
-
-  // ============================================================
-  // GET SINGLE WALK REQUEST
-  // ============================================================
-
-  Future<InstaWalkRequest?>
-      getWalkRequest(
-    String walkId,
-  ) async {
-    final String id =
-        walkId.trim();
-
-    if (id.isEmpty) {
-      return null;
-    }
-
-    final DocumentSnapshot<
-            Map<String, dynamic>>
-        snapshot =
-        await _walkRequests.doc(id).get();
-
-    if (!snapshot.exists) {
-      return null;
-    }
-
-    return InstaWalkRequest.fromFirestore(
-      snapshot,
-    );
-  }
-
-  // ============================================================
-  // NUMBER HELPER
-  // ============================================================
-
-  double? _toDouble(
-    dynamic value,
-  ) {
-    if (value == null) {
-      return null;
-    }
-
+  double? _toDouble(dynamic value) {
     if (value is num) {
       return value.toDouble();
     }
 
-    return double.tryParse(
-      value.toString().trim(),
-    );
+    if (value is String) {
+      return double.tryParse(value);
+    }
+
+    return null;
   }
 
-  // ============================================================
-  // PUBLIC CONFIGURATION
-  // ============================================================
+  String? _cleanString(dynamic value) {
+    if (value == null) return null;
 
-  double get maxSearchRadiusKm {
-    return _maxSearchRadiusKm;
+    final String text = value.toString().trim();
+
+    if (text.isEmpty) return null;
+
+    return text;
   }
 
-  Duration get offerDuration {
-    return _offerDuration;
+  void dispose() {
+    if (_disposed) return;
+
+    _disposed = true;
+
+    _listenerGeneration++;
+
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+
+    _detachAvailabilityListener();
+
+    unawaited(_requestSubscription?.cancel());
+    _requestSubscription = null;
+
+    unawaited(_authSubscription?.cancel());
+    _authSubscription = null;
+
+    final StreamController<List<InstaWalkRequest>>? controller =
+        _controller;
+
+    _controller = null;
+
+    unawaited(controller?.close());
   }
 }
