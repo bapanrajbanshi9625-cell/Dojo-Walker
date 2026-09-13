@@ -5,8 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../../../services/walker_location_service.dart';
 import '../../../services/walker_availability_service.dart';
+import '../../../services/walker_location_service.dart';
 
 class AcceptWalkAcceptService {
   AcceptWalkAcceptService._();
@@ -116,10 +116,14 @@ class AcceptWalkAcceptService {
     }
 
     final claimedTime = claimedAt.toDate();
+
     return DateTime.now().difference(claimedTime) >= _offerDuration;
   }
 
-  double _distanceKm(Position walkerPosition, GeoPoint ownerLocation) {
+  double _distanceKm(
+    Position walkerPosition,
+    GeoPoint ownerLocation,
+  ) {
     final distanceMeters = Geolocator.distanceBetween(
       walkerPosition.latitude,
       walkerPosition.longitude,
@@ -232,7 +236,9 @@ class AcceptWalkAcceptService {
             await transaction.get(requestRef);
 
         if (!requestSnapshot.exists) {
-          throw StateError('Walk request no longer exists.');
+          throw StateError(
+            'Walk request no longer exists.',
+          );
         }
 
         final data =
@@ -395,7 +401,8 @@ class AcceptWalkAcceptService {
           SetOptions(merge: true),
         );
       } catch (e) {
-        // Accept has already succeeded. Do not undo the walk.
+        // Accept has already succeeded.
+        // Do not undo the walk.
         debugPrint(
           'AcceptWalkAcceptService: failed to sync search state: $e',
         );
@@ -441,15 +448,13 @@ class AcceptWalkAcceptService {
       );
     }
 
-    _locationSubscription =
-        _locationService.locationStream.listen(...)
+    _locationSubscription = _locationService.locationStream.listen(
       (position) async {
         try {
           // Do not control GPS here.
           // WalkerLocationService remains the sole GPS owner.
 
-          final availability =
-              _availabilityService;
+          final availability = _availabilityService;
 
           if (!availability.isOnline ||
               !availability.isActiveWalk) {
