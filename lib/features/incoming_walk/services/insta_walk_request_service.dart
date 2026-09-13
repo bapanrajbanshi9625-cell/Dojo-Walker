@@ -491,6 +491,26 @@ class InstaWalkRequestService {
     }
 
     // ==========================================================
+    // ALREADY CLAIMED BY THIS WALKER
+    //
+    // Do not attempt another Firestore claim.
+    // The Firestore rules allow the initial claim only when
+    // incomingWalkerUid is empty/null.
+    // ==========================================================
+
+    if (existingClaimWalkerUid == currentUid) {
+      debugPrint(
+        '[InstaWalkRequestService] '
+        'REQUEST ALREADY CLAIMED BY THIS WALKER '
+        'id=$requestId',
+      );
+
+      return InstaWalkRequest.fromFirestore(
+        doc,
+      );
+    }
+
+    // ==========================================================
     // OWNER LOCATION
     // ==========================================================
 
@@ -642,8 +662,11 @@ class InstaWalkRequestService {
           );
 
           if (existingUid != null &&
-              existingUid.isNotEmpty &&
-              existingUid != walkerUid) {
+              existingUid.isNotEmpty) {
+            if (existingUid == walkerUid) {
+              return true;
+            }
+
             return false;
           }
 
@@ -651,7 +674,6 @@ class InstaWalkRequestService {
             requestRef,
             <String, dynamic>{
               'incomingWalkerUid': walkerUid,
-              'incomingWalkerId': walkerId,
               'incomingClaimedAt':
                   FieldValue.serverTimestamp(),
             },
@@ -752,7 +774,6 @@ class InstaWalkRequestService {
                 requestRef,
                 <String, dynamic>{
                   'incomingWalkerUid': null,
-                  'incomingWalkerId': null,
                   'incomingClaimedAt': null,
                 },
               );
@@ -823,51 +844,7 @@ class InstaWalkRequestService {
       return null;
     }
 
-    try {
-      final DocumentSnapshot<Map<String, dynamic>>
-          snapshot =
-          await _firestore
-              .collection('walkers')
-              .doc(user.uid)
-              .get();
-
-      if (!snapshot.exists) {
-        debugPrint(
-          '[InstaWalkRequestService] '
-          'WALKER DOCUMENT NOT FOUND',
-        );
-
-        return user.uid;
-      }
-
-      final Map<String, dynamic> data =
-          snapshot.data() ??
-          <String, dynamic>{};
-
-      final String? walkerId =
-          _cleanString(
-            data['walkerId'],
-          ) ??
-          _cleanString(
-            data['uid'],
-          ) ??
-          _cleanString(
-            data['id'],
-          );
-
-      return walkerId ?? user.uid;
-    } catch (error, stackTrace) {
-      debugPrint(
-        '[InstaWalkRequestService] '
-        'WALKER ID ERROR: $error',
-      );
-
-      debugPrintStack(
-        stackTrace: stackTrace,
-      );
-
-      return user.uid;
-    }
+    return user.uid;
   }
 
   // ============================================================
