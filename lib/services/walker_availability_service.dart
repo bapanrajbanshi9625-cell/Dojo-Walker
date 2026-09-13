@@ -37,8 +37,7 @@ class WalkerAvailabilityService extends ChangeNotifier {
 
   WalkerWalkType? _selectedWalkType;
 
-  // IMPORTANT:
-  // Going Online does NOT automatically start Insta Walk search.
+  // Insta Walk search automatically follows Online + Insta Walk mode.
   bool _isInstaWalkSearching = false;
 
   String? _error;
@@ -109,11 +108,9 @@ class WalkerAvailabilityService extends ChangeNotifier {
           prefs.getString(_walkTypePreferenceKey) ?? '';
 
       if (savedWalkType == 'dailyWalk') {
-        _selectedWalkType =
-            WalkerWalkType.dailyWalk;
+        _selectedWalkType = WalkerWalkType.dailyWalk;
       } else if (savedWalkType == 'instaWalk') {
-        _selectedWalkType =
-            WalkerWalkType.instaWalk;
+        _selectedWalkType = WalkerWalkType.instaWalk;
       }
 
       if (!savedOnline) {
@@ -143,10 +140,6 @@ class WalkerAvailabilityService extends ChangeNotifier {
           'Walker remains Offline.',
         );
       }
-
-      // IMPORTANT:
-      // App restart must never automatically start Insta search.
-      _isInstaWalkSearching = false;
 
       _stateRestored = true;
     } catch (e, stackTrace) {
@@ -200,6 +193,11 @@ class WalkerAvailabilityService extends ChangeNotifier {
 
       _isOnline = true;
 
+      // Insta Walk automatically searches after Online restore.
+      _isInstaWalkSearching =
+          _selectedWalkType == WalkerWalkType.instaWalk &&
+          !_isActiveWalk;
+
       _listenToGlobalLocation();
 
       _clearError();
@@ -212,6 +210,13 @@ class WalkerAvailabilityService extends ChangeNotifier {
         'Walker Availability: Restored location '
         '${position.latitude}, ${position.longitude}',
       );
+
+      if (_isInstaWalkSearching) {
+        debugPrint(
+          'Walker Availability: INSTA WALK SEARCH = ON '
+          '(restored)',
+        );
+      }
 
       notifyListeners();
 
@@ -246,8 +251,11 @@ class WalkerAvailabilityService extends ChangeNotifier {
 
     _selectedWalkType = walkType;
 
-    // Changing mode always stops Insta search.
-    _isInstaWalkSearching = false;
+    // Insta Walk automatically searches when already Online.
+    _isInstaWalkSearching =
+        _isOnline &&
+        walkType == WalkerWalkType.instaWalk &&
+        !_isActiveWalk;
 
     try {
       final SharedPreferences prefs =
@@ -263,6 +271,7 @@ class WalkerAvailabilityService extends ChangeNotifier {
       debugPrint(
         'Walker Availability Save Walk Type Error: $e',
       );
+
       debugPrint('$stackTrace');
     }
 
@@ -270,6 +279,13 @@ class WalkerAvailabilityService extends ChangeNotifier {
       'Walker Availability: Walk Type = '
       '${walkType == WalkerWalkType.instaWalk ? 'INSTA WALK' : 'DAILY WALK'}',
     );
+
+    if (_isInstaWalkSearching) {
+      debugPrint(
+        'Walker Availability: INSTA WALK SEARCH = ON '
+        '(automatic)',
+      );
+    }
 
     notifyListeners();
   }
@@ -296,6 +312,10 @@ class WalkerAvailabilityService extends ChangeNotifier {
       );
 
       notifyListeners();
+      return false;
+    }
+
+    if (_isActiveWalk) {
       return false;
     }
 
@@ -368,6 +388,14 @@ class WalkerAvailabilityService extends ChangeNotifier {
 
     if (_isOnline &&
         _locationService.isTracking) {
+      // Make sure Insta search is active if the walker is
+      // already Online in Insta Walk mode.
+      if (_selectedWalkType == WalkerWalkType.instaWalk &&
+          !_isActiveWalk) {
+        _isInstaWalkSearching = true;
+        notifyListeners();
+      }
+
       return true;
     }
 
@@ -414,9 +442,10 @@ class WalkerAvailabilityService extends ChangeNotifier {
 
       _isOnline = true;
 
-      // IMPORTANT:
-      // Online does NOT mean Insta Walk search.
-      _isInstaWalkSearching = false;
+      // Insta Walk automatically starts searching when Online.
+      _isInstaWalkSearching =
+          _selectedWalkType == WalkerWalkType.instaWalk &&
+          !_isActiveWalk;
 
       _listenToGlobalLocation();
 
@@ -430,6 +459,13 @@ class WalkerAvailabilityService extends ChangeNotifier {
         'Walker Availability: Current location '
         '${position.latitude}, ${position.longitude}',
       );
+
+      if (_isInstaWalkSearching) {
+        debugPrint(
+          'Walker Availability: INSTA WALK SEARCH = ON '
+          '(automatic)',
+        );
+      }
 
       return true;
     } catch (e, stackTrace) {
@@ -540,17 +576,39 @@ class WalkerAvailabilityService extends ChangeNotifier {
 
     _isActiveWalk = active;
 
-    debugPrint(
-      'Walker Availability: Active Walk = $active',
-    );
+    if (active) {
+      // Searching must stop during an active walk.
+      _isInstaWalkSearching = false;
 
-    if (active && !_isOnline) {
-      final bool online = await goOnline();
+      debugPrint(
+        'Walker Availability: Active Walk = true',
+      );
 
-      if (!online) {
+      if (!_isOnline) {
+        final bool online = await goOnline();
+
+        if (!online) {
+          debugPrint(
+            'Walker Availability: Could not automatically '
+            'go online for active walk.',
+          );
+        }
+      }
+    } else {
+      // Walk completed: remain Online and automatically
+      // resume Insta Walk search.
+      _isInstaWalkSearching =
+          _isOnline &&
+          _selectedWalkType == WalkerWalkType.instaWalk;
+
+      debugPrint(
+        'Walker Availability: Active Walk = false',
+      );
+
+      if (_isInstaWalkSearching) {
         debugPrint(
-          'Walker Availability: Could not automatically '
-          'go online for active walk.',
+          'Walker Availability: INSTA WALK SEARCH = ON '
+          '(resumed after walk)',
         );
       }
     }
