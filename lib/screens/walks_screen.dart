@@ -7,7 +7,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../features/insta_walk/widgets/insta_walk_search_panel.dart';
-import '../services/walker_availability_service.dart';
 
 class WalksScreen extends StatefulWidget {
   const WalksScreen({
@@ -20,33 +19,14 @@ class WalksScreen extends StatefulWidget {
 
 class _WalksScreenState extends State<WalksScreen>
     with WidgetsBindingObserver {
-  // ============================================================
-  // FIREBASE
-  // ============================================================
-
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
   final FirebaseAuth _auth =
       FirebaseAuth.instance;
 
-  // ============================================================
-  // WALKER
-  // ============================================================
-
   String? _walkerUid;
-  String? _walkerId;
-
-  // ============================================================
-  // SEARCH
-  // ============================================================
-
   bool _searching = false;
-  bool _loading = false;
-
-  // ============================================================
-  // INIT
-  // ============================================================
 
   @override
   void initState() {
@@ -59,10 +39,6 @@ class _WalksScreenState extends State<WalksScreen>
     unawaited(_loadWalkerState());
   }
 
-  // ============================================================
-  // APP LIFECYCLE
-  // ============================================================
-
   @override
   void didChangeAppLifecycleState(
     AppLifecycleState state,
@@ -73,10 +49,6 @@ class _WalksScreenState extends State<WalksScreen>
     }
   }
 
-  // ============================================================
-  // LOAD WALKER STATE
-  // ============================================================
-
   Future<void> _loadWalkerState() async {
     final String? uid = _walkerUid;
 
@@ -85,25 +57,6 @@ class _WalksScreenState extends State<WalksScreen>
     }
 
     try {
-      final DocumentSnapshot<Map<String, dynamic>> account =
-          await _firestore
-              .collection('phoneAccounts')
-              .doc(uid)
-              .get();
-
-      final Map<String, dynamic>? accountData =
-          account.data();
-
-      final String savedWalkerId =
-          accountData?['walkerId']
-                  ?.toString()
-                  .trim() ??
-              '';
-
-      if (savedWalkerId.isNotEmpty) {
-        _walkerId = savedWalkerId;
-      }
-
       final DocumentSnapshot<Map<String, dynamic>> userDoc =
           await _firestore
               .collection('users')
@@ -129,201 +82,6 @@ class _WalksScreenState extends State<WalksScreen>
       );
     }
   }
-
-  // ============================================================
-  // GET WALKER ID
-  // ============================================================
-
-  Future<String?> _getWalkerId() async {
-    final String cached =
-        _walkerId?.trim() ?? '';
-
-    if (cached.isNotEmpty) {
-      return cached;
-    }
-
-    final User? user =
-        _auth.currentUser;
-
-    if (user == null) {
-      return null;
-    }
-
-    try {
-      final DocumentSnapshot<Map<String, dynamic>> snapshot =
-          await _firestore
-              .collection('phoneAccounts')
-              .doc(user.uid)
-              .get();
-
-      final String id =
-          snapshot.data()?['walkerId']
-                  ?.toString()
-                  .trim() ??
-              '';
-
-      if (id.isEmpty) {
-        return null;
-      }
-
-      _walkerId = id;
-
-      return id;
-    } catch (e) {
-      debugPrint(
-        'Walker ID error: $e',
-      );
-
-      return null;
-    }
-  }
-
-  // ============================================================
-  // START SEARCH
-  //
-  // This only enables the Walker's search state.
-  //
-  // Incoming request detection is handled globally by app.dart.
-  // ============================================================
-
-  Future<void> _startSearch() async {
-    if (_loading) {
-      return;
-    }
-
-    final WalkerAvailabilityService availability =
-        WalkerAvailabilityService.instance;
-
-    if (!availability.isOnline) {
-      _showMessage(
-        'You are Offline. Go Online to search for Insta Walk requests.',
-      );
-      return;
-    }
-
-    if (!availability.canPerformWalkAction()) {
-      _showMessage(
-        availability.unavailableMessage,
-      );
-      return;
-    }
-
-    final User? user =
-        _auth.currentUser;
-
-    if (user == null) {
-      _showMessage(
-        'Please login first.',
-      );
-      return;
-    }
-
-    final String? walkerId =
-        await _getWalkerId();
-
-    if (walkerId == null ||
-        walkerId.isEmpty) {
-      _showMessage(
-        'Walker ID is not available. '
-        'Please complete your Walker profile.',
-      );
-      return;
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    if (!availability.isOnline) {
-      _showMessage(
-        'You are Offline. Go Online to search for Insta Walk requests.',
-      );
-      return;
-    }
-
-    if (!availability.canPerformWalkAction()) {
-      _showMessage(
-        availability.unavailableMessage,
-      );
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-    });
-
-    try {
-      if (!availability.isOnline) {
-        if (mounted) {
-          setState(() {
-            _loading = false;
-          });
-
-          _showMessage(
-            'You are Offline. Go Online to search for Insta Walk requests.',
-          );
-        }
-        return;
-      }
-
-      if (!availability.canPerformWalkAction()) {
-        if (mounted) {
-          setState(() {
-            _loading = false;
-          });
-
-          _showMessage(
-            availability.unavailableMessage,
-          );
-        }
-        return;
-      }
-
-      await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .set(
-        <String, dynamic>{
-          'walkerId': walkerId,
-          'instaWalkSearching': true,
-          'instaWalkSearchUpdatedAt':
-              FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _walkerUid = user.uid;
-        _walkerId = walkerId;
-        _searching = true;
-        _loading = false;
-      });
-    } catch (e) {
-      debugPrint(
-        'Start Insta Walk error: $e',
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _loading = false;
-      });
-
-      _showMessage(
-        'Unable to start Insta Walk search.',
-      );
-    }
-  }
-
-  // ============================================================
-  // STOP SEARCH STATE
-  // ============================================================
 
   Future<void> _stopSearchState() async {
     final String? uid =
@@ -359,35 +117,8 @@ class _WalksScreenState extends State<WalksScreen>
       debugPrint(
         'Stop search error: $e',
       );
-
-      rethrow;
     }
   }
-
-  // ============================================================
-  // MESSAGE
-  // ============================================================
-
-  void _showMessage(
-    String message,
-  ) {
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-  }
-
-  // ============================================================
-  // DISPOSE
-  // ============================================================
 
   @override
   void dispose() {
@@ -395,10 +126,6 @@ class _WalksScreenState extends State<WalksScreen>
 
     super.dispose();
   }
-
-  // ============================================================
-  // BUILD
-  // ============================================================
 
   @override
   Widget build(
