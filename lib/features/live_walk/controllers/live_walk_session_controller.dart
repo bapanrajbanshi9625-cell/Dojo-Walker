@@ -56,7 +56,8 @@ class LiveWalkSessionController extends ChangeNotifier {
   /// LIVE    -> GPS remains active
   /// COMPLETE -> active walk released + Offline
   ///
-  /// This controller never directly starts/stops GPS.
+  /// This controller only listens to GPS.
+  /// It never starts or stops GPS.
   final WalkerAvailabilityService _availabilityService =
       WalkerAvailabilityService.instance;
 
@@ -306,8 +307,23 @@ class LiveWalkSessionController extends ChangeNotifier {
       // --------------------------------------------------------
       // GPS LISTENER
       //
-      // Listen only.
-      // GPS lifecycle remains owned by availability service.
+      // IMPORTANT:
+      //
+      // This listener starts publishing location from the moment
+      // this controller is initialized.
+      //
+      // Therefore:
+      //
+      // REACHED
+      //   -> GPS location published
+      //
+      // WAITING ON START SCREEN
+      //   -> GPS location continues publishing
+      //
+      // START WALK
+      //   -> metrics begin
+      //
+      // GPS lifecycle is NOT controlled here.
       // --------------------------------------------------------
 
       _listenToWalkerLocation();
@@ -369,6 +385,11 @@ class LiveWalkSessionController extends ChangeNotifier {
           return;
         }
 
+        // ------------------------------------------------------
+        // Walker must remain online.
+        // GPS itself is controlled by availability service.
+        // ------------------------------------------------------
+
         if (!_availabilityService.isOnline) {
           return;
         }
@@ -387,14 +408,28 @@ class LiveWalkSessionController extends ChangeNotifier {
           return;
         }
 
+        final GeoPoint walkerPoint = GeoPoint(
+          latitude,
+          longitude,
+        );
+
         _currentPosition = position;
+
+        // ------------------------------------------------------
+        // UPDATE LOCAL SESSION DATA IMMEDIATELY
+        //
+        // This works even before the walker presses START.
+        // ------------------------------------------------------
 
         _sessionData = <String, dynamic>{
           ..._sessionData,
-          'currentLocation': GeoPoint(
-            latitude,
-            longitude,
-          ),
+
+          // Canonical location.
+          'currentLocation': walkerPoint,
+
+          // Compatibility location for owner/live screens.
+          'walkerLocation': walkerPoint,
+
           'walkerLatitude': latitude,
           'walkerLongitude': longitude,
           'locationAccuracy': accuracy,
@@ -402,12 +437,22 @@ class LiveWalkSessionController extends ChangeNotifier {
         };
 
         debugPrint(
-          'LiveWalk GPS UI Update: '
+          'LiveWalk GPS Update: '
           'requestId=$requestId '
           'lat=$latitude '
           'lng=$longitude '
-          'accuracy=${accuracy}m',
+          'accuracy=${accuracy}m '
+          'walkStarted=$_walkStarted',
         );
+
+        // ------------------------------------------------------
+        // FIRESTORE LOCATION SYNC
+        //
+        // IMPORTANT:
+        // This is independent of _walkStarted.
+        //
+        // So location is visible between REACHED and START.
+        // ------------------------------------------------------
 
         unawaited(
           _syncCurrentLocationToFirestore(position),
@@ -440,16 +485,44 @@ class LiveWalkSessionController extends ChangeNotifier {
     }
 
     try {
+      final double latitude = position.latitude;
+      final double longitude = position.longitude;
+      final double accuracy = position.accuracy;
+
+      if (!latitude.isFinite ||
+          !longitude.isFinite ||
+          !accuracy.isFinite) {
+        return;
+      }
+
+      if (latitude == 0.0 && longitude == 0.0) {
+        return;
+      }
+
+      final GeoPoint walkerPoint = GeoPoint(
+        latitude,
+        longitude,
+      );
+
+      // --------------------------------------------------------
+      // SAME CANONICAL SESSION:
+      //
+      // liveWalkSessions/{DW######}
+      // --------------------------------------------------------
+
       await sessionRef.update(
         <String, dynamic>{
-          'currentLocation': GeoPoint(
-            position.latitude,
-            position.longitude,
-          ),
-          'walkerLatitude': position.latitude,
-          'walkerLongitude': position.longitude,
-          'locationAccuracy': position.accuracy,
+          // Canonical live location.
+          'currentLocation': walkerPoint,
+
+          // Compatibility field for existing owner UI.
+          'walkerLocation': walkerPoint,
+
+          'walkerLatitude': latitude,
+          'walkerLongitude': longitude,
+          'locationAccuracy': accuracy,
           'locationUpdatedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         },
       );
     } catch (error) {
@@ -566,23 +639,32 @@ class LiveWalkSessionController extends ChangeNotifier {
         firestoreLocation,
       );
     } else {
-      final double? latitude = _readDouble(
-        data['walkerLatitude'],
-      );
+      final dynamic compatibilityLocation =
+          data['walkerLocation'];
 
-      final double? longitude = _readDouble(
-        data['walkerLongitude'],
-      );
-
-      if (latitude != null &&
-          longitude != null &&
-          latitude.isFinite &&
-          longitude.isFinite &&
-          (latitude != 0 || longitude != 0)) {
-        _currentPosition = _positionFromLatLng(
-          latitude,
-          longitude,
+      if (compatibilityLocation is GeoPoint) {
+        _currentPosition = _positionFromGeoPoint(
+          compatibilityLocation,
         );
+      } else {
+        final double? latitude = _readDouble(
+          data['walkerLatitude'],
+        );
+
+        final double? longitude = _readDouble(
+          data['walkerLongitude'],
+        );
+
+        if (latitude != null &&
+            longitude != null &&
+            latitude.isFinite &&
+            longitude.isFinite &&
+            (latitude != 0 || longitude != 0)) {
+          _currentPosition = _positionFromLatLng(
+            latitude,
+            longitude,
+          );
+        }
       }
     }
 
@@ -658,6 +740,13 @@ class LiveWalkSessionController extends ChangeNotifier {
 
     final int localPoop =
         _backgroundService.poopCount;
+
+    if (localPoop >= 0 &&
+        localPoop > _peeCount) {
+      // Intentionally do nothing here.
+      //
+      // Kept out of local count calculation.
+    }
 
     if (localPoop >= 0 &&
         localPoop > _poopCount) {
@@ -1029,9 +1118,6 @@ class LiveWalkSessionController extends ChangeNotifier {
 
       // --------------------------------------------------------
       // PRESERVE EXISTING WALKER METADATA
-      //
-      // ACCEPT / REACHED already saved these values.
-      // Never overwrite them with empty strings.
       // --------------------------------------------------------
 
       final String walkerUid =
@@ -1071,7 +1157,7 @@ class LiveWalkSessionController extends ChangeNotifier {
       // STEP 2
       // START WALK METRICS
       //
-      // This is NOT GPS lifecycle control.
+      // GPS lifecycle remains untouched.
       // --------------------------------------------------------
 
       final bool metricsStarted =
@@ -1123,7 +1209,7 @@ class LiveWalkSessionController extends ChangeNotifier {
         'peeCount': _peeCount,
         'poopCount': _poopCount,
 
-        // Explicitly preserve walker metadata.
+        // Preserve walker metadata.
         'walkerUid': walkerUid,
         'walkerId': walkerId,
         'walkerName': walkerName,
@@ -1135,12 +1221,15 @@ class LiveWalkSessionController extends ChangeNotifier {
       // --------------------------------------------------------
 
       if (_currentPosition != null) {
+        final GeoPoint walkerPoint = GeoPoint(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+        );
+
         _sessionData = <String, dynamic>{
           ..._sessionData,
-          'currentLocation': GeoPoint(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-          ),
+          'currentLocation': walkerPoint,
+          'walkerLocation': walkerPoint,
           'walkerLatitude': _currentPosition!.latitude,
           'walkerLongitude': _currentPosition!.longitude,
         };
@@ -1154,12 +1243,8 @@ class LiveWalkSessionController extends ChangeNotifier {
 
       debugPrint('LIVE WALK STARTED');
       debugPrint('requestId=$requestId');
-      debugPrint(
-        'walkerUid=$walkerUid',
-      );
-      debugPrint(
-        'walkerId=$walkerId',
-      );
+      debugPrint('walkerUid=$walkerUid');
+      debugPrint('walkerId=$walkerId');
       debugPrint(
         'GPS=controlled globally by availability',
       );
@@ -1232,8 +1317,6 @@ class LiveWalkSessionController extends ChangeNotifier {
       // --------------------------------------------------------
       // STEP 2
       // STOP METRICS
-      //
-      // Separate from GPS lifecycle.
       // --------------------------------------------------------
 
       await _backgroundService.stop();
@@ -1249,7 +1332,7 @@ class LiveWalkSessionController extends ChangeNotifier {
       // STEP 4
       // GLOBAL OFFLINE
       //
-      // Availability service owns actual GPS stop.
+      // Availability service owns GPS stop.
       // --------------------------------------------------------
 
       try {
