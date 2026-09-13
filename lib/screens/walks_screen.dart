@@ -1,14 +1,12 @@
 // File: lib/screens/walks_screen.dart
 
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../features/insta_walk/models/insta_walk_request.dart';
-import '../features/insta_walk/widgets/insta_walk_container.dart';
+import '../features/insta_walk/widgets/insta_walk_search_panel.dart';
 import '../services/walker_availability_service.dart';
 
 class WalksScreen extends StatefulWidget {
@@ -21,7 +19,7 @@ class WalksScreen extends StatefulWidget {
 }
 
 class _WalksScreenState extends State<WalksScreen>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with WidgetsBindingObserver {
   // ============================================================
   // FIREBASE
   // ============================================================
@@ -47,33 +45,6 @@ class _WalksScreenState extends State<WalksScreen>
   bool _loading = false;
 
   // ============================================================
-  // REQUESTS
-  //
-  // Kept for InstaWalkContainer compatibility.
-  //
-  // Incoming requests are handled globally by app.dart.
-  // ============================================================
-
-  final List<InstaWalkRequest> _requests =
-      <InstaWalkRequest>[];
-
-  // ============================================================
-  // RADAR
-  // ============================================================
-
-  late final AnimationController _radarController;
-
-  Timer? _dotTimer;
-  Timer? _dotGlowTimer;
-
-  final math.Random _random = math.Random();
-
-  double _dotX = 0;
-  double _dotY = 0;
-
-  bool _dotVisible = false;
-
-  // ============================================================
   // INIT
   // ============================================================
 
@@ -84,20 +55,6 @@ class _WalksScreenState extends State<WalksScreen>
     WidgetsBinding.instance.addObserver(this);
 
     _walkerUid = _auth.currentUser?.uid;
-
-    _radarController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat();
-
-    _dotTimer = Timer.periodic(
-      const Duration(seconds: 10),
-      (_) {
-        if (_searching && mounted) {
-          _moveRadarDot();
-        }
-      },
-    );
 
     unawaited(_loadWalkerState());
   }
@@ -176,10 +133,6 @@ class _WalksScreenState extends State<WalksScreen>
       setState(() {
         _searching = searching;
       });
-
-      if (searching) {
-        _moveRadarDot();
-      }
     } catch (e) {
       debugPrint(
         'Walker state error: $e',
@@ -199,7 +152,8 @@ class _WalksScreenState extends State<WalksScreen>
       return cached;
     }
 
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     if (user == null) {
       return null;
@@ -269,10 +223,13 @@ class _WalksScreenState extends State<WalksScreen>
       return;
     }
 
-    final User? user = _auth.currentUser;
+    final User? user =
+        _auth.currentUser;
 
     if (user == null) {
-      _showMessage('Please login first.');
+      _showMessage(
+        'Please login first.',
+      );
       return;
     }
 
@@ -294,8 +251,6 @@ class _WalksScreenState extends State<WalksScreen>
 
     // ----------------------------------------------------------
     // CHECK AGAIN AFTER ASYNC WALKER ID LOAD
-    //
-    // Availability could have changed while awaiting Firestore.
     // ----------------------------------------------------------
 
     if (!availability.isOnline) {
@@ -369,10 +324,7 @@ class _WalksScreenState extends State<WalksScreen>
         _walkerId = walkerId;
         _searching = true;
         _loading = false;
-        _requests.clear();
       });
-
-      _moveRadarDot();
     } catch (e) {
       debugPrint(
         'Start Insta Walk error: $e',
@@ -427,12 +379,6 @@ class _WalksScreenState extends State<WalksScreen>
 
       setState(() {
         _searching = false;
-
-        if (clearRequests) {
-          _requests.clear();
-        }
-
-        _dotVisible = false;
       });
     } catch (e) {
       debugPrint(
@@ -519,103 +465,6 @@ class _WalksScreenState extends State<WalksScreen>
   }
 
   // ============================================================
-  // RADAR DOT
-  // ============================================================
-
-  void _moveRadarDot() {
-    _dotGlowTimer?.cancel();
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _dotX =
-          -.78 +
-              _random.nextDouble() * 1.56;
-
-      _dotY =
-          -.65 +
-              _random.nextDouble() * 1.30;
-
-      _dotVisible = true;
-    });
-
-    _dotGlowTimer = Timer(
-      const Duration(
-        milliseconds: 1200,
-      ),
-      () {
-        if (!mounted) {
-          return;
-        }
-
-        setState(() {
-          _dotVisible = false;
-        });
-      },
-    );
-  }
-
-  // ============================================================
-  // REQUEST UI
-  //
-  // Kept for InstaWalkContainer compatibility.
-  //
-  // Incoming request screen is NOT opened here.
-  // Global app.dart handles incoming requests.
-  // ============================================================
-
-  Widget _buildRequests(
-    BuildContext context,
-  ) {
-    if (_requests.isEmpty) {
-      return Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(
-          top: 8,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 15,
-          vertical: 14,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(
-            alpha: .55,
-          ),
-          borderRadius:
-              BorderRadius.circular(16),
-        ),
-        child: const Row(
-          children: <Widget>[
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-              ),
-            ),
-            SizedBox(
-              width: 10,
-            ),
-            Expanded(
-              child: Text(
-                'Waiting for nearby walk requests...',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return const SizedBox.shrink();
-  }
-
-  // ============================================================
   // MESSAGE
   // ============================================================
 
@@ -646,11 +495,6 @@ class _WalksScreenState extends State<WalksScreen>
     WidgetsBinding.instance
         .removeObserver(this);
 
-    _dotTimer?.cancel();
-    _dotGlowTimer?.cancel();
-
-    _radarController.dispose();
-
     super.dispose();
   }
 
@@ -670,19 +514,8 @@ class _WalksScreenState extends State<WalksScreen>
           bottom: 30,
         ),
         children: <Widget>[
-          InstaWalkContainer(
+          InstaWalkSearchPanel(
             searching: _searching,
-            loading: _loading,
-            radarAnimation:
-                _radarController,
-            dotVisible: _dotVisible,
-            dotX: _dotX,
-            dotY: _dotY,
-            requests: _requests,
-            onSearchPressed:
-                _searchButtonPressed,
-            requestListBuilder:
-                _buildRequests,
           ),
         ],
       ),
