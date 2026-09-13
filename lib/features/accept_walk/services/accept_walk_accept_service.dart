@@ -442,7 +442,7 @@ class AcceptWalkAcceptService {
     }
 
     _locationSubscription =
-        _locationService.positionStream.listen(
+        _locationService.locationStream.listen(...)
       (position) async {
         try {
           // Do not control GPS here.
