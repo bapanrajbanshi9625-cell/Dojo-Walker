@@ -85,12 +85,7 @@ class _WalksScreenState extends State<WalksScreen>
     }
 
     try {
-      // --------------------------------------------------------
-      // WALKER ID
-      // --------------------------------------------------------
-
-      final DocumentSnapshot<Map<String, dynamic>>
-          account =
+      final DocumentSnapshot<Map<String, dynamic>> account =
           await _firestore
               .collection('phoneAccounts')
               .doc(uid)
@@ -109,12 +104,7 @@ class _WalksScreenState extends State<WalksScreen>
         _walkerId = savedWalkerId;
       }
 
-      // --------------------------------------------------------
-      // SEARCH STATE
-      // --------------------------------------------------------
-
-      final DocumentSnapshot<Map<String, dynamic>>
-          userDoc =
+      final DocumentSnapshot<Map<String, dynamic>> userDoc =
           await _firestore
               .collection('users')
               .doc(uid)
@@ -160,8 +150,7 @@ class _WalksScreenState extends State<WalksScreen>
     }
 
     try {
-      final DocumentSnapshot<Map<String, dynamic>>
-          snapshot =
+      final DocumentSnapshot<Map<String, dynamic>> snapshot =
           await _firestore
               .collection('phoneAccounts')
               .doc(user.uid)
@@ -201,10 +190,6 @@ class _WalksScreenState extends State<WalksScreen>
     if (_loading) {
       return;
     }
-
-    // ----------------------------------------------------------
-    // GLOBAL AVAILABILITY GUARD
-    // ----------------------------------------------------------
 
     final WalkerAvailabilityService availability =
         WalkerAvailabilityService.instance;
@@ -249,10 +234,6 @@ class _WalksScreenState extends State<WalksScreen>
       return;
     }
 
-    // ----------------------------------------------------------
-    // CHECK AGAIN AFTER ASYNC WALKER ID LOAD
-    // ----------------------------------------------------------
-
     if (!availability.isOnline) {
       _showMessage(
         'You are Offline. Go Online to search for Insta Walk requests.',
@@ -272,10 +253,6 @@ class _WalksScreenState extends State<WalksScreen>
     });
 
     try {
-      // --------------------------------------------------------
-      // FINAL ONLINE CHECK BEFORE FIRESTORE WRITE
-      // --------------------------------------------------------
-
       if (!availability.isOnline) {
         if (mounted) {
           setState(() {
@@ -348,9 +325,7 @@ class _WalksScreenState extends State<WalksScreen>
   // STOP SEARCH STATE
   // ============================================================
 
-  Future<void> _stopSearchState({
-    bool clearRequests = true,
-  }) async {
+  Future<void> _stopSearchState() async {
     final String? uid =
         _walkerUid ??
             _auth.currentUser?.uid;
@@ -390,81 +365,6 @@ class _WalksScreenState extends State<WalksScreen>
   }
 
   // ============================================================
-  // SEARCH BUTTON
-  // ============================================================
-
-  void _searchButtonPressed() {
-    if (_searching) {
-      _showStopDialog();
-    } else {
-      _startSearch();
-    }
-  }
-
-  // ============================================================
-  // STOP DIALOG
-  // ============================================================
-
-  Future<void> _showStopDialog() async {
-    final bool? confirm =
-        await showDialog<bool>(
-      context: context,
-      builder: (
-        BuildContext dialogContext,
-      ) {
-        return AlertDialog(
-          title: const Text(
-            'Stop Searching?',
-          ),
-          content: const Text(
-            'You will stop receiving nearby '
-            'Insta Walk requests.',
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  false,
-                );
-              },
-              child: const Text(
-                'Cancel',
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  true,
-                );
-              },
-              child: const Text(
-                'Confirm',
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (confirm != true ||
-        !mounted) {
-      return;
-    }
-
-    try {
-      await _stopSearchState();
-    } catch (_) {
-      if (mounted) {
-        _showMessage(
-          'Unable to stop searching.',
-        );
-      }
-    }
-  }
-
-  // ============================================================
   // MESSAGE
   // ============================================================
 
@@ -480,8 +380,7 @@ class _WalksScreenState extends State<WalksScreen>
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          behavior:
-              SnackBarBehavior.floating,
+          behavior: SnackBarBehavior.floating,
         ),
       );
   }
@@ -492,8 +391,7 @@ class _WalksScreenState extends State<WalksScreen>
 
   @override
   void dispose() {
-    WidgetsBinding.instance
-        .removeObserver(this);
+    WidgetsBinding.instance.removeObserver(this);
 
     super.dispose();
   }
