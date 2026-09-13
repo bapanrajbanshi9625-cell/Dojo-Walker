@@ -24,9 +24,6 @@ class IncomingWalkRejectService {
 
   // ============================================================
   // CURRENT WALKER ID
-  //
-  // Canonical fallback:
-  // Firebase Auth UID is the Walker ID.
   // ============================================================
 
   Future<String?> getCurrentWalkerId() async {
@@ -73,18 +70,21 @@ class IncomingWalkRejectService {
   // ============================================================
   // REJECT WALK
   //
-  // Main document:
-  //
   // walk_request/{walkId}
   //
-  // Private rejection:
+  // rejection:
   //
   // walk_request/{walkId}/rejections/{walkerId}
   //
-  // Main status remains "searching".
+  // type:
+  //   rejected = manual Walker rejection
+  //   timeout  = automatic 3-minute expiry
   //
-  // After rejection, the current incoming Walker claim is released
-  // so another eligible Walker can receive the request.
+  // Main request remains:
+  //
+  // status = searching
+  //
+  // Current Walker claim is released.
   // ============================================================
 
   Future<void> rejectWalk(
@@ -109,15 +109,18 @@ class IncomingWalkRejectService {
     final String? walkerId =
         await getCurrentWalkerId();
 
-    if (walkerId == null || walkerId.trim().isEmpty) {
+    if (walkerId == null ||
+        walkerId.trim().isEmpty) {
       throw Exception(
         'Walker ID not found.',
       );
     }
 
-    final String cleanWalkerId = walkerId.trim();
+    final String cleanWalkerId =
+        walkerId.trim();
 
-    final String id = walkId.trim();
+    final String id =
+        walkId.trim();
 
     if (id.isEmpty) {
       throw Exception(
@@ -179,7 +182,7 @@ class IncomingWalkRejectService {
         }
 
         // --------------------------------------------------------
-        // INCOMING WALK CLAIM
+        // CURRENT INCOMING CLAIM
         // --------------------------------------------------------
 
         final String incomingWalkerUid =
@@ -188,8 +191,7 @@ class IncomingWalkRejectService {
                     .trim() ??
                 '';
 
-        // If another Walker currently owns the incoming offer,
-        // this Walker must not be allowed to reject it.
+        // Another Walker owns the current offer.
         if (incomingWalkerUid.isNotEmpty &&
             incomingWalkerUid != walkerUid) {
           throw Exception(
@@ -198,7 +200,7 @@ class IncomingWalkRejectService {
         }
 
         // --------------------------------------------------------
-        // CHECK DUPLICATE REJECTION
+        // DUPLICATE REJECTION / TIMEOUT CHECK
         // --------------------------------------------------------
 
         final DocumentSnapshot<Map<String, dynamic>>
@@ -214,7 +216,7 @@ class IncomingWalkRejectService {
         }
 
         // --------------------------------------------------------
-        // SAVE PRIVATE WALKER REJECTION
+        // SAVE WALKER REJECTION
         // --------------------------------------------------------
 
         transaction.set(
@@ -222,24 +224,14 @@ class IncomingWalkRejectService {
           <String, dynamic>{
             'walkerId': cleanWalkerId,
             'walkerUid': walkerUid,
+            'type': 'rejected',
             'rejectedAt': FieldValue.serverTimestamp(),
             'updatedAt': FieldValue.serverTimestamp(),
           },
         );
 
         // --------------------------------------------------------
-        // RELEASE CURRENT INCOMING WALKER CLAIM
-        //
-        // IMPORTANT:
-        //
-        // Main request remains:
-        //
-        // status = searching
-        //
-        // Owner is NOT told that this specific Walker rejected.
-        //
-        // The claim is simply released so another eligible Walker
-        // can receive the request.
+        // RELEASE ONLY THIS WALKER'S CLAIM
         // --------------------------------------------------------
 
         if (incomingWalkerUid == walkerUid) {
@@ -247,6 +239,7 @@ class IncomingWalkRejectService {
             walkRef,
             <String, dynamic>{
               'incomingWalkerUid': FieldValue.delete(),
+              'incomingWalkerId': FieldValue.delete(),
               'incomingClaimedAt': FieldValue.delete(),
               'updatedAt': FieldValue.serverTimestamp(),
             },
@@ -256,7 +249,8 @@ class IncomingWalkRejectService {
     );
 
     // ----------------------------------------------------------
-    // STOP SOUND ONLY AFTER FIRESTORE SUCCESS
+    // STOP INCOMING RING/SOUND
+    // ONLY AFTER FIRESTORE SUCCESS
     // ----------------------------------------------------------
 
     await IncomingWalkSoundService.instance.stopRequest(id);
