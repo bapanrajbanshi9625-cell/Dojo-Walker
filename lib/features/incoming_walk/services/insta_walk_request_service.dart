@@ -37,6 +37,8 @@ class InstaWalkRequestService {
 
   StreamController<List<InstaWalkRequest>>? _controller;
 
+  Timer? _refreshTimer;
+
   bool _disposed = false;
   bool _availabilityListenerAttached = false;
 
@@ -58,7 +60,7 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
-  // STREAM LISTEN
+  // CONTROLLER LISTEN
   // ============================================================
 
   void _handleControllerListen() {
@@ -74,18 +76,19 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
-  // STREAM CANCEL
+  // CONTROLLER CANCEL
   // ============================================================
 
   Future<void> _handleControllerCancel() async {
-    _listenerGeneration++;
-
     await _stopRequestListener();
 
     await _authSubscription?.cancel();
     _authSubscription = null;
 
     _detachAvailabilityListener();
+
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
   }
 
   // ============================================================
@@ -121,17 +124,20 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
-  // LISTENER REFRESH QUEUE
+  // LISTENER REFRESH
   // ============================================================
 
-  void _scheduleListenerRefresh(String reason) {
+  void _scheduleListenerRefresh(
+    String reason,
+  ) {
     if (_disposed ||
         _controller == null ||
         _controller!.isClosed) {
       return;
     }
 
-    final int generation = ++_listenerGeneration;
+    final int generation =
+        ++_listenerGeneration;
 
     _restartQueue = _restartQueue.then(
       (_) async {
@@ -143,7 +149,7 @@ class InstaWalkRequestService {
         );
       },
     ).catchError(
-      (Object error, StackTrace stackTrace) {
+      (error, stackTrace) {
         debugPrint(
           '[InstaWalkRequestService] '
           'listener restart error: $error',
@@ -203,7 +209,8 @@ class InstaWalkRequestService {
       return;
     }
 
-    final String? walkerId = await _getWalkerId();
+    final String? walkerId =
+        await _getWalkerId();
 
     if (_disposed) return;
 
@@ -218,7 +225,8 @@ class InstaWalkRequestService {
       return;
     }
 
-    if (walkerId == null || walkerId.trim().isEmpty) {
+    if (walkerId == null ||
+        walkerId.trim().isEmpty) {
       debugPrint(
         '[InstaWalkRequestService] '
         'WALKER ID NOT FOUND. '
@@ -244,8 +252,9 @@ class InstaWalkRequestService {
               isEqualTo: 'searching',
             );
 
-    _requestSubscription = query.snapshots().listen(
-      (QuerySnapshot<Map<String, dynamic>> snapshot) {
+    _requestSubscription =
+        query.snapshots().listen(
+      (snapshot) {
         unawaited(
           _processSnapshot(
             snapshot,
@@ -255,8 +264,8 @@ class InstaWalkRequestService {
         );
       },
       onError: (
-        Object error,
-        StackTrace stackTrace,
+        error,
+        stackTrace,
       ) {
         debugPrint(
           '[InstaWalkRequestService] '
@@ -286,7 +295,7 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
-  // PROCESS FIRESTORE SNAPSHOT
+  // PROCESS SNAPSHOT
   // ============================================================
 
   Future<void> _processSnapshot(
@@ -341,10 +350,7 @@ class InstaWalkRequestService {
         if (request != null) {
           validRequests.add(request);
         }
-      } catch (
-        Object error,
-        StackTrace stackTrace
-      ) {
+      } catch (error, stackTrace) {
         debugPrint(
           '[InstaWalkRequestService] '
           'REQUEST PROCESS ERROR '
@@ -366,8 +372,8 @@ class InstaWalkRequestService {
     // ==========================================================
     // SORT BY CREATED AT
     //
-    // Firestore model stores Timestamp.
-    // Convert Timestamp -> DateTime explicitly.
+    // InstaWalkRequest.createdAt is Timestamp?.
+    // Timestamp must be converted to DateTime.
     // ==========================================================
 
     validRequests.sort(
@@ -412,9 +418,11 @@ class InstaWalkRequestService {
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
     String walkerId,
   ) async {
-    final Map<String, dynamic> data = doc.data();
+    final Map<String, dynamic> data =
+        doc.data();
 
-    final String requestId = doc.id;
+    final String requestId =
+        doc.id;
 
     final String status =
         (data['status'] ?? '')
@@ -426,9 +434,10 @@ class InstaWalkRequestService {
       return null;
     }
 
-    // ==========================================================
-    // AUTH
-    // ==========================================================
+    final String? existingClaimWalkerUid =
+        _cleanString(
+      data['incomingWalkerUid'],
+    );
 
     final String currentUid =
         _auth.currentUser?.uid ?? '';
@@ -443,15 +452,6 @@ class InstaWalkRequestService {
       return null;
     }
 
-    // ==========================================================
-    // EXISTING CLAIM
-    // ==========================================================
-
-    final String? existingClaimWalkerUid =
-        _cleanString(
-      data['incomingWalkerUid'],
-    );
-
     if (existingClaimWalkerUid != null &&
         existingClaimWalkerUid.isNotEmpty &&
         existingClaimWalkerUid != currentUid) {
@@ -464,16 +464,14 @@ class InstaWalkRequestService {
       return null;
     }
 
-    // ==========================================================
-    // REJECTION
-    // ==========================================================
-
-    final DocumentReference<Map<String, dynamic>> requestRef =
+    final DocumentReference<Map<String, dynamic>>
+        requestRef =
         _firestore
             .collection('walk_request')
             .doc(requestId);
 
-    final DocumentReference<Map<String, dynamic>> rejectionRef =
+    final DocumentReference<Map<String, dynamic>>
+        rejectionRef =
         requestRef
             .collection('rejections')
             .doc(walkerId);
@@ -515,10 +513,19 @@ class InstaWalkRequestService {
     // WALKER LOCATION
     // ==========================================================
 
-    final PositionData? position =
-        _readCurrentWalkerPosition();
+    final GeoPoint? walkerLocation =
+        _locationService.currentPosition != null
+            ? GeoPoint(
+                _locationService
+                    .currentPosition!
+                    .latitude,
+                _locationService
+                    .currentPosition!
+                    .longitude,
+              )
+            : null;
 
-    if (position == null) {
+    if (walkerLocation == null) {
       debugPrint(
         '[InstaWalkRequestService] '
         'WALKER LOCATION MISSING '
@@ -527,12 +534,6 @@ class InstaWalkRequestService {
 
       return null;
     }
-
-    final GeoPoint walkerLocation =
-        GeoPoint(
-      position.latitude,
-      position.longitude,
-    );
 
     // ==========================================================
     // DISTANCE
@@ -597,36 +598,7 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
-  // WALKER POSITION
-  // ============================================================
-
-  PositionData? _readCurrentWalkerPosition() {
-    final dynamic position =
-        _locationService.currentPosition;
-
-    if (position == null) {
-      return null;
-    }
-
-    try {
-      return PositionData(
-        latitude:
-            (position.latitude as num).toDouble(),
-        longitude:
-            (position.longitude as num).toDouble(),
-      );
-    } catch (error) {
-      debugPrint(
-        '[InstaWalkRequestService] '
-        'POSITION READ ERROR: $error',
-      );
-
-      return null;
-    }
-  }
-
-  // ============================================================
-  // CLAIM TRANSACTION
+  // CLAIM REQUEST
   // ============================================================
 
   Future<bool> _claimRequest({
@@ -688,10 +660,7 @@ class InstaWalkRequestService {
           return true;
         },
       );
-    } catch (
-      Object error,
-      StackTrace stackTrace
-    ) {
+    } catch (error, stackTrace) {
       debugPrint(
         '[InstaWalkRequestService] '
         'CLAIM TRANSACTION ERROR: $error',
@@ -795,10 +764,7 @@ class InstaWalkRequestService {
             'CLAIM TIMEOUT '
             'id=$requestId',
           );
-        } catch (
-          Object error,
-          StackTrace stackTrace
-        ) {
+        } catch (error, stackTrace) {
           debugPrint(
             '[InstaWalkRequestService] '
             'CLAIM TIMEOUT ERROR '
@@ -841,7 +807,7 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
-  // WALKER ID
+  // GET WALKER ID
   // ============================================================
 
   Future<String?> _getWalkerId() async {
@@ -890,10 +856,7 @@ class InstaWalkRequestService {
           );
 
       return walkerId ?? user.uid;
-    } catch (
-      Object error,
-      StackTrace stackTrace
-    ) {
+    } catch (error, stackTrace) {
       debugPrint(
         '[InstaWalkRequestService] '
         'WALKER ID ERROR: $error',
@@ -908,7 +871,7 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
-  // STOP FIRESTORE LISTENER
+  // STOP LISTENER
   // ============================================================
 
   Future<void> _stopRequestListener() async {
@@ -951,21 +914,23 @@ class InstaWalkRequestService {
     }
 
     if (value is Map) {
-      final double? latitude =
-          _toDouble(
-        value['latitude'],
-      );
+      final dynamic latitude =
+          value['latitude'];
 
-      final double? longitude =
-          _toDouble(
-        value['longitude'],
-      );
+      final dynamic longitude =
+          value['longitude'];
 
-      if (latitude != null &&
-          longitude != null) {
+      final double? lat =
+          _toDouble(latitude);
+
+      final double? lng =
+          _toDouble(longitude);
+
+      if (lat != null &&
+          lng != null) {
         return GeoPoint(
-          latitude,
-          longitude,
+          lat,
+          lng,
         );
       }
     }
@@ -998,25 +963,17 @@ class InstaWalkRequestService {
 
     final double a =
         math.pow(
-              math.sin(
-                dLat / 2,
-              ),
+              math.sin(dLat / 2),
               2,
             ).toDouble() +
         math.cos(
-              _degreesToRadians(
-                lat1,
-              ),
+              _degreesToRadians(lat1),
             ) *
             math.cos(
-              _degreesToRadians(
-                lat2,
-              ),
+              _degreesToRadians(lat2),
             ) *
             math.pow(
-              math.sin(
-                dLon / 2,
-              ),
+              math.sin(dLon / 2),
               2,
             ).toDouble();
 
@@ -1051,7 +1008,7 @@ class InstaWalkRequestService {
 
     if (value is String) {
       return double.tryParse(
-        value.trim(),
+        value,
       );
     }
 
@@ -1090,6 +1047,9 @@ class InstaWalkRequestService {
 
     _listenerGeneration++;
 
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+
     _detachAvailabilityListener();
 
     unawaited(
@@ -1105,7 +1065,8 @@ class InstaWalkRequestService {
     _authSubscription = null;
 
     final StreamController<List<InstaWalkRequest>>?
-        controller = _controller;
+        controller =
+        _controller;
 
     _controller = null;
 
@@ -1113,18 +1074,4 @@ class InstaWalkRequestService {
       controller?.close(),
     );
   }
-}
-
-// ============================================================
-// SIMPLE INTERNAL POSITION HOLDER
-// ============================================================
-
-class PositionData {
-  const PositionData({
-    required this.latitude,
-    required this.longitude,
-  });
-
-  final double latitude;
-  final double longitude;
 }
