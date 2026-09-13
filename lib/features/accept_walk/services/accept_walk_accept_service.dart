@@ -2,46 +2,11 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../../../services/walker_availability_service.dart';
-import '../../../services/walker_location_service.dart';
-
-/// ============================================================
-/// ACCEPT WALK ACCEPT SERVICE
-///
-/// RESPONSIBILITIES:
-///
-/// - Validate current Walker
-/// - Validate canonical Walk ID
-/// - Verify incoming Walker ownership
-/// - Accept the searching walk request
-/// - Mark the walk as active
-/// - Consume the canonical Walker location stream
-/// - Write latest Walker location to Firestore
-///
-/// GPS ARCHITECTURE:
-///
-///   ONLINE   → WalkerAvailabilityService controls GPS
-///   ACCEPT   → marks active walk
-///   REACHED  → GPS remains ON
-///   LIVE     → GPS remains ON
-///   COMPLETE → global availability flow stops GPS
-///
-/// IMPORTANT:
-///
-/// This service NEVER starts or stops GPS.
-///
-/// GPS lifecycle is owned only by:
-///
-///   WalkerAvailabilityService
-///
-/// This service only consumes:
-///
-///   WalkerLocationService.instance.locationStream
-///
-/// and writes the latest Walker location to Firestore.
-/// ============================================================
+import '../../walks/services/walker_location_service.dart';
+import '../../walks/services/walker_availability_service.dart';
 
 class AcceptWalkAcceptService {
   AcceptWalkAcceptService._();
@@ -49,11 +14,8 @@ class AcceptWalkAcceptService {
   static final AcceptWalkAcceptService instance =
       AcceptWalkAcceptService._();
 
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
-
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   final WalkerLocationService _locationService =
       WalkerLocationService.instance;
@@ -61,193 +23,41 @@ class AcceptWalkAcceptService {
   final WalkerAvailabilityService _availabilityService =
       WalkerAvailabilityService.instance;
 
+  static const double _maxSearchRadiusKm = 3.5;
+  static const Duration _offerDuration = Duration(minutes: 3);
+
   StreamSubscription<Position>? _locationSubscription;
 
-  String? _trackingRequestId;
+  bool _isAccepting = false;
 
   // ============================================================
-  // COLLECTIONS
+  // WALKER PROFILE
   // ============================================================
 
-  CollectionReference<Map<String, dynamic>> get _walkRequests {
-    return _firestore.collection('walk_request');
-  }
+  Future<Map<String, dynamic>> _getWalkerProfile(String uid) async {
+    final walkerDoc =
+        await _firestore.collection('walkers').doc(uid).get();
 
-  CollectionReference<Map<String, dynamic>> get _walkers {
-    return _firestore.collection('walkers');
-  }
+    final data = walkerDoc.data() ?? <String, dynamic>{};
 
-  // ============================================================
-  // CURRENT USER
-  // ============================================================
+    final walkerId =
+        (data['walkerId'] ?? data['id'] ?? '').toString();
 
-  User? get _currentUser {
-    return _auth.currentUser;
-  }
+    final walkerName =
+        (data['name'] ?? data['walkerName'] ?? 'Dojo Walker').toString();
 
-  // ============================================================
-  // GET WALKER PROFILE
-  // ============================================================
+    final walkerPhone =
+        (data['phone'] ?? data['phoneNumber'] ?? '').toString();
 
-  Future<Map<String, String>> _getWalkerProfile() async {
-    final User? user = _currentUser;
+    final walkerProfileImage =
+        (data['profileImage'] ??
+                data['profileImageUrl'] ??
+                data['photoUrl'] ??
+                '')
+            .toString();
 
-    if (user == null) {
-      throw Exception(
-        'Walker is not logged in.',
-      );
-    }
-
-    final String walkerUid = user.uid.trim();
-
-    if (walkerUid.isEmpty) {
-      throw Exception(
-        'Walker UID is missing.',
-      );
-    }
-
-    final DocumentSnapshot<Map<String, dynamic>> snapshot =
-        await _walkers.doc(walkerUid).get();
-
-    if (!snapshot.exists) {
-      throw Exception(
-        'Walker profile not found.',
-      );
-    }
-
-    final Map<String, dynamic>? data =
-        snapshot.data();
-
-    if (data == null) {
-      throw Exception(
-        'Walker profile data is empty.',
-      );
-    }
-
-    // ==========================================================
-    // WALKER ID
-    // ==========================================================
-
-    String walkerId =
-        data['walkerId']?.toString().trim() ?? '';
-
-    if (walkerId.isEmpty) {
-      walkerId =
-          data['Walker ID']?.toString().trim() ?? '';
-    }
-
-    if (walkerId.isEmpty) {
-      walkerId = walkerUid;
-    }
-
-    // ==========================================================
-    // WALKER NAME
-    // ==========================================================
-
-    String walkerName =
-        data['name']?.toString().trim() ?? '';
-
-    if (walkerName.isEmpty) {
-      walkerName =
-          data['fullName']?.toString().trim() ?? '';
-    }
-
-    if (walkerName.isEmpty) {
-      walkerName =
-          data['Full Name']?.toString().trim() ?? '';
-    }
-
-    // ==========================================================
-    // WALKER PHONE
-    // ==========================================================
-
-    String walkerPhone =
-        data['phone']?.toString().trim() ?? '';
-
-    if (walkerPhone.isEmpty) {
-      walkerPhone =
-          data['phoneNumber']?.toString().trim() ?? '';
-    }
-
-    if (walkerPhone.isEmpty) {
-      walkerPhone =
-          data['mobileNumber']?.toString().trim() ?? '';
-    }
-
-    if (walkerPhone.isEmpty) {
-      walkerPhone =
-          data['Mobile number']?.toString().trim() ?? '';
-    }
-
-    // ==========================================================
-    // WALKER PROFILE IMAGE
-    // ==========================================================
-
-    String walkerProfileImage =
-        data['walkerProfileImage']?.toString().trim() ?? '';
-
-    if (walkerProfileImage.isEmpty) {
-      walkerProfileImage =
-          data['profileImageUrl']?.toString().trim() ?? '';
-    }
-
-    if (walkerProfileImage.isEmpty) {
-      walkerProfileImage =
-          data['profileImage']?.toString().trim() ?? '';
-    }
-
-    if (walkerProfileImage.isEmpty) {
-      walkerProfileImage =
-          data['photoUrl']?.toString().trim() ?? '';
-    }
-
-    if (walkerProfileImage.isEmpty) {
-      walkerProfileImage =
-          data['photoURL']?.toString().trim() ?? '';
-    }
-
-    if (walkerProfileImage.isEmpty) {
-      walkerProfileImage =
-          data['profilePhoto']?.toString().trim() ?? '';
-    }
-
-    if (walkerProfileImage.isEmpty) {
-      walkerProfileImage =
-          data['profilePhotoUrl']?.toString().trim() ?? '';
-    }
-
-    if (walkerProfileImage.isEmpty) {
-      walkerProfileImage =
-          data['selfie']?.toString().trim() ?? '';
-    }
-
-    if (walkerProfileImage.isEmpty) {
-      walkerProfileImage =
-          data['selfieUrl']?.toString().trim() ?? '';
-    }
-
-    if (walkerProfileImage.isEmpty) {
-      walkerProfileImage =
-          data['imageUrl']?.toString().trim() ?? '';
-    }
-
-    if (walkerProfileImage.isEmpty) {
-      walkerProfileImage =
-          data['image']?.toString().trim() ?? '';
-    }
-
-    // ignore: avoid_print
-    print(
-      'Walker profile loaded: '
-      'walkerId=$walkerId, '
-      'name=$walkerName, '
-      'phone=$walkerPhone, '
-      'profileImage=$walkerProfileImage',
-    );
-
-    return <String, String>{
+    return <String, dynamic>{
       'walkerId': walkerId,
-      'walkerUid': walkerUid,
       'walkerName': walkerName,
       'walkerPhone': walkerPhone,
       'walkerProfileImage': walkerProfileImage,
@@ -255,437 +65,431 @@ class AcceptWalkAcceptService {
   }
 
   // ============================================================
-  // CURRENT WALKER ID
+  // VALIDATION
   // ============================================================
 
-  Future<String> getCurrentWalkerId() async {
-    final Map<String, String> profile =
-        await _getWalkerProfile();
+  bool _isValidWalkId(String requestId) {
+    return RegExp(r'^DW\d{6}$').hasMatch(requestId);
+  }
 
-    return profile['walkerId'] ?? '';
+  GeoPoint? _getOwnerLocation(Map<String, dynamic> data) {
+    final ownerLocation = data['ownerLocation'];
+
+    if (ownerLocation is GeoPoint) {
+      return ownerLocation;
+    }
+
+    final latitude = _toDouble(
+      data['latitude'] ??
+          data['lat'] ??
+          data['pickupLatitude'],
+    );
+
+    final longitude = _toDouble(
+      data['longitude'] ??
+          data['lng'] ??
+          data['pickupLongitude'],
+    );
+
+    if (latitude == null || longitude == null) {
+      return null;
+    }
+
+    return GeoPoint(latitude, longitude);
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    if (value is String) {
+      return double.tryParse(value);
+    }
+
+    return null;
+  }
+
+  bool _isOfferExpired(Timestamp? claimedAt) {
+    if (claimedAt == null) {
+      return true;
+    }
+
+    final claimedTime = claimedAt.toDate();
+    return DateTime.now().difference(claimedTime) >= _offerDuration;
+  }
+
+  double _distanceKm(Position walkerPosition, GeoPoint ownerLocation) {
+    final distanceMeters = Geolocator.distanceBetween(
+      walkerPosition.latitude,
+      walkerPosition.longitude,
+      ownerLocation.latitude,
+      ownerLocation.longitude,
+    );
+
+    return distanceMeters / 1000.0;
   }
 
   // ============================================================
   // ACCEPT WALK
   // ============================================================
 
-  Future<void> acceptWalk(
-    String requestId,
-  ) async {
-    // ==========================================================
-    // ONLINE GUARD
-    // ==========================================================
+  Future<bool> acceptWalk(String requestId) async {
+    if (_isAccepting) {
+      return false;
+    }
+
+    if (!_isValidWalkId(requestId)) {
+      debugPrint(
+        'AcceptWalkAcceptService: invalid walk id: $requestId',
+      );
+      return false;
+    }
+
+    // ----------------------------------------------------------
+    // Availability guards
+    // ----------------------------------------------------------
 
     if (!_availabilityService.isOnline) {
-      throw Exception(
-        'You must be Online to accept a walk.',
+      debugPrint(
+        'AcceptWalkAcceptService: walker is offline.',
       );
+      return false;
+    }
+
+    if (!_availabilityService.isInstaWalkSelected) {
+      debugPrint(
+        'AcceptWalkAcceptService: Insta Walk is not selected.',
+      );
+      return false;
+    }
+
+    if (!_availabilityService.isInstaWalkSearching) {
+      debugPrint(
+        'AcceptWalkAcceptService: Insta Walk search is not active.',
+      );
+      return false;
+    }
+
+    if (_availabilityService.isActiveWalk) {
+      debugPrint(
+        'AcceptWalkAcceptService: walker already has an active walk.',
+      );
+      return false;
     }
 
     if (!_availabilityService.canPerformWalkAction()) {
-      throw Exception(
-        _availabilityService.unavailableMessage,
+      debugPrint(
+        'AcceptWalkAcceptService: walk action is not available.',
       );
+      return false;
     }
 
-    final User? user = _currentUser;
+    final user = _auth.currentUser;
 
     if (user == null) {
-      throw Exception(
-        'Walker is not logged in.',
+      debugPrint(
+        'AcceptWalkAcceptService: no authenticated user.',
       );
+      return false;
     }
 
-    final String walkerUid =
-        user.uid.trim();
+    final walkerUid = user.uid;
 
-    if (walkerUid.isEmpty) {
-      throw Exception(
-        'Walker UID is missing.',
+    final currentPosition = _locationService.currentPosition;
+
+    if (currentPosition == null) {
+      debugPrint(
+        'AcceptWalkAcceptService: current walker location unavailable.',
       );
+      return false;
     }
 
-    final String id =
-        requestId.trim();
+    _isAccepting = true;
 
-    if (id.isEmpty) {
-      throw Exception(
-        'Request ID is missing.',
-      );
-    }
+    try {
+      final walkerProfile = await _getWalkerProfile(walkerUid);
 
-    // ==========================================================
-    // VALIDATE CANONICAL REQUEST ID
-    // ==========================================================
+      final walkerId =
+          (walkerProfile['walkerId'] ?? '').toString();
 
-    if (!RegExp(r'^DW\d{6}$').hasMatch(id)) {
-      throw Exception(
-        'Invalid Request ID. Expected format: DW000001.',
-      );
-    }
+      if (walkerId.isEmpty) {
+        debugPrint(
+          'AcceptWalkAcceptService: walkerId unavailable.',
+        );
+        return false;
+      }
 
-    // ==========================================================
-    // WALKER PROFILE
-    // ==========================================================
+      final requestRef =
+          _firestore.collection('walk_request').doc(requestId);
 
-    final Map<String, String> walkerProfile =
-        await _getWalkerProfile();
+      // ========================================================
+      // ATOMIC ACCEPT
+      // ========================================================
 
-    final String walkerId =
-        walkerProfile['walkerId'] ?? '';
+      await _firestore.runTransaction((transaction) async {
+        final requestSnapshot =
+            await transaction.get(requestRef);
 
-    final String walkerName =
-        walkerProfile['walkerName'] ?? '';
+        if (!requestSnapshot.exists) {
+          throw StateError('Walk request no longer exists.');
+        }
 
-    final String walkerPhone =
-        walkerProfile['walkerPhone'] ?? '';
+        final data =
+            requestSnapshot.data() ?? <String, dynamic>{};
 
-    final String walkerProfileImage =
-        walkerProfile['walkerProfileImage'] ?? '';
+        final status =
+            (data['status'] ?? '').toString().toLowerCase();
 
-    if (walkerId.isEmpty) {
-      throw Exception(
-        'Walker ID is missing.',
-      );
-    }
+        if (status != 'searching') {
+          throw StateError(
+            'Walk request is no longer searching.',
+          );
+        }
 
-    if (walkerName.isEmpty) {
-      throw Exception(
-        'Walker name is missing from profile.',
-      );
-    }
+        // ------------------------------------------------------
+        // Current incoming Walker must be this Walker
+        // ------------------------------------------------------
 
-    if (walkerPhone.isEmpty) {
-      throw Exception(
-        'Walker phone number is missing from profile.',
-      );
-    }
+        final incomingWalkerUid =
+            (data['incomingWalkerUid'] ?? '').toString();
 
-    // ==========================================================
-    // REFERENCES
-    // ==========================================================
+        if (incomingWalkerUid != walkerUid) {
+          throw StateError(
+            'This walk offer belongs to another Walker.',
+          );
+        }
 
-    final DocumentReference<Map<String, dynamic>> walkRef =
-        _walkRequests.doc(id);
+        // ------------------------------------------------------
+        // 3-minute offer validation
+        // ------------------------------------------------------
 
-    final DocumentReference<Map<String, dynamic>> rejectionRef =
-        walkRef
+        final claimedAtValue = data['incomingClaimedAt'];
+
+        Timestamp? claimedAt;
+
+        if (claimedAtValue is Timestamp) {
+          claimedAt = claimedAtValue;
+        }
+
+        if (_isOfferExpired(claimedAt)) {
+          final rejectionRef = requestRef
+              .collection('rejections')
+              .doc(walkerId);
+
+          transaction.set(
+            rejectionRef,
+            <String, dynamic>{
+              'walkerId': walkerId,
+              'walkerUid': walkerUid,
+              'type': 'timeout',
+              'expiredAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true),
+          );
+
+          transaction.update(
+            requestRef,
+            <String, dynamic>{
+              'incomingWalkerUid': FieldValue.delete(),
+              'incomingWalkerId': FieldValue.delete(),
+              'incomingClaimedAt': FieldValue.delete(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            },
+          );
+
+          throw StateError(
+            'Walk offer expired after 3 minutes.',
+          );
+        }
+
+        // ------------------------------------------------------
+        // This Walker must not already have rejected/timed out
+        // ------------------------------------------------------
+
+        final rejectionRef = requestRef
             .collection('rejections')
             .doc(walkerId);
 
-    // ==========================================================
-    // ACCEPT TRANSACTION
-    // ==========================================================
-
-    await _firestore.runTransaction(
-      (
-        Transaction transaction,
-      ) async {
-        // --------------------------------------------------------
-        // READ MAIN REQUEST
-        // --------------------------------------------------------
-
-        final DocumentSnapshot<Map<String, dynamic>>
-            walkSnapshot =
-            await transaction.get(
-          walkRef,
-        );
-
-        if (!walkSnapshot.exists) {
-          throw Exception(
-            'Walk request no longer exists.',
-          );
-        }
-
-        final Map<String, dynamic>? data =
-            walkSnapshot.data();
-
-        if (data == null) {
-          throw Exception(
-            'Walk request data is empty.',
-          );
-        }
-
-        // --------------------------------------------------------
-        // STATUS
-        // --------------------------------------------------------
-
-        final String status =
-            data['status']
-                    ?.toString()
-                    .trim()
-                    .toLowerCase() ??
-                '';
-
-        if (status != 'searching') {
-          throw Exception(
-            'This walk is no longer available.',
-          );
-        }
-
-        // --------------------------------------------------------
-        // INCOMING WALK CLAIM
-        //
-        // ACCEPT MUST BELONG TO THE WALKER WHO RECEIVED
-        // THE INCOMING OFFER.
-        //
-        // Empty claim is NOT accepted here.
-        // This prevents another online Walker from directly
-        // accepting an unclaimed request.
-        // --------------------------------------------------------
-
-        final String incomingWalkerUid =
-            data['incomingWalkerUid']
-                    ?.toString()
-                    .trim() ??
-                '';
-
-        if (incomingWalkerUid.isEmpty) {
-          throw Exception(
-            'This walk is not currently assigned to you.',
-          );
-        }
-
-        if (incomingWalkerUid != walkerUid) {
-          throw Exception(
-            'This walk is currently assigned to another walker.',
-          );
-        }
-
-        // --------------------------------------------------------
-        // CHECK REJECTION
-        //
-        // Rejection and acceptance both use:
-        //
-        // rejections/{walkerId}
-        // --------------------------------------------------------
-
-        final DocumentSnapshot<Map<String, dynamic>>
-            rejectionSnapshot =
-            await transaction.get(
-          rejectionRef,
-        );
+        final rejectionSnapshot =
+            await transaction.get(rejectionRef);
 
         if (rejectionSnapshot.exists) {
-          throw Exception(
-            'You already rejected this walk.',
+          throw StateError(
+            'This Walker is already blocked for this request.',
           );
         }
 
-        // --------------------------------------------------------
-        // ACCEPT
-        // --------------------------------------------------------
+        // ------------------------------------------------------
+        // Owner location
+        // ------------------------------------------------------
 
-        transaction.update(
-          walkRef,
-          <String, dynamic>{
-            'requestId': id,
-            'status': 'accepted',
-            'walkerId': walkerId,
-            'walkerUid': walkerUid,
-            'walkerName': walkerName,
-            'walkerPhone': walkerPhone,
-            'walkerProfileImage':
-                walkerProfileImage,
-            'acceptedBy': walkerId,
-            'acceptedByUid': walkerUid,
-            'acceptedAt':
-                FieldValue.serverTimestamp(),
-            'updatedAt':
-                FieldValue.serverTimestamp(),
-          },
-        );
-      },
-    );
+        final ownerLocation = _getOwnerLocation(data);
 
-    // ==========================================================
-    // MARK ACTIVE WALK
-    //
-    // This changes availability state only.
-    // It does NOT directly start GPS.
-    // ==========================================================
-
-    _availabilityService.setActiveWalk(true);
-
-    // ==========================================================
-    // START FIRESTORE LOCATION CONSUMER
-    //
-    // This does NOT start GPS.
-    // ==========================================================
-
-    try {
-      await _listenToLocationUpdates(
-        requestId: id,
-      );
-    } catch (e) {
-      // Accept already succeeded.
-      // Location listener failure must not undo acceptance.
-
-      // ignore: avoid_print
-      print(
-        'Unable to attach walker location listener: $e',
-      );
-    }
-  }
-
-  // ============================================================
-  // LISTEN TO CANONICAL LOCATION
-  //
-  // NO GPS START HERE.
-  // NO GPS STOP HERE.
-  // ============================================================
-
-  Future<void> _listenToLocationUpdates({
-    required String requestId,
-  }) async {
-    final String id =
-        requestId.trim();
-
-    if (id.isEmpty) {
-      return;
-    }
-
-    // ----------------------------------------------------------
-    // Cancel previous listener owned by this service.
-    // ----------------------------------------------------------
-
-    await _locationSubscription?.cancel();
-
-    _locationSubscription = null;
-
-    _trackingRequestId = id;
-
-    // ==========================================================
-    // FIRST LOCATION
-    // ==========================================================
-
-    final Position? currentPosition =
-        _locationService.currentPosition;
-
-    if (currentPosition != null) {
-      await _updateWalkerLocation(
-        requestId: id,
-        position: currentPosition,
-      );
-    }
-
-    // ==========================================================
-    // CONTINUOUS LOCATION
-    // ==========================================================
-
-    _locationSubscription =
-        _locationService.locationStream.listen(
-      (
-        Position position,
-      ) {
-        if (!_availabilityService.isOnline) {
-          return;
+        if (ownerLocation == null) {
+          throw StateError(
+            'Owner location is unavailable.',
+          );
         }
 
-        unawaited(
-          _updateWalkerLocation(
-            requestId: id,
-            position: position,
-          ),
+        // ------------------------------------------------------
+        // 3.5 KM distance re-check
+        // ------------------------------------------------------
+
+        final distanceKm = _distanceKm(
+          currentPosition,
+          ownerLocation,
         );
+
+        if (distanceKm > _maxSearchRadiusKm) {
+          throw StateError(
+            'Owner is outside the 3.5 km search radius.',
+          );
+        }
+
+        // ------------------------------------------------------
+        // Accept
+        // ------------------------------------------------------
+
+        transaction.update(
+          requestRef,
+          <String, dynamic>{
+            'requestId': requestId,
+            'status': 'accepted',
+
+            'walkerId': walkerId,
+            'walkerUid': walkerUid,
+            'walkerName': walkerProfile['walkerName'],
+            'walkerPhone': walkerProfile['walkerPhone'],
+            'walkerProfileImage':
+                walkerProfile['walkerProfileImage'],
+
+            'acceptedBy': walkerId,
+            'acceptedByUid': walkerUid,
+            'acceptedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+        );
+      });
+
+      // ========================================================
+      // ACCEPT SUCCESS
+      // ========================================================
+
+      // Search must stop, but Walker remains ONLINE.
+      _availabilityService.stopInstaWalkSearch();
+
+      // Keep backend search state synchronized.
+      try {
+        await _firestore
+            .collection('users')
+            .doc(walkerUid)
+            .set(
+          <String, dynamic>{
+            'instaWalkSearching': false,
+            'instaWalkSearchUpdatedAt':
+                FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+      } catch (e) {
+        // Accept has already succeeded. Do not undo the walk.
+        debugPrint(
+          'AcceptWalkAcceptService: failed to sync search state: $e',
+        );
+      }
+
+      // Active walk is now locked.
+      // GPS remains ON.
+      await _availabilityService.setActiveWalk(true);
+
+      // Start listening to walker location updates.
+      // This does NOT start or stop GPS.
+      await _startLocationUpdates(requestId);
+
+      return true;
+    } catch (e) {
+      debugPrint(
+        'AcceptWalkAcceptService.acceptWalk error: $e',
+      );
+      return false;
+    } finally {
+      _isAccepting = false;
+    }
+  }
+
+  // ============================================================
+  // WALKER LOCATION UPDATES
+  // ============================================================
+
+  Future<void> _startLocationUpdates(String requestId) async {
+    await _locationSubscription?.cancel();
+    _locationSubscription = null;
+
+    final requestRef =
+        _firestore.collection('walk_request').doc(requestId);
+
+    // Immediately publish current location.
+    final initialPosition = _locationService.currentPosition;
+
+    if (initialPosition != null) {
+      await _writeLocation(
+        requestRef,
+        initialPosition,
+      );
+    }
+
+    _locationSubscription =
+        _locationService.positionStream.listen(
+      (position) async {
+        try {
+          // Do not control GPS here.
+          // WalkerLocationService remains the sole GPS owner.
+
+          final availability =
+              _availabilityService;
+
+          if (!availability.isOnline ||
+              !availability.isActiveWalk) {
+            return;
+          }
+
+          await _writeLocation(
+            requestRef,
+            position,
+          );
+        } catch (e) {
+          debugPrint(
+            'AcceptWalkAcceptService location update error: $e',
+          );
+        }
       },
       onError: (Object error) {
-        // ignore: avoid_print
-        print(
-          'Walker GPS stream error: $error',
+        debugPrint(
+          'AcceptWalkAcceptService location stream error: $error',
         );
       },
-      cancelOnError: false,
     );
   }
 
-  // ============================================================
-  // WRITE WALKER LOCATION
-  // ============================================================
-
-  Future<void> _updateWalkerLocation({
-    required String requestId,
-    required Position position,
-  }) async {
-    final String id =
-        requestId.trim();
-
-    if (id.isEmpty) {
-      return;
-    }
-
-    // ----------------------------------------------------------
-    // Ignore updates belonging to an old walk.
-    // ----------------------------------------------------------
-
-    if (_trackingRequestId != id) {
-      return;
-    }
-
-    // ----------------------------------------------------------
-    // Never write location while Offline.
-    // ----------------------------------------------------------
-
-    if (!_availabilityService.isOnline) {
-      return;
-    }
-
-    try {
-      await _walkRequests
-          .doc(id)
-          .update(
-        <String, dynamic>{
-          'walkerLocation': GeoPoint(
-            position.latitude,
-            position.longitude,
-          ),
-          'walkerHeading':
-              position.heading,
-          'walkerSpeed':
-              position.speed,
-          'locationUpdatedAt':
-              FieldValue.serverTimestamp(),
-          'updatedAt':
-              FieldValue.serverTimestamp(),
-        },
-      );
-    } catch (e) {
-      // Firestore failure must NEVER stop GPS.
-      //
-      // GPS lifecycle remains owned by
-      // WalkerAvailabilityService.
-
-      // ignore: avoid_print
-      print(
-        'Unable to update walker location: $e',
-      );
-    }
-  }
-
-  // ============================================================
-  // TRACKING STATUS
-  // ============================================================
-
-  bool get isTracking {
-    return _trackingRequestId != null;
-  }
-
-  String? get trackingRequestId {
-    return _trackingRequestId;
-  }
-
-  // ============================================================
-  // INTERNAL LISTENER CLEANUP
-  //
-  // ONLY removes this service's listener.
-  //
-  // NEVER stops WalkerLocationService.
-  // ============================================================
-
-  Future<void> _cancelLocationListener() async {
-    await _locationSubscription?.cancel();
-
-    _locationSubscription = null;
+  Future<void> _writeLocation(
+    DocumentReference<Map<String, dynamic>> requestRef,
+    Position position,
+  ) async {
+    await requestRef.update(
+      <String, dynamic>{
+        'walkerLocation': GeoPoint(
+          position.latitude,
+          position.longitude,
+        ),
+        'walkerHeading': position.heading,
+        'walkerSpeed': position.speed,
+        'locationUpdatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+    );
   }
 
   // ============================================================
@@ -693,8 +497,11 @@ class AcceptWalkAcceptService {
   // ============================================================
 
   Future<void> dispose() async {
-    await _cancelLocationListener();
+    await _locationSubscription?.cancel();
+    _locationSubscription = null;
 
-    _trackingRequestId = null;
+    // IMPORTANT:
+    // Never stop WalkerLocationService here.
+    // GPS lifecycle belongs exclusively to WalkerLocationService.
   }
 }
