@@ -5,8 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../../walks/services/walker_location_service.dart';
-import '../../walks/services/walker_availability_service.dart';
+import '../../../services/walker_location_service.dart';
+import '../../../services/walker_availability_service.dart';
 
 class AcceptWalkAcceptService {
   AcceptWalkAcceptService._();
