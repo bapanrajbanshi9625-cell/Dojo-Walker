@@ -9,6 +9,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'walker_location_service.dart';
 
+enum WalkerWalkType {
+  instaWalk,
+  dailyWalk,
+}
+
 class WalkerAvailabilityService extends ChangeNotifier {
   WalkerAvailabilityService._() {
     _restoreFuture = _restoreAvailabilityState();
@@ -18,6 +23,7 @@ class WalkerAvailabilityService extends ChangeNotifier {
       WalkerAvailabilityService._();
 
   static const String _onlinePreferenceKey = 'walker_online';
+  static const String _walkTypePreferenceKey = 'walker_walk_type';
 
   final WalkerLocationService _locationService =
       WalkerLocationService.instance;
@@ -28,6 +34,12 @@ class WalkerAvailabilityService extends ChangeNotifier {
   bool _isActiveWalk = false;
   bool _isChangingStatus = false;
   bool _stateRestored = false;
+
+  WalkerWalkType? _selectedWalkType;
+
+  // IMPORTANT:
+  // Going Online does NOT automatically start Insta Walk search.
+  bool _isInstaWalkSearching = false;
 
   String? _error;
 
@@ -59,16 +71,26 @@ class WalkerAvailabilityService extends ChangeNotifier {
   Stream<Position> get locationStream =>
       _locationService.locationStream;
 
-  /// Wait until the initial saved availability state has been
-  /// restored.
-  ///
-  /// Request discovery uses this before checking isOnline so that
-  /// startup timing cannot make an already-Online Walker appear
-  /// Offline temporarily.
+  WalkerWalkType? get selectedWalkType =>
+      _selectedWalkType;
+
+  bool get isInstaWalkSelected =>
+      _selectedWalkType == WalkerWalkType.instaWalk;
+
+  bool get isDailyWalkSelected =>
+      _selectedWalkType == WalkerWalkType.dailyWalk;
+
+  bool get isInstaWalkSearching =>
+      _isInstaWalkSearching;
+
+  bool get isDailyWalkMode =>
+      _isOnline &&
+      _selectedWalkType == WalkerWalkType.dailyWalk;
+
   Future<void> get ready => _restoreFuture;
 
   // ============================================================
-  // RESTORE SAVED AVAILABILITY STATE
+  // RESTORE SAVED STATE
   // ============================================================
 
   Future<void> _restoreAvailabilityState() async {
@@ -83,12 +105,20 @@ class WalkerAvailabilityService extends ChangeNotifier {
       final bool savedOnline =
           prefs.getBool(_onlinePreferenceKey) ?? false;
 
-      // ----------------------------------------------------------
-      // User explicitly chose Offline.
-      // ----------------------------------------------------------
+      final String savedWalkType =
+          prefs.getString(_walkTypePreferenceKey) ?? '';
+
+      if (savedWalkType == 'dailyWalk') {
+        _selectedWalkType =
+            WalkerWalkType.dailyWalk;
+      } else if (savedWalkType == 'instaWalk') {
+        _selectedWalkType =
+            WalkerWalkType.instaWalk;
+      }
 
       if (!savedOnline) {
         _isOnline = false;
+        _isInstaWalkSearching = false;
         _stateRestored = true;
 
         debugPrint(
@@ -98,11 +128,6 @@ class WalkerAvailabilityService extends ChangeNotifier {
         notifyListeners();
         return;
       }
-
-      // ----------------------------------------------------------
-      // User was Online before app/process restart.
-      // Restore Online + GPS.
-      // ----------------------------------------------------------
 
       debugPrint(
         'Walker Availability: Saved state = ONLINE. '
@@ -114,11 +139,14 @@ class WalkerAvailabilityService extends ChangeNotifier {
 
       if (!restored) {
         debugPrint(
-          'Walker Availability: Could not restore GPS tracking '
-          'at startup. Walker remains Offline until Online is '
-          'successfully established.',
+          'Walker Availability: Could not restore GPS tracking. '
+          'Walker remains Offline.',
         );
       }
+
+      // IMPORTANT:
+      // App restart must never automatically start Insta search.
+      _isInstaWalkSearching = false;
 
       _stateRestored = true;
     } catch (e, stackTrace) {
@@ -134,10 +162,6 @@ class WalkerAvailabilityService extends ChangeNotifier {
 
   Future<bool> _restoreOnlineState() async {
     try {
-      // --------------------------------------------------------
-      // CHECK GPS SERVICE + PERMISSION
-      // --------------------------------------------------------
-
       final bool permissionReady =
           await _locationService.ensurePermission();
 
@@ -150,10 +174,6 @@ class WalkerAvailabilityService extends ChangeNotifier {
         return false;
       }
 
-      // --------------------------------------------------------
-      // GET CURRENT LOCATION
-      // --------------------------------------------------------
-
       final Position? position =
           await _locationService.getCurrentLocation();
 
@@ -165,10 +185,6 @@ class WalkerAvailabilityService extends ChangeNotifier {
 
         return false;
       }
-
-      // --------------------------------------------------------
-      // START GLOBAL TRACKING
-      // --------------------------------------------------------
 
       final bool trackingStarted =
           await _locationService.startTracking();
@@ -220,10 +236,103 @@ class WalkerAvailabilityService extends ChangeNotifier {
   }
 
   // ============================================================
-  // SAVE AVAILABILITY STATE
+  // WALK TYPE
   // ============================================================
 
-  Future<void> _saveOnlineState(bool online) async {
+  Future<void> setWalkType(
+    WalkerWalkType walkType,
+  ) async {
+    await _ensureStateRestored();
+
+    _selectedWalkType = walkType;
+
+    // Changing mode always stops Insta search.
+    _isInstaWalkSearching = false;
+
+    try {
+      final SharedPreferences prefs =
+          await SharedPreferences.getInstance();
+
+      await prefs.setString(
+        _walkTypePreferenceKey,
+        walkType == WalkerWalkType.instaWalk
+            ? 'instaWalk'
+            : 'dailyWalk',
+      );
+    } catch (e, stackTrace) {
+      debugPrint(
+        'Walker Availability Save Walk Type Error: $e',
+      );
+      debugPrint('$stackTrace');
+    }
+
+    debugPrint(
+      'Walker Availability: Walk Type = '
+      '${walkType == WalkerWalkType.instaWalk ? 'INSTA WALK' : 'DAILY WALK'}',
+    );
+
+    notifyListeners();
+  }
+
+  // ============================================================
+  // INSTA WALK SEARCH
+  // ============================================================
+
+  Future<bool> startInstaWalkSearch() async {
+    await _ensureStateRestored();
+
+    if (!_isOnline) {
+      _setError(
+        'Go Online before starting Insta Walk search.',
+      );
+
+      notifyListeners();
+      return false;
+    }
+
+    if (_selectedWalkType != WalkerWalkType.instaWalk) {
+      _setError(
+        'Choose Insta Walk before starting search.',
+      );
+
+      notifyListeners();
+      return false;
+    }
+
+    _isInstaWalkSearching = true;
+
+    _clearError();
+
+    debugPrint(
+      'Walker Availability: INSTA WALK SEARCH = ON',
+    );
+
+    notifyListeners();
+
+    return true;
+  }
+
+  void stopInstaWalkSearch() {
+    if (!_isInstaWalkSearching) {
+      return;
+    }
+
+    _isInstaWalkSearching = false;
+
+    debugPrint(
+      'Walker Availability: INSTA WALK SEARCH = OFF',
+    );
+
+    notifyListeners();
+  }
+
+  // ============================================================
+  // SAVE AVAILABILITY
+  // ============================================================
+
+  Future<void> _saveOnlineState(
+    bool online,
+  ) async {
     try {
       final SharedPreferences prefs =
           await SharedPreferences.getInstance();
@@ -305,6 +414,10 @@ class WalkerAvailabilityService extends ChangeNotifier {
 
       _isOnline = true;
 
+      // IMPORTANT:
+      // Online does NOT mean Insta Walk search.
+      _isInstaWalkSearching = false;
+
       _listenToGlobalLocation();
 
       await _saveOnlineState(true);
@@ -355,16 +468,14 @@ class WalkerAvailabilityService extends ChangeNotifier {
 
       notifyListeners();
 
-      debugPrint(
-        'Walker Availability: Offline blocked because '
-        'an active walk is running.',
-      );
-
       return false;
     }
 
     if (!_isOnline) {
+      _isInstaWalkSearching = false;
+
       await _saveOnlineState(false);
+
       return true;
     }
 
@@ -373,6 +484,8 @@ class WalkerAvailabilityService extends ChangeNotifier {
     notifyListeners();
 
     try {
+      _isInstaWalkSearching = false;
+
       await _stopGlobalLocation();
 
       _isOnline = false;
@@ -417,10 +530,12 @@ class WalkerAvailabilityService extends ChangeNotifier {
   }
 
   // ============================================================
-  // ACTIVE WALK CONTROL
+  // ACTIVE WALK
   // ============================================================
 
-  Future<void> setActiveWalk(bool active) async {
+  Future<void> setActiveWalk(
+    bool active,
+  ) async {
     await _ensureStateRestored();
 
     _isActiveWalk = active;
@@ -444,7 +559,7 @@ class WalkerAvailabilityService extends ChangeNotifier {
   }
 
   // ============================================================
-  // FORCE ONLINE FOR ACTIVE WALK
+  // FORCE ONLINE FOR WALK
   // ============================================================
 
   Future<bool> ensureOnlineForWalk() async {
@@ -496,7 +611,7 @@ class WalkerAvailabilityService extends ChangeNotifier {
   }
 
   // ============================================================
-  // GLOBAL LOCATION STREAM
+  // GLOBAL LOCATION
   // ============================================================
 
   void _listenToGlobalLocation() {
@@ -532,7 +647,7 @@ class WalkerAvailabilityService extends ChangeNotifier {
   }
 
   // ============================================================
-  // STOP GLOBAL LOCATION
+  // STOP LOCATION
   // ============================================================
 
   Future<void> _stopGlobalLocation() async {
@@ -564,7 +679,7 @@ class WalkerAvailabilityService extends ChangeNotifier {
   }
 
   // ============================================================
-  // REFRESH CURRENT LOCATION
+  // REFRESH LOCATION
   // ============================================================
 
   Future<Position?> refreshCurrentLocation() async {
@@ -576,6 +691,7 @@ class WalkerAvailabilityService extends ChangeNotifier {
       );
 
       notifyListeners();
+
       return null;
     }
 
@@ -627,9 +743,6 @@ class WalkerAvailabilityService extends ChangeNotifier {
     _locationSubscription = null;
 
     await _locationService.stopTracking();
-
-    // IMPORTANT:
-    // Do not change persisted availability to Offline here.
 
     debugPrint(
       'Walker Availability: Service cleanup completed. '
