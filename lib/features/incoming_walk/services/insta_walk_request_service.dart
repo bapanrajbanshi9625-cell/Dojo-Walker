@@ -10,7 +10,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../services/walker_availability_service.dart';
 import '../../../services/walker_location_service.dart';
-import '../models/insta_walk_request.dart';
+import '../../insta_walk/models/insta_walk_request.dart';
 
 class InstaWalkRequestService {
   InstaWalkRequestService._();
