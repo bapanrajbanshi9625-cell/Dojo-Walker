@@ -120,7 +120,6 @@ class WalkerMainAppBar extends StatelessWidget
                                   return;
                                 }
 
-                                // Confirmation के बाद specifically Offline करें.
                                 await availability.goOffline();
                               } else {
                                 // ==================================================
@@ -135,8 +134,7 @@ class WalkerMainAppBar extends StatelessWidget
                                 return;
                               }
 
-                              final String? error =
-                                  availability.error;
+                              final String? error = availability.error;
 
                               if (error != null &&
                                   error.trim().isNotEmpty) {
@@ -330,23 +328,32 @@ class _AvailabilityToggle extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            Align(
-              alignment: isOnline
-                  ? Alignment.centerLeft
-                  : Alignment.centerRight,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: isOnline ? 25 : 0,
-                  right: isOnline ? 0 : 25,
-                ),
-                child: Text(
-                  isOnline ? 'ONLINE' : 'OFFLINE',
-                  maxLines: 1,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.45,
+            // ----------------------------------------------------
+            // ONLINE / OFFLINE TEXT
+            // ----------------------------------------------------
+
+            Positioned.fill(
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: isOnline ? 22 : 22,
+                    right: isOnline ? 22 : 22,
+                  ),
+                  child: Text(
+                    isOnline ? 'ONLINE' : 'OFFLINE',
+                    maxLines: 1,
+                    textAlign: TextAlign.center,
+                    strutStyle: const StrutStyle(
+                      height: 1.0,
+                      forceStrutHeight: true,
+                    ),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.45,
+                      height: 1.0,
+                    ),
                   ),
                 ),
               ),
