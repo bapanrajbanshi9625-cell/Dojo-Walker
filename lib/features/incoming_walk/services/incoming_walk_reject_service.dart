@@ -24,6 +24,8 @@ class IncomingWalkRejectService {
 
   // ============================================================
   // CURRENT WALKER ID
+  //
+  // Walker ID = Firebase Auth UID.
   // ============================================================
 
   Future<String?> getCurrentWalkerId() async {
@@ -39,32 +41,8 @@ class IncomingWalkRejectService {
       return null;
     }
 
-    final DocumentSnapshot<Map<String, dynamic>> snapshot =
-        await _firestore.collection('walkers').doc(uid).get();
-
-    if (!snapshot.exists) {
-      return uid;
-    }
-
-    final Map<String, dynamic>? data = snapshot.data();
-
-    if (data == null) {
-      return uid;
-    }
-
-    String walkerId =
-        data['walkerId']?.toString().trim() ?? '';
-
-    if (walkerId.isEmpty) {
-      walkerId =
-          data['Walker ID']?.toString().trim() ?? '';
-    }
-
-    if (walkerId.isEmpty) {
-      walkerId = uid;
-    }
-
-    return walkerId;
+    // Canonical Walker ID is the Firebase Auth UID.
+    return uid;
   }
 
   // ============================================================
@@ -74,17 +52,19 @@ class IncomingWalkRejectService {
   //
   // rejection:
   //
-  // walk_request/{walkId}/rejections/{walkerId}
+  // walk_request/{walkId}/rejections/{walkerUid}
   //
   // type:
   //   rejected = manual Walker rejection
-  //   timeout  = automatic 3-minute expiry
   //
+  // IMPORTANT:
   // Main request remains:
   //
   // status = searching
   //
-  // Current Walker claim is released.
+  // Only the current Walker's claim is released.
+  //
+  // Therefore the same request can go to another Walker.
   // ============================================================
 
   Future<void> rejectWalk(
@@ -106,21 +86,10 @@ class IncomingWalkRejectService {
       );
     }
 
-    final String? walkerId =
-        await getCurrentWalkerId();
+    // Walker ID = Firebase Auth UID.
+    final String cleanWalkerId = walkerUid;
 
-    if (walkerId == null ||
-        walkerId.trim().isEmpty) {
-      throw Exception(
-        'Walker ID not found.',
-      );
-    }
-
-    final String cleanWalkerId =
-        walkerId.trim();
-
-    final String id =
-        walkId.trim();
+    final String id = walkId.trim();
 
     if (id.isEmpty) {
       throw Exception(
@@ -131,10 +100,11 @@ class IncomingWalkRejectService {
     final DocumentReference<Map<String, dynamic>> walkRef =
         _walkRequests.doc(id);
 
+    // Rejection document ID is the Walker Auth UID.
     final DocumentReference<Map<String, dynamic>> rejectionRef =
         walkRef
             .collection('rejections')
-            .doc(cleanWalkerId);
+            .doc(walkerUid);
 
     await _firestore.runTransaction(
       (
@@ -166,6 +136,9 @@ class IncomingWalkRejectService {
 
         // --------------------------------------------------------
         // STATUS
+        //
+        // Reject must only happen while the request is searching.
+        // We do NOT change status to cancelled.
         // --------------------------------------------------------
 
         final String status =
@@ -191,7 +164,7 @@ class IncomingWalkRejectService {
                     .trim() ??
                 '';
 
-        // Another Walker owns the current offer.
+        // Another Walker currently owns this offer.
         if (incomingWalkerUid.isNotEmpty &&
             incomingWalkerUid != walkerUid) {
           throw Exception(
@@ -200,7 +173,7 @@ class IncomingWalkRejectService {
         }
 
         // --------------------------------------------------------
-        // DUPLICATE REJECTION / TIMEOUT CHECK
+        // DUPLICATE REJECTION CHECK
         // --------------------------------------------------------
 
         final DocumentSnapshot<Map<String, dynamic>>
@@ -216,7 +189,9 @@ class IncomingWalkRejectService {
         }
 
         // --------------------------------------------------------
-        // SAVE WALKER REJECTION
+        // SAVE REJECTION
+        //
+        // Walker ID = Auth UID.
         // --------------------------------------------------------
 
         transaction.set(
@@ -232,6 +207,16 @@ class IncomingWalkRejectService {
 
         // --------------------------------------------------------
         // RELEASE ONLY THIS WALKER'S CLAIM
+        //
+        // IMPORTANT:
+        // Do NOT delete incomingWalkerId.
+        //
+        // Current Firestore Rules only allow:
+        //   incomingWalkerUid
+        //   incomingClaimedAt
+        //   updatedAt
+        //
+        // status remains SEARCHING.
         // --------------------------------------------------------
 
         if (incomingWalkerUid == walkerUid) {
@@ -239,7 +224,6 @@ class IncomingWalkRejectService {
             walkRef,
             <String, dynamic>{
               'incomingWalkerUid': FieldValue.delete(),
-              'incomingWalkerId': FieldValue.delete(),
               'incomingClaimedAt': FieldValue.delete(),
               'updatedAt': FieldValue.serverTimestamp(),
             },
