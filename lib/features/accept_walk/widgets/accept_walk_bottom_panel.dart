@@ -46,7 +46,6 @@ class AcceptWalkBottomPanel extends StatefulWidget {
 class _AcceptWalkBottomPanelState
     extends State<AcceptWalkBottomPanel> {
   static const double _minimumVisibleHeight = 72;
-  static const double _topHandleArea = 36;
 
   double _dragOffset = 0;
 
@@ -58,6 +57,17 @@ class _AcceptWalkBottomPanelState
   // ============================================================
   // PANEL DRAG
   // ============================================================
+
+  void _startPanelDrag() {
+    _draggingPanel = true;
+
+    // When starting a panel drag, keep the inner content at the top.
+    // This makes upward/downward gestures control the sheet naturally.
+    if (_scrollController.hasClients &&
+        _scrollController.offset > 0) {
+      _scrollController.jumpTo(0);
+    }
+  }
 
   void _updatePanelDrag(
     DragUpdateDetails details,
@@ -91,14 +101,12 @@ class _AcceptWalkBottomPanelState
     final double midpoint =
         maxDrag > 0 ? maxDrag * 0.35 : 0;
 
-    setState(() {
-      _dragOffset =
-          _dragOffset > midpoint ? maxDrag : 0;
-    });
-  }
+    final double target =
+        _dragOffset > midpoint ? maxDrag : 0;
 
-  void _startPanelDrag() {
-    _draggingPanel = true;
+    setState(() {
+      _dragOffset = target;
+    });
   }
 
   // ============================================================
@@ -156,11 +164,6 @@ class _AcceptWalkBottomPanelState
     final double screenHeight =
         MediaQuery.sizeOf(context).height;
 
-    // ----------------------------------------------------------
-    // Panel occupies a comfortable portion of the screen.
-    // The inner content itself becomes scrollable.
-    // ----------------------------------------------------------
-
     final double panelHeight =
         (screenHeight * 0.72)
             .clamp(300.0, 620.0);
@@ -168,13 +171,6 @@ class _AcceptWalkBottomPanelState
     final double maxDrag =
         (panelHeight - _minimumVisibleHeight)
             .clamp(0.0, panelHeight);
-
-    final double visibleHeight =
-        (panelHeight - _dragOffset)
-            .clamp(
-              _minimumVisibleHeight,
-              panelHeight,
-            );
 
     return Material(
       color: Colors.transparent,
@@ -198,33 +194,39 @@ class _AcceptWalkBottomPanelState
                 ),
               ],
             ),
-            child: SafeArea(
-              top: false,
-              child: Column(
-                children: <Widget>[
-                  // ==================================================
-                  // DRAG HANDLE
-                  // ==================================================
 
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onVerticalDragStart: (_) {
-                      _startPanelDrag();
-                    },
-                    onVerticalDragUpdate: (details) {
-                      _updatePanelDrag(
-                        details,
-                        maxDrag,
-                      );
-                    },
-                    onVerticalDragEnd: (details) {
-                      _endPanelDrag(
-                        details,
-                        maxDrag,
-                      );
-                    },
-                    child: SizedBox(
-                      height: _topHandleArea,
+            // ======================================================
+            // IMPORTANT:
+            // Whole panel now receives vertical drag gestures.
+            // ======================================================
+
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragStart: (_) {
+                _startPanelDrag();
+              },
+              onVerticalDragUpdate: (details) {
+                _updatePanelDrag(
+                  details,
+                  maxDrag,
+                );
+              },
+              onVerticalDragEnd: (details) {
+                _endPanelDrag(
+                  details,
+                  maxDrag,
+                );
+              },
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  children: <Widget>[
+                    // ==================================================
+                    // DRAG HANDLE
+                    // ==================================================
+
+                    SizedBox(
+                      height: 36,
                       width: double.infinity,
                       child: Center(
                         child: Container(
@@ -240,20 +242,17 @@ class _AcceptWalkBottomPanelState
                         ),
                       ),
                     ),
-                  ),
 
-                  // ==================================================
-                  // SCROLLABLE CONTENT
-                  // ==================================================
+                    // ==================================================
+                    // SCROLLABLE CONTENT
+                    // ==================================================
 
-                  Expanded(
-                    child: ClipRect(
-                      child: SizedBox(
-                        height: visibleHeight,
+                    Expanded(
+                      child: ClipRect(
                         child: SingleChildScrollView(
                           controller: _scrollController,
                           physics:
-                              const BouncingScrollPhysics(),
+                              const NeverScrollableScrollPhysics(),
                           padding:
                               const EdgeInsets.fromLTRB(
                             16,
@@ -272,12 +271,17 @@ class _AcceptWalkBottomPanelState
                               // ------------------------------------------------
 
                               AcceptWalkOwnerDogDetails(
-                                dogName: widget.dogName,
-                                dogBreed: widget.dogBreed,
-                                ownerName: widget.ownerName,
+                                dogName:
+                                    widget.dogName,
+                                dogBreed:
+                                    widget.dogBreed,
+                                ownerName:
+                                    widget.ownerName,
                               ),
 
-                              const SizedBox(height: 12),
+                              const SizedBox(
+                                height: 12,
+                              ),
 
                               // ------------------------------------------------
                               // DISTANCE + TIME
@@ -293,7 +297,9 @@ class _AcceptWalkBottomPanelState
                                           widget.distanceText,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(
+                                    width: 8,
+                                  ),
                                   Expanded(
                                     child: _InfoItem(
                                       icon:
@@ -312,14 +318,18 @@ class _AcceptWalkBottomPanelState
                               if (widget.address
                                   .trim()
                                   .isNotEmpty) ...<Widget>[
-                                const SizedBox(height: 10),
+                                const SizedBox(
+                                  height: 10,
+                                ),
                                 AcceptWalkAddress(
                                   address:
                                       widget.address,
                                 ),
                               ],
 
-                              const SizedBox(height: 12),
+                              const SizedBox(
+                                height: 12,
+                              ),
 
                               // ------------------------------------------------
                               // MAP BUTTON
@@ -372,8 +382,7 @@ class _AcceptWalkBottomPanelState
                                     shape:
                                         RoundedRectangleBorder(
                                       borderRadius:
-                                          BorderRadius
-                                              .circular(
+                                          BorderRadius.circular(
                                         12,
                                       ),
                                     ),
@@ -381,7 +390,9 @@ class _AcceptWalkBottomPanelState
                                 ),
                               ),
 
-                              const SizedBox(height: 12),
+                              const SizedBox(
+                                height: 12,
+                              ),
 
                               // ------------------------------------------------
                               // CALL + CHAT
@@ -394,7 +405,9 @@ class _AcceptWalkBottomPanelState
                                     widget.onChat,
                               ),
 
-                              const SizedBox(height: 12),
+                              const SizedBox(
+                                height: 12,
+                              ),
 
                               // ------------------------------------------------
                               // REACH OWNER
@@ -409,14 +422,16 @@ class _AcceptWalkBottomPanelState
                                     widget.onReach,
                               ),
 
-                              const SizedBox(height: 8),
+                              const SizedBox(
+                                height: 8,
+                              ),
                             ],
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -424,6 +439,10 @@ class _AcceptWalkBottomPanelState
       ),
     );
   }
+
+  // ============================================================
+  // DISPOSE
+  // ============================================================
 
   @override
   void dispose() {
