@@ -1,8 +1,4 @@
-// File:
-// lib/features/incoming_walk/services/insta_walk_request_service.dart
-
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -24,11 +20,13 @@ import '../../insta_walk/models/insta_walk_request.dart';
 ///     + INSTA WALK selected
 ///     + INSTA SEARCH ON
 ///     + no active walk
-/// - Only accept requests within 3.5 km
+/// - Only discover requests within 3.5 km
 /// - Claim one request for one Walker
-/// - Give the claimed request a 3-minute offer window
+/// - Give each claimed request a 3-minute offer window
+/// - Automatically timeout the offer after 3 minutes
 /// - Permanently skip requests timed out by this Walker
 /// - Permanently skip requests rejected by this Walker
+/// - Release the request so another Walker can receive it
 ///
 /// GPS lifecycle:
 ///
@@ -70,6 +68,15 @@ class InstaWalkRequestService {
 
   static const Duration _offerDuration =
       Duration(minutes: 3);
+
+  // ============================================================
+  // ACTIVE OFFER TIMERS
+  //
+  // One timer per request currently claimed by this Walker.
+  // ============================================================
+
+  final Map<String, Timer> _offerTimers =
+      <String, Timer>{};
 
   // ============================================================
   // COLLECTIONS
@@ -287,7 +294,7 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
-  // OFFER TIME
+  // TIMESTAMP
   // ============================================================
 
   DateTime? _timestampToDateTime(
@@ -329,6 +336,98 @@ class InstaWalkRequestService {
     return DateTime.now()
             .difference(claimedAt) >=
         _offerDuration;
+  }
+
+  // ============================================================
+  // SCHEDULE OFFER TIMEOUT
+  //
+  // Starts/restarts the local 3-minute timer based on the
+  // actual incomingClaimedAt timestamp.
+  //
+  // Firestore transaction remains authoritative.
+  // ============================================================
+
+  void _scheduleOfferTimeout({
+    required String walkId,
+    required String walkerId,
+    required String walkerUid,
+    DateTime? claimedAt,
+  }) {
+    final String id =
+        walkId.trim();
+
+    final String wid =
+        walkerId.trim();
+
+    final String uid =
+        walkerUid.trim();
+
+    if (id.isEmpty ||
+        wid.isEmpty ||
+        uid.isEmpty) {
+      return;
+    }
+
+    // Cancel any old timer for this request.
+    _offerTimers[id]?.cancel();
+
+    final DateTime now =
+        DateTime.now();
+
+    Duration remaining;
+
+    if (claimedAt == null) {
+      remaining =
+          _offerDuration;
+    } else {
+      final Duration elapsed =
+          now.difference(claimedAt);
+
+      if (elapsed >= _offerDuration) {
+        remaining =
+            Duration.zero;
+      } else {
+        remaining =
+            _offerDuration - elapsed;
+      }
+    }
+
+    _offerTimers[id] = Timer(
+      remaining,
+      () async {
+        _offerTimers.remove(id);
+
+        await _markTimeout(
+          walkId: id,
+          walkerId: wid,
+          walkerUid: uid,
+        );
+      },
+    );
+
+    debugPrint(
+      'Insta Walk offer timer started: '
+      '$id | '
+      '${remaining.inSeconds}s remaining',
+    );
+  }
+
+  // ============================================================
+  // CANCEL OFFER TIMER
+  // ============================================================
+
+  void _cancelOfferTimer(
+    String walkId,
+  ) {
+    final String id =
+        walkId.trim();
+
+    if (id.isEmpty) {
+      return;
+    }
+
+    _offerTimers[id]?.cancel();
+    _offerTimers.remove(id);
   }
 
   // ============================================================
@@ -421,7 +520,8 @@ class InstaWalkRequestService {
                   '';
 
           // ------------------------------------------------------
-          // If already accepted/reached/etc., never mark timeout.
+          // If already accepted/reached/completed/cancelled,
+          // never mark timeout.
           // ------------------------------------------------------
 
           if (status != 'searching') {
@@ -466,6 +566,8 @@ class InstaWalkRequestService {
             walkRef,
             <String, dynamic>{
               'incomingWalkerUid':
+                  FieldValue.delete(),
+              'incomingWalkerId':
                   FieldValue.delete(),
               'incomingClaimedAt':
                   FieldValue.delete(),
@@ -587,10 +689,7 @@ class InstaWalkRequestService {
         }
 
         // --------------------------------------------------------
-        // Distance check
-        //
-        // IMPORTANT:
-        // Owner location is authoritative.
+        // Owner location
         // --------------------------------------------------------
 
         final GeoPoint? ownerLocation =
@@ -601,8 +700,13 @@ class InstaWalkRequestService {
             'Insta Walk $id skipped: '
             'Owner location missing.',
           );
+
           return false;
         }
+
+        // --------------------------------------------------------
+        // 3.5 KM distance check
+        // --------------------------------------------------------
 
         final double distanceKm =
             _distanceKm(
@@ -628,8 +732,6 @@ class InstaWalkRequestService {
         if (incomingWalkerUid == uid) {
           // ------------------------------------------------------
           // Same Walker already owns this offer.
-          //
-          // Check the 3-minute window.
           // ------------------------------------------------------
 
           if (_isOfferExpired(data)) {
@@ -641,7 +743,7 @@ class InstaWalkRequestService {
 
         if (incomingWalkerUid.isNotEmpty &&
             incomingWalkerUid != uid) {
-          // Another Walker currently owns the offer.
+          // Another Walker currently owns this offer.
           return false;
         }
 
@@ -854,10 +956,7 @@ class InstaWalkRequestService {
                           doc.data();
 
                       // ------------------------------------------------
-                      // Existing claim timeout
-                      //
-                      // If this Walker already owns an expired offer,
-                      // permanently skip it and release the request.
+                      // Existing claim by this Walker
                       // ------------------------------------------------
 
                       final String incomingWalkerUid =
@@ -868,6 +967,15 @@ class InstaWalkRequestService {
 
                       if (incomingWalkerUid ==
                           walkerUid) {
+                        final DateTime? claimedAt =
+                            _getOfferStartedAt(
+                          data,
+                        );
+
+                        // ------------------------------------------------
+                        // Already expired
+                        // ------------------------------------------------
+
                         if (_isOfferExpired(
                           data,
                         )) {
@@ -879,8 +987,26 @@ class InstaWalkRequestService {
                                 walkerUid,
                           );
 
+                          _cancelOfferTimer(
+                            doc.id,
+                          );
+
                           continue;
                         }
+
+                        // ------------------------------------------------
+                        // Restore timer from Firestore timestamp.
+                        // ------------------------------------------------
+
+                        _scheduleOfferTimeout(
+                          walkId: doc.id,
+                          walkerId:
+                              cleanWalkerId,
+                          walkerUid:
+                              walkerUid,
+                          claimedAt:
+                              claimedAt,
+                        );
                       }
 
                       // ------------------------------------------------
@@ -922,10 +1048,7 @@ class InstaWalkRequestService {
                       }
 
                       // ------------------------------------------------
-                      // Read the latest document after claim.
-                      //
-                      // This prevents returning stale data where the
-                      // incoming Walker claim is not reflected.
+                      // Read server timestamp written by Firestore.
                       // ------------------------------------------------
 
                       final DocumentSnapshot<
@@ -978,6 +1101,26 @@ class InstaWalkRequestService {
                               walkerUid) {
                         continue;
                       }
+
+                      // ------------------------------------------------
+                      // Start exact remaining timer using the
+                      // server timestamp if available.
+                      // ------------------------------------------------
+
+                      final DateTime? latestClaimedAt =
+                          _getOfferStartedAt(
+                        latestData,
+                      );
+
+                      _scheduleOfferTimeout(
+                        walkId: doc.id,
+                        walkerId:
+                            cleanWalkerId,
+                        walkerUid:
+                            walkerUid,
+                        claimedAt:
+                            latestClaimedAt,
+                      );
 
                       availableRequests.add(
                         InstaWalkRequest.fromFirestore(
@@ -1153,6 +1296,14 @@ class InstaWalkRequestService {
           disposed = true;
           generation++;
 
+          // Cancel every active 3-minute offer timer.
+          for (final Timer timer
+              in _offerTimers.values) {
+            timer.cancel();
+          }
+
+          _offerTimers.clear();
+
           _availabilityService
               .removeListener(
             onAvailabilityChanged,
@@ -1217,22 +1368,12 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
-  // KEEP dart:math USED
+  // PUBLIC CONFIGURATION
   // ============================================================
 
-  // This getter intentionally keeps the service independent from
-  // platform-specific math implementations if this calculation
-  // is extended later.
   double get maxSearchRadiusKm {
-    return math.max(
-      0.0,
-      _maxSearchRadiusKm,
-    );
+    return _maxSearchRadiusKm;
   }
-
-  // ============================================================
-  // OFFER DURATION
-  // ============================================================
 
   Duration get offerDuration {
     return _offerDuration;
