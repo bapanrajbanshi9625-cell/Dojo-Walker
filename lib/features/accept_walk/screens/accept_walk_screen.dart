@@ -25,10 +25,12 @@ class AcceptWalkScreen extends StatefulWidget {
   final InstaWalkRequest request;
 
   @override
-  State<AcceptWalkScreen> createState() => _AcceptWalkScreenState();
+  State<AcceptWalkScreen> createState() =>
+      _AcceptWalkScreenState();
 }
 
-class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
+class _AcceptWalkScreenState
+    extends State<AcceptWalkScreen> {
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
@@ -44,9 +46,11 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
   final AcceptWalkReachService _reachService =
       AcceptWalkReachService.instance;
 
-  StreamSubscription<Position>? _locationSubscription;
+  StreamSubscription<Position>?
+      _locationSubscription;
 
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+  StreamSubscription<
+          DocumentSnapshot<Map<String, dynamic>>>?
       _requestSubscription;
 
   Position? _walkerPosition;
@@ -58,13 +62,15 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
 
   double _distanceMeters = 0;
 
-  List<LatLng> _routePoints = <LatLng>[];
+  List<LatLng> _routePoints =
+      <LatLng>[];
 
   LatLng? _lastRouteStart;
 
   bool _routeLoading = false;
 
-  static const double _routeRefreshDistanceMeters = 50;
+  static const double
+      _routeRefreshDistanceMeters = 50;
 
   // ============================================================
   // OWNER
@@ -79,10 +85,14 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
   }
 
   LatLng? get _ownerLocation {
-    final double? latitude = _ownerLatitude;
-    final double? longitude = _ownerLongitude;
+    final double? latitude =
+        _ownerLatitude;
 
-    if (latitude == null || longitude == null) {
+    final double? longitude =
+        _ownerLongitude;
+
+    if (latitude == null ||
+        longitude == null) {
       return null;
     }
 
@@ -114,7 +124,9 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
     final String value =
         widget.request.ownerName.trim();
 
-    return value.isEmpty ? 'Owner' : value;
+    return value.isEmpty
+        ? 'Owner'
+        : value;
   }
 
   String get _ownerPhone {
@@ -126,7 +138,8 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
   // ============================================================
 
   String get _currentWalkerUid {
-    return _auth.currentUser?.uid.trim() ?? '';
+    return _auth.currentUser?.uid.trim() ??
+        '';
   }
 
   String get _walkerId {
@@ -148,7 +161,9 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
     final String value =
         widget.request.dogName.trim();
 
-    return value.isEmpty ? 'Your Pet' : value;
+    return value.isEmpty
+        ? 'Your Pet'
+        : value;
   }
 
   String get _dogBreed {
@@ -222,8 +237,10 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
     }
   }
 
-  Future<void> _restoreLocationOnReopen() async {
-    if (_leavingScreen || !mounted) {
+  Future<void>
+      _restoreLocationOnReopen() async {
+    if (_leavingScreen ||
+        !mounted) {
       return;
     }
 
@@ -238,9 +255,11 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
     }
 
     final Position? freshPosition =
-        await _locationService.refreshLocation();
+        await _locationService
+            .refreshLocation();
 
-    if (!mounted || _leavingScreen) {
+    if (!mounted ||
+        _leavingScreen) {
       return;
     }
 
@@ -256,13 +275,16 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
   // ============================================================
 
   void _startRequestMonitoring() {
-    final String requestId = _requestId;
+    final String requestId =
+        _requestId;
 
     if (requestId.isEmpty) {
       return;
     }
 
-    final DocumentReference<Map<String, dynamic>> requestRef =
+    final DocumentReference<
+            Map<String, dynamic>>
+        requestRef =
         _firestore
             .collection('walk_request')
             .doc(requestId);
@@ -270,9 +292,12 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
     _requestSubscription =
         requestRef.snapshots().listen(
       (
-        DocumentSnapshot<Map<String, dynamic>> snapshot,
+        DocumentSnapshot<
+                Map<String, dynamic>>
+            snapshot,
       ) {
-        if (!mounted || _leavingScreen) {
+        if (!mounted ||
+            _leavingScreen) {
           return;
         }
 
@@ -337,7 +362,8 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
 
     if (ownerLatitude != null &&
         ownerLongitude != null) {
-      distance = Geolocator.distanceBetween(
+      distance =
+          Geolocator.distanceBetween(
         position.latitude,
         position.longitude,
         ownerLatitude,
@@ -375,12 +401,14 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
       return;
     }
 
-    final LatLng newStart = LatLng(
+    final LatLng newStart =
+        LatLng(
       position.latitude,
       position.longitude,
     );
 
-    final LatLng destination = LatLng(
+    final LatLng destination =
+        LatLng(
       ownerLatitude,
       ownerLongitude,
     );
@@ -401,7 +429,8 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
         newStart.longitude,
       );
 
-      if (moved < _routeRefreshDistanceMeters) {
+      if (moved <
+          _routeRefreshDistanceMeters) {
         return;
       }
     }
@@ -423,7 +452,9 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
       if (route.length >= 2) {
         setState(() {
           _routePoints =
-              List<LatLng>.unmodifiable(route);
+              List<LatLng>.unmodifiable(
+            route,
+          );
         });
       }
     } catch (error) {
@@ -440,7 +471,8 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
   // ============================================================
 
   Future<void> _openOwnerChat() async {
-    if (_openingChat || _leavingScreen) {
+    if (_openingChat ||
+        _leavingScreen) {
       return;
     }
 
@@ -454,6 +486,25 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
       return;
     }
 
+    final String requestId =
+        _requestId;
+
+    if (requestId.isEmpty) {
+      _showMessage(
+        'Chat is unavailable because the walk ID is missing.',
+      );
+      return;
+    }
+
+    if (!RegExp(
+      r'^DW\d{6}$',
+    ).hasMatch(requestId)) {
+      _showMessage(
+        'Chat is unavailable because the walk ID is invalid.',
+      );
+      return;
+    }
+
     setState(() {
       _openingChat = true;
     });
@@ -461,7 +512,8 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
     try {
       String? ownerPhotoUrl;
 
-      final DocumentSnapshot<Map<String, dynamic>>
+      final DocumentSnapshot<
+              Map<String, dynamic>>
           ownerSnapshot =
           await _firestore
               .collection('owners')
@@ -484,7 +536,8 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
             'imageUrl',
           ];
 
-          for (final String key in photoKeys) {
+          for (final String key
+              in photoKeys) {
             final String value =
                 data[key]
                         ?.toString()
@@ -499,18 +552,31 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
         }
       }
 
-      if (!mounted || _leavingScreen) {
+      if (!mounted ||
+          _leavingScreen) {
         return;
       }
 
-      await Navigator.of(context).push(
+      await Navigator.of(context)
+          .push(
         MaterialPageRoute<void>(
-          builder: (BuildContext context) {
+          builder:
+              (BuildContext context) {
             return ChatScreen(
               otherUid: ownerUid,
               contactName: _ownerName,
-              contactPhotoUrl: ownerPhotoUrl,
-              currentUserIsWalker: true,
+              contactPhotoUrl:
+                  ownerPhotoUrl,
+              currentUserIsWalker:
+                  true,
+
+              // ==================================================
+              // CURRENT WALK CHAT SCOPE
+              // requestId == sessionId == DW######
+              // ==================================================
+
+              requestId: requestId,
+              sessionId: requestId,
             );
           },
         ),
@@ -578,7 +644,8 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
       return '—';
     }
 
-    const double walkingSpeedKmH = 5;
+    const double walkingSpeedKmH =
+        5;
 
     final double minutes =
         (_distanceMeters / 1000) /
@@ -659,7 +726,8 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
     });
 
     try {
-      await _reachService.createLiveWalkSession(
+      await _reachService
+          .createLiveWalkSession(
         walkRequestId: requestId,
         walkerUid: walkerUid,
         walkerId: walkerId,
@@ -669,10 +737,14 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
         return;
       }
 
-      await _requestSubscription?.cancel();
+      await _requestSubscription
+          ?.cancel();
+
       _requestSubscription = null;
 
-      await _locationSubscription?.cancel();
+      await _locationSubscription
+          ?.cancel();
+
       _locationSubscription = null;
 
       _leavingScreen = true;
@@ -681,18 +753,21 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
         return;
       }
 
-      await Navigator.of(context).pushReplacement(
+      await Navigator.of(context)
+          .pushReplacement(
         MaterialPageRoute<void>(
-          builder: (BuildContext context) {
+          builder:
+              (BuildContext context) {
             return LiveWalkStartScreen(
               ownerUid: _ownerUid,
               ownerName: _ownerName,
               requestId: requestId,
               dogName: _dogName,
               dogBreed: _dogBreed,
-              ownerPhone: _ownerPhone.isEmpty
-                  ? null
-                  : _ownerPhone,
+              ownerPhone:
+                  _ownerPhone.isEmpty
+                      ? null
+                      : _ownerPhone,
             );
           },
         ),
@@ -738,7 +813,9 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
     _showMessage(message);
 
     Future<void>.delayed(
-      const Duration(milliseconds: 900),
+      const Duration(
+        milliseconds: 900,
+      ),
       () {
         if (!mounted) {
           return;
@@ -767,53 +844,57 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
       body: Stack(
         children: <Widget>[
           Positioned.fill(
-            child: ownerLocation != null &&
-                    walkerLocation != null
-                ? AcceptWalkMap(
-                    walkerLocation:
-                        walkerLocation,
-                    ownerLocation:
-                        ownerLocation,
-                    routePoints:
-                        _routePoints,
-                  )
-                : const ColoredBox(
-                    color: Color(0xFFE9EEF3),
-                    child: Center(
-                      child:
-                          CircularProgressIndicator(),
-                    ),
-                  ),
+            child:
+                ownerLocation != null &&
+                        walkerLocation != null
+                    ? AcceptWalkMap(
+                        walkerLocation:
+                            walkerLocation,
+                        ownerLocation:
+                            ownerLocation,
+                        routePoints:
+                            _routePoints,
+                      )
+                    : const ColoredBox(
+                        color:
+                            Color(0xFFE9EEF3),
+                        child: Center(
+                          child:
+                              CircularProgressIndicator(),
+                        ),
+                      ),
           ),
-
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: const AcceptWalkTopBar(),
+            child:
+                const AcceptWalkTopBar(),
           ),
-
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: AcceptWalkBottomPanel(
+            child:
+                AcceptWalkBottomPanel(
               dogName: _dogName,
               dogBreed: _dogBreed,
               ownerName: _ownerName,
               ownerPhone: _ownerPhone,
-              distanceText: _distanceText,
+              distanceText:
+                  _distanceText,
               timeText: _timeText,
               address: _address,
-              ownerLocation: ownerLocation,
+              ownerLocation:
+                  ownerLocation,
               canReachOwner:
                   _canReachOwner,
               reaching: _reaching,
               onReach: _reachOwner,
-              onChat: _openOwnerChat,
+              onChat:
+                  _openOwnerChat,
             ),
           ),
-
           if (_requestUnavailable)
             const Positioned.fill(
               child: ColoredBox(
@@ -860,7 +941,8 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content:
+              Text(message),
           behavior:
               SnackBarBehavior.floating,
           margin:
