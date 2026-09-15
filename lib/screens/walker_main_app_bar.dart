@@ -38,32 +38,6 @@ class WalkerMainAppBar extends StatelessWidget
             child: Row(
               children: [
                 // ==================================================
-                // DOJO WALKER LOGO
-                // ==================================================
-
-                SizedBox(
-                  width: 46,
-                  height: 46,
-                  child: Image.asset(
-                    'assets/DOJO_WALKER.png',
-                    fit: BoxFit.contain,
-                    errorBuilder: (
-                      BuildContext context,
-                      Object error,
-                      StackTrace? stackTrace,
-                    ) {
-                      return const Icon(
-                        Icons.pets_rounded,
-                        color: Colors.white,
-                        size: 30,
-                      );
-                    },
-                  ),
-                ),
-
-                const SizedBox(width: 10),
-
-                // ==================================================
                 // BRAND + AVAILABILITY
                 // ==================================================
 
@@ -77,25 +51,37 @@ class WalkerMainAppBar extends StatelessWidget
                       final WalkerAvailabilityService availability =
                           WalkerAvailabilityService.instance;
 
-                      return Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      return Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
-                            'Dojo Walker',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
+                          // ==================================================
+                          // DOJO WALKER
+                          // ==================================================
+
+                          Flexible(
+                            child: Text(
+                              'DOJO WALKER',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.25,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 4),
+
+                          const SizedBox(width: 10),
+
+                          // ==================================================
+                          // ONLINE / OFFLINE
+                          // ==================================================
+
                           _AvailabilityToggle(
                             isOnline: availability.isOnline,
-                            isActiveWalk: availability.isActiveWalk,
+                            isActiveWalk:
+                                availability.isActiveWalk,
                             isChanging:
                                 availability.isChangingStatus,
                             onTap: () async {
@@ -121,7 +107,8 @@ class WalkerMainAppBar extends StatelessWidget
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const NotificationsScreen(),
+                        builder: (_) =>
+                            const NotificationsScreen(),
                       ),
                     );
                   },
@@ -130,7 +117,7 @@ class WalkerMainAppBar extends StatelessWidget
                 const SizedBox(width: 6),
 
                 // ==================================================
-                // HELP
+                // HELP & SUPPORT
                 // ==================================================
 
                 _HeaderButton(
@@ -158,7 +145,8 @@ class WalkerMainAppBar extends StatelessWidget
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const ProfileScreen(),
+                        builder: (_) =>
+                            const ProfileScreen(),
                       ),
                     );
                   },
@@ -203,9 +191,6 @@ class WalkerMainAppBar extends StatelessWidget
 
       await availability.goOffline();
 
-      // IMPORTANT:
-      // The async operation above may have changed the widget
-      // lifecycle. Do not use BuildContext until mounted is checked.
       if (!context.mounted) {
         return;
       }
@@ -252,9 +237,8 @@ class WalkerMainAppBar extends StatelessWidget
       return;
     }
 
-    // IMPORTANT:
     // Insta Walk selected = ONLINE only.
-    // Search remains OFF until Start Insta Walk Search.
+    // Search starts separately.
     if (selected == WalkerWalkType.instaWalk) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
@@ -331,6 +315,7 @@ class WalkerMainAppBar extends StatelessWidget
                   ),
                 ),
                 const SizedBox(height: 16),
+
                 const Text(
                   'Choose Walk Type',
                   style: TextStyle(
@@ -339,7 +324,9 @@ class WalkerMainAppBar extends StatelessWidget
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+
                 const SizedBox(height: 6),
+
                 const Text(
                   'Choose how you want to work Online.',
                   textAlign: TextAlign.center,
@@ -349,6 +336,7 @@ class WalkerMainAppBar extends StatelessWidget
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+
                 const SizedBox(height: 16),
 
                 _WalkTypeOption(
@@ -356,7 +344,8 @@ class WalkerMainAppBar extends StatelessWidget
                   title: 'Insta Walk',
                   subtitle:
                       'Find nearby instant walk requests',
-                  iconColor: DojoWalkerColors.primary,
+                  iconColor:
+                      DojoWalkerColors.primary,
                   onTap: () {
                     Navigator.of(sheetContext).pop(
                       WalkerWalkType.instaWalk,
@@ -371,7 +360,8 @@ class WalkerMainAppBar extends StatelessWidget
                   title: 'Daily Walk',
                   subtitle:
                       'Continue your assigned daily walk',
-                  iconColor: const Color(0xFF3F6FA5),
+                  iconColor:
+                      const Color(0xFF3F6FA5),
                   onTap: () {
                     Navigator.of(sheetContext).pop(
                       WalkerWalkType.dailyWalk,
@@ -516,26 +506,33 @@ class _WalkTypeOption extends StatelessWidget {
                   size: 24,
                 ),
               ),
+
               const SizedBox(width: 12),
+
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      overflow:
+                          TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Color(0xFF171717),
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+
                     const SizedBox(height: 3),
+
                     Text(
                       subtitle,
                       maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      overflow:
+                          TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Color(0xFF6B7280),
                         fontSize: 11.5,
@@ -545,7 +542,9 @@ class _WalkTypeOption extends StatelessWidget {
                   ],
                 ),
               ),
+
               const SizedBox(width: 8),
+
               const Icon(
                 Icons.chevron_right_rounded,
                 color: Color(0xFF9CA3AF),
@@ -584,18 +583,19 @@ class _AvailabilityToggle extends StatelessWidget {
       onTap: locked || isChanging ? null : onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
+        duration:
+            const Duration(milliseconds: 220),
         curve: Curves.easeOut,
-        width: 88,
+        width: 82,
         height: 26,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 3,
-        ),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 3),
         decoration: BoxDecoration(
           color: isOnline
               ? const Color(0xFF36B56B)
               : Colors.white.withValues(alpha: 0.22),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius:
+              BorderRadius.circular(14),
           border: Border.all(
             color: isOnline
                 ? Colors.white.withValues(alpha: 0.18)
@@ -607,19 +607,22 @@ class _AvailabilityToggle extends StatelessWidget {
           alignment: Alignment.center,
           children: [
             // ======================================================
-            // FULL ONLINE / OFFLINE TEXT
+            // STATUS TEXT
             // ======================================================
 
             Positioned.fill(
               child: Center(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
+                  padding:
+                      const EdgeInsets.symmetric(
+                    horizontal: 19,
                   ),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
-                      isOnline ? 'ONLINE' : 'OFFLINE',
+                      isOnline
+                          ? 'ONLINE'
+                          : 'OFFLINE',
                       maxLines: 1,
                       softWrap: false,
                       textAlign: TextAlign.center,
@@ -641,13 +644,15 @@ class _AvailabilityToggle extends StatelessWidget {
             // ======================================================
 
             AnimatedAlign(
-              duration: const Duration(milliseconds: 220),
+              duration:
+                  const Duration(milliseconds: 220),
               curve: Curves.easeOut,
               alignment: isOnline
                   ? Alignment.centerRight
                   : Alignment.centerLeft,
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
+                duration:
+                    const Duration(milliseconds: 220),
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(
@@ -655,20 +660,26 @@ class _AvailabilityToggle extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.18),
+                      color: Colors.black
+                          .withValues(alpha: 0.18),
                       blurRadius: 4,
-                      offset: const Offset(0, 1),
+                      offset:
+                          const Offset(0, 1),
                     ),
                   ],
                 ),
                 child: isChanging
                     ? const Padding(
-                        padding: EdgeInsets.all(5),
-                        child: CircularProgressIndicator(
+                        padding:
+                            EdgeInsets.all(5),
+                        child:
+                            CircularProgressIndicator(
                           strokeWidth: 1.5,
                           valueColor:
-                              AlwaysStoppedAnimation<Color>(
-                            DojoWalkerColors.primary,
+                              AlwaysStoppedAnimation<
+                                  Color>(
+                            DojoWalkerColors
+                                .primary,
                           ),
                         ),
                       )
@@ -676,7 +687,9 @@ class _AvailabilityToggle extends StatelessWidget {
                         ? const Icon(
                             Icons.lock_rounded,
                             size: 10,
-                            color: DojoWalkerColors.primary,
+                            color:
+                                DojoWalkerColors
+                                    .primary,
                           )
                         : null,
               ),
@@ -716,16 +729,21 @@ class _ProfileButton extends StatelessWidget {
       builder: (
         BuildContext context,
         AsyncSnapshot<
-            DocumentSnapshot<Map<String, dynamic>>> snapshot,
+            DocumentSnapshot<
+                Map<String, dynamic>>> snapshot,
       ) {
         String selfieUrl = '';
 
-        if (snapshot.hasData && snapshot.data!.exists) {
+        if (snapshot.hasData &&
+            snapshot.data!.exists) {
           final Map<String, dynamic> data =
-              snapshot.data!.data() ?? <String, dynamic>{};
+              snapshot.data!.data() ??
+                  <String, dynamic>{};
 
           selfieUrl =
-              (data['Profile Selfie'] ?? '').toString().trim();
+              (data['Profile Selfie'] ?? '')
+                  .toString()
+                  .trim();
         }
 
         return GestureDetector(
@@ -735,14 +753,17 @@ class _ProfileButton extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
+              color: Colors.white
+                  .withValues(alpha: 0.12),
               shape: BoxShape.circle,
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.55),
+                color: Colors.white
+                    .withValues(alpha: 0.55),
                 width: 1,
               ),
             ),
-            clipBehavior: Clip.antiAlias,
+            clipBehavior:
+                Clip.antiAlias,
             child: selfieUrl.isNotEmpty
                 ? Image.network(
                     selfieUrl,
@@ -780,10 +801,12 @@ class _ProfileButton extends StatelessWidget {
         width: 34,
         height: 34,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
+          color: Colors.white
+              .withValues(alpha: 0.12),
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.55),
+            color: Colors.white
+                .withValues(alpha: 0.55),
             width: 1,
           ),
         ),
@@ -819,10 +842,12 @@ class _HeaderButton extends StatelessWidget {
         width: 34,
         height: 34,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
+          color: Colors.white
+              .withValues(alpha: 0.12),
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.25),
+            color: Colors.white
+                .withValues(alpha: 0.25),
             width: 1,
           ),
         ),
