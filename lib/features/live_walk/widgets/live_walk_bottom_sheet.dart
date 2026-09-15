@@ -8,6 +8,7 @@ class LiveWalkBottomSheet extends StatelessWidget {
     super.key,
     required this.scrollController,
     required this.ending,
+    required this.requestId,
     required this.ownerUid,
     required this.ownerName,
     required this.dogName,
@@ -25,6 +26,17 @@ class LiveWalkBottomSheet extends StatelessWidget {
 
   final ScrollController scrollController;
   final bool ending;
+
+  // ============================================================
+  // CURRENT WALK ID
+  //
+  // requestId == sessionId in the Dojo system.
+  // Example: DW123456
+  //
+  // Chat must always use this current walk ID.
+  // ============================================================
+
+  final String requestId;
 
   final String ownerUid;
   final String ownerName;
@@ -93,6 +105,10 @@ class LiveWalkBottomSheet extends StatelessWidget {
     );
   }
 
+  // ============================================================
+  // DRAG HANDLE
+  // ============================================================
+
   Widget _buildDragHandle() {
     return Center(
       child: Container(
@@ -106,9 +122,14 @@ class LiveWalkBottomSheet extends StatelessWidget {
     );
   }
 
+  // ============================================================
+  // OWNER + DOG HEADER
+  // ============================================================
+
   Widget _buildOwnerDogHeader() {
     final bool hasPhoto =
-        ownerPhotoUrl != null && ownerPhotoUrl!.trim().isNotEmpty;
+        ownerPhotoUrl != null &&
+        ownerPhotoUrl!.trim().isNotEmpty;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -121,7 +142,9 @@ class LiveWalkBottomSheet extends StatelessWidget {
             shape: BoxShape.circle,
             image: hasPhoto
                 ? DecorationImage(
-                    image: NetworkImage(ownerPhotoUrl!),
+                    image: NetworkImage(
+                      ownerPhotoUrl!,
+                    ),
                     fit: BoxFit.cover,
                   )
                 : null,
@@ -140,7 +163,9 @@ class LiveWalkBottomSheet extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                ownerName.trim().isEmpty ? 'Owner' : ownerName.trim(),
+                ownerName.trim().isEmpty
+                    ? 'Owner'
+                    : ownerName.trim(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -199,6 +224,10 @@ class LiveWalkBottomSheet extends StatelessWidget {
     );
   }
 
+  // ============================================================
+  // LIVE STATUS
+  // ============================================================
+
   Widget _buildLiveStatus() {
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -241,6 +270,10 @@ class LiveWalkBottomSheet extends StatelessWidget {
     );
   }
 
+  // ============================================================
+  // LIVE STATS
+  // ============================================================
+
   Widget _buildLiveStats() {
     return Row(
       children: <Widget>[
@@ -270,6 +303,10 @@ class LiveWalkBottomSheet extends StatelessWidget {
       ],
     );
   }
+
+  // ============================================================
+  // STAT CARD
+  // ============================================================
 
   Widget _buildStatCard({
     required IconData icon,
@@ -321,6 +358,10 @@ class LiveWalkBottomSheet extends StatelessWidget {
     );
   }
 
+  // ============================================================
+  // DOG ACTIVITIES
+  // ============================================================
+
   Widget _buildActivities() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,6 +402,10 @@ class LiveWalkBottomSheet extends StatelessWidget {
       ],
     );
   }
+
+  // ============================================================
+  // ACTIVITY BUTTON
+  // ============================================================
 
   Widget _buildActivityButton({
     required IconData icon,
@@ -461,7 +506,13 @@ class LiveWalkBottomSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildCommunicationButtons(BuildContext context) {
+  // ============================================================
+  // CALL + CHAT
+  // ============================================================
+
+  Widget _buildCommunicationButtons(
+    BuildContext context,
+  ) {
     return Row(
       children: <Widget>[
         Expanded(
@@ -500,17 +551,70 @@ class LiveWalkBottomSheet extends StatelessWidget {
             height: 50,
             child: OutlinedButton.icon(
               onPressed: () {
-                final String name = ownerName.trim().isEmpty
-                    ? 'Owner'
-                    : ownerName.trim();
+                final String cleanRequestId =
+                    requestId.trim();
+
+                // ------------------------------------------------
+                // SAFETY
+                //
+                // Chat MUST NEVER open without the current
+                // request/session ID.
+                // ------------------------------------------------
+
+                if (!RegExp(
+                  r'^DW\d{6}$',
+                ).hasMatch(cleanRequestId)) {
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Unable to open chat for this walk.',
+                        ),
+                        behavior:
+                            SnackBarBehavior.floating,
+                      ),
+                    );
+
+                  return;
+                }
+
+                final String name =
+                    ownerName.trim().isEmpty
+                        ? 'Owner'
+                        : ownerName.trim();
 
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => ChatScreen(
+                      // ------------------------------------------------
+                      // PARTICIPANT
+                      // ------------------------------------------------
+
                       otherUid: ownerUid,
+
+                      // ------------------------------------------------
+                      // CONTACT DISPLAY
+                      // ------------------------------------------------
+
                       contactName: name,
                       contactPhotoUrl: ownerPhotoUrl,
+
+                      // ------------------------------------------------
+                      // WALKER SIDE
+                      // ------------------------------------------------
+
                       currentUserIsWalker: true,
+
+                      // ------------------------------------------------
+                      // CURRENT WALK CHAT SCOPE
+                      //
+                      // requestId == sessionId.
+                      // There is NO walkId.
+                      // ------------------------------------------------
+
+                      requestId: cleanRequestId,
+                      sessionId: cleanRequestId,
                     ),
                   ),
                 );
@@ -544,12 +648,20 @@ class LiveWalkBottomSheet extends StatelessWidget {
     );
   }
 
+  // ============================================================
+  // COMPLETE
+  // ============================================================
+
   Widget _buildCompleteSection() {
     return LiveWalkCompleteSlider(
       enabled: !ending,
       onCompleted: onComplete,
     );
   }
+
+  // ============================================================
+  // ENDING
+  // ============================================================
 
   Widget _buildEndingSection() {
     return Container(
