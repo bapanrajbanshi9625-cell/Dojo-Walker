@@ -1,258 +1,700 @@
-// File:
-// lib/features/incoming_walk/widgets/incoming_walk_bottom_panel.dart
-
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/dojo_walker_colors.dart';
-import 'incoming_walk_action_buttons.dart';
-import 'incoming_walk_address.dart';
-import 'incoming_walk_owner_dog_details.dart';
+import '../../contacts/screens/chat_screen.dart';
+import 'live_walk_complete_slider.dart';
 
-class IncomingWalkBottomPanel extends StatelessWidget {
-  const IncomingWalkBottomPanel({
+class LiveWalkBottomSheet extends StatelessWidget {
+  const LiveWalkBottomSheet({
     super.key,
+    required this.scrollController,
+    required this.ending,
+    required this.requestId,
+    required this.ownerUid,
+    required this.ownerName,
     required this.dogName,
     required this.dogBreed,
-    required this.ownerName,
-    required this.ownerPhone,
-    required this.distanceText,
-    required this.etaText,
-    required this.paymentText,
-    required this.address,
-    required this.onAccept,
-    required this.onReject,
-    required this.accepting,
-    required this.rejecting,
+    required this.distanceKm,
+    required this.steps,
+    required this.duration,
+    required this.peeCount,
+    required this.poopCount,
+    required this.onCallOwner,
+    required this.onActivityConfirmed,
+    required this.onComplete,
+    this.ownerPhotoUrl,
   });
 
+  final ScrollController scrollController;
+  final bool ending;
+
+  // ============================================================
+  // CURRENT WALK ID
+  //
+  // requestId == sessionId in the Dojo system.
+  // Example: DW123456
+  //
+  // Chat must always use this current walk ID.
+  // ============================================================
+
+  final String requestId;
+
+  final String ownerUid;
+  final String ownerName;
   final String dogName;
   final String dogBreed;
-  final String ownerName;
-  final String ownerPhone;
+  final String? ownerPhotoUrl;
 
-  final String distanceText;
-  final String etaText;
-  final String paymentText;
-  final String address;
+  final double distanceKm;
+  final int steps;
+  final String duration;
 
-  final VoidCallback onAccept;
-  final VoidCallback onReject;
+  final int peeCount;
+  final int poopCount;
 
-  final bool accepting;
-  final bool rejecting;
+  final VoidCallback onCallOwner;
+  final Future<void> Function(String type) onActivityConfirmed;
+  final VoidCallback onComplete;
 
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.24,
-      minChildSize: 0.24,
-      maxChildSize: 0.78,
-
-      // Same snap-style behaviour.
-      snap: true,
-      snapSizes: const <double>[
-        0.24,
-        0.78,
-      ],
-      snapAnimationDuration:
-          const Duration(milliseconds: 260),
-
-      // Let the sheet behave naturally with the
-      // ListView scroll controller.
-      expand: false,
-
-      builder: (
-        BuildContext context,
-        ScrollController scrollController,
-      ) {
-        return Container(
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(24),
-            ),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                blurRadius: 18,
-                offset: Offset(0, -5),
-                color: Color(0x1F000000),
-              ),
-            ],
-          ),
-          child: SafeArea(
-            top: false,
-            bottom: true,
-            child: ListView(
-              controller: scrollController,
-
-              // Same scrolling pattern as LiveWalkBottomSheet.
-              physics: const ClampingScrollPhysics(),
-
-              padding: const EdgeInsets.fromLTRB(
-                16,
-                10,
-                16,
-                28,
-              ),
-
-              children: <Widget>[
-                // ==================================================
-                // DRAG HANDLE
-                // ==================================================
-
-                Center(
-                  child: Container(
-                    width: 42,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius:
-                          BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 14),
-
-                // ==================================================
-                // OWNER + DOG
-                // ==================================================
-
-                IncomingWalkOwnerDogDetails(
-                  dogName: dogName,
-                  dogBreed: dogBreed,
-                  ownerName: ownerName,
-                ),
-
-                const SizedBox(height: 18),
-
-                // ==================================================
-                // DISTANCE / TIME / PAYMENT
-                // ==================================================
-
-                Row(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Expanded(
-                      child: _InfoItem(
-                        icon:
-                            Icons.location_on_outlined,
-                        label: 'Distance',
-                        value: distanceText,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _InfoItem(
-                        icon: Icons.access_time,
-                        label: 'Time',
-                        value: etaText,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _InfoItem(
-                        icon:
-                            Icons.payments_outlined,
-                        label: 'Payment',
-                        value: paymentText,
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // ==================================================
-                // ADDRESS
-                // ==================================================
-
-                IncomingWalkAddress(
-                  address: address,
-                ),
-
-                const SizedBox(height: 18),
-
-                // ==================================================
-                // ACCEPT / REJECT
-                // ==================================================
-
-                IncomingWalkActionButtons(
-                  onAccept: onAccept,
-                  onReject: onReject,
-                  accepting: accepting,
-                  rejecting: rejecting,
-                ),
-
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ================================================================
-// INFO ITEM
-// ================================================================
-
-class _InfoItem extends StatelessWidget {
-  const _InfoItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
+  static const Color _orange = Color(0xFFFF6B35);
+  static const Color _green = Color(0xFF22A06B);
+  static const Color _red = Color(0xFFE45151);
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(28),
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            blurRadius: 18,
+            offset: Offset(0, -5),
+            color: Color(0x22000000),
+          ),
+        ],
+      ),
+      child: ListView(
+        controller: scrollController,
+        padding: const EdgeInsets.fromLTRB(
+          18,
+          10,
+          18,
+          28,
+        ),
+        children: <Widget>[
+          _buildDragHandle(),
+          const SizedBox(height: 14),
+          _buildOwnerDogHeader(),
+          const SizedBox(height: 18),
+          if (!ending) ...<Widget>[
+            _buildLiveStatus(),
+            const SizedBox(height: 14),
+            _buildLiveStats(),
+            const SizedBox(height: 16),
+            _buildActivities(),
+            const SizedBox(height: 18),
+            _buildCommunicationButtons(context),
+            const SizedBox(height: 18),
+            _buildCompleteSection(),
+          ] else
+            _buildEndingSection(),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // DRAG HANDLE
+  // ============================================================
+
+  Widget _buildDragHandle() {
+    return Center(
+      child: Container(
+        width: 42,
+        height: 5,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade300,
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // OWNER + DOG HEADER
+  // ============================================================
+
+  Widget _buildOwnerDogHeader() {
+    final bool hasPhoto =
+        ownerPhotoUrl != null &&
+        ownerPhotoUrl!.trim().isNotEmpty;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: <Widget>[
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: _orange.withValues(alpha: 0.10),
+            shape: BoxShape.circle,
+            image: hasPhoto
+                ? DecorationImage(
+                    image: NetworkImage(
+                      ownerPhotoUrl!,
+                    ),
+                    fit: BoxFit.cover,
+                  )
+                : null,
+          ),
+          child: !hasPhoto
+              ? const Icon(
+                  Icons.person_rounded,
+                  color: _orange,
+                  size: 28,
+                )
+              : null,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                ownerName.trim().isEmpty
+                    ? 'Owner'
+                    : ownerName.trim(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF202124),
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                dogBreed.trim().isEmpty
+                    ? dogName
+                    : '$dogName • $dogBreed',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 6,
+          ),
+          decoration: BoxDecoration(
+            color: _green.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                Icons.verified_rounded,
+                size: 15,
+                color: _green,
+              ),
+              SizedBox(width: 4),
+              Text(
+                'LIVE',
+                style: TextStyle(
+                  color: _green,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // LIVE STATUS
+  // ============================================================
+
+  Widget _buildLiveStatus() {
+    return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 9,
+        horizontal: 14,
+        vertical: 11,
       ),
       decoration: BoxDecoration(
-        color: DojoWalkerColors.primary.withValues(
-          alpha: 0.06,
+        color: _orange.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: _orange.withValues(alpha: 0.16),
         ),
-        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Row(
+        children: <Widget>[
+          Icon(
+            Icons.directions_walk_rounded,
+            color: _orange,
+            size: 21,
+          ),
+          SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              'WALKING • LIVE',
+              style: TextStyle(
+                color: _orange,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+          Icon(
+            Icons.circle,
+            size: 9,
+            color: _green,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // LIVE STATS
+  // ============================================================
+
+  Widget _buildLiveStats() {
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.timer_outlined,
+            label: 'MINUTES',
+            value: duration,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.route_rounded,
+            label: 'KM',
+            value: distanceKm.toStringAsFixed(2),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.directions_walk_rounded,
+            label: 'STEPS',
+            value: steps.toString(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // STAT CARD
+  // ============================================================
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 13,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F8F8),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: const Color(0xFFEDEDED),
+        ),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
         children: <Widget>[
           Icon(
             icon,
-            size: 18,
-            color: DojoWalkerColors.primary,
+            size: 20,
+            color: _orange,
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 7),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF202124),
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
               fontWeight: FontWeight.w700,
-              color: Colors.black87,
+              color: Colors.grey.shade600,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // DOG ACTIVITIES
+  // ============================================================
+
+  Widget _buildActivities() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const Text(
+          'DOG ACTIVITIES',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF555555),
+            letterSpacing: 0.7,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: _buildActivityButton(
+                icon: Icons.water_drop_rounded,
+                title: 'PEE',
+                count: peeCount,
+                iconColor: _green,
+                onTap: () => onActivityConfirmed('Pee'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildActivityButton(
+                icon: Icons.circle_rounded,
+                title: 'POOP',
+                count: poopCount,
+                iconColor: _red,
+                onTap: () => onActivityConfirmed('Poop'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY BUTTON
+  // ============================================================
+
+  Widget _buildActivityButton({
+    required IconData icon,
+    required String title,
+    required int count,
+    required Color iconColor,
+    required Future<void> Function() onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () async {
+          try {
+            await onTap();
+          } catch (_) {
+            // Parent controller handles the error.
+          }
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFFE6E6E6),
+            ),
+          ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF292929),
+                  ),
+                ),
+              ),
+              Container(
+                constraints: const BoxConstraints(
+                  minWidth: 28,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text(
+                  count.toString(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: iconColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: iconColor,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(
+                  Icons.add_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // CALL + CHAT
+  // ============================================================
+
+  Widget _buildCommunicationButtons(
+    BuildContext context,
+  ) {
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: SizedBox(
+            height: 50,
+            child: OutlinedButton.icon(
+              onPressed: onCallOwner,
+              icon: const Icon(
+                Icons.phone_rounded,
+                size: 19,
+              ),
+              label: const Text(
+                'CALL OWNER',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _orange,
+                side: const BorderSide(
+                  color: _orange,
+                  width: 1.4,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: SizedBox(
+            height: 50,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                final String cleanRequestId =
+                    requestId.trim();
+
+                // ------------------------------------------------
+                // SAFETY
+                //
+                // Chat MUST NEVER open without the current
+                // request/session ID.
+                // ------------------------------------------------
+
+                if (!RegExp(
+                  r'^DW\d{6}$',
+                ).hasMatch(cleanRequestId)) {
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Unable to open chat for this walk.',
+                        ),
+                        behavior:
+                            SnackBarBehavior.floating,
+                      ),
+                    );
+
+                  return;
+                }
+
+                final String name =
+                    ownerName.trim().isEmpty
+                        ? 'Owner'
+                        : ownerName.trim();
+
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ChatScreen(
+                      // ------------------------------------------------
+                      // PARTICIPANT
+                      // ------------------------------------------------
+
+                      otherUid: ownerUid,
+
+                      // ------------------------------------------------
+                      // CONTACT DISPLAY
+                      // ------------------------------------------------
+
+                      contactName: name,
+                      contactPhotoUrl: ownerPhotoUrl,
+
+                      // ------------------------------------------------
+                      // WALKER SIDE
+                      // ------------------------------------------------
+
+                      currentUserIsWalker: true,
+
+                      // ------------------------------------------------
+                      // CURRENT WALK CHAT SCOPE
+                      //
+                      // requestId == sessionId.
+                      // There is NO walkId.
+                      // ------------------------------------------------
+
+                      requestId: cleanRequestId,
+                      sessionId: cleanRequestId,
+                    ),
+                  ),
+                );
+              },
+              icon: const Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: 19,
+              ),
+              label: const Text(
+                'CHAT',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _orange,
+                side: const BorderSide(
+                  color: _orange,
+                  width: 1.4,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // COMPLETE
+  // ============================================================
+
+  Widget _buildCompleteSection() {
+    return LiveWalkCompleteSlider(
+      enabled: !ending,
+      onCompleted: onComplete,
+    );
+  }
+
+  // ============================================================
+  // ENDING
+  // ============================================================
+
+  Widget _buildEndingSection() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _orange.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Column(
+        children: <Widget>[
+          SizedBox(height: 4),
+          Icon(
+            Icons.check_circle_rounded,
+            color: _orange,
+            size: 42,
+          ),
+          SizedBox(height: 10),
+          Text(
+            'Completing Walk',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF202124),
+            ),
+          ),
+          SizedBox(height: 5),
+          Text(
+            'Please wait while the walk is being completed.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: Color(0xFF666666),
             ),
           ),
         ],
