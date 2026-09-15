@@ -7,32 +7,85 @@ class ChatService {
   ChatService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? FirebaseAuth.instance;
+  })  : _firestore =
+            firestore ?? FirebaseFirestore.instance,
+        _auth =
+            auth ?? FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
 
-  static const String _conversationsCollection = 'conversations';
-  static const String _messagesCollection = 'messages';
+  static const String _conversationsCollection =
+      'conversations';
+
+  static const String _messagesCollection =
+      'messages';
+
+  // ============================================================
+  // CURRENT USER
+  // ============================================================
 
   String get currentUid {
     return _auth.currentUser?.uid ?? '';
   }
 
-  String buildConversationId(
-    String firstUid,
-    String secondUid,
-  ) {
-    final List<String> ids = <String>[
-      firstUid.trim(),
-      secondUid.trim(),
-    ]..sort();
+  // ============================================================
+  // CURRENT WALK CHAT ID
+  //
+  // IMPORTANT:
+  // requestId == sessionId.
+  //
+  // Example:
+  // DW123456
+  //
+  // NEVER build conversation ID from ownerUid + walkerUid.
+  // ============================================================
 
-    return ids.join('_');
+  String buildConversationId({
+    required String requestId,
+    String? sessionId,
+  }) {
+    final String cleanRequestId =
+        requestId.trim();
+
+    final String cleanSessionId =
+        (sessionId ?? requestId).trim();
+
+    if (cleanRequestId.isEmpty) {
+      throw ArgumentError(
+        'requestId is required for chat.',
+      );
+    }
+
+    if (cleanSessionId.isEmpty) {
+      throw ArgumentError(
+        'sessionId is required for chat.',
+      );
+    }
+
+    if (cleanRequestId != cleanSessionId) {
+      throw ArgumentError(
+        'requestId and sessionId must match.',
+      );
+    }
+
+    if (!RegExp(
+      r'^DW\d{6}$',
+    ).hasMatch(cleanRequestId)) {
+      throw ArgumentError(
+        'Invalid requestId. Expected DW######.',
+      );
+    }
+
+    return cleanRequestId;
   }
 
-  CollectionReference<Map<String, dynamic>> _messagesRef(
+  // ============================================================
+  // MESSAGE REFERENCE
+  // ============================================================
+
+  CollectionReference<Map<String, dynamic>>
+      _messagesRef(
     String conversationId,
   ) {
     return _firestore
@@ -41,30 +94,57 @@ class ChatService {
         .collection(_messagesCollection);
   }
 
-  Stream<List<ChatMessage>> messagesStream({
-    required String otherUid,
-  }) {
-    final String myUid = currentUid;
-    final String contactUid = otherUid.trim();
+  // ============================================================
+  // MESSAGES STREAM
+  //
+  // ONLY CURRENT WALK.
+  // ============================================================
 
-    if (myUid.isEmpty || contactUid.isEmpty) {
-      return const Stream<List<ChatMessage>>.empty();
+  Stream<List<ChatMessage>> messagesStream({
+    required String requestId,
+    String? sessionId,
+  }) {
+    final String myUid =
+        currentUid;
+
+    if (myUid.isEmpty) {
+      return const Stream<
+          List<ChatMessage>>.empty();
     }
 
-    final String conversationId = buildConversationId(
-      myUid,
-      contactUid,
-    );
+    final String conversationId;
 
-    return _messagesRef(conversationId)
-        .orderBy('createdAt', descending: false)
+    try {
+      conversationId =
+          buildConversationId(
+        requestId: requestId,
+        sessionId: sessionId,
+      );
+    } catch (_) {
+      return const Stream<
+          List<ChatMessage>>.empty();
+    }
+
+    return _messagesRef(
+      conversationId,
+    )
+        .orderBy(
+          'createdAt',
+          descending: false,
+        )
         .snapshots()
         .map(
-          (QuerySnapshot<Map<String, dynamic>> snapshot) {
+          (
+            QuerySnapshot<
+                Map<String, dynamic>>
+                snapshot,
+          ) {
             return snapshot.docs
                 .map(
                   (
-                    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+                    QueryDocumentSnapshot<
+                        Map<String, dynamic>>
+                        doc,
                   ) {
                     return ChatMessage.fromMap(
                       doc.id,
@@ -77,13 +157,24 @@ class ChatService {
         );
   }
 
+  // ============================================================
+  // SEND TEXT
+  // ============================================================
+
   Future<String?> sendTextMessage({
     required String receiverUid,
+    required String requestId,
+    String? sessionId,
     required String text,
   }) async {
-    final String senderUid = currentUid;
-    final String recipientUid = receiverUid.trim();
-    final String messageText = text.trim();
+    final String senderUid =
+        currentUid;
+
+    final String recipientUid =
+        receiverUid.trim();
+
+    final String messageText =
+        text.trim();
 
     if (senderUid.isEmpty ||
         recipientUid.isEmpty ||
@@ -93,6 +184,8 @@ class ChatService {
 
     return _sendMessage(
       receiverUid: recipientUid,
+      requestId: requestId,
+      sessionId: sessionId,
       message: ChatMessage(
         id: '',
         senderUid: senderUid,
@@ -104,13 +197,24 @@ class ChatService {
     );
   }
 
+  // ============================================================
+  // SEND PHOTO
+  // ============================================================
+
   Future<String?> sendPhotoMessage({
     required String receiverUid,
+    required String requestId,
+    String? sessionId,
     required String mediaUrl,
   }) async {
-    final String senderUid = currentUid;
-    final String recipientUid = receiverUid.trim();
-    final String url = mediaUrl.trim();
+    final String senderUid =
+        currentUid;
+
+    final String recipientUid =
+        receiverUid.trim();
+
+    final String url =
+        mediaUrl.trim();
 
     if (senderUid.isEmpty ||
         recipientUid.isEmpty ||
@@ -120,6 +224,8 @@ class ChatService {
 
     return _sendMessage(
       receiverUid: recipientUid,
+      requestId: requestId,
+      sessionId: sessionId,
       message: ChatMessage(
         id: '',
         senderUid: senderUid,
@@ -131,14 +237,25 @@ class ChatService {
     );
   }
 
+  // ============================================================
+  // SEND VOICE
+  // ============================================================
+
   Future<String?> sendVoiceMessage({
     required String receiverUid,
+    required String requestId,
+    String? sessionId,
     required String mediaUrl,
     int? durationSeconds,
   }) async {
-    final String senderUid = currentUid;
-    final String recipientUid = receiverUid.trim();
-    final String url = mediaUrl.trim();
+    final String senderUid =
+        currentUid;
+
+    final String recipientUid =
+        receiverUid.trim();
+
+    final String url =
+        mediaUrl.trim();
 
     if (senderUid.isEmpty ||
         recipientUid.isEmpty ||
@@ -148,59 +265,172 @@ class ChatService {
 
     return _sendMessage(
       receiverUid: recipientUid,
+      requestId: requestId,
+      sessionId: sessionId,
       message: ChatMessage(
         id: '',
         senderUid: senderUid,
         receiverUid: recipientUid,
         type: ChatMessageType.voice,
         mediaUrl: url,
-        durationSeconds: durationSeconds,
+        durationSeconds:
+            durationSeconds,
         createdAt: DateTime.now(),
       ),
     );
   }
 
-  Future<String?> _sendMessage({
-    required String receiverUid,
-    required ChatMessage message,
-  }) async {
-    final String senderUid = currentUid;
+  // ============================================================
+  // SEND VIDEO
+  // ============================================================
 
-    if (senderUid.isEmpty || receiverUid.trim().isEmpty) {
+  Future<String?> sendVideoMessage({
+    required String receiverUid,
+    required String requestId,
+    String? sessionId,
+    required String mediaUrl,
+    int? durationSeconds,
+  }) async {
+    final String senderUid =
+        currentUid;
+
+    final String recipientUid =
+        receiverUid.trim();
+
+    final String url =
+        mediaUrl.trim();
+
+    if (senderUid.isEmpty ||
+        recipientUid.isEmpty ||
+        url.isEmpty) {
       return null;
     }
 
-    final String conversationId = buildConversationId(
-      senderUid,
-      receiverUid,
+    return _sendMessage(
+      receiverUid: recipientUid,
+      requestId: requestId,
+      sessionId: sessionId,
+      message: ChatMessage(
+        id: '',
+        senderUid: senderUid,
+        receiverUid: recipientUid,
+        type: ChatMessageType.video,
+        mediaUrl: url,
+        durationSeconds:
+            durationSeconds,
+        createdAt: DateTime.now(),
+      ),
+    );
+  }
+
+  // ============================================================
+  // INTERNAL SEND
+  // ============================================================
+
+  Future<String?> _sendMessage({
+    required String receiverUid,
+    required String requestId,
+    String? sessionId,
+    required ChatMessage message,
+  }) async {
+    final String senderUid =
+        currentUid;
+
+    final String recipientUid =
+        receiverUid.trim();
+
+    if (senderUid.isEmpty ||
+        recipientUid.isEmpty) {
+      return null;
+    }
+
+    final String conversationId =
+        buildConversationId(
+      requestId: requestId,
+      sessionId: sessionId,
     );
 
-    final DocumentReference<Map<String, dynamic>> conversationRef =
+    final DocumentReference<
+            Map<String, dynamic>>
+        conversationRef =
         _firestore
-            .collection(_conversationsCollection)
+            .collection(
+              _conversationsCollection,
+            )
             .doc(conversationId);
 
-    final DocumentReference<Map<String, dynamic>> messageRef =
-        _messagesRef(conversationId).doc();
+    final DocumentReference<
+            Map<String, dynamic>>
+        messageRef =
+        _messagesRef(
+          conversationId,
+        ).doc();
 
-    final WriteBatch batch = _firestore.batch();
+    final WriteBatch batch =
+        _firestore.batch();
+
+    // ==========================================================
+    // CONVERSATION METADATA
+    // ==========================================================
 
     batch.set(
       conversationRef,
       <String, dynamic>{
-        'participantUids': <String>[
+        'conversationId':
+            conversationId,
+
+        // Current walk identifiers.
+        'requestId':
+            conversationId,
+
+        'sessionId':
+            conversationId,
+
+        // Participants.
+        'participantUids':
+            <String>[
           senderUid,
-          receiverUid,
+          recipientUid,
         ],
-        'lastMessageType': message.typeValue,
-        'lastMessageText': _lastMessagePreview(message),
-        'lastMessageUrl': message.mediaUrl,
-        'lastMessageAt': FieldValue.serverTimestamp(),
-        'lastSenderUid': senderUid,
-        'updatedAt': FieldValue.serverTimestamp(),
+
+        'ownerUid':
+            message.senderUid == senderUid
+                ? recipientUid
+                : senderUid,
+
+        'walkerUid':
+            message.senderUid == senderUid
+                ? senderUid
+                : recipientUid,
+
+        'lastMessageType':
+            message.typeValue,
+
+        'lastMessageText':
+            _lastMessagePreview(
+          message,
+        ),
+
+        'lastMessageUrl':
+            message.mediaUrl,
+
+        'lastMessageAt':
+            FieldValue.serverTimestamp(),
+
+        'lastSenderUid':
+            senderUid,
+
+        'updatedAt':
+            FieldValue.serverTimestamp(),
       },
-      SetOptions(merge: true),
+      SetOptions(
+        merge: true,
+      ),
     );
+
+    // ==========================================================
+    // MESSAGE
+    // ==========================================================
 
     batch.set(
       messageRef,
@@ -212,61 +442,115 @@ class ChatService {
     return messageRef.id;
   }
 
+  // ============================================================
+  // MARK ONE MESSAGE READ
+  // ============================================================
+
   Future<void> markMessageAsRead({
-    required String otherUid,
+    required String requestId,
+    String? sessionId,
     required String messageId,
   }) async {
-    final String myUid = currentUid;
-    final String contactUid = otherUid.trim();
-    final String id = messageId.trim();
+    final String myUid =
+        currentUid;
+
+    final String id =
+        messageId.trim();
 
     if (myUid.isEmpty ||
-        contactUid.isEmpty ||
         id.isEmpty) {
       return;
     }
 
-    final String conversationId = buildConversationId(
-      myUid,
-      contactUid,
+    final String conversationId =
+        buildConversationId(
+      requestId: requestId,
+      sessionId: sessionId,
     );
 
-    await _messagesRef(conversationId)
-        .doc(id)
-        .update(<String, dynamic>{
-      'isRead': true,
-    });
-  }
+    final DocumentReference<
+            Map<String, dynamic>>
+        ref =
+        _messagesRef(
+          conversationId,
+        ).doc(id);
 
-  Future<void> markAllMessagesAsRead({
-    required String otherUid,
-  }) async {
-    final String myUid = currentUid;
-    final String contactUid = otherUid.trim();
+    final DocumentSnapshot<
+            Map<String, dynamic>>
+        snapshot =
+        await ref.get();
 
-    if (myUid.isEmpty || contactUid.isEmpty) {
+    if (!snapshot.exists) {
       return;
     }
 
-    final String conversationId = buildConversationId(
-      myUid,
-      contactUid,
+    final Map<String, dynamic> data =
+        snapshot.data() ??
+            <String, dynamic>{};
+
+    final String receiverUid =
+        (data['receiverUid'] ?? '')
+            .toString()
+            .trim();
+
+    if (receiverUid != myUid) {
+      return;
+    }
+
+    await ref.update(
+      <String, dynamic>{
+        'isRead': true,
+      },
+    );
+  }
+
+  // ============================================================
+  // MARK ALL CURRENT WALK MESSAGES READ
+  // ============================================================
+
+  Future<void> markAllMessagesAsRead({
+    required String requestId,
+    String? sessionId,
+  }) async {
+    final String myUid =
+        currentUid;
+
+    if (myUid.isEmpty) {
+      return;
+    }
+
+    final String conversationId =
+        buildConversationId(
+      requestId: requestId,
+      sessionId: sessionId,
     );
 
-    final QuerySnapshot<Map<String, dynamic>> snapshot =
-        await _messagesRef(conversationId)
-            .where('receiverUid', isEqualTo: myUid)
-            .where('isRead', isEqualTo: false)
+    final QuerySnapshot<
+            Map<String, dynamic>>
+        snapshot =
+        await _messagesRef(
+          conversationId,
+        )
+            .where(
+              'receiverUid',
+              isEqualTo: myUid,
+            )
+            .where(
+              'isRead',
+              isEqualTo: false,
+            )
             .get();
 
     if (snapshot.docs.isEmpty) {
       return;
     }
 
-    final WriteBatch batch = _firestore.batch();
+    final WriteBatch batch =
+        _firestore.batch();
 
-    for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
-        in snapshot.docs) {
+    for (final QueryDocumentSnapshot<
+            Map<String, dynamic>>
+        doc in snapshot.docs) {
       batch.update(
         doc.reference,
         <String, dynamic>{
@@ -278,29 +562,42 @@ class ChatService {
     await batch.commit();
   }
 
+  // ============================================================
+  // DELETE CURRENT WALK MESSAGE
+  // ============================================================
+
   Future<void> deleteMessage({
-    required String otherUid,
+    required String requestId,
+    String? sessionId,
     required String messageId,
   }) async {
-    final String myUid = currentUid;
-    final String contactUid = otherUid.trim();
-    final String id = messageId.trim();
+    final String myUid =
+        currentUid;
+
+    final String id =
+        messageId.trim();
 
     if (myUid.isEmpty ||
-        contactUid.isEmpty ||
         id.isEmpty) {
       return;
     }
 
-    final String conversationId = buildConversationId(
-      myUid,
-      contactUid,
+    final String conversationId =
+        buildConversationId(
+      requestId: requestId,
+      sessionId: sessionId,
     );
 
-    final DocumentReference<Map<String, dynamic>> ref =
-        _messagesRef(conversationId).doc(id);
+    final DocumentReference<
+            Map<String, dynamic>>
+        ref =
+        _messagesRef(
+          conversationId,
+        ).doc(id);
 
-    final DocumentSnapshot<Map<String, dynamic>> snapshot =
+    final DocumentSnapshot<
+            Map<String, dynamic>>
+        snapshot =
         await ref.get();
 
     if (!snapshot.exists) {
@@ -308,16 +605,25 @@ class ChatService {
     }
 
     final Map<String, dynamic> data =
-        snapshot.data() ?? <String, dynamic>{};
+        snapshot.data() ??
+            <String, dynamic>{};
 
-    if ((data['senderUid'] ?? '').toString() != myUid) {
+    if ((data['senderUid'] ?? '')
+            .toString() !=
+        myUid) {
       return;
     }
 
     await ref.delete();
   }
 
-  String _lastMessagePreview(ChatMessage message) {
+  // ============================================================
+  // LAST MESSAGE PREVIEW
+  // ============================================================
+
+  String _lastMessagePreview(
+    ChatMessage message,
+  ) {
     switch (message.type) {
       case ChatMessageType.text:
         return message.text;
@@ -327,6 +633,9 @@ class ChatService {
 
       case ChatMessageType.voice:
         return '🎙️ Voice message';
+
+      case ChatMessageType.video:
+        return '🎥 Video';
     }
   }
 }
