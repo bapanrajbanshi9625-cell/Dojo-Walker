@@ -112,13 +112,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
             snapshot.data?.data() ??
                 <String, dynamic>{};
 
-        // ======================================================
-        // KEEP LATEST FIRESTORE DATA FOR MAP / FINAL RESULT
-        //
-        // Controller already listens to the same session stream.
-        // Therefore we do NOT call updateFromSession() here.
-        // ======================================================
-
         if (firestoreData.isNotEmpty) {
           _lastSessionData =
               Map<String, dynamic>.from(
@@ -147,24 +140,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           body: Stack(
             clipBehavior: Clip.none,
             children: <Widget>[
-              // ==================================================
-              // FULL SCREEN LIVE MAP
-              // ==================================================
-
               Positioned.fill(
                 child: LiveWalkMap(
                   key: _liveMapKey,
                   sessionData: sessionData,
                 ),
               ),
-
-              // ==================================================
-              // BOTTOM DRAGGABLE SHEET
-              //
-              // My Location button is attached to this sheet.
-              // Therefore it moves up/down together with the sheet.
-              // ==================================================
-
               if (walkStarted || ending)
                 DraggableScrollableSheet(
                   initialChildSize: .22,
@@ -214,15 +195,19 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
     return Stack(
       clipBehavior: Clip.none,
       children: <Widget>[
-        // ======================================================
-        // ACTUAL BOTTOM SHEET
-        // ======================================================
-
         LiveWalkBottomSheet(
           scrollController: scrollController,
           ending: ending,
           ownerUid: widget.ownerUid,
           ownerName: widget.ownerName,
+
+          // ======================================================
+          // CURRENT WALK CHAT ID
+          // requestId == sessionId == DW######
+          // ======================================================
+
+          requestId: widget.requestId,
+
           dogName: widget.dogName,
           dogBreed: widget.dogBreed,
           distanceKm: distance,
@@ -234,14 +219,6 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
           onActivityConfirmed: _recordDogActivity,
           onComplete: _confirmCompleteWalk,
         ),
-
-        // ======================================================
-        // MY LOCATION BUTTON
-        //
-        // This button belongs to the draggable sheet.
-        // When the sheet moves, this button moves with it.
-        // ======================================================
-
         Positioned(
           right: 14,
           top: -62,
@@ -257,18 +234,11 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   // ============================================================
   // MY LOCATION
-  //
-  // The map owns the actual map controller/location logic.
-  // We expose it through a small callback mechanism below.
   // ============================================================
 
   void _centerMapOnMyLocation() {
-    // The LiveWalkMap handles its own live GPS position.
-    //
-    // This method is intentionally kept here so the screen owns
-    // the button placement. The actual map movement is triggered
-    // through the map key.
-    _liveMapKey.currentState?.centerOnMyLocation();
+    _liveMapKey.currentState
+        ?.centerOnMyLocation();
   }
 
   // ============================================================
@@ -374,7 +344,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         return AlertDialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius:
+                BorderRadius.circular(20),
           ),
           title: const Text(
             'Complete Walk?',
@@ -416,11 +387,15 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
+                backgroundColor:
+                    AppColors.primary,
+                foregroundColor:
+                    Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                shape:
+                    RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(12),
                 ),
               ),
               child: const Text(
@@ -453,7 +428,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         return;
       }
 
-      final Map<String, dynamic> resultSessionData =
+      final Map<String, dynamic>
+          resultSessionData =
           Map<String, dynamic>.from(
         _controller.sessionData.isNotEmpty
             ? _controller.sessionData
@@ -498,19 +474,30 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
         <String, dynamic>{
           'walkCompleted': true,
           'showReview': true,
-          'requestId': widget.requestId,
-          'ownerUid': widget.ownerUid,
-          'ownerName': widget.ownerName,
-          'ownerPhone': widget.ownerPhone,
-          'dogName': widget.dogName,
-          'dogBreed': widget.dogBreed,
-          'distanceKm': distance,
-          'steps': steps,
-          'duration': duration,
+          'requestId':
+              widget.requestId,
+          'ownerUid':
+              widget.ownerUid,
+          'ownerName':
+              widget.ownerName,
+          'ownerPhone':
+              widget.ownerPhone,
+          'dogName':
+              widget.dogName,
+          'dogBreed':
+              widget.dogBreed,
+          'distanceKm':
+              distance,
+          'steps':
+              steps,
+          'duration':
+              duration,
           'durationSeconds':
               _controller.durationSeconds,
-          'routePoints': routePoints,
-          'sessionData': resultSessionData,
+          'routePoints':
+              routePoints,
+          'sessionData':
+              resultSessionData,
           'peeCount':
               _controller.peeCount,
           'poopCount':
@@ -539,13 +526,16 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor:
+          Colors.transparent,
       builder: (
         BuildContext sheetContext,
       ) {
         return _SosSheet(
-          ownerName: widget.ownerName,
-          ownerPhone: widget.ownerPhone,
+          ownerName:
+              widget.ownerName,
+          ownerPhone:
+              widget.ownerPhone,
         );
       },
     );
@@ -562,64 +552,91 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor:
+          Colors.transparent,
       builder: (
         BuildContext sheetContext,
       ) {
         return Container(
-          padding: const EdgeInsets.fromLTRB(
+          padding:
+              const EdgeInsets.fromLTRB(
             20,
             14,
             20,
             25,
           ),
-          decoration: const BoxDecoration(
-            color: AppColors.cardBackground,
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(25),
+          decoration:
+              const BoxDecoration(
+            color:
+                AppColors.cardBackground,
+            borderRadius:
+                BorderRadius.vertical(
+              top:
+                  Radius.circular(25),
             ),
           ),
           child: SafeArea(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize:
+                  MainAxisSize.min,
               children: <Widget>[
                 Container(
                   width: 42,
                   height: 5,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(10),
+                  decoration:
+                      BoxDecoration(
+                    color:
+                        AppColors.border,
+                    borderRadius:
+                        BorderRadius.circular(
+                      10,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(
+                  height: 18,
+                ),
                 const Icon(
-                  Icons.support_agent_rounded,
-                  color: AppColors.primary,
+                  Icons
+                      .support_agent_rounded,
+                  color:
+                      AppColors.primary,
                   size: 38,
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(
+                  height: 10,
+                ),
                 const Text(
                   'Walk Support',
                   style: TextStyle(
-                    color: AppColors.secondary,
+                    color:
+                        AppColors.secondary,
                     fontSize: 19,
-                    fontWeight: FontWeight.w900,
+                    fontWeight:
+                        FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(
+                  height: 6,
+                ),
                 const Text(
                   'Need help during this walk?',
-                  textAlign: TextAlign.center,
+                  textAlign:
+                      TextAlign.center,
                   style: TextStyle(
                     color: Colors.grey,
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(
+                  height: 18,
+                ),
                 SizedBox(
-                  width: double.infinity,
+                  width:
+                      double.infinity,
                   height: 50,
-                  child: ElevatedButton.icon(
+                  child:
+                      ElevatedButton.icon(
                     onPressed: () {
                       Navigator.of(
                         sheetContext,
@@ -629,18 +646,28 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
                         'Support contact will be connected soon.',
                       );
                     },
-                    icon: const Icon(
-                      Icons.support_agent_rounded,
+                    icon:
+                        const Icon(
+                      Icons
+                          .support_agent_rounded,
                     ),
-                    label: const Text(
+                    label:
+                        const Text(
                       'Contact Support',
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+                    style:
+                        ElevatedButton.styleFrom(
+                      backgroundColor:
+                          AppColors.primary,
+                      foregroundColor:
+                          Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                      shape:
+                          RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(
+                          14,
+                        ),
                       ),
                     ),
                   ),
@@ -767,9 +794,12 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
+          content:
+              Text(message),
+          backgroundColor:
+              AppColors.error,
+          behavior:
+              SnackBarBehavior.floating,
         ),
       );
   }
@@ -789,9 +819,14 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
+          content:
+              Text(message),
+          behavior:
+              SnackBarBehavior.floating,
+          duration:
+              const Duration(
+            seconds: 2,
+          ),
         ),
       );
   }
@@ -802,6 +837,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 
   @override
   void dispose() {
+    _leavingScreen = true;
+
     _controller.removeListener(
       _onControllerChanged,
     );
@@ -816,7 +853,8 @@ class _LiveWalkScreenState extends State<LiveWalkScreen> {
 // MY LOCATION BUTTON
 // ============================================================================
 
-class _MapLocationButton extends StatelessWidget {
+class _MapLocationButton
+    extends StatelessWidget {
   const _MapLocationButton({
     required this.onPressed,
   });
@@ -830,10 +868,13 @@ class _MapLocationButton extends StatelessWidget {
     return Material(
       color: Colors.white,
       elevation: 5,
-      shadowColor: const Color(0x33000000),
-      shape: const CircleBorder(),
+      shadowColor:
+          const Color(0x33000000),
+      shape:
+          const CircleBorder(),
       child: InkWell(
-        customBorder: const CircleBorder(),
+        customBorder:
+            const CircleBorder(),
         onTap: onPressed,
         child: const SizedBox(
           width: 50,
@@ -870,76 +911,114 @@ class _SosSheet extends StatelessWidget {
         ownerName.trim();
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(
+      padding:
+          const EdgeInsets.fromLTRB(
         20,
         14,
         20,
         25,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(25),
+      decoration:
+          const BoxDecoration(
+        color:
+            AppColors.cardBackground,
+        borderRadius:
+            BorderRadius.vertical(
+          top:
+              Radius.circular(25),
         ),
       ),
       child: SafeArea(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize:
+              MainAxisSize.min,
           children: <Widget>[
             Container(
               width: 42,
               height: 5,
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(10),
+              decoration:
+                  BoxDecoration(
+                color:
+                    AppColors.border,
+                borderRadius:
+                    BorderRadius.circular(
+                  10,
+                ),
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(
+              height: 18,
+            ),
             const Icon(
               Icons.sos_rounded,
-              color: AppColors.error,
+              color:
+                  AppColors.error,
               size: 48,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(
+              height: 10,
+            ),
             const Text(
               'Emergency SOS',
               style: TextStyle(
-                color: AppColors.secondary,
+                color:
+                    AppColors.secondary,
                 fontSize: 20,
-                fontWeight: FontWeight.w900,
+                fontWeight:
+                    FontWeight.w900,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(
+              height: 6,
+            ),
             Text(
               cleanOwnerName.isEmpty
                   ? 'Emergency assistance'
                   : 'Emergency assistance for $cleanOwnerName',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
+              textAlign:
+                  TextAlign.center,
+              style:
+                  const TextStyle(
                 color: Colors.grey,
                 fontSize: 12,
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(
+              height: 18,
+            ),
             SizedBox(
-              width: double.infinity,
+              width:
+                  double.infinity,
               height: 50,
-              child: ElevatedButton.icon(
+              child:
+                  ElevatedButton.icon(
                 onPressed: () {
-                  Navigator.of(context).pop();
+                  Navigator.of(
+                    context,
+                  ).pop();
                 },
-                icon: const Icon(
-                  Icons.emergency_rounded,
+                icon:
+                    const Icon(
+                  Icons
+                      .emergency_rounded,
                 ),
-                label: const Text(
+                label:
+                    const Text(
                   'Emergency Assistance',
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.error,
-                  foregroundColor: Colors.white,
+                style:
+                    ElevatedButton.styleFrom(
+                  backgroundColor:
+                      AppColors.error,
+                  foregroundColor:
+                      Colors.white,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(
+                      14,
+                    ),
                   ),
                 ),
               ),
