@@ -1,26 +1,19 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/services/cloudinary_service.dart';
 
-class VideoSelectionResult {
-  const VideoSelectionResult({
+class VideoMessageResult {
+  const VideoMessageResult({
     required this.file,
-    required this.durationSeconds,
-  });
-
-  final File file;
-  final int durationSeconds;
-}
-
-class VideoUploadResult {
-  const VideoUploadResult({
     required this.url,
     required this.durationSeconds,
   });
 
+  final File file;
   final String url;
   final int durationSeconds;
 }
@@ -31,22 +24,21 @@ class VideoMessageService {
   static final VideoMessageService instance =
       VideoMessageService._();
 
-  final ImagePicker _picker = ImagePicker();
+  final ImagePicker _picker =
+      ImagePicker();
 
   // ============================================================
-  // PICK / RECORD VIDEO
+  // PICK VIDEO
   // ============================================================
 
-  Future<VideoSelectionResult?> pickVideo({
+  Future<File?> pickVideo({
     required ImageSource source,
-    Duration maxDuration = const Duration(
-      minutes: 2,
-    ),
   }) async {
     final XFile? pickedFile =
         await _picker.pickVideo(
       source: source,
-      maxDuration: maxDuration,
+      maxDuration:
+          const Duration(minutes: 5),
     );
 
     if (pickedFile == null) {
@@ -58,46 +50,33 @@ class VideoMessageService {
 
     if (!await file.exists()) {
       throw Exception(
-        'Selected video was not found.',
+        'Selected video file was not found.',
       );
     }
 
-    final int durationSeconds =
-        await _getDurationSeconds(file);
+    return file;
+  }
 
-    return VideoSelectionResult(
+  // ============================================================
+  // PICK + UPLOAD VIDEO
+  // ============================================================
+
+  Future<VideoMessageResult?> pickAndUploadVideo({
+    required ImageSource source,
+    String folder = 'chat/video',
+  }) async {
+    final File? file =
+        await pickVideo(
+      source: source,
+    );
+
+    if (file == null) {
+      return null;
+    }
+
+    return uploadVideo(
       file: file,
-      durationSeconds: durationSeconds,
-    );
-  }
-
-  // ============================================================
-  // CAMERA
-  // ============================================================
-
-  Future<VideoSelectionResult?> recordVideo({
-    Duration maxDuration = const Duration(
-      minutes: 2,
-    ),
-  }) {
-    return pickVideo(
-      source: ImageSource.camera,
-      maxDuration: maxDuration,
-    );
-  }
-
-  // ============================================================
-  // GALLERY
-  // ============================================================
-
-  Future<VideoSelectionResult?> pickFromGallery({
-    Duration maxDuration = const Duration(
-      minutes: 2,
-    ),
-  }) {
-    return pickVideo(
-      source: ImageSource.gallery,
-      maxDuration: maxDuration,
+      folder: folder,
     );
   }
 
@@ -105,9 +84,8 @@ class VideoMessageService {
   // UPLOAD VIDEO
   // ============================================================
 
-  Future<VideoUploadResult> uploadVideo({
+  Future<VideoMessageResult> uploadVideo({
     required File file,
-    int? durationSeconds,
     String folder = 'chat/video',
   }) async {
     if (!await file.exists()) {
@@ -116,9 +94,10 @@ class VideoMessageService {
       );
     }
 
-    final int duration =
-        durationSeconds ??
-            await _getDurationSeconds(file);
+    final int durationSeconds =
+        await _getDurationSeconds(
+      file,
+    );
 
     final String url =
         await CloudinaryService.uploadVideo(
@@ -126,79 +105,22 @@ class VideoMessageService {
       folder: folder,
     );
 
-    return VideoUploadResult(
+    return VideoMessageResult(
+      file: file,
       url: url,
-      durationSeconds: duration,
-    );
-  }
-
-  // ============================================================
-  // RECORD + UPLOAD
-  // ============================================================
-
-  Future<VideoUploadResult?>
-      recordAndUpload({
-    Duration maxDuration = const Duration(
-      minutes: 2,
-    ),
-    String folder = 'chat/video',
-  }) async {
-    final VideoSelectionResult?
-        selection =
-        await recordVideo(
-      maxDuration: maxDuration,
-    );
-
-    if (selection == null) {
-      return null;
-    }
-
-    return uploadVideo(
-      file: selection.file,
       durationSeconds:
-          selection.durationSeconds,
-      folder: folder,
+          durationSeconds,
     );
   }
 
   // ============================================================
-  // GALLERY + UPLOAD
-  // ============================================================
-
-  Future<VideoUploadResult?>
-      pickAndUpload({
-    Duration maxDuration = const Duration(
-      minutes: 2,
-    ),
-    String folder = 'chat/video',
-  }) async {
-    final VideoSelectionResult?
-        selection =
-        await pickFromGallery(
-      maxDuration: maxDuration,
-    );
-
-    if (selection == null) {
-      return null;
-    }
-
-    return uploadVideo(
-      file: selection.file,
-      durationSeconds:
-          selection.durationSeconds,
-      folder: folder,
-    );
-  }
-
-  // ============================================================
-  // VIDEO DURATION
+  // GET VIDEO DURATION
   // ============================================================
 
   Future<int> _getDurationSeconds(
     File file,
   ) async {
-    final VideoPlayerController
-        controller =
+    final VideoPlayerController controller =
         VideoPlayerController.file(
       file,
     );
@@ -209,13 +131,47 @@ class VideoMessageService {
       final Duration duration =
           controller.value.duration;
 
-      if (duration <= Duration.zero) {
-        return 0;
+      int seconds =
+          duration.inSeconds;
+
+      if (seconds < 1 &&
+          duration > Duration.zero) {
+        seconds = 1;
       }
 
-      return duration.inSeconds;
+      return seconds;
+    } catch (_) {
+      return 0;
     } finally {
-      await controller.dispose();
+      try {
+        await controller.dispose();
+      } catch (_) {}
     }
+  }
+
+  // ============================================================
+  // CAMERA
+  // ============================================================
+
+  Future<VideoMessageResult?> recordAndUploadVideo({
+    String folder = 'chat/video',
+  }) async {
+    return pickAndUploadVideo(
+      source: ImageSource.camera,
+      folder: folder,
+    );
+  }
+
+  // ============================================================
+  // GALLERY
+  // ============================================================
+
+  Future<VideoMessageResult?> pickFromGalleryAndUpload({
+    String folder = 'chat/video',
+  }) async {
+    return pickAndUploadVideo(
+      source: ImageSource.gallery,
+      folder: folder,
+    );
   }
 }
