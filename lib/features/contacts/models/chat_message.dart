@@ -4,6 +4,7 @@ enum ChatMessageType {
   text,
   photo,
   voice,
+  video,
 }
 
 class ChatMessage {
@@ -37,10 +38,15 @@ class ChatMessage {
     switch (type) {
       case ChatMessageType.text:
         return 'text';
+
       case ChatMessageType.photo:
         return 'photo';
+
       case ChatMessageType.voice:
         return 'voice';
+
+      case ChatMessageType.video:
+        return 'video';
     }
   }
 
@@ -62,7 +68,8 @@ class ChatMessage {
       type: type ?? this.type,
       text: text ?? this.text,
       mediaUrl: mediaUrl ?? this.mediaUrl,
-      durationSeconds: durationSeconds ?? this.durationSeconds,
+      durationSeconds:
+          durationSeconds ?? this.durationSeconds,
       createdAt: createdAt ?? this.createdAt,
       isRead: isRead ?? this.isRead,
     );
@@ -89,20 +96,29 @@ class ChatMessage {
   ) {
     return ChatMessage(
       id: id,
-      senderUid: (map['senderUid'] ?? '').toString(),
-      receiverUid: (map['receiverUid'] ?? '').toString(),
+      senderUid:
+          (map['senderUid'] ?? '').toString(),
+      receiverUid:
+          (map['receiverUid'] ?? '').toString(),
       type: _messageTypeFromString(
         (map['type'] ?? 'text').toString(),
       ),
-      text: (map['text'] ?? '').toString(),
-      mediaUrl: _nullableString(map['mediaUrl']),
-      durationSeconds: _nullableInt(map['durationSeconds']),
-      createdAt: _dateTimeFromValue(map['createdAt']),
-      isRead: map['isRead'] == true,
+      text:
+          (map['text'] ?? '').toString(),
+      mediaUrl:
+          _nullableString(map['mediaUrl']),
+      durationSeconds:
+          _nullableInt(map['durationSeconds']),
+      createdAt:
+          _dateTimeFromValue(map['createdAt']),
+      isRead:
+          map['isRead'] == true,
     );
   }
 
-  static ChatMessageType _messageTypeFromString(String value) {
+  static ChatMessageType _messageTypeFromString(
+    String value,
+  ) {
     switch (value.trim().toLowerCase()) {
       case 'photo':
       case 'image':
@@ -112,23 +128,31 @@ class ChatMessage {
       case 'audio':
         return ChatMessageType.voice;
 
+      case 'video':
+        return ChatMessageType.video;
+
       case 'text':
       default:
         return ChatMessageType.text;
     }
   }
 
-  static String? _nullableString(dynamic value) {
+  static String? _nullableString(
+    dynamic value,
+  ) {
     if (value == null) {
       return null;
     }
 
-    final String text = value.toString().trim();
+    final String text =
+        value.toString().trim();
 
     return text.isEmpty ? null : text;
   }
 
-  static int? _nullableInt(dynamic value) {
+  static int? _nullableInt(
+    dynamic value,
+  ) {
     if (value is int) {
       return value;
     }
@@ -137,10 +161,14 @@ class ChatMessage {
       return value.toInt();
     }
 
-    return int.tryParse(value?.toString() ?? '');
+    return int.tryParse(
+      value?.toString() ?? '',
+    );
   }
 
-  static DateTime? _dateTimeFromValue(dynamic value) {
+  static DateTime? _dateTimeFromValue(
+    dynamic value,
+  ) {
     if (value is Timestamp) {
       return value.toDate();
     }
