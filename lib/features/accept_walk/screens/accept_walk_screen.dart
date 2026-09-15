@@ -843,6 +843,10 @@ class _AcceptWalkScreenState
           const Color(0xFFE9EEF3),
       body: Stack(
         children: <Widget>[
+          // ======================================================
+          // MAP
+          // ======================================================
+
           Positioned.fill(
             child:
                 ownerLocation != null &&
@@ -864,6 +868,11 @@ class _AcceptWalkScreenState
                         ),
                       ),
           ),
+
+          // ======================================================
+          // TOP BAR
+          // ======================================================
+
           Positioned(
             top: 0,
             left: 0,
@@ -871,30 +880,54 @@ class _AcceptWalkScreenState
             child:
                 const AcceptWalkTopBar(),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
+
+          // ======================================================
+          // BOTTOM PANEL
+          //
+          // IMPORTANT:
+          // DraggableScrollableSheet needs the full available
+          // screen height from its parent.
+          //
+          // Do NOT use:
+          // Positioned(bottom: 0)
+          //
+          // Instead use Positioned.fill.
+          // ======================================================
+
+          Positioned.fill(
             child:
                 AcceptWalkBottomPanel(
-              dogName: _dogName,
-              dogBreed: _dogBreed,
-              ownerName: _ownerName,
-              ownerPhone: _ownerPhone,
+              dogName:
+                  _dogName,
+              dogBreed:
+                  _dogBreed,
+              ownerName:
+                  _ownerName,
+              ownerPhone:
+                  _ownerPhone,
               distanceText:
                   _distanceText,
-              timeText: _timeText,
-              address: _address,
+              timeText:
+                  _timeText,
+              address:
+                  _address,
               ownerLocation:
                   ownerLocation,
               canReachOwner:
                   _canReachOwner,
-              reaching: _reaching,
-              onReach: _reachOwner,
+              reaching:
+                  _reaching,
+              onReach:
+                  _reachOwner,
               onChat:
                   _openOwnerChat,
             ),
           ),
+
+          // ======================================================
+          // REQUEST UNAVAILABLE OVERLAY
+          // ======================================================
+
           if (_requestUnavailable)
             const Positioned.fill(
               child: ColoredBox(
