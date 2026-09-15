@@ -805,6 +805,7 @@ class _AcceptWalkScreenState extends State<AcceptWalkScreen> {
               distanceText: _distanceText,
               timeText: _timeText,
               address: _address,
+              ownerLocation: ownerLocation,
               canReachOwner:
                   _canReachOwner,
               reaching: _reaching,
