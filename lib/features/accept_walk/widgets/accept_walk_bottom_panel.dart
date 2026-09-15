@@ -2,6 +2,7 @@
 // lib/features/accept_walk/widgets/accept_walk_bottom_panel.dart
 
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'accept_walk_address.dart';
@@ -19,6 +20,7 @@ class AcceptWalkBottomPanel extends StatefulWidget {
     required this.distanceText,
     required this.timeText,
     required this.address,
+    required this.ownerLocation,
     required this.canReachOwner,
     required this.reaching,
     required this.onReach,
@@ -32,6 +34,10 @@ class AcceptWalkBottomPanel extends StatefulWidget {
   final String distanceText;
   final String timeText;
   final String address;
+
+  /// Exact owner pickup coordinates.
+  final LatLng? ownerLocation;
+
   final bool canReachOwner;
   final bool reaching;
 
@@ -45,113 +51,110 @@ class AcceptWalkBottomPanel extends StatefulWidget {
 
 class _AcceptWalkBottomPanelState
     extends State<AcceptWalkBottomPanel> {
-  static const double _minimumVisibleHeight = 72;
+  final DraggableScrollableController
+      _sheetController =
+      DraggableScrollableController();
 
-  double _dragOffset = 0;
-
-  final ScrollController _scrollController =
-      ScrollController();
-
-  bool _draggingPanel = false;
+  static const double _collapsedSize = 0.12;
+  static const double _expandedSize = 0.78;
 
   // ============================================================
-  // PANEL DRAG
+  // SHEET TOGGLE
   // ============================================================
 
-  void _startPanelDrag() {
-    _draggingPanel = true;
-
-    // When starting a panel drag, keep the inner content at the top.
-    // This makes upward/downward gestures control the sheet naturally.
-    if (_scrollController.hasClients &&
-        _scrollController.offset > 0) {
-      _scrollController.jumpTo(0);
-    }
-  }
-
-  void _updatePanelDrag(
-    DragUpdateDetails details,
-    double maxDrag,
-  ) {
-    if (!_draggingPanel) {
+  Future<void> _toggleSheet() async {
+    if (!_sheetController.isAttached) {
       return;
     }
 
-    final double nextOffset =
-        (_dragOffset + details.delta.dy)
-            .clamp(0.0, maxDrag);
-
-    if (nextOffset != _dragOffset) {
-      setState(() {
-        _dragOffset = nextOffset;
-      });
-    }
-  }
-
-  void _endPanelDrag(
-    DragEndDetails details,
-    double maxDrag,
-  ) {
-    if (!_draggingPanel) {
-      return;
-    }
-
-    _draggingPanel = false;
-
-    final double midpoint =
-        maxDrag > 0 ? maxDrag * 0.35 : 0;
+    final double currentSize =
+        _sheetController.size;
 
     final double target =
-        _dragOffset > midpoint ? maxDrag : 0;
+        currentSize >
+                ((_collapsedSize +
+                        _expandedSize) /
+                    2)
+            ? _collapsedSize
+            : _expandedSize;
 
-    setState(() {
-      _dragOffset = target;
-    });
+    await _sheetController.animateTo(
+      target,
+      duration:
+          const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   // ============================================================
-  // MAP
+  // EXACT PICKUP MAP
   // ============================================================
 
   Future<void> _openMap() async {
-    final String address =
-        widget.address.trim();
+    final LatLng? location =
+        widget.ownerLocation;
 
-    if (address.isEmpty) {
-      return;
-    }
-
-    final Uri googleMapsUri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}',
-    );
-
-    try {
-      final bool opened = await launchUrl(
-        googleMapsUri,
-        mode: LaunchMode.externalApplication,
-      );
-
-      if (!opened && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Unable to open Google Maps',
-            ),
-          ),
-        );
-      }
-    } catch (_) {
+    if (location == null) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Unable to open Google Maps',
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Pickup location is unavailable.',
+            ),
           ),
-        ),
+        );
+      return;
+    }
+
+    // Google Maps opens directly at the owner's
+    // exact pickup latitude/longitude.
+    final Uri googleMapsUri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1'
+      '&query=${location.latitude},${location.longitude}',
+    );
+
+    try {
+      final bool opened =
+          await launchUrl(
+        googleMapsUri,
+        mode:
+            LaunchMode.externalApplication,
       );
+
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Unable to open Google Maps.',
+              ),
+            ),
+          );
+      }
+    } catch (error) {
+      debugPrint(
+        'Open pickup map error: $error',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Unable to open Google Maps.',
+            ),
+          ),
+        );
     }
   }
 
@@ -161,29 +164,35 @@ class _AcceptWalkBottomPanelState
 
   @override
   Widget build(BuildContext context) {
-    final double screenHeight =
-        MediaQuery.sizeOf(context).height;
-
-    final double panelHeight =
-        (screenHeight * 0.72)
-            .clamp(300.0, 620.0);
-
-    final double maxDrag =
-        (panelHeight - _minimumVisibleHeight)
-            .clamp(0.0, panelHeight);
-
-    return Material(
-      color: Colors.transparent,
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Transform.translate(
-          offset: Offset(0, _dragOffset),
+    return DraggableScrollableSheet(
+      controller: _sheetController,
+      initialChildSize:
+          _collapsedSize,
+      minChildSize:
+          _collapsedSize,
+      maxChildSize:
+          _expandedSize,
+      snap: true,
+      snapSizes: const <double>[
+        _collapsedSize,
+        _expandedSize,
+      ],
+      snapAnimationDuration:
+          const Duration(milliseconds: 260),
+      expand: false,
+      builder: (
+        BuildContext context,
+        ScrollController scrollController,
+      ) {
+        return Material(
+          color: Colors.transparent,
           child: Container(
             width: double.infinity,
-            height: panelHeight,
-            decoration: const BoxDecoration(
+            decoration:
+                const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(
+              borderRadius:
+                  BorderRadius.vertical(
                 top: Radius.circular(24),
               ),
               boxShadow: <BoxShadow>[
@@ -194,259 +203,245 @@ class _AcceptWalkBottomPanelState
                 ),
               ],
             ),
+            child: SafeArea(
+              top: false,
+              child: CustomScrollView(
+                controller:
+                    scrollController,
+                physics:
+                    const ClampingScrollPhysics(),
+                slivers: <Widget>[
+                  // ==================================================
+                  // DRAG HANDLE
+                  // ==================================================
 
-            // ======================================================
-            // IMPORTANT:
-            // Whole panel now receives vertical drag gestures.
-            // ======================================================
-
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onVerticalDragStart: (_) {
-                _startPanelDrag();
-              },
-              onVerticalDragUpdate: (details) {
-                _updatePanelDrag(
-                  details,
-                  maxDrag,
-                );
-              },
-              onVerticalDragEnd: (details) {
-                _endPanelDrag(
-                  details,
-                  maxDrag,
-                );
-              },
-              child: SafeArea(
-                top: false,
-                child: Column(
-                  children: <Widget>[
-                    // ==================================================
-                    // DRAG HANDLE
-                    // ==================================================
-
-                    SizedBox(
-                      height: 36,
-                      width: double.infinity,
-                      child: Center(
-                        child: Container(
-                          width: 42,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFFD6D9DD,
+                  SliverToBoxAdapter(
+                    child: GestureDetector(
+                      behavior:
+                          HitTestBehavior.opaque,
+                      onTap: _toggleSheet,
+                      child: SizedBox(
+                        height: 38,
+                        width: double.infinity,
+                        child: Center(
+                          child: Container(
+                            width: 42,
+                            height: 4,
+                            decoration:
+                                BoxDecoration(
+                              color: const Color(
+                                0xFFD6D9DD,
+                              ),
+                              borderRadius:
+                                  BorderRadius.circular(
+                                20,
+                              ),
                             ),
-                            borderRadius:
-                                BorderRadius.circular(20),
                           ),
                         ),
                       ),
                     ),
+                  ),
 
-                    // ==================================================
-                    // SCROLLABLE CONTENT
-                    // ==================================================
+                  // ==================================================
+                  // CONTENT
+                  // ==================================================
 
-                    Expanded(
-                      child: ClipRect(
-                        child: SingleChildScrollView(
-                          controller: _scrollController,
-                          physics:
-                              const NeverScrollableScrollPhysics(),
-                          padding:
-                              const EdgeInsets.fromLTRB(
-                            16,
-                            0,
-                            16,
-                            18,
+                  SliverPadding(
+                    padding:
+                        const EdgeInsets.fromLTRB(
+                      16,
+                      0,
+                      16,
+                      18,
+                    ),
+                    sliver:
+                        SliverList(
+                      delegate:
+                          SliverChildListDelegate(
+                        <Widget>[
+                          // ------------------------------------------------
+                          // OWNER + DOG
+                          // ------------------------------------------------
+
+                          AcceptWalkOwnerDogDetails(
+                            dogName:
+                                widget.dogName,
+                            dogBreed:
+                                widget.dogBreed,
+                            ownerName:
+                                widget.ownerName,
                           ),
-                          child: Column(
-                            mainAxisSize:
-                                MainAxisSize.min,
-                            crossAxisAlignment:
-                                CrossAxisAlignment.stretch,
+
+                          const SizedBox(
+                            height: 12,
+                          ),
+
+                          // ------------------------------------------------
+                          // DISTANCE + TIME
+                          // ------------------------------------------------
+
+                          Row(
                             children: <Widget>[
-                              // ------------------------------------------------
-                              // OWNER + DOG
-                              // ------------------------------------------------
-
-                              AcceptWalkOwnerDogDetails(
-                                dogName:
-                                    widget.dogName,
-                                dogBreed:
-                                    widget.dogBreed,
-                                ownerName:
-                                    widget.ownerName,
-                              ),
-
-                              const SizedBox(
-                                height: 12,
-                              ),
-
-                              // ------------------------------------------------
-                              // DISTANCE + TIME
-                              // ------------------------------------------------
-
-                              Row(
-                                children: <Widget>[
-                                  Expanded(
-                                    child: _InfoItem(
-                                      icon:
-                                          Icons.near_me_rounded,
-                                      label:
-                                          widget.distanceText,
-                                    ),
-                                  ),
-                                  const SizedBox(
-                                    width: 8,
-                                  ),
-                                  Expanded(
-                                    child: _InfoItem(
-                                      icon:
-                                          Icons.schedule_rounded,
-                                      label:
-                                          widget.timeText,
-                                    ),
-                                  ),
-                                ],
-                              ),
-
-                              // ------------------------------------------------
-                              // ADDRESS
-                              // ------------------------------------------------
-
-                              if (widget.address
-                                  .trim()
-                                  .isNotEmpty) ...<Widget>[
-                                const SizedBox(
-                                  height: 10,
-                                ),
-                                AcceptWalkAddress(
-                                  address:
-                                      widget.address,
-                                ),
-                              ],
-
-                              const SizedBox(
-                                height: 12,
-                              ),
-
-                              // ------------------------------------------------
-                              // MAP BUTTON
-                              // ------------------------------------------------
-
-                              SizedBox(
-                                height: 46,
-                                child:
-                                    OutlinedButton.icon(
-                                  onPressed:
-                                      widget.address
-                                              .trim()
-                                              .isEmpty
-                                          ? null
-                                          : _openMap,
-                                  icon: const Icon(
-                                    Icons.map_rounded,
-                                    size: 20,
-                                  ),
-                                  label: const Text(
-                                    'Map',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight:
-                                          FontWeight.w700,
-                                    ),
-                                  ),
-                                  style:
-                                      OutlinedButton
-                                          .styleFrom(
-                                    foregroundColor:
-                                        const Color(
-                                      0xFFE86100,
-                                    ),
-                                    disabledForegroundColor:
-                                        const Color(
-                                      0xFFBDBDBD,
-                                    ),
-                                    side: BorderSide(
-                                      color: widget.address
-                                              .trim()
-                                              .isEmpty
-                                          ? const Color(
-                                              0xFFE0E0E0,
-                                            )
-                                          : const Color(
-                                              0xFFE86100,
-                                            ),
-                                    ),
-                                    shape:
-                                        RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(
-                                        12,
-                                      ),
-                                    ),
-                                  ),
+                              Expanded(
+                                child: _InfoItem(
+                                  icon: Icons
+                                      .near_me_rounded,
+                                  label:
+                                      widget.distanceText,
                                 ),
                               ),
-
                               const SizedBox(
-                                height: 12,
+                                width: 8,
                               ),
-
-                              // ------------------------------------------------
-                              // CALL + CHAT
-                              // ------------------------------------------------
-
-                              AcceptWalkCallChat(
-                                ownerPhone:
-                                    widget.ownerPhone,
-                                onChat:
-                                    widget.onChat,
-                              ),
-
-                              const SizedBox(
-                                height: 12,
-                              ),
-
-                              // ------------------------------------------------
-                              // REACH OWNER
-                              // ------------------------------------------------
-
-                              AcceptWalkReachButton(
-                                canReachOwner:
-                                    widget.canReachOwner,
-                                reaching:
-                                    widget.reaching,
-                                onReach:
-                                    widget.onReach,
-                              ),
-
-                              const SizedBox(
-                                height: 8,
+                              Expanded(
+                                child: _InfoItem(
+                                  icon: Icons
+                                      .schedule_rounded,
+                                  label:
+                                      widget.timeText,
+                                ),
                               ),
                             ],
                           ),
-                        ),
+
+                          // ------------------------------------------------
+                          // ADDRESS
+                          // ------------------------------------------------
+
+                          if (widget.address
+                              .trim()
+                              .isNotEmpty) ...<Widget>[
+                            const SizedBox(
+                              height: 10,
+                            ),
+                            AcceptWalkAddress(
+                              address:
+                                  widget.address,
+                            ),
+                          ],
+
+                          const SizedBox(
+                            height: 12,
+                          ),
+
+                          // ------------------------------------------------
+                          // MAP
+                          // ------------------------------------------------
+
+                          SizedBox(
+                            height: 46,
+                            child:
+                                OutlinedButton.icon(
+                              onPressed:
+                                  widget.ownerLocation ==
+                                          null
+                                      ? null
+                                      : _openMap,
+                              icon: const Icon(
+                                Icons
+                                    .navigation_rounded,
+                                size: 21,
+                              ),
+                              label:
+                                  const Text(
+                                'Map',
+                                style:
+                                    TextStyle(
+                                  fontSize: 15,
+                                  fontWeight:
+                                      FontWeight
+                                          .w700,
+                                ),
+                              ),
+                              style:
+                                  OutlinedButton
+                                      .styleFrom(
+                                foregroundColor:
+                                    const Color(
+                                  0xFFE86100,
+                                ),
+                                disabledForegroundColor:
+                                    const Color(
+                                  0xFFBDBDBD,
+                                ),
+                                side:
+                                    BorderSide(
+                                  color: widget
+                                              .ownerLocation ==
+                                          null
+                                      ? const Color(
+                                          0xFFE0E0E0,
+                                        )
+                                      : const Color(
+                                          0xFFE86100,
+                                        ),
+                                  width: 1.3,
+                                ),
+                                shape:
+                                    RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius
+                                          .circular(
+                                    12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(
+                            height: 12,
+                          ),
+
+                          // ------------------------------------------------
+                          // CALL + CHAT
+                          // ------------------------------------------------
+
+                          AcceptWalkCallChat(
+                            ownerPhone:
+                                widget.ownerPhone,
+                            onChat:
+                                widget.onChat,
+                          ),
+
+                          const SizedBox(
+                            height: 12,
+                          ),
+
+                          // ------------------------------------------------
+                          // REACH OWNER
+                          // ------------------------------------------------
+
+                          AcceptWalkReachButton(
+                            canReachOwner:
+                                widget
+                                    .canReachOwner,
+                            reaching:
+                                widget.reaching,
+                            onReach:
+                                widget.onReach,
+                          ),
+
+                          const SizedBox(
+                            height: 8,
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  // ============================================================
-  // DISPOSE
-  // ============================================================
-
   @override
   void dispose() {
-    _scrollController.dispose();
+    _sheetController.dispose();
     super.dispose();
   }
 }
@@ -468,15 +463,18 @@ class _InfoItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 42,
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         horizontal: 12,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F8FA),
+        color:
+            const Color(0xFFF7F8FA),
         borderRadius:
             BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFE7E9EC),
+          color:
+              const Color(0xFFE7E9EC),
         ),
       ),
       child: Row(
@@ -486,20 +484,25 @@ class _InfoItem extends StatelessWidget {
           Icon(
             icon,
             size: 18,
-            color: const Color(0xFF6B7280),
+            color:
+                const Color(0xFF6B7280),
           ),
-          const SizedBox(width: 7),
+          const SizedBox(
+            width: 7,
+          ),
           Flexible(
             child: Text(
               label,
               maxLines: 1,
               overflow:
                   TextOverflow.ellipsis,
-              style: const TextStyle(
+              style:
+                  const TextStyle(
                 fontSize: 14,
                 fontWeight:
                     FontWeight.w700,
-                color: Color(0xFF252A31),
+                color:
+                    Color(0xFF252A31),
               ),
             ),
           ),
