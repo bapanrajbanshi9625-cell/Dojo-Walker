@@ -1,19 +1,16 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/services/cloudinary_service.dart';
 
-class VideoMessageResult {
-  const VideoMessageResult({
-    required this.file,
+class VideoUploadResult {
+  const VideoUploadResult({
     required this.url,
     required this.durationSeconds,
   });
 
-  final File file;
   final String url;
   final int durationSeconds;
 }
@@ -24,106 +21,96 @@ class VideoMessageService {
   static final VideoMessageService instance =
       VideoMessageService._();
 
-  final ImagePicker _picker =
-      ImagePicker();
+  final ImagePicker _picker = ImagePicker();
 
-  // ============================================================
-  // PICK VIDEO
-  // ============================================================
+  bool _isBusy = false;
 
-  Future<File?> pickVideo({
-    required ImageSource source,
+  bool get isBusy => _isBusy;
+
+  Future<VideoUploadResult?> recordAndUpload({
+    Duration maxDuration = const Duration(
+      minutes: 2,
+    ),
+    String? folder,
   }) async {
-    final XFile? pickedFile =
-        await _picker.pickVideo(
-      source: source,
-      maxDuration:
-          const Duration(minutes: 5),
-    );
-
-    if (pickedFile == null) {
+    if (_isBusy) {
       return null;
     }
 
-    final File file =
-        File(pickedFile.path);
+    _isBusy = true;
 
+    try {
+      final XFile? pickedFile =
+          await _picker.pickVideo(
+        source: ImageSource.camera,
+        maxDuration: maxDuration,
+      );
+
+      if (pickedFile == null) {
+        return null;
+      }
+
+      final File file =
+          File(pickedFile.path);
+
+      return await _upload(
+        file: file,
+        folder: folder,
+      );
+    } finally {
+      _isBusy = false;
+    }
+  }
+
+  Future<VideoUploadResult?> pickAndUpload({
+    Duration maxDuration = const Duration(
+      minutes: 2,
+    ),
+    String? folder,
+  }) async {
+    if (_isBusy) {
+      return null;
+    }
+
+    _isBusy = true;
+
+    try {
+      final XFile? pickedFile =
+          await _picker.pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: maxDuration,
+      );
+
+      if (pickedFile == null) {
+        return null;
+      }
+
+      final File file =
+          File(pickedFile.path);
+
+      return await _upload(
+        file: file,
+        folder: folder,
+      );
+    } finally {
+      _isBusy = false;
+    }
+  }
+
+  Future<VideoUploadResult> _upload({
+    required File file,
+    String? folder,
+  }) async {
     if (!await file.exists()) {
       throw Exception(
         'Selected video file was not found.',
       );
     }
 
-    return file;
-  }
+    int durationSeconds = 0;
 
-  // ============================================================
-  // PICK + UPLOAD VIDEO
-  // ============================================================
-
-  Future<VideoMessageResult?> pickAndUploadVideo({
-    required ImageSource source,
-    String folder = 'chat/video',
-  }) async {
-    final File? file =
-        await pickVideo(
-      source: source,
-    );
-
-    if (file == null) {
-      return null;
-    }
-
-    return uploadVideo(
-      file: file,
-      folder: folder,
-    );
-  }
-
-  // ============================================================
-  // UPLOAD VIDEO
-  // ============================================================
-
-  Future<VideoMessageResult> uploadVideo({
-    required File file,
-    String folder = 'chat/video',
-  }) async {
-    if (!await file.exists()) {
-      throw Exception(
-        'Video file was not found.',
-      );
-    }
-
-    final int durationSeconds =
-        await _getDurationSeconds(
-      file,
-    );
-
-    final String url =
-        await CloudinaryService.uploadVideo(
-      file: file,
-      folder: folder,
-    );
-
-    return VideoMessageResult(
-      file: file,
-      url: url,
-      durationSeconds:
-          durationSeconds,
-    );
-  }
-
-  // ============================================================
-  // GET VIDEO DURATION
-  // ============================================================
-
-  Future<int> _getDurationSeconds(
-    File file,
-  ) async {
     final VideoPlayerController controller =
-        VideoPlayerController.file(
-      file,
-    );
+        VideoPlayerController.file(file);
 
     try {
       await controller.initialize();
@@ -131,47 +118,25 @@ class VideoMessageService {
       final Duration duration =
           controller.value.duration;
 
-      int seconds =
-          duration.inSeconds;
-
-      if (seconds < 1 &&
-          duration > Duration.zero) {
-        seconds = 1;
+      if (duration.inSeconds > 0) {
+        durationSeconds =
+            duration.inSeconds;
       }
-
-      return seconds;
     } catch (_) {
-      return 0;
+      durationSeconds = 0;
     } finally {
-      try {
-        await controller.dispose();
-      } catch (_) {}
+      await controller.dispose();
     }
-  }
 
-  // ============================================================
-  // CAMERA
-  // ============================================================
-
-  Future<VideoMessageResult?> recordAndUploadVideo({
-    String folder = 'chat/video',
-  }) async {
-    return pickAndUploadVideo(
-      source: ImageSource.camera,
+    final String url =
+        await CloudinaryService.uploadVideo(
+      file: file,
       folder: folder,
     );
-  }
 
-  // ============================================================
-  // GALLERY
-  // ============================================================
-
-  Future<VideoMessageResult?> pickFromGalleryAndUpload({
-    String folder = 'chat/video',
-  }) async {
-    return pickAndUploadVideo(
-      source: ImageSource.gallery,
-      folder: folder,
+    return VideoUploadResult(
+      url: url,
+      durationSeconds: durationSeconds,
     );
   }
 }
