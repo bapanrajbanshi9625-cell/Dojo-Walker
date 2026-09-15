@@ -8,7 +8,7 @@ import 'incoming_walk_action_buttons.dart';
 import 'incoming_walk_address.dart';
 import 'incoming_walk_owner_dog_details.dart';
 
-class IncomingWalkBottomPanel extends StatefulWidget {
+class IncomingWalkBottomPanel extends StatelessWidget {
   const IncomingWalkBottomPanel({
     super.key,
     required this.dogName,
@@ -29,6 +29,7 @@ class IncomingWalkBottomPanel extends StatefulWidget {
   final String dogBreed;
   final String ownerName;
   final String ownerPhone;
+
   final String distanceText;
   final String etaText;
   final String paymentText;
@@ -41,294 +42,152 @@ class IncomingWalkBottomPanel extends StatefulWidget {
   final bool rejecting;
 
   @override
-  State<IncomingWalkBottomPanel> createState() =>
-      _IncomingWalkBottomPanelState();
-}
-
-class _IncomingWalkBottomPanelState
-    extends State<IncomingWalkBottomPanel> {
-  final DraggableScrollableController _sheetController =
-      DraggableScrollableController();
-
-  static const double _collapsedSize = 0.24;
-  static const double _expandedSize = 0.78;
-
-  @override
-  void dispose() {
-    _sheetController.dispose();
-    super.dispose();
-  }
-
-  // ============================================================
-  // SNAP
-  // ============================================================
-
-  void _snapTo(double size) {
-    if (!_sheetController.isAttached) {
-      return;
-    }
-
-    _sheetController.animateTo(
-      size,
-      duration: const Duration(
-        milliseconds: 260,
-      ),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
-  // ============================================================
-  // TOGGLE
-  // ============================================================
-
-  void _toggleSheet() {
-    if (!_sheetController.isAttached) {
-      return;
-    }
-
-    final double currentSize =
-        _sheetController.size;
-
-    final double middle =
-        (_collapsedSize + _expandedSize) / 2;
-
-    if (currentSize < middle) {
-      _snapTo(_expandedSize);
-    } else {
-      _snapTo(_collapsedSize);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
-      controller: _sheetController,
+      initialChildSize: 0.24,
+      minChildSize: 0.24,
+      maxChildSize: 0.78,
 
-      // ----------------------------------------------------------
-      // PANEL SIZE
-      // ----------------------------------------------------------
-
-      initialChildSize: _collapsedSize,
-      minChildSize: _collapsedSize,
-      maxChildSize: _expandedSize,
-
-      // ----------------------------------------------------------
-      // SNAP
-      // ----------------------------------------------------------
-
+      // Same snap-style behaviour.
       snap: true,
       snapSizes: const <double>[
-        _collapsedSize,
-        _expandedSize,
+        0.24,
+        0.78,
       ],
       snapAnimationDuration:
           const Duration(milliseconds: 260),
 
-      // IMPORTANT:
-      // The parent screen uses Positioned.fill.
-      // Keep the sheet expanded to the available parent bounds
-      // so Flutter can correctly position the draggable sheet.
-      expand: true,
+      // Let the sheet behave naturally with the
+      // ListView scroll controller.
+      expand: false,
 
       builder: (
         BuildContext context,
         ScrollController scrollController,
       ) {
-        return Material(
-          color: Colors.transparent,
-          child: Container(
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  blurRadius: 18,
-                  offset: Offset(0, -5),
-                  color: Color(0x1F000000),
-                ),
-              ],
+        return Container(
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(24),
             ),
-            child: SafeArea(
-              top: false,
-              bottom: true,
-              child: CustomScrollView(
-                controller: scrollController,
-                physics:
-                    const ClampingScrollPhysics(),
-                slivers: <Widget>[
-                  // ==================================================
-                  // DRAG HANDLE
-                  // ==================================================
-
-                  SliverToBoxAdapter(
-                    child: GestureDetector(
-                      behavior:
-                          HitTestBehavior.opaque,
-                      onTap: _toggleSheet,
-                      child: Padding(
-                        padding:
-                            const EdgeInsets.fromLTRB(
-                          16,
-                          12,
-                          16,
-                          10,
-                        ),
-                        child: Center(
-                          child: Container(
-                            width: 42,
-                            height: 4,
-                            decoration:
-                                BoxDecoration(
-                              color:
-                                  Colors.grey.shade300,
-                              borderRadius:
-                                  BorderRadius.circular(
-                                20,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // ==================================================
-                  // OWNER + DOG
-                  // ==================================================
-
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding:
-                          const EdgeInsets.symmetric(
-                        horizontal: 16,
-                      ),
-                      child:
-                          IncomingWalkOwnerDogDetails(
-                        dogName:
-                            widget.dogName,
-                        dogBreed:
-                            widget.dogBreed,
-                        ownerName:
-                            widget.ownerName,
-                      ),
-                    ),
-                  ),
-
-                  // ==================================================
-                  // DETAILS
-                  // ==================================================
-
-                  SliverPadding(
-                    padding:
-                        const EdgeInsets.fromLTRB(
-                      16,
-                      12,
-                      16,
-                      16,
-                    ),
-                    sliver:
-                        SliverToBoxAdapter(
-                      child: Column(
-                        mainAxisSize:
-                            MainAxisSize.min,
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: <Widget>[
-                          // ==================================================
-                          // DISTANCE / TIME / PAYMENT
-                          // ==================================================
-
-                          Row(
-                            crossAxisAlignment:
-                                CrossAxisAlignment
-                                    .stretch,
-                            children: <Widget>[
-                              Expanded(
-                                child: _InfoItem(
-                                  icon: Icons
-                                      .location_on_outlined,
-                                  label:
-                                      'Distance',
-                                  value:
-                                      widget
-                                          .distanceText,
-                                ),
-                              ),
-                              const SizedBox(
-                                width: 8,
-                              ),
-                              Expanded(
-                                child: _InfoItem(
-                                  icon: Icons
-                                      .access_time,
-                                  label:
-                                      'Time',
-                                  value:
-                                      widget
-                                          .etaText,
-                                ),
-                              ),
-                              const SizedBox(
-                                width: 8,
-                              ),
-                              Expanded(
-                                child: _InfoItem(
-                                  icon: Icons
-                                      .payments_outlined,
-                                  label:
-                                      'Payment',
-                                  value:
-                                      widget
-                                          .paymentText,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(
-                            height: 12,
-                          ),
-
-                          // ==================================================
-                          // ADDRESS
-                          // ==================================================
-
-                          IncomingWalkAddress(
-                            address:
-                                widget.address,
-                          ),
-
-                          const SizedBox(
-                            height: 14,
-                          ),
-
-                          // ==================================================
-                          // ACTION BUTTONS
-                          // ==================================================
-
-                          IncomingWalkActionButtons(
-                            onAccept:
-                                widget.onAccept,
-                            onReject:
-                                widget.onReject,
-                            accepting:
-                                widget.accepting,
-                            rejecting:
-                                widget.rejecting,
-                          ),
-
-                          const SizedBox(
-                            height: 20,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                blurRadius: 18,
+                offset: Offset(0, -5),
+                color: Color(0x1F000000),
               ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            bottom: true,
+            child: ListView(
+              controller: scrollController,
+
+              // Same scrolling pattern as LiveWalkBottomSheet.
+              physics: const ClampingScrollPhysics(),
+
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                10,
+                16,
+                28,
+              ),
+
+              children: <Widget>[
+                // ==================================================
+                // DRAG HANDLE
+                // ==================================================
+
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius:
+                          BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                // ==================================================
+                // OWNER + DOG
+                // ==================================================
+
+                IncomingWalkOwnerDogDetails(
+                  dogName: dogName,
+                  dogBreed: dogBreed,
+                  ownerName: ownerName,
+                ),
+
+                const SizedBox(height: 18),
+
+                // ==================================================
+                // DISTANCE / TIME / PAYMENT
+                // ==================================================
+
+                Row(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Expanded(
+                      child: _InfoItem(
+                        icon:
+                            Icons.location_on_outlined,
+                        label: 'Distance',
+                        value: distanceText,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _InfoItem(
+                        icon: Icons.access_time,
+                        label: 'Time',
+                        value: etaText,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _InfoItem(
+                        icon:
+                            Icons.payments_outlined,
+                        label: 'Payment',
+                        value: paymentText,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // ==================================================
+                // ADDRESS
+                // ==================================================
+
+                IncomingWalkAddress(
+                  address: address,
+                ),
+
+                const SizedBox(height: 18),
+
+                // ==================================================
+                // ACCEPT / REJECT
+                // ==================================================
+
+                IncomingWalkActionButtons(
+                  onAccept: onAccept,
+                  onReject: onReject,
+                  accepting: accepting,
+                  rejecting: rejecting,
+                ),
+
+                const SizedBox(height: 20),
+              ],
             ),
           ),
         );
@@ -355,57 +214,44 @@ class _InfoItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
+      padding: const EdgeInsets.symmetric(
         horizontal: 10,
         vertical: 9,
       ),
       decoration: BoxDecoration(
-        color:
-            DojoWalkerColors.primary.withValues(
+        color: DojoWalkerColors.primary.withValues(
           alpha: 0.06,
         ),
-        borderRadius:
-            BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
-        mainAxisSize:
-            MainAxisSize.min,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment:
             CrossAxisAlignment.start,
         children: <Widget>[
           Icon(
             icon,
             size: 18,
-            color:
-                DojoWalkerColors.primary,
+            color: DojoWalkerColors.primary,
           ),
-          const SizedBox(
-            height: 4,
-          ),
+          const SizedBox(height: 4),
           Text(
             label,
             maxLines: 1,
-            overflow:
-                TextOverflow.ellipsis,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 11,
-              color:
-                  Colors.grey.shade600,
+              color: Colors.grey.shade600,
             ),
           ),
-          const SizedBox(
-            height: 2,
-          ),
+          const SizedBox(height: 2),
           Text(
             value,
             maxLines: 1,
-            overflow:
-                TextOverflow.ellipsis,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 13,
-              fontWeight:
-                  FontWeight.w700,
+              fontWeight: FontWeight.w700,
               color: Colors.black87,
             ),
           ),
