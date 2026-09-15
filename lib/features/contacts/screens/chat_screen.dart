@@ -108,6 +108,36 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  // ============================================================
+  // BUILD
+  // ============================================================
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme =
+        Theme.of(context);
+
+    return Scaffold(
+      backgroundColor:
+          _lightBackground,
+      appBar:
+          _buildAppBar(theme),
+      body: Column(
+        children: <Widget>[
+          Expanded(
+            child:
+                _buildMessages(),
+          ),
+          _buildInputBar(),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // DISPLAY NAME
+  // ============================================================
+
   String get _displayName {
     final String name =
         widget.contactName.trim();
@@ -2054,13 +2084,27 @@ class _VideoMessageBubbleState
 
     if (oldWidget.url !=
         widget.url) {
-      _disposeController();
-
-      _initialize();
+      unawaited(
+        _replaceController(),
+      );
     }
   }
 
+  Future<void> _replaceController() async {
+    await _disposeController();
+
+    if (!mounted) {
+      return;
+    }
+
+    await _initialize();
+  }
+
   Future<void> _initialize() async {
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       _initializing = true;
       _hasError = false;
@@ -2254,7 +2298,7 @@ class _VideoMessageBubbleState
                       width: 52,
                       height: 52,
                       decoration:
-                          BoxDecoration(
+                          const BoxDecoration(
                         color:
                             Colors.black45,
                         shape:
