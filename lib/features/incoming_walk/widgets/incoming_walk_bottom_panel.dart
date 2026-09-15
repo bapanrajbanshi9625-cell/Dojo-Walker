@@ -59,6 +59,10 @@ class _IncomingWalkBottomPanelState
     super.dispose();
   }
 
+  // ============================================================
+  // SNAP
+  // ============================================================
+
   void _snapTo(double size) {
     if (!_sheetController.isAttached) {
       return;
@@ -66,18 +70,52 @@ class _IncomingWalkBottomPanelState
 
     _sheetController.animateTo(
       size,
-      duration: const Duration(milliseconds: 260),
+      duration: const Duration(
+        milliseconds: 260,
+      ),
       curve: Curves.easeOutCubic,
     );
+  }
+
+  // ============================================================
+  // TOGGLE
+  // ============================================================
+
+  void _toggleSheet() {
+    if (!_sheetController.isAttached) {
+      return;
+    }
+
+    final double currentSize =
+        _sheetController.size;
+
+    final double middle =
+        (_collapsedSize + _expandedSize) / 2;
+
+    if (currentSize < middle) {
+      _snapTo(_expandedSize);
+    } else {
+      _snapTo(_collapsedSize);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
       controller: _sheetController,
+
+      // ----------------------------------------------------------
+      // PANEL SIZE
+      // ----------------------------------------------------------
+
       initialChildSize: _collapsedSize,
       minChildSize: _collapsedSize,
       maxChildSize: _expandedSize,
+
+      // ----------------------------------------------------------
+      // SNAP
+      // ----------------------------------------------------------
+
       snap: true,
       snapSizes: const <double>[
         _collapsedSize,
@@ -85,7 +123,13 @@ class _IncomingWalkBottomPanelState
       ],
       snapAnimationDuration:
           const Duration(milliseconds: 260),
-      expand: false,
+
+      // IMPORTANT:
+      // The parent screen uses Positioned.fill.
+      // Keep the sheet expanded to the available parent bounds
+      // so Flutter can correctly position the draggable sheet.
+      expand: true,
+
       builder: (
         BuildContext context,
         ScrollController scrollController,
@@ -109,6 +153,7 @@ class _IncomingWalkBottomPanelState
             ),
             child: SafeArea(
               top: false,
+              bottom: true,
               child: CustomScrollView(
                 controller: scrollController,
                 physics:
@@ -122,23 +167,7 @@ class _IncomingWalkBottomPanelState
                     child: GestureDetector(
                       behavior:
                           HitTestBehavior.opaque,
-                      onTap: () {
-                        if (!_sheetController.isAttached) {
-                          return;
-                        }
-
-                        final double current =
-                            _sheetController.size;
-
-                        if (current <
-                            ((_collapsedSize +
-                                    _expandedSize) /
-                                2)) {
-                          _snapTo(_expandedSize);
-                        } else {
-                          _snapTo(_collapsedSize);
-                        }
-                      },
+                      onTap: _toggleSheet,
                       child: Padding(
                         padding:
                             const EdgeInsets.fromLTRB(
@@ -178,8 +207,10 @@ class _IncomingWalkBottomPanelState
                       ),
                       child:
                           IncomingWalkOwnerDogDetails(
-                        dogName: widget.dogName,
-                        dogBreed: widget.dogBreed,
+                        dogName:
+                            widget.dogName,
+                        dogBreed:
+                            widget.dogBreed,
                         ownerName:
                             widget.ownerName,
                       ),
@@ -211,6 +242,9 @@ class _IncomingWalkBottomPanelState
                           // ==================================================
 
                           Row(
+                            crossAxisAlignment:
+                                CrossAxisAlignment
+                                    .stretch,
                             children: <Widget>[
                               Expanded(
                                 child: _InfoItem(
@@ -230,9 +264,11 @@ class _IncomingWalkBottomPanelState
                                 child: _InfoItem(
                                   icon: Icons
                                       .access_time,
-                                  label: 'Time',
+                                  label:
+                                      'Time',
                                   value:
-                                      widget.etaText,
+                                      widget
+                                          .etaText,
                                 ),
                               ),
                               const SizedBox(
@@ -333,6 +369,8 @@ class _InfoItem extends StatelessWidget {
             BorderRadius.circular(12),
       ),
       child: Column(
+        mainAxisSize:
+            MainAxisSize.min,
         crossAxisAlignment:
             CrossAxisAlignment.start,
         children: <Widget>[
@@ -342,7 +380,9 @@ class _InfoItem extends StatelessWidget {
             color:
                 DojoWalkerColors.primary,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(
+            height: 4,
+          ),
           Text(
             label,
             maxLines: 1,
@@ -354,7 +394,9 @@ class _InfoItem extends StatelessWidget {
                   Colors.grey.shade600,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(
+            height: 2,
+          ),
           Text(
             value,
             maxLines: 1,
