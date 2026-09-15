@@ -38,6 +38,7 @@ class InstaWalkRequestService {
   StreamController<List<InstaWalkRequest>>? _controller;
 
   Timer? _refreshTimer;
+  Timer? _gpsRetryTimer;
 
   bool _disposed = false;
   bool _availabilityListenerAttached = false;
@@ -73,6 +74,23 @@ class InstaWalkRequestService {
     });
 
     _scheduleListenerRefresh('stream_listened');
+
+    // ------------------------------------------------------------
+    // GPS can become active slightly after Online is enabled.
+    //
+    // Keep checking for a short period so that:
+    //
+    // Owner searches first
+    //        ↓
+    // request stays searching
+    //        ↓
+    // Walker goes Online
+    //        ↓
+    // GPS starts
+    //        ↓
+    // existing request is processed
+    // ------------------------------------------------------------
+    _startGpsRetryTimer();
   }
 
   // ============================================================
@@ -89,6 +107,9 @@ class InstaWalkRequestService {
 
     _refreshTimer?.cancel();
     _refreshTimer = null;
+
+    _gpsRetryTimer?.cancel();
+    _gpsRetryTimer = null;
   }
 
   // ============================================================
@@ -118,8 +139,96 @@ class InstaWalkRequestService {
   void _onAvailabilityChanged() {
     if (_disposed) return;
 
+    debugPrint(
+      '[InstaWalkRequestService] '
+      'AVAILABILITY CHANGED '
+      'online=${_availabilityService.isOnline} '
+      'insta=${_availabilityService.isInstaWalkSelected} '
+      'searching=${_availabilityService.isInstaWalkSearching} '
+      'activeWalk=${_availabilityService.isActiveWalk} '
+      'gps=${_locationService.isTracking}',
+    );
+
     _scheduleListenerRefresh(
       'availability_changed',
+    );
+
+    _startGpsRetryTimer();
+  }
+
+  // ============================================================
+  // GPS RETRY
+  //
+  // This specifically protects the Online -> GPS startup race.
+  // We do NOT start GPS here.
+  //
+  // WalkerAvailabilityService remains the owner of GPS lifecycle.
+  // ============================================================
+
+  void _startGpsRetryTimer() {
+    if (_disposed) return;
+
+    _gpsRetryTimer?.cancel();
+
+    if (_controller == null ||
+        _controller!.isClosed) {
+      return;
+    }
+
+    if (!_canBeSearchingForRequests()) {
+      return;
+    }
+
+    if (_locationService.isTracking) {
+      return;
+    }
+
+    int attempts = 0;
+
+    _gpsRetryTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (Timer timer) {
+        if (_disposed) {
+          timer.cancel();
+          return;
+        }
+
+        attempts++;
+
+        if (!_canBeSearchingForRequests()) {
+          timer.cancel();
+          return;
+        }
+
+        if (_locationService.isTracking) {
+          timer.cancel();
+
+          _scheduleListenerRefresh(
+            'gps_became_active',
+          );
+
+          return;
+        }
+
+        // Keep trying long enough for Android location startup.
+        if (attempts >= 15) {
+          timer.cancel();
+
+          debugPrint(
+            '[InstaWalkRequestService] '
+            'GPS RETRY WINDOW FINISHED '
+            'gps=${_locationService.isTracking}',
+          );
+
+          return;
+        }
+
+        debugPrint(
+          '[InstaWalkRequestService] '
+          'WAITING FOR GPS '
+          'attempt=$attempts',
+        );
+      },
     );
   }
 
@@ -136,8 +245,7 @@ class InstaWalkRequestService {
       return;
     }
 
-    final int generation =
-        ++_listenerGeneration;
+    final int generation = ++_listenerGeneration;
 
     _restartQueue = _restartQueue.then(
       (_) async {
@@ -189,7 +297,8 @@ class InstaWalkRequestService {
 
     if (generation != _listenerGeneration) {
       debugPrint(
-        '[InstaWalkRequestService] STALE SYNC '
+        '[InstaWalkRequestService] '
+        'STALE SYNC '
         'generation=$generation '
         'latest=$_listenerGeneration',
       );
@@ -197,11 +306,30 @@ class InstaWalkRequestService {
       return;
     }
 
-    if (!_canReceiveInstaWalkRequests()) {
+    // ------------------------------------------------------------
+    // IMPORTANT:
+    //
+    // Firestore listening is allowed as soon as the Walker is
+    // Online and available for Insta Walk.
+    //
+    // GPS is checked later when a request is processed.
+    //
+    // This prevents:
+    //
+    // Owner request created first
+    // +
+    // Walker comes Online
+    // +
+    // GPS starts a moment later
+    //
+    // from causing the Firestore listener to miss the request.
+    // ------------------------------------------------------------
+
+    if (!_canBeSearchingForRequests()) {
       debugPrint(
         '[InstaWalkRequestService] '
         'FIRESTORE LISTENER OFF '
-        'because receive conditions are not satisfied.',
+        'because Walker is not available for Insta Walk.',
       );
 
       _emitEmpty();
@@ -209,8 +337,7 @@ class InstaWalkRequestService {
       return;
     }
 
-    final String? walkerId =
-        await _getWalkerId();
+    final String? walkerId = await _getWalkerId();
 
     if (_disposed) return;
 
@@ -241,7 +368,8 @@ class InstaWalkRequestService {
     debugPrint(
       '[InstaWalkRequestService] '
       'FIRESTORE LISTENER STARTING '
-      'walkerId=$walkerId',
+      'walkerId=$walkerId '
+      'gps=${_locationService.isTracking}',
     );
 
     final Query<Map<String, dynamic>> query =
@@ -254,7 +382,7 @@ class InstaWalkRequestService {
 
     _requestSubscription =
         query.snapshots().listen(
-      (snapshot) {
+      (QuerySnapshot<Map<String, dynamic>> snapshot) {
         unawaited(
           _processSnapshot(
             snapshot,
@@ -264,8 +392,8 @@ class InstaWalkRequestService {
         );
       },
       onError: (
-        error,
-        stackTrace,
+        Object error,
+        StackTrace stackTrace,
       ) {
         debugPrint(
           '[InstaWalkRequestService] '
@@ -277,7 +405,7 @@ class InstaWalkRequestService {
         );
 
         if (!_disposed &&
-            _canReceiveInstaWalkRequests() &&
+            _canBeSearchingForRequests() &&
             generation == _listenerGeneration) {
           _scheduleListenerRefresh(
             'firestore_error',
@@ -309,7 +437,7 @@ class InstaWalkRequestService {
       return;
     }
 
-    if (!_canReceiveInstaWalkRequests()) {
+    if (!_canBeSearchingForRequests()) {
       _emitEmpty();
 
       return;
@@ -318,7 +446,8 @@ class InstaWalkRequestService {
     debugPrint(
       '[InstaWalkRequestService] '
       'REQUEST SNAPSHOT '
-      'count=${snapshot.docs.length}',
+      'count=${snapshot.docs.length} '
+      'gps=${_locationService.isTracking}',
     );
 
     if (snapshot.docs.isEmpty) {
@@ -369,13 +498,6 @@ class InstaWalkRequestService {
       return;
     }
 
-    // ==========================================================
-    // SORT BY CREATED AT
-    //
-    // InstaWalkRequest.createdAt is Timestamp?.
-    // Timestamp must be converted to DateTime.
-    // ==========================================================
-
     validRequests.sort(
       (
         InstaWalkRequest a,
@@ -418,11 +540,9 @@ class InstaWalkRequestService {
     QueryDocumentSnapshot<Map<String, dynamic>> doc,
     String walkerId,
   ) async {
-    final Map<String, dynamic> data =
-        doc.data();
+    final Map<String, dynamic> data = doc.data();
 
-    final String requestId =
-        doc.id;
+    final String requestId = doc.id;
 
     final String status =
         (data['status'] ?? '')
@@ -492,10 +612,6 @@ class InstaWalkRequestService {
 
     // ==========================================================
     // ALREADY CLAIMED BY THIS WALKER
-    //
-    // Do not attempt another Firestore claim.
-    // The Firestore rules allow the initial claim only when
-    // incomingWalkerUid is empty/null.
     // ==========================================================
 
     if (existingClaimWalkerUid == currentUid) {
@@ -531,29 +647,30 @@ class InstaWalkRequestService {
 
     // ==========================================================
     // WALKER LOCATION
+    //
+    // GPS is still mandatory for accepting an eligible request.
+    // We simply do not block the Firestore listener itself on GPS.
     // ==========================================================
 
-    final GeoPoint? walkerLocation =
-        _locationService.currentPosition != null
-            ? GeoPoint(
-                _locationService
-                    .currentPosition!
-                    .latitude,
-                _locationService
-                    .currentPosition!
-                    .longitude,
-              )
-            : null;
+    final currentPosition =
+        _locationService.currentPosition;
 
-    if (walkerLocation == null) {
+    if (currentPosition == null) {
       debugPrint(
         '[InstaWalkRequestService] '
-        'WALKER LOCATION MISSING '
-        'id=$requestId',
+        'WALKER LOCATION NOT READY '
+        'id=$requestId '
+        'gps=${_locationService.isTracking}',
       );
 
       return null;
     }
+
+    final GeoPoint walkerLocation =
+        GeoPoint(
+      currentPosition.latitude,
+      currentPosition.longitude,
+    );
 
     // ==========================================================
     // DISTANCE
@@ -801,10 +918,14 @@ class InstaWalkRequestService {
   }
 
   // ============================================================
-  // RECEIVE CONDITION
+  // BASIC RECEIVE CONDITION
+  //
+  // Firestore listener condition.
+  //
+  // GPS deliberately NOT included here.
   // ============================================================
 
-  bool _canReceiveInstaWalkRequests() {
+  bool _canBeSearchingForRequests() {
     final bool online =
         _availabilityService.isOnline;
 
@@ -817,14 +938,10 @@ class InstaWalkRequestService {
     final bool activeWalk =
         _availabilityService.isActiveWalk;
 
-    final bool gps =
-        _locationService.isTracking;
-
     return online &&
         insta &&
         searching &&
-        !activeWalk &&
-        gps;
+        !activeWalk;
   }
 
   // ============================================================
@@ -1026,6 +1143,9 @@ class InstaWalkRequestService {
 
     _refreshTimer?.cancel();
     _refreshTimer = null;
+
+    _gpsRetryTimer?.cancel();
+    _gpsRetryTimer = null;
 
     _detachAvailabilityListener();
 
