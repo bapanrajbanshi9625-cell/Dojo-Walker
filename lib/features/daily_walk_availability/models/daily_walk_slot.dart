@@ -1,7 +1,6 @@
 class DailyWalkSlot {
   final String id;
   final String walkerId;
-  final String day;
   final String startTime;
   final String endTime;
   final int durationMinutes;
@@ -10,7 +9,6 @@ class DailyWalkSlot {
   const DailyWalkSlot({
     required this.id,
     required this.walkerId,
-    required this.day,
     required this.startTime,
     required this.endTime,
     required this.durationMinutes,
@@ -36,7 +34,6 @@ class DailyWalkSlot {
   DailyWalkSlot copyWith({
     String? id,
     String? walkerId,
-    String? day,
     String? startTime,
     String? endTime,
     int? durationMinutes,
@@ -45,10 +42,10 @@ class DailyWalkSlot {
     return DailyWalkSlot(
       id: id ?? this.id,
       walkerId: walkerId ?? this.walkerId,
-      day: day ?? this.day,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
-      durationMinutes: durationMinutes ?? this.durationMinutes,
+      durationMinutes:
+          durationMinutes ?? this.durationMinutes,
       isActive: isActive ?? this.isActive,
     );
   }
@@ -57,7 +54,6 @@ class DailyWalkSlot {
     return {
       'id': id,
       'walkerId': walkerId,
-      'day': day,
       'startTime': startTime,
       'endTime': endTime,
       'durationMinutes': durationMinutes,
@@ -65,16 +61,18 @@ class DailyWalkSlot {
     };
   }
 
-  factory DailyWalkSlot.fromMap(Map<String, dynamic> map) {
+  factory DailyWalkSlot.fromMap(
+    Map<String, dynamic> map,
+  ) {
     return DailyWalkSlot(
       id: map['id'] as String? ?? '',
       walkerId: map['walkerId'] as String? ?? '',
-      day: map['day'] as String? ?? '',
       startTime: map['startTime'] as String? ?? '',
       endTime: map['endTime'] as String? ?? '',
       durationMinutes:
           (map['durationMinutes'] as num?)?.toInt() ?? 30,
-      isActive: map['isActive'] as bool? ?? true,
+      isActive:
+          map['isActive'] as bool? ?? true,
     );
   }
 }
