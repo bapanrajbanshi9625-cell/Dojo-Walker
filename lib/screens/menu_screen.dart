@@ -299,7 +299,8 @@ class MenuScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute<void>(
-                    builder: (_) => const HelpSupportScreen(),
+                    builder: (_) =>
+                        const WalkerHelpSupportScreen(),
                   ),
                 );
               },
