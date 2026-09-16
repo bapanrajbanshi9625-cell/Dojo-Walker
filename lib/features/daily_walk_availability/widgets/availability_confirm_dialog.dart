@@ -42,18 +42,21 @@ class AvailabilityConfirmDialog extends StatelessWidget {
         ),
         child: SingleChildScrollView(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
               const Text(
-                'Please confirm the walk slots you want to add:',
+                'Please confirm the daily walk slots you want to add:',
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.black54,
                   height: 1.4,
                 ),
               ),
+
               const SizedBox(height: 16),
-              ..._buildSlotGroups(),
+
+              ..._buildSlots(),
             ],
           ),
         ),
@@ -63,89 +66,162 @@ class AvailabilityConfirmDialog extends StatelessWidget {
           onPressed: () {
             Navigator.of(context).pop(false);
           },
-          child: const Text('Cancel'),
+          child: const Text(
+            'Cancel',
+          ),
         ),
+
         FilledButton(
           onPressed: () {
             Navigator.of(context).pop(true);
           },
           style: FilledButton.styleFrom(
-            backgroundColor: DojoWalkerColors.primary,
+            backgroundColor:
+                DojoWalkerColors.primary,
           ),
-          child: const Text('Confirm'),
+          child: const Text(
+            'Confirm',
+          ),
         ),
       ],
     );
   }
 
-  List<Widget> _buildSlotGroups() {
-    final grouped = <String, List<DailyWalkSlot>>{};
+  List<Widget> _buildSlots() {
+    final sortedSlots =
+        List<DailyWalkSlot>.from(slots);
 
-    for (final slot in slots) {
-      grouped.putIfAbsent(
-        slot.day,
-        () => <DailyWalkSlot>[],
-      ).add(slot);
-    }
+    sortedSlots.sort(
+      _sortSlots,
+    );
 
-    return grouped.entries.map((entry) {
-      final day = entry.key;
-      final daySlots = entry.value;
-
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 14),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: DojoWalkerColors.background,
-            borderRadius: BorderRadius.circular(12),
+    return sortedSlots.map(
+      (slot) {
+        return Padding(
+          padding: const EdgeInsets.only(
+            bottom: 10,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                day,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: DojoWalkerColors.navy,
+          child: Container(
+            width: double.infinity,
+            padding:
+                const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 11,
+            ),
+            decoration: BoxDecoration(
+              color:
+                  DojoWalkerColors.background,
+              borderRadius:
+                  BorderRadius.circular(12),
+            ),
+            child: Row(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.check_circle_outline_rounded,
+                  size: 19,
+                  color:
+                      DojoWalkerColors.primary,
                 ),
-              ),
-              const SizedBox(height: 8),
-              ...daySlots.map(
-                (slot) => Padding(
-                  padding: const EdgeInsets.only(
-                    bottom: 6,
-                  ),
-                  child: Row(
+
+                const SizedBox(width: 8),
+
+                Expanded(
+                  child: Column(
                     crossAxisAlignment:
                         CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.check_circle_outline_rounded,
-                        size: 18,
-                        color: DojoWalkerColors.primary,
+                      Text(
+                        '${slot.startTime} – '
+                        '${slot.endTime}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight:
+                              FontWeight.w700,
+                          color:
+                              DojoWalkerColors.navy,
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '${slot.startTime} – ${slot.endTime}\n'
-                          '${slot.durationLabel}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            height: 1.4,
-                          ),
+
+                      const SizedBox(height: 3),
+
+                      Text(
+                        '${slot.durationLabel} • Every day',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight:
+                              FontWeight.w600,
+                          color:
+                              Colors.black54,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
-    }).toList();
+        );
+      },
+    ).toList();
+  }
+
+  int _sortSlots(
+    DailyWalkSlot first,
+    DailyWalkSlot second,
+  ) {
+    return _timeToMinutes(
+      first.startTime,
+    ).compareTo(
+      _timeToMinutes(
+        second.startTime,
+      ),
+    );
+  }
+
+  int _timeToMinutes(
+    String time,
+  ) {
+    final parts =
+        time.trim().split(' ');
+
+    if (parts.length != 2) {
+      return 0;
+    }
+
+    final timeParts =
+        parts[0].split(':');
+
+    if (timeParts.length != 2) {
+      return 0;
+    }
+
+    int hour =
+        int.tryParse(
+              timeParts[0],
+            ) ??
+            0;
+
+    final minute =
+        int.tryParse(
+              timeParts[1],
+            ) ??
+            0;
+
+    final period =
+        parts[1].toUpperCase();
+
+    if (period == 'PM' &&
+        hour != 12) {
+      hour += 12;
+    }
+
+    if (period == 'AM' &&
+        hour == 12) {
+      hour = 0;
+    }
+
+    return (hour * 60) + minute;
   }
 }
