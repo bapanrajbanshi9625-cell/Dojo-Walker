@@ -122,16 +122,10 @@ class DailyWalkAvailabilityService {
     }
 
     // ----------------------------------------------------------
-    // Validate pending slots first.
+    // Validate pending slots.
     // ----------------------------------------------------------
 
     for (final slot in slots) {
-      if (slot.day.trim().isEmpty) {
-        throw ArgumentError(
-          'Day is required.',
-        );
-      }
-
       if (slot.startTime.trim().isEmpty) {
         throw ArgumentError(
           'Start time is required.',
@@ -186,8 +180,6 @@ class DailyWalkAvailabilityService {
     for (final pendingSlot in slots) {
       final duplicateExists = existingSlots.any(
         (existingSlot) =>
-            existingSlot.day ==
-                pendingSlot.day &&
             existingSlot.startTime ==
                 pendingSlot.startTime &&
             existingSlot.durationMinutes ==
@@ -203,7 +195,7 @@ class DailyWalkAvailabilityService {
     }
 
     // ----------------------------------------------------------
-    // Check duplicates inside the current pending list.
+    // Check duplicates inside pending list.
     // ----------------------------------------------------------
 
     for (int i = 0; i < slots.length; i++) {
@@ -212,7 +204,6 @@ class DailyWalkAvailabilityService {
         final second = slots[j];
 
         final duplicate =
-            first.day == second.day &&
             first.startTime == second.startTime &&
             first.durationMinutes ==
                 second.durationMinutes;
@@ -226,7 +217,7 @@ class DailyWalkAvailabilityService {
     }
 
     // ----------------------------------------------------------
-    // Create proper Firestore document IDs.
+    // Save all slots in one batch.
     // ----------------------------------------------------------
 
     final batch = _firestore.batch();
@@ -238,7 +229,6 @@ class DailyWalkAvailabilityService {
       final savedSlot = DailyWalkSlot(
         id: document.id,
         walkerId: walkerId,
-        day: slot.day,
         startTime: slot.startTime,
         endTime: slot.endTime,
         durationMinutes: slot.durationMinutes,
@@ -259,7 +249,6 @@ class DailyWalkAvailabilityService {
   // ============================================================
 
   Future<String> addSlot({
-    required String day,
     required String startTime,
     required String endTime,
     required int durationMinutes,
@@ -283,10 +272,6 @@ class DailyWalkAvailabilityService {
         .where(
           'walkerId',
           isEqualTo: walkerId,
-        )
-        .where(
-          'day',
-          isEqualTo: day,
         )
         .where(
           'startTime',
@@ -315,7 +300,6 @@ class DailyWalkAvailabilityService {
     final slot = DailyWalkSlot(
       id: document.id,
       walkerId: walkerId,
-      day: day,
       startTime: startTime,
       endTime: endTime,
       durationMinutes: durationMinutes,
@@ -428,15 +412,6 @@ class DailyWalkAvailabilityService {
     DailyWalkSlot first,
     DailyWalkSlot second,
   ) {
-    final dayComparison =
-        _dayIndex(first.day).compareTo(
-      _dayIndex(second.day),
-    );
-
-    if (dayComparison != 0) {
-      return dayComparison;
-    }
-
     return _timeToMinutes(
       first.startTime,
     ).compareTo(
@@ -444,24 +419,6 @@ class DailyWalkAvailabilityService {
         second.startTime,
       ),
     );
-  }
-
-  int _dayIndex(
-    String day,
-  ) {
-    const days = <String>[
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday',
-      'Sunday',
-    ];
-
-    final index = days.indexOf(day);
-
-    return index == -1 ? 999 : index;
   }
 
   int _timeToMinutes(
