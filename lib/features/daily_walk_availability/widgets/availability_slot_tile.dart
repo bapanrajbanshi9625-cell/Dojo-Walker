@@ -55,7 +55,7 @@ class AvailabilitySlotTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  slot.durationLabel,
+                  '${slot.durationLabel} • Every day',
                   style: const TextStyle(
                     fontSize: 12,
                     color: Colors.black54,
@@ -91,8 +91,8 @@ class AvailabilitySlotTile extends StatelessWidget {
             ),
           ),
           content: Text(
-            'Remove ${slot.day} ${slot.startTime} – ${slot.endTime} '
-            'from your availability?',
+            'Remove ${slot.startTime} – ${slot.endTime} '
+            'from your daily availability?',
             style: const TextStyle(
               fontSize: 14,
               height: 1.4,
