@@ -6,8 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/theme/dojo_walker_colors.dart';
-import 'mobile_login_screen.dart';
+import '../features/daily_walk_availability/screens/daily_walk_availability_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
+import 'mobile_login_screen.dart';
 
 class MenuScreen extends StatelessWidget {
   const MenuScreen({super.key});
@@ -86,14 +87,11 @@ class MenuScreen extends StatelessWidget {
                     Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        DojoWalkerColors.primary,
-                    foregroundColor:
-                        DojoWalkerColors.white,
+                    backgroundColor: DojoWalkerColors.primary,
+                    foregroundColor: DojoWalkerColors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                   child: const Text(
@@ -112,49 +110,17 @@ class MenuScreen extends StatelessWidget {
   }
 
   // ============================================================
-  // RELOAD APP
-  // ============================================================
-
-  Future<void> _reloadApp(
-    BuildContext context,
-  ) async {
-    final NavigatorState navigator =
-        Navigator.of(context);
-
-    if (navigator.canPop()) {
-      navigator.pop();
-    }
-
-    await Future<void>.delayed(
-      const Duration(milliseconds: 150),
-    );
-
-    if (!context.mounted) {
-      return;
-    }
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute<void>(
-        builder: (_) => const MenuScreen(),
-      ),
-    );
-  }
-
-  // ============================================================
   // LOGOUT
   // ============================================================
 
   Future<void> _logout(
     BuildContext context,
   ) async {
-    final bool? confirm =
-        await showDialog<bool>(
+    final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor:
-              DojoWalkerColors.card,
+          backgroundColor: DojoWalkerColors.card,
           title: const Text(
             'Logout',
             style: TextStyle(
@@ -226,13 +192,11 @@ class MenuScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          DojoWalkerColors.background,
+      backgroundColor: DojoWalkerColors.background,
       body: SafeArea(
         top: false,
         child: ListView(
-          physics:
-              const AlwaysScrollableScrollPhysics(),
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(
             16,
             14,
@@ -251,64 +215,16 @@ class MenuScreen extends StatelessWidget {
             const SizedBox(height: 8),
 
             _MenuCard(
-              icon:
-                  Icons.person_outline_rounded,
-              iconColor:
-                  DojoWalkerColors.primary,
+              icon: Icons.person_outline_rounded,
+              iconColor: DojoWalkerColors.primary,
               title: 'My Profile',
-              subtitle:
-                  'View and manage your Walker profile',
+              subtitle: 'View and manage your Walker profile',
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute<void>(
-                    builder: (_) =>
-                        const ProfileScreen(),
+                    builder: (_) => const ProfileScreen(),
                   ),
-                );
-              },
-            ),
-
-            const SizedBox(height: 10),
-
-            _MenuCard(
-              icon:
-                  Icons.directions_walk_rounded,
-              iconColor:
-                  DojoWalkerColors.info,
-              title: 'My Walks',
-              subtitle:
-                  'View your completed and past walks',
-              onTap: () {
-                _showComingSoon(
-                  context,
-                  title: 'My Walks',
-                  description:
-                      'Your completed walk history will appear here.',
-                  icon:
-                      Icons.directions_walk_rounded,
-                );
-              },
-            ),
-
-            const SizedBox(height: 10),
-
-            _MenuCard(
-              icon:
-                  Icons.star_outline_rounded,
-              iconColor:
-                  DojoWalkerColors.warning,
-              title: 'Ratings & Reviews',
-              subtitle:
-                  'View your Walker ratings and reviews',
-              onTap: () {
-                _showComingSoon(
-                  context,
-                  title: 'Ratings & Reviews',
-                  description:
-                      'Your ratings and owner reviews will appear here.',
-                  icon:
-                      Icons.star_outline_rounded,
                 );
               },
             ),
@@ -326,44 +242,18 @@ class MenuScreen extends StatelessWidget {
             const SizedBox(height: 8),
 
             _MenuCard(
-              icon:
-                  Icons.checkroom_outlined,
-              iconColor:
-                  DojoWalkerColors.primary,
-              title: 'Walker Uniform',
+              icon: Icons.calendar_month_outlined,
+              iconColor: DojoWalkerColors.primary,
+              title: 'Daily Walk Availability',
               subtitle:
-                  'Uniform requirements and information',
+                  'Set your available days and walk time slots',
               onTap: () {
-                _showComingSoon(
+                Navigator.push(
                   context,
-                  title: 'Walker Uniform',
-                  description:
-                      'Your official Dojo Walker uniform information will appear here.',
-                  icon:
-                      Icons.checkroom_outlined,
-                );
-              },
-            ),
-
-            const SizedBox(height: 10),
-
-            _MenuCard(
-              icon: Icons.badge_outlined,
-              iconColor:
-                  DojoWalkerColors.info,
-              title:
-                  'Walker ID / Verification',
-              subtitle:
-                  'View your Walker verification details',
-              onTap: () {
-                _showComingSoon(
-                  context,
-                  title:
-                      'Walker ID / Verification',
-                  description:
-                      'Your Walker ID and verification information will appear here.',
-                  icon:
-                      Icons.badge_outlined,
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        const DailyWalkAvailabilityScreen(),
+                  ),
                 );
               },
             ),
@@ -381,23 +271,18 @@ class MenuScreen extends StatelessWidget {
             const SizedBox(height: 8),
 
             _MenuCard(
-              icon:
-                  Icons.emergency_outlined,
-              iconColor:
-                  DojoWalkerColors.error,
-              title:
-                  'Safety / Emergency',
+              icon: Icons.emergency_outlined,
+              iconColor: DojoWalkerColors.error,
+              title: 'Safety / Emergency',
               subtitle:
                   'Emergency and Walker safety information',
               onTap: () {
                 _showComingSoon(
                   context,
-                  title:
-                      'Safety / Emergency',
+                  title: 'Safety / Emergency',
                   description:
                       'Emergency contacts and Walker safety tools will appear here.',
-                  icon:
-                      Icons.emergency_outlined,
+                  icon: Icons.emergency_outlined,
                 );
               },
             ),
@@ -405,22 +290,17 @@ class MenuScreen extends StatelessWidget {
             const SizedBox(height: 10),
 
             _MenuCard(
-              icon:
-                  Icons.headset_mic_outlined,
-              iconColor:
-                  DojoWalkerColors.info,
+              icon: Icons.headset_mic_outlined,
+              iconColor: DojoWalkerColors.info,
               title: 'Help & Support',
-              subtitle:
-                  'Get help with your Walker account',
+              subtitle: 'Get help with your Walker account',
               onTap: () {
                 _showComingSoon(
                   context,
-                  title:
-                      'Help & Support',
+                  title: 'Help & Support',
                   description:
                       'Walker support options will appear here.',
-                  icon:
-                      Icons.headset_mic_outlined,
+                  icon: Icons.headset_mic_outlined,
                 );
               },
             ),
@@ -428,21 +308,17 @@ class MenuScreen extends StatelessWidget {
             const SizedBox(height: 10),
 
             _MenuCard(
-              icon:
-                  Icons.help_outline_rounded,
-              iconColor:
-                  DojoWalkerColors.primary,
+              icon: Icons.help_outline_rounded,
+              iconColor: DojoWalkerColors.primary,
               title: 'FAQs',
-              subtitle:
-                  'Frequently asked Walker questions',
+              subtitle: 'Frequently asked Walker questions',
               onTap: () {
                 _showComingSoon(
                   context,
                   title: 'FAQs',
                   description:
                       'Frequently asked questions for Walkers will appear here.',
-                  icon:
-                      Icons.help_outline_rounded,
+                  icon: Icons.help_outline_rounded,
                 );
               },
             ),
@@ -460,68 +336,17 @@ class MenuScreen extends StatelessWidget {
             const SizedBox(height: 8),
 
             _MenuCard(
-              icon:
-                  Icons.description_outlined,
-              iconColor:
-                  DojoWalkerColors.textSecondary,
-              title:
-                  'Terms & Conditions',
-              subtitle:
-                  'Dojo Walker terms and conditions',
+              icon: Icons.description_outlined,
+              iconColor: DojoWalkerColors.textSecondary,
+              title: 'Terms & Conditions',
+              subtitle: 'Dojo Walker terms and conditions',
               onTap: () {
                 _showComingSoon(
                   context,
-                  title:
-                      'Terms & Conditions',
+                  title: 'Terms & Conditions',
                   description:
                       'The Dojo Walker terms and conditions will appear here.',
-                  icon:
-                      Icons.description_outlined,
-                );
-              },
-            ),
-
-            const SizedBox(height: 10),
-
-            _MenuCard(
-              icon:
-                  Icons.lock_outline_rounded,
-              iconColor:
-                  DojoWalkerColors.textSecondary,
-              title: 'Privacy Policy',
-              subtitle:
-                  'How your information is handled',
-              onTap: () {
-                _showComingSoon(
-                  context,
-                  title: 'Privacy Policy',
-                  description:
-                      'The Dojo Walker privacy policy will appear here.',
-                  icon:
-                      Icons.lock_outline_rounded,
-                );
-              },
-            ),
-
-            const SizedBox(height: 10),
-
-            _MenuCard(
-              icon:
-                  Icons.info_outline_rounded,
-              iconColor:
-                  DojoWalkerColors.textSecondary,
-              title: 'About Dojo Walker',
-              subtitle:
-                  'App information and version',
-              onTap: () {
-                _showComingSoon(
-                  context,
-                  title:
-                      'About Dojo Walker',
-                  description:
-                      'Dojo Walker application information will appear here.',
-                  icon:
-                      Icons.info_outline_rounded,
+                  icon: Icons.description_outlined,
                 );
               },
             ),
@@ -539,28 +364,10 @@ class MenuScreen extends StatelessWidget {
             const SizedBox(height: 8),
 
             _MenuCard(
-              icon:
-                  Icons.refresh_rounded,
-              iconColor:
-                  DojoWalkerColors.primary,
-              title: 'Reload App',
-              subtitle:
-                  'Refresh the Walker app',
-              onTap: () {
-                _reloadApp(context);
-              },
-            ),
-
-            const SizedBox(height: 10),
-
-            _MenuCard(
-              icon:
-                  Icons.logout_rounded,
-              iconColor:
-                  DojoWalkerColors.error,
+              icon: Icons.logout_rounded,
+              iconColor: DojoWalkerColors.error,
               title: 'Logout',
-              subtitle:
-                  'Sign out of your Walker account',
+              subtitle: 'Sign out of your Walker account',
               destructive: true,
               onTap: () {
                 _logout(context);
@@ -622,36 +429,31 @@ class _MenuCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color effectiveTitleColor =
-        destructive
-            ? DojoWalkerColors.error
-            : DojoWalkerColors.textPrimary;
+    final Color effectiveTitleColor = destructive
+        ? DojoWalkerColors.error
+        : DojoWalkerColors.textPrimary;
 
-    final Color effectiveSubtitleColor =
-        destructive
-            ? DojoWalkerColors.error
-            : DojoWalkerColors.textSecondary;
+    final Color effectiveSubtitleColor = destructive
+        ? DojoWalkerColors.error
+        : DojoWalkerColors.textSecondary;
 
-    final Color iconBackground =
-        destructive
-            ? DojoWalkerColors.error.withValues(
-                alpha: 0.08,
-              )
-            : iconColor.withValues(
-                alpha: 0.10,
-              );
+    final Color iconBackground = destructive
+        ? DojoWalkerColors.error.withValues(
+            alpha: 0.08,
+          )
+        : iconColor.withValues(
+            alpha: 0.10,
+          );
 
     return Material(
       color: DojoWalkerColors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius:
-            BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16),
         child: Ink(
           decoration: BoxDecoration(
             color: DojoWalkerColors.card,
-            borderRadius:
-                BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: DojoWalkerColors.border,
             ),
@@ -672,8 +474,7 @@ class _MenuCard extends StatelessWidget {
                   height: 44,
                   decoration: BoxDecoration(
                     color: iconBackground,
-                    borderRadius:
-                        BorderRadius.circular(13),
+                    borderRadius: BorderRadius.circular(13),
                   ),
                   child: Icon(
                     icon,
@@ -696,25 +497,20 @@ class _MenuCard extends StatelessWidget {
                       Text(
                         title,
                         maxLines: 1,
-                        overflow:
-                            TextOverflow.ellipsis,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color:
-                              effectiveTitleColor,
+                          color: effectiveTitleColor,
                           fontSize: 15,
-                          fontWeight:
-                              FontWeight.w700,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         subtitle,
                         maxLines: 1,
-                        overflow:
-                            TextOverflow.ellipsis,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color:
-                              effectiveSubtitleColor,
+                          color: effectiveSubtitleColor,
                           fontSize: 12,
                         ),
                       ),
