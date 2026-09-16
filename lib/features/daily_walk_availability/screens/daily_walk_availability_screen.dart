@@ -7,7 +7,6 @@ import '../models/daily_walk_slot.dart';
 import '../services/daily_walk_availability_service.dart';
 import '../widgets/add_slot_sheet.dart';
 import '../widgets/availability_confirm_dialog.dart';
-import '../widgets/availability_day_section.dart';
 
 class DailyWalkAvailabilityScreen extends StatefulWidget {
   const DailyWalkAvailabilityScreen({
@@ -21,24 +20,12 @@ class DailyWalkAvailabilityScreen extends StatefulWidget {
 
 class _DailyWalkAvailabilityScreenState
     extends State<DailyWalkAvailabilityScreen> {
-  static const List<String> _days = <String>[
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday',
-  ];
-
   final DailyWalkAvailabilityService _service =
       DailyWalkAvailabilityService.instance;
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  final List<DailyWalkSlot> _pendingSlots =
-      <DailyWalkSlot>[];
+  final List<DailyWalkSlot> _pendingSlots = <DailyWalkSlot>[];
 
   bool _isSaving = false;
 
@@ -109,6 +96,8 @@ class _DailyWalkAvailabilityScreenState
       ..._pendingSlots,
     ];
 
+    allSlots.sort(_sortSlots);
+
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(
@@ -124,28 +113,248 @@ class _DailyWalkAvailabilityScreenState
             _buildPendingNotice(),
           if (_pendingSlots.isNotEmpty)
             const SizedBox(height: 12),
-          ..._days.map(
-            (day) {
-              final daySlots = allSlots
-                  .where(
-                    (slot) => slot.day == day,
-                  )
-                  .toList();
-
-              daySlots.sort(_sortSlots);
-
-              return AvailabilityDaySection(
-                day: day,
-                slots: daySlots,
-                onDeleteSlot: (slot) {
-                  _deleteSlot(slot);
-                },
-              );
-            },
+          _buildSlotsList(
+            allSlots,
           ),
         ],
       ),
     );
+  }
+
+  // ============================================================
+  // SLOTS LIST
+  // ============================================================
+
+  Widget _buildSlotsList(
+    List<DailyWalkSlot> slots,
+  ) {
+    if (slots.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 32,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: Colors.black.withValues(
+              alpha: 0.05,
+            ),
+          ),
+        ),
+        child: const Column(
+          children: [
+            Icon(
+              Icons.schedule_rounded,
+              size: 42,
+              color: Colors.black26,
+            ),
+            SizedBox(height: 12),
+            Text(
+              'No walk slots added yet.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: DojoWalkerColors.navy,
+              ),
+            ),
+            SizedBox(height: 6),
+            Text(
+              'Tap + to add your available walk time.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.black54,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(
+            left: 2,
+            bottom: 10,
+          ),
+          child: Text(
+            'Your Available Slots',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: DojoWalkerColors.navy,
+            ),
+          ),
+        ),
+        ...slots.map(
+          (slot) => _buildSlotCard(
+            slot,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // SLOT CARD
+  // ============================================================
+
+  Widget _buildSlotCard(
+    DailyWalkSlot slot,
+  ) {
+    final isPending = _pendingSlots.any(
+      (pending) => pending.id == slot.id,
+    );
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(
+        bottom: 10,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 15,
+        vertical: 14,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isPending
+              ? DojoWalkerColors.primary.withValues(
+                  alpha: 0.20,
+                )
+              : Colors.black.withValues(
+                  alpha: 0.05,
+                ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: 0.035,
+            ),
+            blurRadius: 10,
+            offset: const Offset(
+              0,
+              3,
+            ),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: DojoWalkerColors.light,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.schedule_rounded,
+              color: DojoWalkerColors.primary,
+              size: 23,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _slotTimeText(
+                    slot,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: DojoWalkerColors.navy,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${slot.durationMinutes} minutes',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black54,
+                  ),
+                ),
+                if (isPending) ...[
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Waiting to be saved',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: DojoWalkerColors.primary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _isSaving
+                ? null
+                : () {
+                    _deleteSlot(
+                      slot,
+                    );
+                  },
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              size: 22,
+            ),
+            color: Colors.black45,
+            tooltip: 'Remove slot',
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _slotTimeText(
+    DailyWalkSlot slot,
+  ) {
+    final startMinutes = _timeToMinutes(
+      slot.startTime,
+    );
+
+    final endMinutes =
+        startMinutes + slot.durationMinutes;
+
+    return '${_minutesToTime(startMinutes)}'
+        ' – '
+        '${_minutesToTime(endMinutes)}';
+  }
+
+  String _minutesToTime(
+    int minutes,
+  ) {
+    final normalized = minutes % (24 * 60);
+
+    final hour24 = normalized ~/ 60;
+    final minute = normalized % 60;
+
+    final period = hour24 >= 12
+        ? 'PM'
+        : 'AM';
+
+    int hour12 = hour24 % 12;
+
+    if (hour12 == 0) {
+      hour12 = 12;
+    }
+
+    return '${hour12.toString().padLeft(2, '0')}:'
+        '${minute.toString().padLeft(2, '0')} '
+        '$period';
   }
 
   // ============================================================
@@ -170,7 +379,10 @@ class _DailyWalkAvailabilityScreenState
               alpha: 0.04,
             ),
             blurRadius: 12,
-            offset: const Offset(0, 4),
+            offset: const Offset(
+              0,
+              4,
+            ),
           ),
         ],
       ),
@@ -187,8 +399,8 @@ class _DailyWalkAvailabilityScreenState
           ),
           SizedBox(height: 7),
           Text(
-            'Add the days and time slots when you are '
-            'available for daily walks.',
+            'Add the time slots when you are '
+            'available for walks.',
             style: TextStyle(
               fontSize: 13,
               color: Colors.black54,
@@ -308,7 +520,10 @@ class _DailyWalkAvailabilityScreenState
                 alpha: 0.08,
               ),
               blurRadius: 12,
-              offset: const Offset(0, -3),
+              offset: const Offset(
+                0,
+                -3,
+              ),
             ),
           ],
         ),
@@ -414,7 +629,6 @@ class _DailyWalkAvailabilityScreenState
   ) {
     return _pendingSlots.any(
       (existing) =>
-          existing.day == slot.day &&
           existing.startTime == slot.startTime &&
           existing.durationMinutes ==
               slot.durationMinutes,
@@ -489,7 +703,6 @@ class _DailyWalkAvailabilityScreenState
   Future<void> _deleteSlot(
     DailyWalkSlot slot,
   ) async {
-    // Pending slot has not been saved to Firebase yet.
     if (_pendingSlots.any(
       (pending) => pending.id == slot.id,
     )) {
