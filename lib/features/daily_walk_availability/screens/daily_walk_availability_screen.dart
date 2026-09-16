@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/dojo_walker_colors.dart';
 import '../models/daily_walk_slot.dart';
 import '../services/daily_walk_availability_service.dart';
+import '../widgets/add_slot_sheet.dart';
 
 class DailyWalkAvailabilityScreen extends StatefulWidget {
   const DailyWalkAvailabilityScreen({
@@ -73,6 +74,22 @@ class _DailyWalkAvailabilityScreenState
     return _slots.where((slot) => slot.day == day).toList();
   }
 
+  void _openAddSlotSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      useSafeArea: true,
+      builder: (context) {
+        return AddSlotSheet(
+          onSlotAdded: () {
+            // Firestore stream automatically refreshes the screen.
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _deleteSlot(DailyWalkSlot slot) async {
     try {
       await _service.deleteSlot(slot.id);
@@ -94,7 +111,10 @@ class _DailyWalkAvailabilityScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            error.toString().replaceFirst('Exception: ', ''),
+            error.toString().replaceFirst(
+              'Exception: ',
+              '',
+            ),
           ),
         ),
       );
@@ -138,14 +158,6 @@ class _DailyWalkAvailabilityScreenState
     }
   }
 
-  void _openAddSlot() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Add Slot screen will be connected next.'),
-      ),
-    );
-  }
-
   @override
   void dispose() {
     _subscription?.cancel();
@@ -163,9 +175,10 @@ class _DailyWalkAvailabilityScreenState
         elevation: 0,
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _openAddSlot,
+        onPressed: _openAddSlotSheet,
         backgroundColor: DojoWalkerColors.primary,
         foregroundColor: Colors.white,
+        elevation: 4,
         child: const Icon(Icons.add),
       ),
       body: SafeArea(
@@ -184,7 +197,12 @@ class _DailyWalkAvailabilityScreenState
   Widget _buildAvailabilityHeader() {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      margin: const EdgeInsets.fromLTRB(
+        16,
+        12,
+        16,
+        8,
+      ),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -205,6 +223,7 @@ class _DailyWalkAvailabilityScreenState
             style: TextStyle(
               fontSize: 19,
               fontWeight: FontWeight.w700,
+              color: DojoWalkerColors.navy,
             ),
           ),
           SizedBox(height: 6),
@@ -230,6 +249,7 @@ class _DailyWalkAvailabilityScreenState
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
+                  color: DojoWalkerColors.navy,
                 ),
               ),
             ],
@@ -267,7 +287,12 @@ class _DailyWalkAvailabilityScreenState
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        8,
+        16,
+        100,
+      ),
       itemCount: _days.length,
       itemBuilder: (context, index) {
         final day = _days[index];
@@ -306,7 +331,9 @@ class _DailyWalkAvailabilityScreenState
           const SizedBox(height: 10),
           if (slots.isEmpty)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
+              padding: EdgeInsets.symmetric(
+                vertical: 8,
+              ),
               child: Text(
                 'No slots added yet',
                 style: TextStyle(
@@ -350,6 +377,7 @@ class _DailyWalkAvailabilityScreenState
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
+                    color: DojoWalkerColors.navy,
                   ),
                 ),
                 const SizedBox(height: 3),
