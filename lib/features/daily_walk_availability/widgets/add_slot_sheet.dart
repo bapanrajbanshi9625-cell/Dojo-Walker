@@ -1,33 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/dojo_walker_colors.dart';
-import '../services/daily_walk_availability_service.dart';
+import '../models/daily_walk_slot.dart';
 
 class AddSlotSheet extends StatefulWidget {
   const AddSlotSheet({
     super.key,
-    required this.onSlotAdded,
   });
-
-  final VoidCallback onSlotAdded;
 
   @override
   State<AddSlotSheet> createState() => _AddSlotSheetState();
 }
 
 class _AddSlotSheetState extends State<AddSlotSheet> {
-  final DailyWalkAvailabilityService _service =
-      DailyWalkAvailabilityService.instance;
-
-  String _selectedDay = 'Monday';
-  TimeOfDay _startTime = const TimeOfDay(
-    hour: 4,
-    minute: 0,
-  );
-
-  int _durationMinutes = 30;
-  bool _isSaving = false;
-
   static const List<String> _days = <String>[
     'Monday',
     'Tuesday',
@@ -38,141 +23,100 @@ class _AddSlotSheetState extends State<AddSlotSheet> {
     'Sunday',
   ];
 
-  TimeOfDay get _endTime {
-    final totalMinutes =
-        (_startTime.hour * 60) +
-        _startTime.minute +
-        _durationMinutes;
+  static const int _openingMinutes = 4 * 60;
+  static const int _closingMinutes = 22 * 60;
 
-    final hour = (totalMinutes ~/ 60) % 24;
+  String _selectedDay = 'Monday';
+  TimeOfDay _selectedStartTime = const TimeOfDay(
+    hour: 4,
+    minute: 0,
+  );
+  int _selectedDuration = 30;
+
+  int get _startMinutes =>
+      (_selectedStartTime.hour * 60) + _selectedStartTime.minute;
+
+  int get _endMinutes => _startMinutes + _selectedDuration;
+
+  bool get _isValidTime =>
+      _startMinutes >= _openingMinutes &&
+      _endMinutes <= _closingMinutes;
+
+  String _formatTime(int totalMinutes) {
+    final hour24 = (totalMinutes ~/ 60) % 24;
     final minute = totalMinutes % 60;
 
-    return TimeOfDay(
-      hour: hour,
-      minute: minute,
-    );
+    final period = hour24 >= 12 ? 'PM' : 'AM';
+
+    int hour12 = hour24 % 12;
+    if (hour12 == 0) {
+      hour12 = 12;
+    }
+
+    return '${hour12.toString().padLeft(2, '0')}:'
+        '${minute.toString().padLeft(2, '0')} $period';
   }
 
   Future<void> _selectStartTime() async {
     final picked = await showTimePicker(
       context: context,
-      initialTime: _startTime,
+      initialTime: _selectedStartTime,
+      helpText: 'Select Start Time',
     );
 
     if (picked == null || !mounted) {
       return;
     }
 
-    final startMinutes =
-        (picked.hour * 60) + picked.minute;
-
-    final endMinutes =
-        startMinutes + _durationMinutes;
-
-    const earliestMinutes = 4 * 60;
-    const latestMinutes = 22 * 60;
-
-    if (startMinutes < earliestMinutes ||
-        endMinutes > latestMinutes) {
-      _showMessage(
-        'Walk time must be between 4:00 AM and 10:00 PM.',
-      );
-      return;
-    }
-
     setState(() {
-      _startTime = picked;
+      _selectedStartTime = picked;
     });
   }
 
-  String _formatTime(TimeOfDay time) {
-    final hour = time.hourOfPeriod == 0
-        ? 12
-        : time.hourOfPeriod;
-
-    final minute =
-        time.minute.toString().padLeft(2, '0');
-
-    final period =
-        time.period == DayPeriod.am ? 'AM' : 'PM';
-
-    return '$hour:$minute $period';
+  void _selectDuration(int duration) {
+    setState(() {
+      _selectedDuration = duration;
+    });
   }
 
-  Future<void> _addSlot() async {
-    if (_isSaving) {
-      return;
-    }
-
-    final startMinutes =
-        (_startTime.hour * 60) + _startTime.minute;
-
-    final endMinutes =
-        startMinutes + _durationMinutes;
-
-    if (startMinutes < 4 * 60 ||
-        endMinutes > 22 * 60) {
+  void _addSlot() {
+    if (!_isValidTime) {
       _showMessage(
-        'Please select a time between 4:00 AM and 10:00 PM.',
+        'Slot must be between 4:00 AM and 10:00 PM.',
       );
       return;
     }
 
-    setState(() {
-      _isSaving = true;
-    });
+    final startTime = _formatTime(_startMinutes);
+    final endTime = _formatTime(_endMinutes);
 
-    try {
-      await _service.addSlot(
-        day: _selectedDay,
-        startTime: _formatTime(_startTime),
-        endTime: _formatTime(_endTime),
-        durationMinutes: _durationMinutes,
-      );
+    final slot = DailyWalkSlot(
+      id: '',
+      walkerId: '',
+      day: _selectedDay,
+      startTime: startTime,
+      endTime: endTime,
+      durationMinutes: _selectedDuration,
+      isActive: true,
+    );
 
-      if (!mounted) {
-        return;
-      }
-
-      widget.onSlotAdded();
-
-      Navigator.of(context).pop();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Walk slot added successfully.'),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      _showMessage(
-        error.toString().replaceFirst(
-          'Exception: ',
-          '',
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
-    }
+    Navigator.of(context).pop(slot);
   }
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final endTime = _formatTime(_endMinutes);
+    final isValid = _isValidTime;
+
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(
@@ -183,7 +127,6 @@ class _AddSlotSheetState extends State<AddSlotSheet> {
         ),
         child: SingleChildScrollView(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
@@ -191,26 +134,28 @@ class _AddSlotSheetState extends State<AddSlotSheet> {
                   width: 42,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.black12,
-                    borderRadius: BorderRadius.circular(20),
+                    color: Colors.black.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
               const SizedBox(height: 18),
+
               const Text(
                 'Add Walk Slot',
                 style: TextStyle(
                   fontSize: 20,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                   color: DojoWalkerColors.navy,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 5),
               const Text(
-                'Add a regular walk slot for your selected day.',
+                'Choose your available day, start time and walk duration.',
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.black54,
+                  height: 1.4,
                 ),
               ),
               const SizedBox(height: 22),
@@ -219,38 +164,56 @@ class _AddSlotSheetState extends State<AddSlotSheet> {
                 'Day',
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
+                  color: DojoWalkerColors.navy,
                 ),
               ),
               const SizedBox(height: 8),
 
-              DropdownButtonFormField<String>(
-                initialValue: _selectedDay,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: DojoWalkerColors.background,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: DojoWalkerColors.background,
+                  borderRadius: BorderRadius.circular(13),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.07),
                   ),
                 ),
-                items: _days.map((day) {
-                  return DropdownMenuItem<String>(
-                    value: day,
-                    child: Text(day),
-                  );
-                }).toList(),
-                onChanged: _isSaving
-                    ? null
-                    : (value) {
-                        if (value == null) {
-                          return;
-                        }
-
-                        setState(() {
-                          _selectedDay = value;
-                        });
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedDay,
+                    isExpanded: true,
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                    ),
+                    items: _days.map(
+                      (day) {
+                        return DropdownMenuItem<String>(
+                          value: day,
+                          child: Text(
+                            day,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        );
                       },
+                    ).toList(),
+                    onChanged: (value) {
+                      if (value == null) {
+                        return;
+                      }
+
+                      setState(() {
+                        _selectedDay = value;
+                      });
+                    },
+                  ),
+                ),
               ),
 
               const SizedBox(height: 20),
@@ -259,44 +222,49 @@ class _AddSlotSheetState extends State<AddSlotSheet> {
                 'Start Time',
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
+                  color: DojoWalkerColors.navy,
                 ),
               ),
               const SizedBox(height: 8),
 
               InkWell(
-                onTap: _isSaving
-                    ? null
-                    : _selectStartTime,
-                borderRadius: BorderRadius.circular(12),
+                onTap: _selectStartTime,
+                borderRadius: BorderRadius.circular(13),
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 15,
+                    horizontal: 14,
+                    vertical: 14,
                   ),
                   decoration: BoxDecoration(
                     color: DojoWalkerColors.background,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(13),
+                    border: Border.all(
+                      color: Colors.black.withValues(alpha: 0.07),
+                    ),
                   ),
                   child: Row(
                     children: [
                       const Icon(
                         Icons.access_time_rounded,
                         color: DojoWalkerColors.primary,
+                        size: 21,
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Text(
-                        _formatTime(_startTime),
+                        _formatTime(_startMinutes),
                         style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: DojoWalkerColors.navy,
                         ),
                       ),
                       const Spacer(),
                       const Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: Colors.black54,
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: Colors.black45,
                       ),
                     ],
                   ),
@@ -309,7 +277,8 @@ class _AddSlotSheetState extends State<AddSlotSheet> {
                 'Walk Duration',
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
+                  color: DojoWalkerColors.navy,
                 ),
               ),
               const SizedBox(height: 8),
@@ -317,16 +286,18 @@ class _AddSlotSheetState extends State<AddSlotSheet> {
               Row(
                 children: [
                   Expanded(
-                    child: _durationButton(
+                    child: _DurationButton(
                       label: '30 Minutes',
-                      value: 30,
+                      selected: _selectedDuration == 30,
+                      onTap: () => _selectDuration(30),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: _durationButton(
+                    child: _DurationButton(
                       label: '1 Hour',
-                      value: 60,
+                      selected: _selectedDuration == 60,
+                      onTap: () => _selectDuration(60),
                     ),
                   ),
                 ],
@@ -336,25 +307,35 @@ class _AddSlotSheetState extends State<AddSlotSheet> {
 
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(13),
                 decoration: BoxDecoration(
-                  color: DojoWalkerColors.light,
-                  borderRadius: BorderRadius.circular(12),
+                  color: isValid
+                      ? DojoWalkerColors.light
+                      : Colors.red.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(13),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.event_available_rounded,
-                      color: DojoWalkerColors.primary,
+                    Icon(
+                      isValid
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.error_outline_rounded,
+                      size: 19,
+                      color: isValid
+                          ? DojoWalkerColors.primary
+                          : Colors.red,
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 9),
                     Expanded(
                       child: Text(
-                        '${_formatTime(_startTime)} – '
-                        '${_formatTime(_endTime)}',
-                        style: const TextStyle(
-                          fontSize: 14,
+                        '$_selectedDay  •  '
+                        '${_formatTime(_startMinutes)} – $endTime',
+                        style: TextStyle(
+                          fontSize: 13,
                           fontWeight: FontWeight.w700,
+                          color: isValid
+                              ? DojoWalkerColors.deep
+                              : Colors.red.shade700,
                         ),
                       ),
                     ),
@@ -362,61 +343,47 @@ class _AddSlotSheetState extends State<AddSlotSheet> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 22),
 
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _isSaving
-                          ? null
-                          : () {
-                              Navigator.of(context).pop();
-                            },
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(
-                          double.infinity,
-                          50,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text('Cancel'),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: FilledButton(
+                  onPressed: isValid ? _addSlot : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: DojoWalkerColors.primary,
+                    disabledBackgroundColor:
+                        Colors.black.withValues(alpha: 0.08),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed:
-                          _isSaving ? null : _addSlot,
-                      style: FilledButton.styleFrom(
-                        backgroundColor:
-                            DojoWalkerColors.primary,
-                        minimumSize: const Size(
-                          double.infinity,
-                          50,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: _isSaving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child:
-                                  CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('Add Slot'),
+                  child: const Text(
+                    'Add Slot',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ],
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -424,49 +391,40 @@ class _AddSlotSheetState extends State<AddSlotSheet> {
       ),
     );
   }
+}
 
-  Widget _durationButton({
-    required String label,
-    required int value,
-  }) {
-    final selected = _durationMinutes == value;
+class _DurationButton extends StatelessWidget {
+  const _DurationButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
-    return InkWell(
-      onTap: _isSaving
-          ? null
-          : () {
-              final startMinutes =
-                  (_startTime.hour * 60) +
-                  _startTime.minute;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
-              if (startMinutes + value > 22 * 60) {
-                _showMessage(
-                  'This duration goes beyond 10:00 PM.',
-                );
-                return;
-              }
-
-              setState(() {
-                _durationMinutes = value;
-              });
-            },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          vertical: 15,
-        ),
-        decoration: BoxDecoration(
-          color: selected
-              ? DojoWalkerColors.primary
-              : DojoWalkerColors.background,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(13),
+        child: Container(
+          height: 48,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
             color: selected
                 ? DojoWalkerColors.primary
-                : Colors.black12,
+                : DojoWalkerColors.background,
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(
+              color: selected
+                  ? DojoWalkerColors.primary
+                  : Colors.black.withValues(alpha: 0.07),
+            ),
           ),
-        ),
-        child: Center(
           child: Text(
             label,
             style: TextStyle(
