@@ -23,16 +23,20 @@ class _DailyWalkAvailabilityScreenState
   final DailyWalkAvailabilityService _service =
       DailyWalkAvailabilityService.instance;
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseAuth _auth =
+      FirebaseAuth.instance;
 
-  final List<DailyWalkSlot> _pendingSlots = <DailyWalkSlot>[];
+  final List<DailyWalkSlot> _pendingSlots =
+      <DailyWalkSlot>[];
 
   bool _isSaving = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: DojoWalkerColors.background,
+      backgroundColor:
+          DojoWalkerColors.background,
+
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
@@ -47,6 +51,7 @@ class _DailyWalkAvailabilityScreenState
           ),
         ),
       ),
+
       body: StreamBuilder<List<DailyWalkSlot>>(
         stream: _service.watchMySlots(),
         builder: (
@@ -60,27 +65,32 @@ class _DailyWalkAvailabilityScreenState
           }
 
           final savedSlots =
-              snapshot.data ?? const <DailyWalkSlot>[];
+              snapshot.data ??
+                  const <DailyWalkSlot>[];
 
           return _buildBody(
             savedSlots,
           );
         },
       ),
+
       floatingActionButton: FloatingActionButton(
         onPressed: _isSaving
             ? null
             : _openAddSlotSheet,
-        backgroundColor: DojoWalkerColors.primary,
+        backgroundColor:
+            DojoWalkerColors.primary,
         foregroundColor: Colors.white,
         child: const Icon(
           Icons.add_rounded,
           size: 28,
         ),
       ),
-      bottomNavigationBar: _pendingSlots.isEmpty
-          ? null
-          : _buildSaveBar(),
+
+      bottomNavigationBar:
+          _pendingSlots.isEmpty
+              ? null
+              : _buildSaveBar(),
     );
   }
 
@@ -108,11 +118,15 @@ class _DailyWalkAvailabilityScreenState
         ),
         children: [
           _buildHeader(),
+
           const SizedBox(height: 16),
+
           if (_pendingSlots.isNotEmpty)
             _buildPendingNotice(),
+
           if (_pendingSlots.isNotEmpty)
             const SizedBox(height: 12),
+
           _buildSlotsList(
             allSlots,
           ),
@@ -131,13 +145,15 @@ class _DailyWalkAvailabilityScreenState
     if (slots.isEmpty) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(
+        padding:
+            const EdgeInsets.symmetric(
           horizontal: 20,
           vertical: 32,
         ),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius:
+              BorderRadius.circular(18),
           border: Border.all(
             color: Colors.black.withValues(
               alpha: 0.05,
@@ -158,7 +174,8 @@ class _DailyWalkAvailabilityScreenState
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
-                color: DojoWalkerColors.navy,
+                color:
+                    DojoWalkerColors.navy,
               ),
             ),
             SizedBox(height: 6),
@@ -176,7 +193,8 @@ class _DailyWalkAvailabilityScreenState
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+          CrossAxisAlignment.start,
       children: [
         const Padding(
           padding: EdgeInsets.only(
@@ -188,10 +206,12 @@ class _DailyWalkAvailabilityScreenState
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
-              color: DojoWalkerColors.navy,
+              color:
+                  DojoWalkerColors.navy,
             ),
           ),
         ),
+
         ...slots.map(
           (slot) => _buildSlotCard(
             slot,
@@ -208,8 +228,10 @@ class _DailyWalkAvailabilityScreenState
   Widget _buildSlotCard(
     DailyWalkSlot slot,
   ) {
-    final isPending = _pendingSlots.any(
-      (pending) => pending.id == slot.id,
+    final isPending =
+        _pendingSlots.any(
+      (pending) =>
+          pending.id == slot.id,
     );
 
     return Container(
@@ -217,18 +239,19 @@ class _DailyWalkAvailabilityScreenState
       margin: const EdgeInsets.only(
         bottom: 10,
       ),
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         horizontal: 15,
         vertical: 14,
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius:
+            BorderRadius.circular(16),
         border: Border.all(
           color: isPending
-              ? DojoWalkerColors.primary.withValues(
-                  alpha: 0.20,
-                )
+              ? DojoWalkerColors.primary
+                  .withValues(alpha: 0.20)
               : Colors.black.withValues(
                   alpha: 0.05,
                 ),
@@ -252,60 +275,84 @@ class _DailyWalkAvailabilityScreenState
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: DojoWalkerColors.light,
-              borderRadius: BorderRadius.circular(12),
+              color:
+                  DojoWalkerColors.light,
+              borderRadius:
+                  BorderRadius.circular(12),
             ),
             child: const Icon(
               Icons.schedule_rounded,
-              color: DojoWalkerColors.primary,
+              color:
+                  DojoWalkerColors.primary,
               size: 23,
             ),
           ),
+
           const SizedBox(width: 12),
+
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
               children: [
                 Text(
-                  _slotTimeText(
-                    slot,
-                  ),
+                  _slotTimeText(slot),
                   style: const TextStyle(
                     fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: DojoWalkerColors.navy,
+                    fontWeight:
+                        FontWeight.w800,
+                    color:
+                        DojoWalkerColors.navy,
                   ),
                 ),
+
                 const SizedBox(height: 4),
+
                 Text(
-                  '${slot.durationMinutes} minutes',
+                  slot.durationLabel,
                   style: const TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight:
+                        FontWeight.w600,
                     color: Colors.black54,
                   ),
                 ),
+
+                const SizedBox(height: 3),
+
+                const Text(
+                  'Every day',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight:
+                        FontWeight.w700,
+                    color:
+                        DojoWalkerColors.primary,
+                  ),
+                ),
+
                 if (isPending) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   const Text(
                     'Waiting to be saved',
                     style: TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: DojoWalkerColors.primary,
+                      fontWeight:
+                          FontWeight.w700,
+                      color:
+                          DojoWalkerColors.primary,
                     ),
                   ),
                 ],
               ],
             ),
           ),
+
           IconButton(
             onPressed: _isSaving
                 ? null
                 : () {
-                    _deleteSlot(
-                      slot,
-                    );
+                    _deleteSlot(slot);
                   },
             icon: const Icon(
               Icons.delete_outline_rounded,
@@ -319,42 +366,14 @@ class _DailyWalkAvailabilityScreenState
     );
   }
 
+  // ============================================================
+  // SLOT TIME
+  // ============================================================
+
   String _slotTimeText(
     DailyWalkSlot slot,
   ) {
-    final startMinutes = _timeToMinutes(
-      slot.startTime,
-    );
-
-    final endMinutes =
-        startMinutes + slot.durationMinutes;
-
-    return '${_minutesToTime(startMinutes)}'
-        ' – '
-        '${_minutesToTime(endMinutes)}';
-  }
-
-  String _minutesToTime(
-    int minutes,
-  ) {
-    final normalized = minutes % (24 * 60);
-
-    final hour24 = normalized ~/ 60;
-    final minute = normalized % 60;
-
-    final period = hour24 >= 12
-        ? 'PM'
-        : 'AM';
-
-    int hour12 = hour24 % 12;
-
-    if (hour12 == 0) {
-      hour12 = 12;
-    }
-
-    return '${hour12.toString().padLeft(2, '0')}:'
-        '${minute.toString().padLeft(2, '0')} '
-        '$period';
+    return '${slot.startTime} – ${slot.endTime}';
   }
 
   // ============================================================
@@ -364,10 +383,12 @@ class _DailyWalkAvailabilityScreenState
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding:
+          const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius:
+            BorderRadius.circular(18),
         border: Border.all(
           color: Colors.black.withValues(
             alpha: 0.05,
@@ -387,60 +408,74 @@ class _DailyWalkAvailabilityScreenState
         ],
       ),
       child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           Text(
             'Your Walk Availability',
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
-              color: DojoWalkerColors.navy,
+              color:
+                  DojoWalkerColors.navy,
             ),
           ),
+
           SizedBox(height: 7),
+
           Text(
-            'Add the time slots when you are '
-            'available for walks.',
+            'Add the time slots when you are available for walks. '
+            'Each saved slot repeats every day.',
             style: TextStyle(
               fontSize: 13,
               color: Colors.black54,
               height: 1.45,
             ),
           ),
+
           SizedBox(height: 13),
+
           Row(
             children: [
               Icon(
                 Icons.schedule_rounded,
                 size: 18,
-                color: DojoWalkerColors.primary,
+                color:
+                    DojoWalkerColors.primary,
               ),
               SizedBox(width: 7),
               Text(
                 'Available time: 4:00 AM – 10:00 PM',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: DojoWalkerColors.deep,
+                  fontWeight:
+                      FontWeight.w700,
+                  color:
+                      DojoWalkerColors.deep,
                 ),
               ),
             ],
           ),
+
           SizedBox(height: 6),
+
           Row(
             children: [
               Icon(
                 Icons.timelapse_rounded,
                 size: 18,
-                color: DojoWalkerColors.primary,
+                color:
+                    DojoWalkerColors.primary,
               ),
               SizedBox(width: 7),
               Text(
                 'Walk duration: 30 Minutes or 1 Hour',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: DojoWalkerColors.deep,
+                  fontWeight:
+                      FontWeight.w700,
+                  color:
+                      DojoWalkerColors.deep,
                 ),
               ),
             ],
@@ -455,21 +490,25 @@ class _DailyWalkAvailabilityScreenState
   // ============================================================
 
   Widget _buildPendingNotice() {
-    final count = _pendingSlots.length;
+    final count =
+        _pendingSlots.length;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         horizontal: 14,
         vertical: 12,
       ),
       decoration: BoxDecoration(
-        color: DojoWalkerColors.light,
-        borderRadius: BorderRadius.circular(14),
+        color:
+            DojoWalkerColors.light,
+        borderRadius:
+            BorderRadius.circular(14),
         border: Border.all(
-          color: DojoWalkerColors.primary.withValues(
-            alpha: 0.15,
-          ),
+          color:
+              DojoWalkerColors.primary
+                  .withValues(alpha: 0.15),
         ),
       ),
       child: Row(
@@ -477,17 +516,22 @@ class _DailyWalkAvailabilityScreenState
           const Icon(
             Icons.pending_actions_rounded,
             size: 20,
-            color: DojoWalkerColors.primary,
+            color:
+                DojoWalkerColors.primary,
           ),
+
           const SizedBox(width: 10),
+
           Expanded(
             child: Text(
               '$count slot${count == 1 ? '' : 's'} '
               'waiting to be saved.',
               style: const TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: DojoWalkerColors.deep,
+                fontWeight:
+                    FontWeight.w700,
+                color:
+                    DojoWalkerColors.deep,
               ),
             ),
           ),
@@ -501,12 +545,14 @@ class _DailyWalkAvailabilityScreenState
   // ============================================================
 
   Widget _buildSaveBar() {
-    final count = _pendingSlots.length;
+    final count =
+        _pendingSlots.length;
 
     return SafeArea(
       top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(
+        padding:
+            const EdgeInsets.fromLTRB(
           16,
           10,
           16,
@@ -534,34 +580,41 @@ class _DailyWalkAvailabilityScreenState
             onPressed: _isSaving
                 ? null
                 : _saveAvailability,
-            style: FilledButton.styleFrom(
+            style:
+                FilledButton.styleFrom(
               backgroundColor:
                   DojoWalkerColors.primary,
               disabledBackgroundColor:
                   Colors.black.withValues(
                 alpha: 0.08,
               ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+              shape:
+                  RoundedRectangleBorder(
+                borderRadius:
+                    BorderRadius.circular(14),
               ),
             ),
             child: _isSaving
                 ? const SizedBox(
                     width: 21,
                     height: 21,
-                    child: CircularProgressIndicator(
+                    child:
+                        CircularProgressIndicator(
                       strokeWidth: 2.3,
                       valueColor:
-                          AlwaysStoppedAnimation<Color>(
+                          AlwaysStoppedAnimation<
+                              Color>(
                         Colors.white,
                       ),
                     ),
                   )
                 : Text(
                     'Save Availability ($count)',
-                    style: const TextStyle(
+                    style:
+                        const TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                      fontWeight:
+                          FontWeight.w700,
                     ),
                   ),
           ),
@@ -576,7 +629,8 @@ class _DailyWalkAvailabilityScreenState
 
   Future<void> _openAddSlotSheet() async {
     final slot =
-        await showModalBottomSheet<DailyWalkSlot>(
+        await showModalBottomSheet<
+            DailyWalkSlot>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
@@ -590,16 +644,19 @@ class _DailyWalkAvailabilityScreenState
       return;
     }
 
-    final walkerId = _auth.currentUser?.uid;
+    final walkerId =
+        _auth.currentUser?.uid;
 
-    if (walkerId == null || walkerId.isEmpty) {
+    if (walkerId == null ||
+        walkerId.isEmpty) {
       _showMessage(
         'Walker is not authenticated.',
       );
       return;
     }
 
-    final normalizedSlot = slot.copyWith(
+    final normalizedSlot =
+        slot.copyWith(
       id: _createTemporaryId(),
       walkerId: walkerId,
     );
@@ -621,7 +678,7 @@ class _DailyWalkAvailabilityScreenState
   }
 
   // ============================================================
-  // DUPLICATE PENDING SLOT
+  // DUPLICATE PENDING
   // ============================================================
 
   bool _isDuplicatePending(
@@ -629,7 +686,8 @@ class _DailyWalkAvailabilityScreenState
   ) {
     return _pendingSlots.any(
       (existing) =>
-          existing.startTime == slot.startTime &&
+          existing.startTime ==
+              slot.startTime &&
           existing.durationMinutes ==
               slot.durationMinutes,
     );
@@ -656,7 +714,8 @@ class _DailyWalkAvailabilityScreenState
       slots: slotsToSave,
     );
 
-    if (confirmed != true || !mounted) {
+    if (confirmed != true ||
+        !mounted) {
       return;
     }
 
@@ -704,11 +763,13 @@ class _DailyWalkAvailabilityScreenState
     DailyWalkSlot slot,
   ) async {
     if (_pendingSlots.any(
-      (pending) => pending.id == slot.id,
+      (pending) =>
+          pending.id == slot.id,
     )) {
       setState(() {
         _pendingSlots.removeWhere(
-          (pending) => pending.id == slot.id,
+          (pending) =>
+              pending.id == slot.id,
         );
       });
 
@@ -751,26 +812,34 @@ class _DailyWalkAvailabilityScreenState
   ) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding:
+            const EdgeInsets.all(24),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize:
+              MainAxisSize.min,
           children: [
             const Icon(
               Icons.error_outline_rounded,
               size: 44,
               color: Colors.black38,
             ),
+
             const SizedBox(height: 12),
+
             const Text(
               'Unable to load availability.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: DojoWalkerColors.navy,
+                fontWeight:
+                    FontWeight.w700,
+                color:
+                    DojoWalkerColors.navy,
               ),
             ),
+
             const SizedBox(height: 6),
+
             Text(
               _friendlyError(error),
               textAlign: TextAlign.center,
@@ -802,12 +871,15 @@ class _DailyWalkAvailabilityScreenState
     }
 
     if (error is FirebaseException) {
-      if (error.code == 'permission-denied') {
+      if (error.code ==
+          'permission-denied') {
         return 'You do not have permission to update availability.';
       }
 
       if (error.message != null &&
-          error.message!.trim().isNotEmpty) {
+          error.message!
+              .trim()
+              .isNotEmpty) {
         return error.message!;
       }
     }
@@ -818,13 +890,19 @@ class _DailyWalkAvailabilityScreenState
   void _showMessage(
     String message,
   ) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
       SnackBar(
         content: Text(message),
-        behavior: SnackBarBehavior.floating,
+        behavior:
+            SnackBarBehavior.floating,
       ),
     );
   }
+
+  // ============================================================
+  // SORT
+  // ============================================================
 
   int _sortSlots(
     DailyWalkSlot first,
@@ -842,7 +920,8 @@ class _DailyWalkAvailabilityScreenState
   int _timeToMinutes(
     String time,
   ) {
-    final parts = time.trim().split(' ');
+    final parts =
+        time.trim().split(' ');
 
     if (parts.length != 2) {
       return 0;
@@ -856,19 +935,27 @@ class _DailyWalkAvailabilityScreenState
     }
 
     int hour =
-        int.tryParse(timeParts[0]) ?? 0;
+        int.tryParse(
+              timeParts[0],
+            ) ??
+            0;
 
     final minute =
-        int.tryParse(timeParts[1]) ?? 0;
+        int.tryParse(
+              timeParts[1],
+            ) ??
+            0;
 
     final period =
         parts[1].toUpperCase();
 
-    if (period == 'PM' && hour != 12) {
+    if (period == 'PM' &&
+        hour != 12) {
       hour += 12;
     }
 
-    if (period == 'AM' && hour == 12) {
+    if (period == 'AM' &&
+        hour == 12) {
       hour = 0;
     }
 
