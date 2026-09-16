@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/theme/dojo_walker_colors.dart';
 import '../features/daily_walk_availability/screens/daily_walk_availability_screen.dart';
 import '../features/profile/screens/profile_screen.dart';
+import 'help_support_screen.dart';
 import 'mobile_login_screen.dart';
 
 class MenuScreen extends StatelessWidget {
@@ -295,12 +296,11 @@ class MenuScreen extends StatelessWidget {
               title: 'Help & Support',
               subtitle: 'Get help with your Walker account',
               onTap: () {
-                _showComingSoon(
+                Navigator.push(
                   context,
-                  title: 'Help & Support',
-                  description:
-                      'Walker support options will appear here.',
-                  icon: Icons.headset_mic_outlined,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const HelpSupportScreen(),
+                  ),
                 );
               },
             ),
